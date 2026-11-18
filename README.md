@@ -12,6 +12,22 @@
 ИК, всё окно редактора. Пример — UR5e с целью ИК, схватом и кубиками (`examples/ur5e.kscene`).
 Дальше: SDK плагинов, датчики в живом мире, импорт URDF/SDF, стерео, дрон.
 
+## Готовая программа для Linux (Ubuntu 22.04 и новее)
+
+Одна папка со всеми библиотеками — ставить Qt и собирать ничего не нужно.
+
+1. На вкладке **Actions** откройте последний зелёный прогон **CI** на ветке `main` (нужен вход в GitHub) и
+   скачайте в **Artifacts** `kinetica-linux`.
+2. Распакуйте и запустите:
+
+```sh
+unzip kinetica-linux.zip && tar -xzf kinetica-linux.tar.gz
+./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/ur5e.kscene
+```
+
+Консоль Python берёт системный `python3` (на Ubuntu он есть). Скрипты и агенты: клиент API —
+`kinetica-linux/usr/bin/tools/ke_editor.py`.
+
 ## Готовая программа для Windows
 
 1. На вкладке **Actions** откройте последний зелёный прогон **CI** на ветке `main` (нужен вход в GitHub).

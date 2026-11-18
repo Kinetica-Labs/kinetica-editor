@@ -1,5 +1,6 @@
 # Сборка ядра и окна (Qt 6) на Linux (Ubuntu) и Windows, тесты ядра; на Linux - самотест окна под виртуальным экраном
-# и проверка абляции; на Windows - готовая программа для скачивания (kinetica.exe, Qt, примеры, лицензии).
+# и проверка абляции. Готовые программы для скачивания: Windows (kinetica.exe с Qt) и Linux - одна папка со всеми
+# библиотеками, собранная на Ubuntu 22.04 и запущенная на чистых 22.04 и 24.04 без Qt (снимок окна и вызов API).
 name: CI
 
 on:
@@ -70,6 +71,66 @@ jobs:
         with:
           name: kinetica-windows
           path: dist/
+
+  linux-bundle:
+    name: Linux - программа одной папкой
+    runs-on: ubuntu-22.04 # built on the older Ubuntu it runs on the newer ones too (glibc)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: OpenGL и X11
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=OFF -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+          cmake --build build --parallel 4 --target kinetica
+      - name: Программа, библиотеки Qt, примеры, лицензии - в одну папку
+        run: packaging/bundle-linux.sh build "${{ env.QT_ROOT_DIR }}/bin/qmake"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-linux
+          path: build/kinetica-linux.tar.gz
+
+  linux-clean:
+    name: Linux - запуск на чистой ${{ matrix.os }}
+    needs: linux-bundle
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: kinetica-linux
+      - name: Только то, что есть на рабочем столе Ubuntu, и виртуальный экран (без Qt и без libxcb-cursor0)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libegl1 libfontconfig1 libxkbcommon-x11-0 libdbus-1-3 python3
+      - name: Распаковать и запустить UR5e в игре, снимок окна
+        run: |
+          tar -xzf kinetica-linux.tar.gz
+          xvfb-run -a -s "-screen 0 1600x1000x24" ./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/ur5e.kscene \
+            --play --frames 120 --window --screenshot ur5e-${{ matrix.os }}.png
+          test -s ur5e-${{ matrix.os }}.png
+      - name: API для скриптов и агентов
+        run: |
+          xvfb-run -a ./kinetica-linux/kinetica --agent-eval --api 47801 --scene kinetica-linux/usr/bin/examples/ur5e.kscene &
+          for i in $(seq 30); do python3 kinetica-linux/usr/bin/tools/ke_editor.py scene_list > list.json 2>/dev/null && break; sleep 1; done
+          grep -q "UR5e" list.json && echo "API: $(grep -o '"name"' list.json | wc -l) objects"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-linux-screenshot-${{ matrix.os }}
+          path: ur5e-${{ matrix.os }}.png
 
   ablation:
     name: Только робототехника
