@@ -8,6 +8,7 @@
 #include <QBoxLayout>
 #include <QCheckBox>
 #include <QCompleter>
+#include <QCoreApplication>
 #include <QDir>
 #include <QFontDatabase>
 #include <QJsonArray>
@@ -231,7 +232,9 @@ bool ApiConsole::startPython() {
     if (port == 0) return false;
     python_ = new QProcess(this);
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    env.insert("PYTHONPATH", QString(KE_PYTHON) + (env.contains("PYTHONPATH") ? QDir::listSeparator() + env.value("PYTHONPATH") : QString()));
+    const QString installed = QCoreApplication::applicationDirPath() + "/python"; // the kinetica package: next to the program, else the sources
+    const QString package = QDir(installed).exists() ? installed : QString(KE_PYTHON);
+    env.insert("PYTHONPATH", package + (env.contains("PYTHONPATH") ? QDir::listSeparator() + env.value("PYTHONPATH") : QString()));
     env.insert("KE_EDITOR_PORT", QString::number(port));
     python_->setProcessEnvironment(env);
     connect(python_, &QProcess::readyReadStandardOutput, this, &ApiConsole::readPython);
