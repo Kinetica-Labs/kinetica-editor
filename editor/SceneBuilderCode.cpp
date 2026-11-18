@@ -181,7 +181,7 @@ void SceneBuilder::scheduleCode() {
 
 void SceneBuilder::flushCode() {
     if (codeTimer_) codeTimer_->stop();
-    if (gizmoEntity_) return; // a drag in progress is said whole when it ends (onGizmoFinished), not in pieces
+    if (gizmoEntity_ || goalDragging_) return; // a drag in progress is said whole when it ends, not in pieces
     const std::vector<uint32_t> selected = orderedSelection();
     if (reportCode_ && apiDepth_ == 0 && selected != codedSelection_)
         reportCode_("selection_set", {{"ids", jsonIds(selected)}, {"_py", "editor.select(" + codeRefs(selected) + ")"}});

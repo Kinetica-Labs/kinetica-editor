@@ -96,6 +96,41 @@ void GrabTool::release(Viewport& v, QMouseEvent* e) {
     camera_.release(v, e);
 }
 
+void GoalTool::begin(Viewport& v, QMouseEvent* e, uint32_t goal, const ke::Vector3& taken) {
+    goal_ = goal, taken_ = taken, from_ = e->position(), moved_ = false;
+    turning_ = e->modifiers() & Qt::ControlModifier;
+    for (const ke::Frame::Body& b : v.snapshot()->bodies)
+        if (b.marker && b.object == goal) centre_ = position_ = b.pos, turn_ = now_ = b.rot;
+}
+
+void GoalTool::move(Viewport& v, QMouseEvent* e) {
+    if (!goal_ || (!moved_ && QLineF(e->position(), from_).length() < 3)) return;
+    moved_ = true;
+    if (turning_) {
+        const QVector3D up = v.camera().up(), right = v.camera().right();
+        const QPointF d = e->position() - from_;
+        const ke::Real deg = ke::kPi / 360; // half a degree a pixel
+        now_ = ke::Quaternion::fromAxisAngle({up.x(), up.y(), up.z()}, ke::Real(d.x()) * deg) *
+               ke::Quaternion::fromAxisAngle({right.x(), right.y(), right.z()}, ke::Real(d.y()) * deg) * turn_;
+    } else {
+        const Ray ray = v.camera().screenRay(e->position(), v.size());
+        const QVector3D f = v.camera().forward();
+        const ke::Vector3 n(f.x(), f.y(), f.z());
+        const float along = ke::dot(ray.dir, n);
+        if (std::fabs(along) < 1e-6f) return;
+        const float t = ke::dot(taken_ - ray.origin, n) / along;
+        if (t <= 0) return;
+        position_ = centre_ + (ray.at(t) - taken_);
+    }
+    emit v.goalDragged(goal_, position_, now_, false);
+}
+
+void GoalTool::release(Viewport& v, QMouseEvent* e) {
+    if (e->button() != Qt::LeftButton || !goal_) return;
+    if (moved_) emit v.goalDragged(goal_, position_, now_, true);
+    goal_ = 0;
+}
+
 // ---------------------------------------------------------------------------
 // Edit mode
 // ---------------------------------------------------------------------------

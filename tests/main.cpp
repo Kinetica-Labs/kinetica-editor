@@ -67,6 +67,7 @@ int main() {
     run("world: the UR5e of examples/ holds its gripper on its IK goal, its links still", testSimUr5eHolds);
     run("world: the mouse tugs the UR5e by a finger - the arm follows; let go, it comes back along its servos' profile, no bounce", testSimTugUr5e);
     run("world: a mesh's own collider takes its extremes along 120 directions, not its every point", testSimMeshColliderThinned);
+    run("world: assembly_goal_pose puts the UR5e's goal at a pose at once - the arm gets there and settles", testSimGoalPoseSettles);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);

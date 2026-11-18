@@ -106,30 +106,49 @@ bool goalOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     return r = selected({goal}, goal), true;
 }
 
-// assembly_path: a goal's trajectory - waypoints in the world, a speed, a loop; no points: the path cleared. A new path
-// starts where the last one ends (the goal is put there first), so an agent strings its moves without a jump.
-// assembly_path's start and start_turn (Euler degrees): the new path from there, not from the last one's end - a hand
-// re-planned while it walks starts where its goal is now, so the arm goes on without a jump back.
-bool startPose(const Value& a, Entity& goal, std::string& e) {
+// A goal by its id (the argument `goal`): an entity that is an IK goal, else none.
+Entity* goalArg(SceneGraph& g, const Value& a) {
+    for (Entity& x : g.entities)
+        if (x.id == uint32_t(a["goal"].number()) && x.goalOf != 0) return &x;
+    return nullptr;
+}
+
+// A goal's pose from an op's arguments: a position [x, y, z] (world metres) and a turn - Euler degrees, or a quaternion
+// [w, x, y, z] as a joint-space way's poses come; what is left out stays. A goal stands in the world, on no parent.
+bool poseArgs(const Value& a, const char* position, const char* turn, const char* quaternion, Entity& goal, std::string& e) {
     const auto three = [&](const char* key, Vector3& v) {
         if (a[key].items().empty()) return true;
         if (a[key].items().size() != 3) return e = std::string(key) + " is [x, y, z]", false;
         v = {Real(a[key].items()[0].number()), Real(a[key].items()[1].number()), Real(a[key].items()[2].number())};
         return true;
     };
-    if (!three("start", goal.position) || !three("start_turn", goal.rotationDeg)) return false;
-    const Value& q = a["start_quaternion"]; // the turn as a quaternion [w, x, y, z]: a joint-space way's poses come so
+    if (!three(position, goal.position) || !three(turn, goal.rotationDeg)) return false;
+    const Value& q = a[quaternion];
     if (q.items().empty()) return true;
-    if (q.items().size() != 4) return e = "start_quaternion is [w, x, y, z]", false;
+    if (q.items().size() != 4) return e = std::string(quaternion) + " is [w, x, y, z]", false;
     goal.rotationDeg = eulerDegrees(Quaternion{Real(q.items()[0].number()), Real(q.items()[1].number()), Real(q.items()[2].number()),
                                                Real(q.items()[3].number())}.normalized());
     return true;
 }
 
+// assembly_goal_pose: a goal put at a pose at once - a script trying the arm's IK and how it settles, a window's mouse
+// dragging the goal. A goal that walked a path leaves it: the pose given is where it is now.
+bool goalPoseOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    Entity* goal = goalArg(g, a);
+    if (!goal) return e = "goal is an IK goal's id (assembly_goal makes one)", false;
+    if (!poseArgs(a, "position", "turn", "quaternion", *goal, e)) return false;
+    goal->path.clear(), goal->pathTurns.clear();
+    reachGoal(g, goal->id);
+    r.set("position", vectorValue(goal->position)), r.set("turn", vectorValue(goal->rotationDeg));
+    return true;
+}
+
+// assembly_path: a goal's trajectory - waypoints in the world, a speed, a loop; no points: the path cleared. A new path
+// starts where the last one ends (the goal is put there first), so an agent strings its moves without a jump.
+// assembly_path's start and start_turn (Euler degrees), or start_quaternion: the new path from there, not from the last
+// one's end - a hand re-planned while it walks starts where its goal is now, so the arm goes on without a jump back.
 bool pathOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
-    Entity* goal = nullptr;
-    for (Entity& x : g.entities)
-        if (x.id == uint32_t(a["goal"].number()) && x.goalOf != 0) goal = &x;
+    Entity* goal = goalArg(g, a);
     if (!goal) return e = "goal is an IK goal's id (assembly_goal makes one)", false;
     std::vector<Vector3> points;
     for (const Value& p : a["points"].items()) {
@@ -153,7 +172,7 @@ bool pathOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
         goal->position = goal->path.back();
         if (!goal->pathTurns.empty()) goal->rotationDeg = goal->pathTurns.back();
     }
-    if (!startPose(a, *goal, e)) return false; // a way re-planned on the walk: from where the goal is (sim_state's goals)
+    if (!poseArgs(a, "start", "start_turn", "start_quaternion", *goal, e)) return false; // a way re-planned on the walk: from where the goal is (sim_state's goals)
     goal->path = points, goal->pathTurns = turns, goal->pathSpeed = speed, goal->pathLoop = a["loop"].truth(false);
     goal->pathSmooth = a["smooth"].truth(false);
     goal->pathTurnLength = Real(a["turn_length"].number(0.0));
@@ -178,6 +197,11 @@ std::vector<SceneOp> kinematicSceneOps() {
             {"assembly_goal", "A goal for an effector: a see-through cube around it, at its pose; moving or turning the cube drives the "
                               "effector there by inverse kinematics, the chain's servos following (a window's gizmo moves it while the scene plays)",
              "{effector: int}", {}, goalOp},
+            {"assembly_goal_pose", "A goal put at a pose at once: a position (world metres) and a turn - Euler degrees, or a quaternion; "
+                                   "what is left out stays. While the scene plays the arm leads its effector there in a straight line "
+                                   "(a controller's linear move) and its servos hold it - a script's way to try the arm's IK and how it "
+                                   "settles; a goal walking a path leaves it. Answers the goal's position and turn",
+             "{goal: int, position?: [x,y,z], turn?: [rx,ry,rz] degrees, quaternion?: [w,x,y,z]}", {}, goalPoseOp},
             {"assembly_path", "A goal's trajectory: from where the goal stands through the points (world metres) at a speed, while the scene "
                               "plays - from the start, or from the moment it is set; held at the end, or round again (loop). Each point may have "
                               "a turn: between two points the goal turns by slerp in step with its travel; smooth: a camera's flight - a "

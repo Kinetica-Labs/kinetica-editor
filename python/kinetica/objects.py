@@ -141,6 +141,14 @@ class Body(SceneObject):
                 (f", turns={extra['turns']}" if "turns" in extra else "") + (f", quaternions={extra['quaternions']}" if "quaternions" in extra else "") + (", smooth=True" if smooth else "") + ")"
         return self.scene._call("assembly_path", shown, goal=self.id, points=pts, speed=float(speed), loop=bool(loop), **extra)
 
+    def pose(self, position=None, turn=None, quaternion=None):
+        """This IK goal put at a pose at once: `position` (world metres) and a turn - `turn` in Euler degrees or a
+        `quaternion` (w, x, y, z); what is left out stays. While the scene plays the arm leads its effector there in a
+        straight line and its servos hold it: a way to try the arm's IK and how it settles. Returns position and turn."""
+        args = {k: [float(x) for x in v] for k, v in (("position", position), ("turn", turn), ("quaternion", quaternion)) if v is not None}
+        shown = f"{self.ref}.pose(" + ", ".join(f"{k}={tuple(round(x, 4) for x in v)}" for k, v in args.items()) + ")"
+        return self.scene._call("assembly_goal_pose", shown, goal=self.id, **args)
+
     def reach(self, position, quaternion=None, basis=None, pose=False):
         """Inverse kinematics: this body (an arm's effector) to `position` with a turn - a quaternion (w, x, y, z) or
         a basis, a rotation matrix by rows; none: the point only. The chain's servos get the coordinates as targets

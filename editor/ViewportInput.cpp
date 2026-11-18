@@ -109,6 +109,16 @@ void Viewport::mousePressEvent(QMouseEvent* e) {
     if (e->button() == Qt::RightButton) rightHeld_ = true;
     if (e->button() == Qt::LeftButton) labPress_ = e->position(), labPressed_ = true; // a Laboratory click?
     const bool alt = e->modifiers() & Qt::AltModifier;
+    if (!editMode_ && snap_ && !grabbed_ && e->button() == Qt::LeftButton && (e->modifiers() & Qt::ControlModifier)) {
+        const Ray ray = camera_.screenRay(e->position(), size());
+        float toGoal;
+        if (const uint32_t goal = pickHandle(ray, toGoal)) { // Ctrl on a goal turns it, under its own gizmo too
+            emit entityClicked(goal);
+            grabbed_ = &goalTool_;
+            goalTool_.begin(*this, e, goal, ray.at(toGoal));
+            return updateHint();
+        }
+    }
     if (!editMode_ && snap_ && !grabbed_ && e->button() == Qt::LeftButton && !alt && !(e->modifiers() & Qt::ShiftModifier) &&
         !playHandleAt(e->position())) {
         const Ray ray = camera_.screenRay(e->position(), size());
@@ -131,9 +141,13 @@ void Viewport::mousePressEvent(QMouseEvent* e) {
         float goalSize = 0;
         for (const ke::Frame::Body& b : snap_->bodies)
             if (handle && b.marker && b.object == handle && b.mesh) goalSize = ke::maxComp(b.mesh->bounds().extent());
-        if (sensor && !(thing && toBody < nearest + 2 * glyph)) emit sensorClicked(sensor);
-        else if (handle && toHandle <= toBody + 1e-3f && !(thing && toBody < toHandle + goalSize)) {
+        // A see-through goal before a sensor's glyph inside it is the goal: the glyphs on a gripper sit in its goal.
+        const bool goalFirst = handle && toHandle <= toBody + 1e-3f && !(thing && toBody < toHandle + goalSize);
+        if (sensor && !(thing && toBody < nearest + 2 * glyph) && !(goalFirst && toHandle < nearest)) emit sensorClicked(sensor);
+        else if (goalFirst) { // selected, and taken: a drag moves it (Ctrl: turns it)
             emit entityClicked(handle);
+            grabbed_ = &goalTool_;
+            goalTool_.begin(*this, e, handle, ray.at(toHandle));
             return updateHint();
         } else if (onBody) emit bodyClicked(body);
     }
