@@ -64,8 +64,15 @@ jobs:
           Copy-Item build/Release/kinetica.exe dist/
           windeployqt --release --no-translations dist/kinetica.exe
           Copy-Item -Recurse examples, python dist/
+          New-Item -ItemType Directory dist/tools | Out-Null
+          Copy-Item tools/ke_editor.py, tools/ke_editor_mcp.py dist/tools/
           Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md dist/
           Copy-Item extern/box3d/LICENSE dist/LICENSE-box3d.txt
+          # The C++ runtime next to the program (Microsoft allows it): a clean Windows has no VCRUNTIME140.dll
+          $crt = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find "VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" | Select-Object -Last 1
+          Copy-Item "$crt\*.dll" dist/
+          foreach ($dll in "vcruntime140.dll", "msvcp140.dll") { if (!(Test-Path "dist/$dll")) { throw "the C++ runtime is not in the program: $dll" } }
+          Get-ChildItem dist -Filter *.dll | ForEach-Object Name
       - name: Выложить программу
         uses: actions/upload-artifact@v4
         with:

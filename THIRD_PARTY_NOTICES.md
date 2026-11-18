@@ -12,5 +12,6 @@ PhysRealFlow SDK (https://github.com/werasaimon/phys_realflow, коммит `fd0
 |---|---|---|---|
 | Box3D (Erin Catto) | сабмодуль `extern/box3d` | MIT | Приложить текст лицензии `extern/box3d/LICENSE` к распространяемой программе. |
 | Qt 6 | подключается при сборке окна | LGPL-3.0 | Qt подключается динамически. Раздавая программу, приложите текст LGPL-3.0 и ссылку на исходники Qt (https://download.qt.io/) и не мешайте заменить библиотеки Qt своими. |
+| Среда выполнения Microsoft Visual C++ (`vcruntime140*.dll`, `msvcp140*.dll`) | рядом с `kinetica.exe` в архиве для Windows | лицензия Visual Studio на распространяемые файлы | Только файлы из списка распространяемых (папка `VC\Redist` Visual Studio), без изменений, вместе с программой. |
 | SDL2 (необязательно, геймпад) | системная библиотека | zlib | Ничего, кроме сохранения уведомления в исходниках SDL2. |
 | Меши UR5e (ROS-Industrial Consortium, 2018) | `examples/models/ur5e/` | BSD-3-Clause | Сохранять текст лицензии `examples/models/ur5e/LICENSE` рядом с мешами; имя консорциума не использовать для продвижения. |
