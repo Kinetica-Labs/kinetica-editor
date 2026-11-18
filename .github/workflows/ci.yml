@@ -1,4 +1,5 @@
-# Сборка ядра и окна (Qt 6) на Linux (Ubuntu), тесты ядра, самотест окна под виртуальным экраном и проверка абляции.
+# Сборка ядра и окна (Qt 6) на Linux (Ubuntu) и Windows, тесты ядра; на Linux - самотест окна под виртуальным экраном
+# и проверка абляции; на Windows - готовая программа для скачивания (kinetica.exe, Qt, примеры, лицензии).
 name: CI
 
 on:
@@ -36,6 +37,39 @@ jobs:
           KE_SOFTWARE_GL: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --self-test
+
+  windows:
+    name: Windows MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+      - name: Tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Готовая программа
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item build/Release/kinetica.exe dist/
+          windeployqt --release --no-translations dist/kinetica.exe
+          Copy-Item -Recurse examples, python dist/
+          Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md dist/
+          Copy-Item extern/box3d/LICENSE dist/LICENSE-box3d.txt
+      - name: Выложить программу
+        uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-windows
+          path: dist/
 
   ablation:
     name: Только робототехника
