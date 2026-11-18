@@ -1,5 +1,4 @@
-# Сборка ядра и окна (Qt 6) на Linux и Windows, тесты ядра; на Linux - самотест окна под виртуальным экраном
-# и проверка абляции; на Windows - готовая программа для скачивания (kinetica.exe, Qt, примеры, лицензии).
+# Сборка ядра и окна (Qt 6) на Linux (Ubuntu), тесты ядра, самотест окна под виртуальным экраном и проверка абляции.
 name: CI
 
 on:
@@ -9,14 +8,8 @@ on:
 
 jobs:
   build:
-    name: ${{ matrix.name }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { name: "Linux GCC", os: ubuntu-latest }
-          - { name: "Windows MSVC", os: windows-latest }
+    name: Linux GCC
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,8 +19,7 @@ jobs:
         with:
           version: "6.7.3"
           cache: true
-      - name: OpenGL, X11 и виртуальный экран (Linux)
-        if: runner.os == 'Linux'
+      - name: OpenGL, X11 и виртуальный экран
         run: |
           sudo apt-get update
           sudo apt-get install -y libgl1-mesa-dev libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
@@ -35,32 +27,15 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
       - name: Build
-        run: cmake --build build --config Release --parallel 4 # without a number make starts every compile at once and runs out of memory
+        run: cmake --build build --parallel 4 # without a number make starts every compile at once and runs out of memory
       - name: Tests
-        run: ctest --test-dir build -C Release --output-on-failure
-      - name: Самотест окна (Linux, программный OpenGL)
-        if: runner.os == 'Linux'
+        run: ctest --test-dir build --output-on-failure
+      - name: Самотест окна (программный OpenGL)
         timeout-minutes: 20
         env:
           KE_SOFTWARE_GL: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --self-test
-      - name: Готовая программа (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          New-Item -ItemType Directory dist | Out-Null
-          Copy-Item build/Release/kinetica.exe dist/
-          windeployqt --release --no-translations dist/kinetica.exe
-          Copy-Item -Recurse examples, python dist/
-          Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md dist/
-          Copy-Item extern/box3d/LICENSE dist/LICENSE-box3d.txt
-      - name: Выложить программу (Windows)
-        if: runner.os == 'Windows'
-        uses: actions/upload-artifact@v4
-        with:
-          name: kinetica-windows
-          path: dist/
 
   ablation:
     name: Только робототехника
