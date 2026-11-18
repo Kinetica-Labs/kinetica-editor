@@ -1,0 +1,285 @@
+// The big bar on top of the window (see MainWindow.h): what you can create (shapes, a model, the
+// lights, a camera), then run / pause / stop / step, then undo / redo, and at the right end the text
+// buttons Примеры, Физика, Коллайдеры, Лаборатория, Графики, Эксперт. A shape of «Фигура ▾» is drawn
+// with the mouse in the view (CreateTool, ViewportTools.h) and made by one call of scene_add.
+//
+// A narrow window never cuts a word ("Кол...еры"): the bar gives up room step by step instead, as
+// the ribbons of Office and 3ds Max do - first the captioned buttons sit closer together, then the
+// create buttons drop their captions (the icon and the tooltip stay), then run / step / undo do too,
+// then the icons get smaller. fitMainToolbar() picks the first step at which everything fits, on
+// every resize of the window.
+#include "MainWindow.h"
+#include "MagnetController.h"
+
+#include "EditorOps.h"
+#include "Icons.h"
+#include "SceneBuilder.h"
+#include "Viewport.h"
+
+#include <QAction>
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QLayout>
+#include <QMenu>
+#include <QMenuBar>
+#include <QResizeEvent>
+#include <QStatusBar>
+#include <QToolBar>
+#include <QTabWidget>
+#include <QDockWidget>
+#include <QToolButton>
+
+namespace {
+
+// How a button of the bar looks: `tight` - no minimum width and less padding, `iconOnly` - the
+// caption goes too. The button's own style sheet (not a property rule of the window's sheet): setting
+// it tells the button that its style changed, so it measures itself again.
+void setLook(QToolButton* b, bool tight, bool iconOnly) {
+    const Qt::ToolButtonStyle style = iconOnly ? Qt::ToolButtonIconOnly : Qt::ToolButtonTextUnderIcon;
+    const QString sheet = tight ? "QToolButton { min-width: 0; padding: 4px 4px; }" : QString();
+    if (b->styleSheet() == sheet && b->toolButtonStyle() == style) return;
+    b->setStyleSheet(sheet);
+    b->setToolButtonStyle(style);
+}
+
+} // namespace
+
+void MainWindow::buildMainToolbar() {
+    auto* tb = new QToolBar("Создать", this);
+    createBar_ = tb;
+    tb->setObjectName("createBar");
+    tb->setMovable(false);
+    tb->setIconSize(QSize(48, 48));
+    tb->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    addToolBar(Qt::TopToolBarArea, tb);
+    std::vector<QAction*> create = shapeCreateActions();
+    connect(view_, &Viewport::created, this, &MainWindow::addDrawn);
+    auto* modelAct = new QAction(shapeIcon(ke::ShapeKind::Mesh, 48), "Модель", this);
+    modelAct->setToolTip("Модель из файла OBJ / STL: только форма, роль — плитками справа");
+    connect(modelAct, &QAction::triggered, this, &MainWindow::importModel);
+    create.push_back(modelAct);
+    addShapeButton(tb, create);
+    addLightButtons(tb);
+    tb->addAction(magnet_->action()); // a link on a face, with a joint (MagnetController)
+    if (auto* b = qobject_cast<QToolButton*>(tb->widgetForAction(magnet_->action()))) {
+        b->setPopupMode(QToolButton::MenuButtonPopup);
+        createButtons_.push_back(b); // narrows with the shapes on a narrow window
+    }
+    addSensorButton(tb);
+    tb->addSeparator();
+    for (QAction* a : {playAct_, pauseAct_, stopAct_, stepAct_, builder_->undoAction(), builder_->redoAction()}) {
+        if (a == builder_->undoAction()) tb->addSeparator();
+        tb->addAction(a);
+        runButtons_.push_back(qobject_cast<QToolButton*>(tb->widgetForAction(a)));
+    }
+    auto* spacer = new QWidget;
+    spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    tb->addWidget(spacer);
+    addCompactButtons(tb);
+}
+
+// Compact text buttons at the right end: the examples, the world's physics, the colliders, the
+// Laboratory, the graphs, the expert's numbers. They keep their words at every width.
+void MainWindow::addCompactButtons(QToolBar* tb) {
+    auto compact = [tb](QToolButton* b) {
+        b->setObjectName("compactButton");
+        b->setToolButtonStyle(Qt::ToolButtonTextOnly);
+        tb->addWidget(b);
+    };
+    auto* samplesButton = new QToolButton;
+    samplesButton->setText("Примеры");
+    samplesButton->setToolTip("Все готовые сцены картинками: рука-манипулятор, горка, колыбель, текстуры… Нажмите — откроется");
+    connect(samplesButton, &QToolButton::clicked, this, &MainWindow::openGallery);
+    compact(samplesButton);
+    auto* physics = new QToolButton;
+    physics->setText("Физика"); physics->setObjectName("physicsButton");
+    physics->setToolTip("Физика мира: гравитация, шаг и подшаги, контакты, жёсткость суставов");
+    auto* physicsAction = new QAction("Физика мира…", this); physicsAction->setObjectName("worldPhysics");
+    connect(physicsAction, &QAction::triggered, this, [this] {
+        auto* dock = findChild<QDockWidget*>("inspectorDock"); dock->show(); dock->raise();
+        inspectorTabs_->setCurrentIndex(2);
+    });
+    menuBar()->findChild<QMenu*>("simulationMenu")->addAction(physicsAction);
+    connect(physics, &QToolButton::clicked, physicsAction, &QAction::trigger);
+    compact(physics);
+    for (QAction* a : {collidersAct_, labAct_, graphsAct_, expertAct_}) {
+        auto* b = new QToolButton;
+        b->setDefaultAction(a);
+        compact(b);
+    }
+}
+
+// "Фигура ▾": the primitives in one list, as Blender's Add menu and 3ds Max's Create panel group their shapes - the
+// cube, sphere, cylinder, cone, plane, then a model from a file - so the bar keeps room for the sensors.
+void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shapes) {
+    auto* button = new QToolButton;
+    button->setObjectName("shapesButton");
+    button->setText("Фигура ▾");
+    button->setIcon(shapeIcon(ke::ShapeKind::Box, 48));
+    button->setIconSize(tb->iconSize());
+    button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    button->setToolTip("Создать фигуру: куб, сфера, цилиндр, конус, плоскость или модель из файла. Только форма — роль плитками справа");
+    button->setPopupMode(QToolButton::InstantPopup);
+    auto* menu = new QMenu(button);
+    menu->setToolTipsVisible(true);
+    for (size_t k = 0; k < shapes.size(); ++k) {
+        if (k + 1 == shapes.size()) menu->addSeparator(); // the model: from a file, not a primitive
+        menu->addAction(shapes[k]);
+    }
+    button->setMenu(menu);
+    tb->addWidget(button);
+    shapesButton_ = button;
+    createButtons_.push_back(button);
+}
+
+// The primitives of «Фигура ▾»: each starts making its shape with the mouse in the view, step by step and
+// one after another, as 3ds Max's Create panel does. The builder's own create actions still add a shape at
+// once over a free spot, as scene_add with no place does for a script or an agent.
+std::vector<QAction*> MainWindow::shapeCreateActions() {
+    const char* tips[] = {"Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)",
+                          "Шар: центр, затем радиус", "Цилиндр: центр основания, радиус, высота",
+                          "Конус: центр основания, радиус, высота", "Плоскость: угол, затем противоположный угол"};
+    std::vector<QAction*> out;
+    for (int k = 0; k < 5; ++k) {
+        CreateWhat what;
+        what.shape = ke::ShapeKind(k);
+        out.push_back(createAction(what, shapeIcon(what.shape, 48), shapeName(what.shape), tips[k], shapeWord(what.shape)));
+    }
+    return out;
+}
+
+QAction* MainWindow::createAction(const CreateWhat& what, const QIcon& icon, const QString& text, const QString& tip, const QString& name) {
+    auto* a = new QAction(icon, text, this);
+    a->setObjectName("create_" + name);
+    a->setToolTip(tip);
+    connect(a, &QAction::triggered, this, [this, what] { startCreating(what); });
+    return a;
+}
+
+void MainWindow::startCreating(const CreateWhat& what) {
+    if (!builder_->editing()) return statusBar()->showMessage("Создавать можно в режиме правки — остановите сцену", 6000);
+    magnet_->setActive(false);
+    statusBar()->clearMessage(); // the hint line says what the mouse does now
+    view_->setCreateMode(true, what);
+    view_->setFocus(); // Esc and Backspace go to the view at once
+}
+
+// The thing made with the mouse as one call of the API, the line a script would write: one undo step, a
+// line in the console and the journal; the window selects it.
+void MainWindow::addDrawn(const CreateWhat& what, const ke::Vector3& position, const ke::Vector3& size, const ke::Vector3& target) {
+    const auto array = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+    QString op = "scene_add", py;
+    QJsonObject args;
+    if (what.kind == CreateWhat::Kind::Shape) {
+        args = {{"shape", shapeWord(what.shape)}, {"position", array(position)}, {"size", array(size)}};
+        py = QString("scene.add(\"%1\", position=%2, size=%3)").arg(shapeWord(what.shape), tuple(position), tuple(size));
+    } else if (what.kind == CreateWhat::Kind::Light) {
+        op = "scene_add_light";
+        args = {{"kind", lightWord(what.light)}, {"position", array(position)}};
+        py = QString("scene.add_light(\"%1\", position=%2").arg(lightWord(what.light), tuple(position));
+        if (what.light != ke::LightKind::Point) args["target"] = array(target), py += ", target=" + tuple(target); // a lamp shines everywhere
+        py += ")";
+    } else {
+        op = "scene_add_camera";
+        args = {{"eye", array(position)}, {"target", array(target)}};
+        py = QString("scene.add_camera(eye=%1, target=%2)").arg(tuple(position), tuple(target));
+    }
+    args["_py"] = py;
+    const QJsonObject done = ops_->runNow(op, args);
+    if (!done.value("ok").toBool()) statusBar()->showMessage("Создание: " + done.value("error").toString(), 6000);
+}
+
+// "Свет ▾" opens its three lights at once (no second click on an arrow); "Камера" beside it. Each is placed
+// with the mouse: where it stands, how high, where it looks.
+void MainWindow::addLightButtons(QToolBar* tb) {
+    auto* lights = new QToolButton;
+    lights->setObjectName("lightsButton");
+    lights->setText("Свет ▾");
+    lights->setIcon(sceneIcon(SceneIcon::Bulb, 48));
+    lights->setIconSize(tb->iconSize());
+    lights->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    lights->setToolTip("Свет: солнце, лампа или прожектор. Физика его не видит — он для глаза и скриншотов");
+    lights->setPopupMode(QToolButton::InstantPopup);
+    auto* menu = new QMenu(lights);
+    menu->setToolTipsVisible(true);
+    const char* tips[] = {"Солнце: место, высота, куда светит — важно только направление; с тенями",
+                          "Лампа: место, затем высота; светит во все стороны", "Прожектор: место, высота, куда светит — конус света"};
+    for (int k = 0; k < 3; ++k) {
+        CreateWhat what;
+        what.kind = CreateWhat::Kind::Light;
+        what.light = ke::LightKind(k);
+        menu->addAction(createAction(what, sceneIcon(lightIcon(what.light), 48), lightName(what.light), tips[k], lightWord(what.light)));
+    }
+    lights->setMenu(menu);
+    tb->addWidget(lights);
+    createButtons_.push_back(lights);
+    CreateWhat camera;
+    camera.kind = CreateWhat::Kind::Camera;
+    QAction* cameraAct = createAction(camera, sceneIcon(SceneIcon::Camera, 48), "Камера",
+                                      "Камера: место, высота, куда смотрит. Через неё — вид и скриншоты", "camera");
+    tb->addAction(cameraAct);
+    createButtons_.push_back(qobject_cast<QToolButton*>(tb->widgetForAction(cameraAct)));
+}
+
+// "Датчик ▾": a sensor has no shape of its own - it is put on the selected shape (a face toward the view) or on the
+// joint the shape hangs on, as a property, the way MuJoCo, Gazebo and NX MCD attach theirs.
+void MainWindow::addSensorButton(QToolBar* tb) {
+    auto* sensors = new QToolButton;
+    sensors->setObjectName("sensorsButton");
+    sensors->setText("Датчик ▾");
+    sensors->setIcon(deviceIcon(DeviceIcon::Sonar, 48));
+    sensors->setIconSize(tb->iconSize());
+    sensors->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    sensors->setToolTip("Датчик на выбранное тело или на его сочленение: без своей формы, накидывается как свойство");
+    sensors->setPopupMode(QToolButton::InstantPopup);
+    auto* menu = new QMenu(sensors);
+    menu->setToolTipsVisible(true);
+    const std::vector<QAction*>& kinds = builder_->sensorActions();
+    menu->addSection("На тело");
+    for (int k : {1, 2, 3}) // IMU, sonar, touch
+        if (size_t(k) < kinds.size()) menu->addAction(kinds[size_t(k)]);
+    menu->addSection("На сочленение тела");
+    for (int k : {0, 4, 5}) // encoder, wrench, effort
+        if (size_t(k) < kinds.size()) menu->addAction(kinds[size_t(k)]);
+    connect(menu, &QMenu::aboutToShow, builder_, &SceneBuilder::updateSensorActions);
+    sensors->setMenu(menu);
+    tb->addWidget(sensors);
+    createButtons_.push_back(sensors);
+}
+
+// One step of giving up room (see the head of the file): 0 every caption, roomy; 1 every caption,
+// tight; 2 the create buttons icons only; 3 run / step / undo too; 4 icons of 32 px instead of 48.
+void MainWindow::setToolbarLevel(int level) {
+    const int icon = level >= 4 ? 32 : 48;
+    createBar_->setIconSize(QSize(icon, icon));
+    for (QToolButton* b : createButtons_) {
+        if (!b) continue;
+        b->setIconSize(QSize(icon, icon));
+        setLook(b, level >= 1, level >= 2);
+    }
+    for (QToolButton* b : runButtons_)
+        if (b) setLook(b, level >= 1, level >= 3);
+    // Keep the settings buttons captioned, but give them less padding on narrow windows.
+    for (QToolButton* b : createBar_->findChildren<QToolButton*>("compactButton")) {
+        const QString sheet = level >= 1 ? QString("QToolButton { min-width: 0; padding: 6px %1px; margin-left: 2px; }")
+                                                .arg(level >= 4 ? 6 : 8) : QString();
+        if (b->styleSheet() != sheet) b->setStyleSheet(sheet);
+    }
+    toolbarLevel_ = level;
+}
+
+// The first step at which the whole bar fits the window's width.
+void MainWindow::fitMainToolbar() {
+    if (!createBar_) return;
+    const int room = width() - 8; // the bar's own frame
+    for (int level = 0; level <= 4; ++level) {
+        setToolbarLevel(level);
+        createBar_->layout()->invalidate();
+        if (createBar_->sizeHint().width() <= room) return;
+    }
+}
+
+void MainWindow::resizeEvent(QResizeEvent* e) {
+    QMainWindow::resizeEvent(e);
+    if (e->size().width() != e->oldSize().width()) fitMainToolbar();
+}

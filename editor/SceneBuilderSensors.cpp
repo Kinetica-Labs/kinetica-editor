@@ -1,0 +1,242 @@
+// Sensors in the scene builder (see SceneBuilder.h): putting one on a shape, its "Датчик" card, and
+// what the selected joint reads while the scene plays.
+//
+// A sensor is a child of what carries it (ke::SensorObject), so it is a row under its shape in the
+// list, moves with the gizmo (its pose on the shape is where it is mounted) and goes with the shape.
+// Where a new one goes: an IMU flat on the shape's top (its z up, as a chip on a table); a sonar and a
+// touch pad on the face that looks toward the view, the face the user is looking at; an encoder, a
+// force-torque sensor and an effort sensor on the joint the shape hangs by. The menu and the API
+// (assembly_sensor, assembly_encoder) make the same edit. The running world (src/sim) does not model
+// the sensors' readings yet - the devices are in src/devices -, so their card says so instead of a number;
+// a joint's own coordinate and effort are read live (the privileged loop's truth, SceneBuilderJoints.cpp).
+#include "SceneBuilder.h"
+
+#include "InspectorWidgets.h"
+#include "scene/Assembly.h"
+
+#include <QBoxLayout>
+#include <QFontDatabase>
+#include <QLabel>
+#include <QMenu>
+#include <QPointer>
+#include <QTimer>
+
+using namespace ke;
+
+QString jointLiveText(const Simulation& sim, uint32_t id); // SceneBuilderJoints.cpp
+
+namespace {
+
+// SensorKind; a stereo camera of a scene file keeps its name, but none is offered: vision is a later stage.
+const char* kSensorNames[] = {"Энкодер", "IMU MPU-6050", "Сонар HC-SR04", "Касание", "Сила-момент", "Усилие привода", "Стереокамера"};
+const int kSensorKinds = 6; // the kinds a person can put: up to the effort sensor
+const char* kDofWords[] = {"ход по x", "ход по y", "ход по z", "поворот вокруг x", "поворот вокруг y", "поворот вокруг z"};
+
+// The face of the target whose world normal is nearest to `toward`.
+BoxFace faceToward(const SceneGraph& g, const Entity& e, const Vector3& toward) {
+    Vector3 p;
+    Quaternion q;
+    worldPose(g, e, p, q);
+    const Vector3 local = q.conjugate().rotate(toward);
+    int best = 0;
+    for (int a = 1; a < 3; ++a)
+        if (std::fabs(local[a]) > std::fabs(local[best])) best = a;
+    return BoxFace(2 * best + (local[best] < 0 ? 1 : 0));
+}
+
+uint32_t jointOfLink(const SceneGraph& g, uint32_t entity) {
+    for (const JointObject& j : g.joints)
+        if (j.a == entity) return j.id;
+    return 0;
+}
+
+const char* kNoReadings = "Показаний пока нет: мир робота ещё не моделирует датчики";
+
+} // namespace
+
+SensorObject* SceneBuilder::sensorById(uint32_t id) {
+    for (SensorObject& s : graph_.sensors)
+        if (id != 0 && s.id == id) return &s;
+    return nullptr;
+}
+
+void SceneBuilder::addSensor(SensorKind kind) {
+    const Entity* e = selectedEntity();
+    if (!e) return;
+    const Entity target = *e;
+    const Vector3 eye = viewEye_ ? viewEye_() : worldPositionOf(target.id) + Vector3(1.0f, 1.0f, 1.0f);
+    uint32_t made = 0;
+    std::string error;
+    transact([&](SceneGraph& g, std::string& err) {
+        if (kind == SensorKind::Encoder) made = attachEncoder(g, jointOfLink(g, target.id));
+        else if (kind == SensorKind::Wrench || kind == SensorKind::Effort) made = attachJointSensor(g, jointOfLink(g, target.id), kind);
+        else {
+            const Vector3 toward = kind == SensorKind::Imu ? Vector3(0.0f, 1.0f, 0.0f) : normalize(eye - worldPositionOf(target.id));
+            made = attachSensor(g, target.id, snapToFace(g, target.id, faceToward(g, target, toward), Vector3(0.0f)), kind);
+        }
+        if (!made) err = "некуда поставить датчик";
+        return made != 0;
+    }, error);
+    if (!made) return emit statusMessage(QString::fromStdString(error));
+    setSelected(made);
+    const char* said[] = {"Энкодер сел на сочленение: считает его поворот", "IMU лёг на верх тела: в покое покажет +g по z, как микросхема на столе",
+                          "Сонар смотрит из грани к виду; повернуть — гизмо вращения (E)",
+                          "Касание легло на грань, обращённую к виду: сила контактов через неё, Н",
+                          "Сила-момент сел на сочленение тела: что оно передаёт телу, в его осях", "Усилие привода сочленения: сила или момент его мотора"};
+    if (int(kind) < kSensorKinds) emit statusMessage(said[int(kind)]);
+}
+
+QString SceneBuilder::sensorMisfit(SensorKind kind) const {
+    const Entity* e = nullptr;
+    for (const Entity& x : graph_.entities)
+        if (x.id == selectedId_) e = &x;
+    if (!e || selection_.size() != 1) return "Выберите одно тело: датчик встанет на него или на его сочленение";
+    const bool onJoint = kind == SensorKind::Encoder || kind == SensorKind::Wrench || kind == SensorKind::Effort;
+    if (onJoint && !jointOfLink(graph_, e->id)) return "У «" + QString::fromStdString(e->name) + "» нет сочленения: этому датчику нечего мерить";
+    return QString();
+}
+
+const std::vector<QAction*>& SceneBuilder::sensorActions() {
+    if (!sensorActions_.empty()) return sensorActions_;
+    for (int k = 0; k < kSensorKinds; ++k) {
+        auto* a = new QAction(deviceIcon(DeviceIcon(k), 24), kSensorNames[k], this);
+        a->setObjectName(QString("addSensor%1").arg(k));
+        const SensorKind kind = SensorKind(k);
+        connect(a, &QAction::triggered, this, [this, kind] { addSensor(kind); });
+        sensorActions_.push_back(a);
+    }
+    return sensorActions_;
+}
+
+void SceneBuilder::updateSensorActions() {
+    const char* tips[] = {"Квадратурный энкодер на сочленение тела: фронты A/B/Z и счёт", "Акселерометр и гироскоп MPU-6050 на верх тела",
+                          "Ультразвуковой дальномер HC-SR04 из грани, обращённой к виду", "Подушка касания на грани, обращённой к виду: сила контактов через неё",
+                          "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота",
+                          "Сила или момент мотора сочленения тела, как датчик тока сервы"};
+    for (int k = 0; k < int(sensorActions().size()); ++k) {
+        const QString misfit = sensorMisfit(SensorKind(k));
+        sensorActions_[size_t(k)]->setEnabled(misfit.isEmpty());
+        sensorActions_[size_t(k)]->setToolTip(misfit.isEmpty() ? tips[k] : misfit);
+    }
+}
+
+// The "Датчики" part of "+ Добавить компонент" for the selected shape.
+void SceneBuilder::fillSensorMenu(const Entity& e) {
+    addMenu_->addSection("Электрика");
+    uint32_t motor = 0;
+    for (const JointObject& j : graph_.joints)
+        for (int k = 0; k < 6 && j.a == e.id && !motor; ++k)
+            if (j.dof[k].drive.enabled && j.dof[k].drive.constant > 0) motor = j.id;
+    QAction* power = addMenu_->addAction(deviceIcon(DeviceIcon::Driver, 24), "Питание от батареи");
+    power->setEnabled(motor != 0);
+    power->setToolTip(motor ? "Драйвер мотора от батареи сцены (нет батареи — появится 3S): ШИМ, ток и заряд вместо идеального источника"
+                            : "Нужен мотор постоянного тока на сочленении тела — заготовка «Мотор-колесо»");
+    connect(power, &QAction::triggered, this, [this, motor] {
+        uint32_t made = 0;
+        std::string error;
+        transact([&](SceneGraph& g, std::string&) { return (made = powerMotor(g, motor)) != 0; }, error);
+        if (made) {
+            setSelected(made);
+            emit statusMessage("Мотор питается от батареи: ШИМ — в карточке драйвера, двигается и на ходу");
+        }
+    });
+    addMenu_->addSection("Датчики");
+    const bool joint = jointOfLink(graph_, e.id) != 0;
+    const char* tips[] = {"Квадратурный энкодер на сочленение, которым держится это тело: фронты A/B/Z и счёт",
+                          "Акселерометр и гироскоп MPU-6050: регистры, шум и смещения по даташиту",
+                          "Ультразвуковой дальномер HC-SR04: луч 15° из грани, обращённой к виду",
+                          "Подушка на грани, обращённой к виду: нормальная сила контактов через неё — палец захвата, бампер, весы под ногой",
+                          "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота: вес груза, удар, касание стола",
+                          "Сила или момент мотора сочленения, как датчик тока сервы: чем тело давит, сколько держит"};
+    for (int k = 0; k < kSensorKinds; ++k) { // SensorKind: an encoder, a wrench and an effort need the joint the body hangs on
+        const bool onJoint = k == 0 || k == 4 || k == 5;
+        QAction* a = addMenu_->addAction(deviceIcon(DeviceIcon(k), 24), kSensorNames[k]);
+        a->setToolTip(onJoint && !joint ? "У тела нет сочленения: датчику нечего мерить" : tips[k]);
+        a->setEnabled(!onJoint || joint);
+        const SensorKind kind = SensorKind(k);
+        connect(a, &QAction::triggered, this, [this, kind] { addSensor(kind); });
+    }
+}
+
+void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
+    sensorCard_ = new ComponentCard("Датчик", deviceIcon(DeviceIcon::Sonar, 22));
+    sensorCard_->setObjectName("sensorCard");
+    sensorCard_->setToolTip("Датчик едет на своём теле: его поза на теле — место крепления, ось x — ось измерения");
+    sensorMount_ = new QLabel;
+    sensorMount_->setWordWrap(true);
+    sensorCard_->body()->addWidget(sensorMount_);
+    SensorObject& s = sensorDraft_;
+    const auto is = [&s](std::vector<SensorKind> kinds) { return [&s, kinds] { return std::count(kinds.begin(), kinds.end(), s.kind) > 0; }; };
+    const auto encoder = is({SensorKind::Encoder}), noisy = is({SensorKind::Imu, SensorKind::Sonar}); // the force sensors read ideally
+    const auto rotary = [&s] { return s.dof >= DofRx; };
+    sensorFields_ = new FieldForm([this](bool click) { commitDraft(sensorById(selectedId_), sensorDraft_, click); });
+    FieldForm& f = *sensorFields_;
+    f.number("Штрихов", 1, 1e6, 1, 0, [&s] { return s.lines; }, [&s](double v) { s.lines = int(v); }).name("sensorLines").shown(encoder)
+        .label([rotary] { return rotary() ? "Штрихов/оборот (PPR)" : "Штрихов/метр"; }).tip("Штрихов диска на оборот (у линейного — на метр): шагов в 4 раза больше");
+    // The count-zero reference: a calibration or a home position the person gives - never the true angle read now.
+    f.toggle("Известна координата при нулевом счёте", [&s] { return s.hasEncoderReference; }, [&s](double on) { s.hasEncoderReference = on != 0; })
+        .name("encoderReferenced").shown(encoder).tip("Задайте калибровку или домашнюю позицию. Текущий истинный угол не считывается");
+    f.number("Координата нуля", -1e9, 1e9, 0.001, 9, [&s] { return s.encoderReference; }, [&s](double v) { s.encoderReference = Real(v); })
+        .name("encoderReference").unit([rotary] { return FieldForm::Unit{rotary() ? " рад" : " м"}; }).shown([&s, encoder] { return encoder() && s.hasEncoderReference; });
+    f.note([&s, rotary] {
+        const double counts = 4.0 * s.lines, step = (rotary() ? 2 * 3.14159265358979323846 : 1) / counts;
+        return QString("%1 отсчётов/%2 · шаг %3 %4. Разрешение не равно точности; шум и потеря импульсов пока не моделируются.")
+            .arg(counts, 0, 'g', 9).arg(rotary() ? "оборот (CPR)" : "метр").arg(step, 0, 'g', 6).arg(rotary() ? "рад" : "м");
+    }).shown(encoder);
+    QStringList dofs;
+    for (const char* w : kDofWords) dofs << w;
+    f.choice("Мерит", dofs, [&s] { return s.dof; }, [&s](double v) { s.dof = int(v); }).name("sensorDof").shown(is({SensorKind::Encoder, SensorKind::Effort}));
+    f.choice("Относительно", [this, &s] {
+        std::vector<FieldForm::Option> out{{"мир", 0}};
+        for (const Entity& e : graph_.entities)
+            if (e.id != s.parent) out.push_back({QString::fromStdString(e.name), double(e.id)});
+        return out;
+    }, [&s] { return s.against; }, [&s](double v) { s.against = uint32_t(v); })
+        .name("sensorAgainst").shown([this, &s, encoder] { return encoder() && !findJoint(graph_, s.parent); })
+        .tip("Относительно чего мерить поворот или ход: другого тела или мира");
+    f.toggle("Шум и смещения по даташиту", [&s] { return s.noise; }, [&s](double on) { s.noise = on != 0; }).name("sensorNoise").shown(noisy)
+        .label([&s] { return s.kind == SensorKind::Imu ? "Шум и смещения по даташиту" : "Дрожание по даташиту (точность 3 мм)"; });
+    f.number("Зерно шума", 0, 1e6, 1, 0, [&s] { return s.seed; }, [&s](double v) { s.seed = uint32_t(v); }).name("sensorSeed").shown(noisy)
+        .tip("Зерно шума: тот же номер — тот же экземпляр микросхемы. 0 — по id датчика");
+    sensorCard_->body()->addWidget(sensorFields_);
+    sensorLive_ = new QLabel;
+    sensorLive_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
+    sensorLive_->setWordWrap(true);
+    sensorCard_->body()->addWidget(sensorLive_);
+    connect(sensorCard_, &ComponentCard::removeClicked, this, &SceneBuilder::removeSelected);
+    col->addWidget(sensorCard_);
+    liveTimer_ = new QTimer(this);
+    liveTimer_->setInterval(250);
+    connect(liveTimer_, &QTimer::timeout, this, &SceneBuilder::pollLive);
+    liveTimer_->start();
+}
+
+void SceneBuilder::fillSensorCard(const SceneObject& o) {
+    const SensorObject* s = sensorById(o.id);
+    sensorCard_->setVisible(s && selection_.size() == 1);
+    if (!s) return;
+    sensorDraft_ = *s;
+    const JointObject* j = findJoint(graph_, s->parent);
+    const SceneObject* carrier = findObject(graph_, s->parent);
+    const QString on = j ? "на сочленении «" + QString::fromStdString(j->name) + "»" : carrier ? "на «" + QString::fromStdString(carrier->name) + "»"
+                     : s->parent == 0 ? QString("закреплён в мире") : QString("носитель удалён");
+    sensorMount_->setText(QString(kSensorNames[int(s->kind)]) + " · " + on + (j ? QString(" — место задаёт сочленение") : QString()));
+    sensorCard_->setIcon(deviceIcon(DeviceIcon(int(s->kind)), 22));
+    sensorFields_->fill();
+    sensorLive_->setText(kNoReadings);
+}
+
+// Four times a second while the scene plays: the selected joint's coordinate, target and effort, read on the
+// simulation's thread.
+void SceneBuilder::pollLive() {
+    const uint32_t id = selectedId_;
+    if (!findJoint(graph_, id) || editing() || selection_.size() != 1) return;
+    QPointer<SceneBuilder> self(this);
+    QPointer<QLabel> shown(jointLive_);
+    ctrl_->post([self, shown, id](Simulation& s) {
+        const QString text = jointLiveText(s, id);
+        QMetaObject::invokeMethod(self, [self, shown, id, text] {
+            if (self && shown && self->selectedId_ == id && !text.isEmpty()) shown->setText(text);
+        }, Qt::QueuedConnection);
+    });
+}

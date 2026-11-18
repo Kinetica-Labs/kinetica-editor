@@ -1,0 +1,49 @@
+# Сборка ядра и окна (Qt 6) на Linux (Ubuntu), тесты ядра, самотест окна под виртуальным экраном и проверка абляции.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    name: Linux GCC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: OpenGL, X11 и виртуальный экран
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 xvfb
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+      - name: Build
+        run: cmake --build build --parallel 4 # without a number make starts every compile at once and runs out of memory
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Самотест окна (программный OpenGL)
+        timeout-minutes: 20
+        env:
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --self-test
+
+  ablation:
+    name: Только робототехника
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Нет нежёсткой физики, Box3D только в плагине, ядро без Qt
+        run: |
+          ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools python examples CMakeLists.txt ':!tests/AblationTests.cpp'
+          ! git grep -lI 'box3d/' -- src editor tests
+          ! git grep -nIE '#include <Q' -- src
