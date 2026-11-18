@@ -12,32 +12,29 @@
 ИК, всё окно редактора. Пример — UR5e с целью ИК, схватом и кубиками (`examples/ur5e.kscene`).
 Дальше: SDK плагинов, датчики в живом мире, импорт URDF/SDF, стерео, дрон.
 
-## Готовая программа для Linux (Ubuntu 22.04 и новее)
+## Готовая программа
 
-Одна папка со всеми библиотеками — ставить Qt и собирать ничего не нужно.
+Скачайте архив своей системы со страницы последнего выпуска —
+**[Releases](https://github.com/Kinetica-Labs/kinetica-editor/releases/latest)**. Ставить Qt и собирать
+ничего не нужно: в архиве программа со всеми библиотеками, примеры (UR5e с целью ИК, схватом и кубиками),
+пакет Python для консоли и лицензии.
 
-1. На вкладке **Actions** откройте последний зелёный прогон **CI** на ветке `main` (нужен вход в GitHub) и
-   скачайте в **Artifacts** `kinetica-linux`.
-2. Распакуйте и запустите:
+**Linux** (Ubuntu 22.04 и новее) — `kinetica-linux.tar.gz`:
 
 ```sh
-unzip kinetica-linux.zip && tar -xzf kinetica-linux.tar.gz
+tar -xzf kinetica-linux.tar.gz
 ./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/ur5e.kscene
 ```
 
-Консоль Python берёт системный `python3` (на Ubuntu он есть). Скрипты и агенты: клиент API —
-`kinetica-linux/usr/bin/tools/ke_editor.py`.
+**Windows** (10 и 11, 64 бита) — `kinetica-windows.zip`: распакуйте и запустите `kinetica.exe`; примеры
+лежат рядом, в `examples` («Открыть…» начинает с этой папки).
 
-## Готовая программа для Windows
+Консоли Python внизу окна нужен Python 3: на Ubuntu он есть, на Windows поставьте с
+[python.org](https://www.python.org/downloads/) и отметьте «Add python.exe to PATH». Без драйвера
+OpenGL 3 окно предложит программный OpenGL. Скрипты и ИИ-агенты: клиент API — `tools/ke_editor.py`
+рядом с программой (в Linux — `kinetica-linux/usr/bin/tools/`).
 
-1. На вкладке **Actions** откройте последний зелёный прогон **CI** на ветке `main` (нужен вход в GitHub).
-2. Внизу страницы, в **Artifacts**, скачайте `kinetica-windows` и распакуйте архив.
-3. Запустите `kinetica.exe`. Примеры лежат рядом, в `examples` («Открыть…» начинает с этой папки);
-   UR5e с целью ИК — `examples/ur5e.kscene`.
-
-Консоли Python внизу окна нужен Python 3 ([python.org](https://www.python.org/downloads/), при установке
-отметьте «Add python.exe to PATH»). Без драйвера OpenGL 3 окно предложит программный OpenGL:
-`opengl32sw.dll` уже лежит рядом. Архивы прогонов GitHub хранит 90 дней.
+Сборки каждого изменения — в **Actions**: прогон **CI** → **Artifacts** (нужен вход в GitHub).
 
 ## Сборка из исходников
 
