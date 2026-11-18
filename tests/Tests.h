@@ -47,6 +47,7 @@ void testSimStiffServoOnLightLink();
 void testSimUr5eHolds();
 void testSimTugUr5e();
 void testSimMeshColliderThinned();
+void testSimGoalPoseSettles();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testScenePhysicsLine();

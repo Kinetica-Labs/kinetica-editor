@@ -156,7 +156,7 @@ void testGoalInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
 } // namespace
 
 // The UR5e of examples/: in edit mode its goal's gizmo moves the goal, not the arm; its goal's card has «Схват: сжать»; a click closes the fingers (their drives to the far end)
-// as one assembly_grip line in the console, the button turns into «Схват: разжать», one undo opens them again; in play the mouse tugs the arm by a finger;
+// as one assembly_grip line in the console, the button turns into «Схват: разжать», one undo opens them again; in play the mouse tugs the arm by a link and takes its goal;
 // the whole robot selected shows its collider guides at once.
 void testGripButton(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     QString error;
@@ -200,14 +200,14 @@ void testGripButton(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     pump(60);
     c.check(offered && closed && target() < 1e-6f && grip->text() == "Схват: сжать",
             "the UR5e's goal offers «Схват: сжать»; a click closes the fingers as one assembly_grip line, one undo opens them");
-    // In play the mouse tugs the arm by a finger of 17 g - under the force-torque sensor's glyph, whose gizmo the press
-    // selects there - and let go, the servos bring the gripper back to where it stood.
+    // In play the mouse tugs the arm by a link outside its goal - wrist 1: a press inside the see-through goal takes the
+    // goal, the hand's handle (testGoalDragInPlay) - and let go, the servos bring the gripper back to where it stood.
     b.select(0); // the goal's gizmo around the hand would take the press: a drag of its handle moves the goal
     b.play();
     const auto frame = [v] { return v->snapshot() ? v->snapshot()->frame : 0; };
     waitFrames(v, frame() + 60, 10000);
     const Vector3 home = handNow(b, v, 16);
-    const QPointF from = toPoint(v->gizmoView().project(handNow(b, v, 18))), to = from + QPointF(0, -80);
+    const QPointF from = toPoint(v->gizmoView().project(handNow(b, v, 10))), to = from + QPointF(0, -80);
     sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
     for (int k = 1; k <= 8; ++k) sendMouse(v, QEvent::MouseMove, from + (to - from) * (k / 8.0), Qt::NoButton, Qt::LeftButton), pump(16);
     waitFrames(v, frame() + 60, 10000);
@@ -215,10 +215,55 @@ void testGripButton(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
     waitFrames(v, frame() + 360, 20000);
     const float back = length(handNow(b, v, 16) - home), goalMovedInPlay = length(entity(b, 52)->position - goalAt);
-    std::printf("  in play a finger dragged 80 px up: the gripper %.3f m from where it stood; let go, 6 s later %.4f m (the goal moved %.4f m)\n",
+    std::printf("  in play wrist 1 dragged 80 px up: the gripper %.3f m from where it stood; let go, 6 s later %.4f m (the goal moved %.4f m)\n",
                 double(tugged), double(back), double(goalMovedInPlay));
     c.check(tugged > 0.05f && back < 0.005f && goalMovedInPlay < 1e-6f,
-            "in play the mouse tugs the UR5e by a finger under a sensor's glyph, and let go, the arm comes back");
+            "in play the mouse tugs the UR5e by a link, and let go, the arm comes back");
+    b.stop();
+    pump(100);
+}
+
+// The UR5e's goal taken by the mouse while the scene plays, the camera close to the hand: a press on the goal (the
+// force-torque sensor's glyph inside it notwithstanding) selects it and a drag moves it in one gesture; Ctrl+drag
+// turns it; the gripper follows both and settles; the drag is one undo step and one line, assembly_goal_pose.
+void testGoalDragInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    b.select(52);
+    b.frameSelected();
+    b.select(0);
+    b.play();
+    const auto frame = [v] { return v->snapshot() ? v->snapshot()->frame : 0; };
+    waitFrames(v, frame() + 60, 10000);
+    auto* dock = w.findChild<QDockWidget*>("consoleDock");
+    auto* log = dock ? dock->findChild<QPlainTextEdit*>() : nullptr;
+    const auto drag = [&](QPointF by, Qt::KeyboardModifiers keys) {
+        const QPointF from = toPoint(v->gizmoView().project(entity(b, 52)->position)), to = from + by;
+        sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton, keys);
+        for (int k = 1; k <= 10; ++k) sendMouse(v, QEvent::MouseMove, from + (to - from) * (k / 10.0), Qt::NoButton, Qt::LeftButton, keys), pump(16);
+        sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton, keys);
+        waitFrames(v, frame() + 180, 20000); // 3 s: the arm gets there and settles
+    };
+    const Vector3 start = entity(b, 52)->position, startTurn = entity(b, 52)->rotationDeg;
+    const Quaternion startQ = objectRotation(*entity(b, 52));
+    drag({80, -40}, Qt::NoModifier);
+    const bool selected = b.selectedId() == 52;
+    const Vector3 moved = entity(b, 52)->position;
+    const float off = length(handNow(b, v, 16) - moved);
+    drag({60, 0}, Qt::ControlModifier);
+    const Entity* g = entity(b, 52);
+    const Quaternion goalTurn = objectRotation(*g);
+    const int hand = b.bodyOfEntity(16);
+    const Quaternion handTurn = v->snapshot()->bodies[size_t(hand)].rot;
+    const float turned = 2 * std::acos(std::min(1.0f, std::fabs(dot(goalTurn, startQ)))) * 180 / 3.14159265f;
+    const float turnOff = 2 * std::acos(std::min(1.0f, std::fabs(dot(goalTurn, handTurn)))) * 180 / 3.14159265f;
+    const bool line = log && log->toPlainText().contains("ed.assembly_goal_pose(goal=52");
+    b.undoAction()->trigger();
+    pump(60);
+    const bool undone = length(entity(b, 52)->position - moved) < 1e-5f && length(entity(b, 52)->rotationDeg - startTurn) < 1e-3f;
+    std::printf("  play, the goal taken by the mouse: selected %s, moved %.3f m with the gripper %.4f m off; Ctrl+drag turned it %.1f deg, "
+                "the gripper %.2f deg off; a line %s; one undo takes the turn back %s\n", selected ? "yes" : "no", double(length(moved - start)),
+                double(off), double(turned), double(turnOff), line ? "yes" : "no", undone ? "yes" : "no");
+    c.check(selected && length(moved - start) > 0.03f && off < 0.005f && turned > 10 && turnOff < 1 && line && undone,
+            "in play the mouse takes the IK goal: a drag moves it, Ctrl+drag turns it, the gripper follows; one undo, one line");
     b.stop();
     pump(100);
 }
@@ -227,5 +272,6 @@ int runGoalTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sh
     Checker c;
     testGoalInPlay(c, w, b, v, shotsDir);
     testGripButton(c, w, b, v);
+    testGoalDragInPlay(c, w, b, v);
     return c.failures;
 }

@@ -441,6 +441,7 @@ void MainWindow::connectSceneBuilder() {
     });
     connect(view_, &Viewport::imageDropped, builder_, &SceneBuilder::assignImage);
     connect(view_, &Viewport::bodyClicked, builder_, &SceneBuilder::selectBody);
+    connect(view_, &Viewport::goalDragged, builder_, &SceneBuilder::dragGoal);
     connect(view_, &Viewport::sensorClicked, builder_, [this](uint32_t id) { builder_->select(id); });
     connect(view_, &Viewport::entityClicked, builder_, &SceneBuilder::onEntityClicked);
     connect(view_, &Viewport::entityHovered, builder_, &SceneBuilder::onEntityHovered);

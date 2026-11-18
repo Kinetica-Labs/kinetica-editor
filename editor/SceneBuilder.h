@@ -236,6 +236,7 @@ public:
     void addGoalToSelected();
     void refreshIkView(); // an IK goal selected: its solver's last solve under its card, its gripper's button
     void toggleGrip();    // the selected goal's gripper closed or opened: assembly_grip
+    void dragGoal(uint32_t id, ke::Vector3 position, ke::Quaternion turn, bool end); // the mouse drags a goal in play: assembly_goal_pose
     void refreshPaths();  // the goals' paths to the view
     void takeGoalFromPath(uint32_t id);
     // An operation moved goals (scene_move, scene_turn: the core solved them): the solve done again on the scene
@@ -507,6 +508,7 @@ private:
     struct HistoryEntry { ke::SceneGraph graph; };
     std::vector<HistoryEntry> undo_, redo_;
     QElapsedTimer lastRemember_;
+    bool goalDragging_ = false; // the mouse drags a goal (dragGoal): one undo step, its code said as it ends
     bool typing_ = false; // the last step was a typed number's: another typed within 0.7 s joins it, nothing else does
 
     ColliderGuides guides_;

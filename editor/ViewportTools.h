@@ -60,6 +60,24 @@ private:
     CameraTool camera_;
 };
 
+// An IK goal taken by the mouse while the scene plays: its centre follows in the plane across the view through the
+// point taken; with Ctrl held at the press the drag turns it - about the view's up for a sideways drag, about its right
+// for an up-down one, half a degree a pixel. Every step the viewport says goalDragged; the scene builder puts the goal
+// there by the core's assembly_goal_pose, and the arm follows by its motors.
+class GoalTool : public ViewportTool {
+public:
+    void begin(Viewport& v, QMouseEvent* e, uint32_t goal, const ke::Vector3& taken);
+    void move(Viewport& v, QMouseEvent* e) override;
+    void release(Viewport& v, QMouseEvent* e) override;
+
+private:
+    uint32_t goal_ = 0;
+    bool turning_ = false, moved_ = false;
+    QPointF from_;
+    ke::Vector3 taken_, centre_, position_;
+    ke::Quaternion turn_, now_;
+};
+
 // Edit mode (the scene builder, nothing simulated):
 //   left button - on a gizmo handle: drag it; a click on an object selects it (again on the same
 //     spot: the one behind it; Shift or Ctrl + click adds or takes it away); a click on empty space

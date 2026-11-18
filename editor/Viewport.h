@@ -174,6 +174,7 @@ signals:
     void grabStarted(int body, ke::Vector3 point);    // play: the left button took a body (its engine index)
     void grabMoved(ke::Vector3 target);
     void grabReleased();
+    void goalDragged(uint32_t goal, ke::Vector3 position, ke::Quaternion turn, bool end); // play: the mouse drags an IK goal (GoalTool)
     void bodyClicked(int body);                       // play: left click on a body (index into the frame's bodies)
     void sensorClicked(uint32_t id);                  // playing: left click on a sensor's glyph
     void entityClicked(uint32_t id);                  // edit mode: a click selected this object (0: empty space); play: a see-through goal clicked
@@ -334,6 +335,7 @@ private:
 
     CameraTool cameraTool_;
     GrabTool grabTool_;
+    GoalTool goalTool_;
     EditTool editTool_;
     MagnetTool magnetTool_;
     CreateTool createTool_;

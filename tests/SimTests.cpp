@@ -11,6 +11,7 @@
 #include "physics/HullPoints.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
+#include "scene/SceneOps.h"
 #include "sim/Simulation.h"
 
 #include <algorithm>
@@ -386,4 +387,47 @@ void testSimMeshColliderThinned() {
                 shapes.front().points.size(), double(gap));
     CHECK(shapes.size() == 1 && shapes.front().points.size() <= size_t(kHullDirections) && gap < 0.013_r * maxComp(mesh.bounds().extent()),
           "the mesh's collider has %zu points, its box off the mesh's by %f", shapes.front().points.size(), double(gap));
+}
+
+// assembly_goal_pose moves the UR5e's goal 15 cm and turns it 40 degrees at once while the scene plays: the arm leads
+// its gripper there in a straight line and settles - the gripper on the goal within 5 mm and 1 degree, moving less
+// than 5 mm/s over the last half second. A shape that is not a goal is refused.
+void testSimGoalPoseSettles() {
+    SceneGraph g = ur5e();
+    Simulation sim;
+    sim.load(g);
+    for (int k = 0; k < 60; ++k) sim.stepFrame();
+    const auto goalIn = [](const SceneGraph& graph) {
+        return *std::find_if(graph.entities.begin(), graph.entities.end(), [](const Entity& e) { return e.id == 52; });
+    };
+    const Entity before = goalIn(g);
+    const SceneOp* pose = findSceneOp("assembly_goal_pose");
+    Value args = Value::map(), answer;
+    args.set("goal", 52), args.set("position", vectorValue(before.position + Vector3(0.15_r, -0.05_r, 0.05_r)));
+    args.set("turn", vectorValue(before.rotationDeg + Vector3(0, 40, 0)));
+    std::string error;
+    const bool posed = pose && pose->edit(g, args, answer, error);
+    CHECK(posed, "assembly_goal_pose: %s", error.c_str());
+    if (!posed) return;
+    std::vector<Entity> goals;
+    for (const Entity& e : g.entities)
+        if (e.goalOf != 0) goals.push_back(e);
+    sim.robot()->setGoals(goals); // as the window sends a goal moved while the scene plays
+    const int gripper = sim.robot()->bodyOf(16);
+    Real fastest = 0;
+    for (int k = 0; k < 360; ++k) {
+        sim.stepFrame();
+        if (k >= 330) fastest = std::max(fastest, length(sim.physics()->state(gripper).velocity));
+    }
+    const Entity goal = goalIn(g);
+    const BodyState s = sim.physics()->state(gripper);
+    const Real off = length(s.position - goal.position);
+    const Real turnOff = 2 * std::acos(std::min(1.0_r, std::fabs(dot(s.rotation, objectRotation(goal))))) * 180 / kPi;
+    Value notGoal = Value::map();
+    notGoal.set("goal", 16);
+    const bool refused = !pose->edit(g, notGoal, answer, error);
+    std::printf("  the goal moved 16 cm and turned 40 deg at once: 6 s later the gripper %.2f mm and %.2f deg off it, moving %.2f mm/s; "
+                "a shape refused as a goal: %s\n", double(off * 1000), double(turnOff), double(fastest * 1000), refused ? "yes" : "no");
+    CHECK(off < 0.005_r && turnOff < 1 && fastest < 0.005_r && refused, "the gripper %f m and %f deg off the posed goal, moving %f m/s", double(off),
+          double(turnOff), double(fastest));
 }

@@ -15,6 +15,7 @@
 #include "scene/SceneActions.h"
 #include "scene/SceneOps.h"
 
+#include <QJsonArray>
 #include <QPushButton>
 #include <QSignalBlocker>
 #include <QTreeWidget>
@@ -396,6 +397,26 @@ void SceneBuilder::toggleGrip() {
     codeAction("assembly_grip", QString("ed.assembly_grip(goal=%1, close=%2)").arg(id).arg(close ? "True" : "False"),
                QJsonObject{{"goal", int(id)}, {"close", close}}, false);
     refreshIkView();
+}
+
+// The mouse drags an IK goal while the scene plays (Viewport::goalDragged, GoalTool): every step is the core's
+// assembly_goal_pose on the scene - the mouse moves a goal as a script does - the whole drag one undo step and, as it
+// ends, one line of code that puts the goal where the mouse left it.
+void SceneBuilder::dragGoal(uint32_t id, Vector3 position, Quaternion turn, bool end) {
+    if (!goalDragging_) flushCode(), remember(), goalDragging_ = true;
+    const Vector3 degrees = eulerDegrees(turn);
+    Value args = Value::map(), answer;
+    args.set("goal", Real(id)), args.set("position", vectorValue(position)), args.set("turn", vectorValue(degrees));
+    std::string error;
+    if (!findSceneOp("assembly_goal_pose")->edit(graph_, args, answer, error)) return emit statusMessage(QString::fromStdString(error));
+    applyEdit(id);
+    refreshIkView();
+    if (!end) return;
+    goalDragging_ = false;
+    const auto three = [](const Vector3& v) { return QString("[%1, %2, %3]").arg(double(v.x), 0, 'g', 5).arg(double(v.y), 0, 'g', 5).arg(double(v.z), 0, 'g', 5); };
+    const auto json = [](const Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+    codeAction("assembly_goal_pose", QString("ed.assembly_goal_pose(goal=%1, position=%2, turn=%3)").arg(id).arg(three(position)).arg(three(degrees)),
+               QJsonObject{{"goal", int(id)}, {"position", json(position)}, {"turn", json(degrees)}}, false);
 }
 
 // A goal on a path taken by the gizmo: the hand takes over, as a keyed object grabbed in an animation tool - the goal
