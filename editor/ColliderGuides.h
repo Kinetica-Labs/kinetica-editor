@@ -1,0 +1,53 @@
+#pragma once
+// The collider of a body drawn as thin guide lines over its geometry, as Houdini draws the collision
+// guide of a packed RBD object: the user sees WHAT the body collides with (a barrel around a sphere)
+// while the geometry itself stays what it is. Lines, not a triangle wireframe: a box gets its 12
+// edges, a sphere three great circles, a capsule its two rings, four side lines and the arcs of its
+// caps, a convex hull its real edges - the diagonals that only split a flat face into triangles are
+// left out.
+//
+// A collider is the physics engine's shapes in the body's frame (ke::ShapeDesc, made by
+// ke::colliderShapes in sim/RobotWorld.h - exactly what the running world builds). Its lines are made
+// once per collider (by a key the caller gives: what the collider depends on) and kept while it is
+// asked for; every frame they are only turned and moved to where the body is (play mode) or where the
+// object stands (edit mode).
+#include "math/Math.h"
+#include "physics/PhysicsWorld.h"
+
+#include <map>
+#include <string>
+#include <vector>
+
+namespace ke { struct TriMesh; }
+
+class ColliderGuides {
+public:
+    // What the collider belongs to, for its colour: a body that moves (green), a fixed obstacle
+    // (grey), a body at rest that the engine has put to sleep (dim green).
+    enum State { Dynamic = 0, Static = 1, Sleeping = 2 };
+    // Appends the guide lines of the collider `shapes` (in the body's frame) placed at (position,
+    // rotation) as pairs of points, x y z state per point (GL_LINES, the viewport's line layout; the
+    // state picks the colour). `key` names the collider: equal keys, equal shapes.
+    void append(const std::string& key, const std::vector<ke::ShapeDesc>& shapes, const ke::Vector3& position,
+                const ke::Quaternion& rotation, State state, std::vector<float>& lines);
+    // Forgets the lines of colliders not asked for since the last prune (call once per rebuild).
+    void prune();
+    // The lines of a collider in the body's frame (tests; also what append() places).
+    const std::vector<ke::Vector3>& localLines(const std::string& key, const std::vector<ke::ShapeDesc>& shapes);
+
+private:
+    struct Entry {
+        std::vector<ke::Vector3> lines; // segment end points, pairs, in the body's frame
+        bool used = true;               // asked for since the last prune
+    };
+    std::map<std::string, Entry> cache_;
+};
+
+// The guide lines of one shape kind in the shape's frame (pairs of points).
+std::vector<ke::Vector3> boxGuide(const ke::Vector3& halfExtents);
+std::vector<ke::Vector3> sphereGuide(float radius);
+std::vector<ke::Vector3> capsuleGuide(float radius, float halfHeight); // axis along y
+std::vector<ke::Vector3> meshEdgeGuide(const ke::TriMesh& mesh);       // edges between faces that bend
+std::vector<ke::Vector3> hullGuide(const std::vector<ke::Vector3>& points); // the edges of the points' convex hull
+// The lines of one shape of a collider in the body's frame (its own position and turn applied).
+std::vector<ke::Vector3> shapeGuide(const ke::ShapeDesc& shape);

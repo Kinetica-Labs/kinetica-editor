@@ -1,68 +1,82 @@
-# Prerequisites
-*.d
+# Kinetica Editor: what never goes into the repository.
 
-# Compiled Object files
-*.slo
-*.lo
+# Builds (CMake, Ninja, Qt Creator, CLion)
+/build/
+/build-*/
+/out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CMakeUserPresets.json
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+Makefile
+Testing/
+*.d
 *.o
 *.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Linker files
-*.ilk
-
-# Debugger Files
-*.pdb
-
-# Compiled Dynamic libraries
+*.lo
+*.slo
+*.a
+*.la
+*.lai
+*.lib
 *.so
+*.so.*
 *.dylib
 *.dll
-*.so.*
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
-*.a
-*.lib
-
-# Executables
 *.exe
 *.out
 *.app
+*.ilk
+*.pdb
+*.dwo
+*.gch
+*.pch
+*.mod
+*.smod
 
-# Build directories
-[Bb]uild/
-[Bb]uild-*/
-cmake-build-*/
+# Models: only the example robots' meshes are kept (with their licence)
+!examples/models/ur5e/*.obj
 
-# CMake generated files
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-install_manifest.txt
-compile_commands.json
+# IDEs and editors
+CMakeLists.txt.user*
+*.pro.user*
+.qtc_clangd/
+.vscode/
+.idea/
+.cache/
+*.code-workspace
+*.swp
+*~
+
+# The operating systems
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# The editor's runs: journals, screenshots, captures, profiles
+*.jsonl
+kinetica-journal-*
+shots/
+*.perf
+perf.data*
 
 # Temporary files
 *.tmp
 *.log
 *.bak
-*.swp
+*.orig
+*.rej
 
-# vcpkg
-vcpkg_installed/
-
-# debug information files
-*.dwo
-
-# test output & cache
-Testing/
-.cache/
+# Claude Code: a person's own settings and notes
+.claude/settings.local.json
+CLAUDE.local.md

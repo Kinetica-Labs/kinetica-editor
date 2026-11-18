@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "ke-editor": {
+      "command": "python3",
+      "args": ["tools/ke_editor_mcp.py"],
+      "env": {
+        "KE_EDITOR_PORT": "47801"
+      }
+    }
+  }
+}

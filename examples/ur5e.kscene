@@ -1,0 +1,199 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Пол"
+  object id 2 visible 1 locked 1
+  shape plane size 4 0.02 4 position 0 0.01 0 rotation 0 0 0 color 0.56 0.54 0.51
+  texture kind stone repeats 12 file ""
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "UR5e основание"
+  object id 3 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/base.coloured.obj" size 0.151024 0.151024 0.151024 position 0.067165606 -0.27424634 0.22999582 rotation -90 0 0 color 0.278 0.278 0.278
+  rigid density 1000 friction 0.8 restitution 0.1 fixed 1 velocity 0 0 0 spin 0 0 0
+  collider kind cylinder fit 0 size 0.151 0.0991 0.151 offset 0 0 0.04955 rotation 90 0 0
+end
+entity "UR5e плечо"
+  object id 4 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/shoulder_link.coloured.obj" size 0.135425 0.135425 0.135425 position 0.060017105 -0.15698484 0.22999978 rotation -90 0 0 color 0.49 0.678 0.8
+  rigid density 1635.76 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind capsule fit 0 size 0.12 0.24 0.12 offset -9e-06 -0.0071485 -0.0438115 rotation 90 0 0
+end
+entity "UR5e рука"
+  object id 6 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/upper_arm_link.coloured.obj" size 0.545193 0.545193 0.545193 position -0.06785039 0.051199168 0.2300091 rotation -89.98021 89.99979 0 color 0.49 0.678 0.8
+  rigid density 2289.92 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind capsule fit 0 size 0.1 0.5 0.1 offset 0 0.002984 -0.0119955 rotation 90 0 0
+end
+entity "UR5e предплечье"
+  object id 8 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/forearm_link.coloured.obj" size 0.489424 0.489424 0.489424 position 0.061667286 0.2640822 0.043652818 rotation 0 -179.99998 -90.00001 color 0.49 0.678 0.8
+  rigid density 1164.46 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind capsule fit 0 size 0.076 0.456 0.076 offset -0.0001215 0.001501 0.013642 rotation 90 0 0
+end
+entity "UR5e кисть 1"
+  object id 10 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/wrist_1_link.coloured.obj" size 0.112175 0.112175 0.112175 position -0.049369395 0.26419818 -0.1606372 rotation -0.00021045902 -179.99998 -90.00001 color 0.49 0.678 0.8
+  rigid density 1254.37 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind capsule fit 0 size 0.08 0.22 0.08 offset -6e-06 -0.0595365 0.001353 rotation 2.54444e-14 180 180
+end
+entity "UR5e кисть 2"
+  object id 12 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/wrist_2_link.coloured.obj" size 0.10988 0.10988 0.10988 position -0.06683139 0.26599616 -0.25817418 rotation -0.00021045898 -179.99998 -179.99998 color 0.278 0.278 0.278
+  rigid density 1399.11 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind capsule fit 0 size 0.08 0.2 0.08 offset -1e-06 0.001792 -0.0561845 rotation 90 0 0
+end
+entity "UR5e фланец"
+  object id 14 visible 1 locked 0 parent 54
+  shape mesh file "models/ur5e/wrist_3_link.coloured.obj" size 0.081571 0.081571 0.081571 position -0.0668344 0.18816316 -0.2647222 rotation -0.00021045898 -179.99998 -179.99998 color 0.82 0.82 0.82
+  rigid density 939.512 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind cylinder fit 0 size 0.08 0.04 0.08 offset 2.5e-06 0.003959 -0.0027315 rotation 2.54444e-14 180 180
+end
+entity "Схват"
+  object id 16 visible 1 locked 0 parent 54
+  shape box size 0.09 0.04 0.05 position -0.0668324 0.14420417 -0.2619902 rotation -0.00021045898 -179.99998 -179.99998 color 0.15 0.15 0.17
+  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Палец левый"
+  object id 18 visible 1 locked 0 parent 54
+  shape box size 0.012 0.06 0.03 position -0.1018324 0.09420416 -0.2619912 rotation -0.00021045898 -179.99998 -179.99998 color 0.25 0.25 0.28
+  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Палец правый"
+  object id 20 visible 1 locked 0 parent 54
+  shape box size 0.012 0.06 0.03 position -0.031831995 0.09420416 -0.2619902 rotation -0.00021045898 -179.99998 -179.99998 color 0.25 0.25 0.28
+  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кубик жёлтый"
+  object id 23 visible 1 locked 0
+  shape box size 0.04 0.04 0.04 position 0.115368985 0.041 -0.5958319 rotation 0 -27.349384 0 color 0.9 0.85 0.1
+  texture kind stone repeats 25 file ""
+  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кубик зелёный"
+  object id 24 visible 1 locked 0
+  shape box size 0.04 0.04 0.04 position -0.32684985 0.041 -0.45027238 rotation 0 -23.18466 0 color 0.15 0.8 0.2
+  texture kind stone repeats 25 file ""
+  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кубик пурпурный"
+  object id 27 visible 1 locked 0
+  shape box size 0.04 0.04 0.04 position 0.3823263 0.041 -0.44459137 rotation 0 -20.833721 0 color 0.85 0.15 0.8
+  texture kind stone repeats 25 file ""
+  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Площадка"
+  object id 28 visible 1 locked 0
+  shape box size 0.18 0.004 0.18 position -0.18407468 0.022 -0.27204892 rotation 0 0 0 color 0.92 0.9 0.86
+  texture kind stone repeats 20 file ""
+  rigid density 500 friction 0.8 restitution 0.1 fixed 1 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Цель «Схват»"
+  object id 52 visible 1 locked 0
+  shape box size 0.117 0.117 0.117 position -0.133998 0.488 -0.491999 rotation -0.00021045898 -179.99998 -179.99998 color 0.3 0.95 0.55
+  goal effector 16
+end
+group "UR5e"
+  object id 54 visible 1 locked 0
+  pose position -0.067165606 0.34379584 -0.23000881 rotation 0 0 0 color 0.8 0.8 0.8
+end
+light "Прожектор 1"
+  object id 40 visible 1 locked 0
+  pose position 0.9 1.6 0.45 rotation 26.116922 -6.9537783 -29.357754 color 1 0.9 0.76
+  kind spot intensity 1 range 6 cone 40 softness 10 shadows 0
+end
+light "Солнце 1"
+  object id 41 visible 1 locked 0
+  pose position 0.660789 2.4478686 0.6039173 rotation 30.33641 -5.6287303 -20.556046 color 1 0.96 0.9
+  kind sun intensity 1 range 5 cone 40 softness 10 shadows 1
+end
+joint "Шарнир 5"
+  object id 5
+  link a 4 b 3 anchorA 0.0071485 -9.026487e-06 -0.0038110015 frameA 0 -90.00001 0 anchorB 0 -1.2993237e-05 0.11345049 frameB 0 -90.00001 0
+  free rx
+  drive rx stiffness 8000 damping 800 target 0 velocity 0 force 150
+end
+joint "Шарнир 7"
+  object id 7
+  link a 6 b 4 anchorA 2.680066e-08 0.0029839892 -0.21199499 frameA 1.7076419e-06 90.000206 89.99999 anchorB -0.13085149 -8.519584e-06 -0.0038110015 frameB -90 -180 0
+  free rx
+  drive rx stiffness 8000 damping 800 target 0 velocity 0 force 150
+end
+joint "Шарнир 9"
+  object id 9
+  link a 8 b 6 anchorA -0.00012195118 0.0015016965 -0.18635751 frameA 0.00021546811 0 90.00001 anchorB -2.4140075e-08 -0.12801597 0.21300496 frameB 1.7076419e-06 90.000206 89.99999
+  limit rx lower -2.8 upper 2.8
+  drive rx stiffness 8000 damping 800 target 0 velocity 0 force 150
+end
+joint "Шарнир 11"
+  object id 11
+  link a 10 b 8 anchorA -5.9489676e-06 -0.10953643 0.0013524495 frameA 0.00021546814 0.00021045902 90.00001 anchorB -0.00012195118 0.001500222 0.20564245 frameB 0.00021546811 0 90.00001
+  free rx
+  drive rx stiffness 2000 damping 200 target 0 velocity 0 force 28
+end
+joint "Шарнир 13"
+  object id 13
+  link a 12 b 10 anchorA -1.572874e-06 0.0017916603 -0.09618408 frameA -5.008979e-06 -89.99978 -1.7099692e-10 anchorB -5.9565355e-06 0.017463556 0.0013529076 frameB -90 -90.00001 0
+  free rx
+  drive rx stiffness 2000 damping 200 target 0 velocity 0 force 28
+end
+joint "Шарнир 15"
+  object id 15
+  link a 14 b 12 anchorA 1.8110551e-06 -0.07604135 -0.002731789 frameA -0.00021515084 -89.999985 89.99999 anchorB -1.1916027e-06 0.00179167 0.0038159424 frameB -0.00021515084 -89.999985 89.99999
+  free rx
+  drive rx stiffness 800 damping 80 target 0 velocity 0 force 28
+end
+joint "Сварка 17"
+  object id 17
+  link a 16 b 14 anchorA 1.7706547e-07 -0.020000368 3.7148862e-07 frameA -0.00021515084 -89.999985 89.99999 anchorB 2.1774254e-06 0.023958614 -0.0027317987 frameB -0.00021515084 -89.999985 89.99999
+end
+joint "Призматическое 19"
+  object id 19
+  link a 18 b 16 anchorA 4.3213362e-07 -2.384198e-07 -3.2782472e-07 frameA -0.0002104582 0.00021546887 -0.00021546888 anchorB -0.03499956 0.049999777 5.048539e-07 frameB -0.0002104582 0.00021546887 -0.00021546888
+  limit tx lower 0 upper 0.028
+  drive tx stiffness 400 damping 15 target 0 velocity 0 force 40
+end
+joint "Призматическое 21"
+  object id 21
+  link a 20 b 16 anchorA 2.9802315e-08 -5.0663795e-07 4.1723436e-07 frameA -0.0002104582 0.00021546887 179.99977 anchorB 0.03500044 0.0499995 2.3051437e-07 frameB -0.0002104582 0.00021546887 179.99977
+  limit tx lower 0 upper 0.028
+  drive tx stiffness 400 damping 15 target 0 velocity 0 force 40
+end
+sensor "Касание 1"
+  object id 37 visible 1 locked 0 parent 18
+  pose position 0.0059999973 -5.2453836e-10 -5.245364e-10 rotation -2.4150433e-20 -4.0711098e-13 -2.4302977e-13 color 0.8 0.8 0.8
+  touch
+end
+sensor "Касание 2"
+  object id 38 visible 1 locked 0 parent 20
+  pose position -0.0059999973 5.2453836e-10 5.245364e-10 rotation 2.4265705e-20 180 2.4303004e-13 color 0.8 0.8 0.8
+  touch
+end
+sensor "Сила-момент 1"
+  object id 39 visible 1 locked 0 parent 17
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  wrench noise 1 seed 0
+end
+controller "Пульт «Схват»"
+  object id 53
+  action move vector2 drive plane target 52 speed 0.15
+  action lift axis drive lift target 52 speed 0.1
+  action turn axis drive turn target 52 speed 60
+  action grip axis drive grip target 52 speed 2
+  bind move keys W S A D
+  bind move gamepad left_stick
+  bind lift keys R F
+  bind lift gamepad right_y
+  bind turn keys Z X
+  bind turn gamepad right_x invert
+  bind grip keys Space toggle
+  bind grip mouse left
+  bind grip gamepad right_trigger
+  bind grip gamepad a toggle
+end
