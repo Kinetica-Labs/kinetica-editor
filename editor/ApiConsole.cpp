@@ -21,6 +21,7 @@
 #include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QStandardPaths>
 
 namespace {
 
@@ -242,9 +243,18 @@ bool ApiConsole::startPython() {
         for (const QByteArray& l : python_->readAllStandardError().split('\n'))
             if (!l.trimmed().isEmpty()) appendLog(log_, QString("<span style='color:#ff7b72'>%1</span>").arg(QString::fromUtf8(l).toHtmlEscaped()));
     });
-    python_->start("python3", {"-u", "-m", "kinetica.console"});
+    // python3, or python as Windows' installer names it - not the Microsoft Store's stub in WindowsApps, which only opens the Store.
+    QString interpreter = "python3";
+    for (const char* name : {"python3", "python"}) {
+        const QString path = QStandardPaths::findExecutable(name);
+        if (!path.isEmpty() && !path.contains("WindowsApps")) {
+            interpreter = path;
+            break;
+        }
+    }
+    python_->start(interpreter, {"-u", "-m", "kinetica.console"});
     if (python_->waitForStarted(3000)) return true;
-    appendLog(log_, "<span style='color:#ff7b72'>✗ Python не запустился (python3): строка — один вызов, как ed.scene_list()</span>");
+    appendLog(log_, "<span style='color:#ff7b72'>✗ Python 3 не запустился: поставьте его (python.org, «Add to PATH»); строка — один вызов, как ed.scene_list()</span>");
     python_->deleteLater();
     python_ = nullptr;
     noPython_ = true;
