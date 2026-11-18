@@ -96,6 +96,9 @@ endif()
 # ---------------------------------------------------------------------------
 # kinetica: the Qt 6 window, a client of kecore. Built when Qt is found (-DCMAKE_PREFIX_PATH=<Qt>/gcc_64).
 # ---------------------------------------------------------------------------
+# The window links OpenGL as Qt's own libraries do - libGL.so.1, there wherever a GL driver is - not GLVND's
+# libOpenGL.so.0, which a clean Ubuntu lacks (the package libopengl0): the one-folder program would not start.
+set(OpenGL_GL_PREFERENCE LEGACY)
 find_package(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)
 if(Qt6_FOUND)
   qt_standard_project_setup()
