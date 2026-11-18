@@ -35,7 +35,7 @@ jobs:
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
       - name: Build
-        run: cmake --build build --config Release --parallel
+        run: cmake --build build --config Release --parallel 4 # without a number make starts every compile at once and runs out of memory
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Самотест окна (Linux, программный OpenGL)
