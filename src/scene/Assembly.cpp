@@ -329,8 +329,8 @@ std::vector<JointVis> jointVisuals(const SceneGraph& g) {
         v.generic = true;
         v.frameA = fa, v.frameB = fb;
         jointCoordinates(g, j, v.coordinates);
-        for (int d = 0; d < 6; ++d)
-            v.motion[d] = j.dof[d].motion, v.lowers[d] = j.dof[d].lower, v.uppers[d] = j.dof[d].upper, v.driven[d] = j.dof[d].drive.enabled;
+        for (int n = 0; n < 6; ++n)
+            v.motion[n] = j.dof[n].motion, v.lowers[n] = j.dof[n].lower, v.uppers[n] = j.dof[n].upper, v.driven[n] = j.dof[n].drive.enabled;
         if (const Entity* a = findEntity(g, j.a)) // a model's ring by its collider (a capsule), not by the whole mesh's box
             v.size = a->shape != ShapeKind::Mesh ? minComp(a->size) / 2
                    : a->collider.enabled && !a->collider.fitToGeometry ? minComp(a->collider.size) / 2 : maxComp(a->size) * 0.12_r;

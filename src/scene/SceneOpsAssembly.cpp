@@ -109,7 +109,7 @@ std::vector<SceneOp> presetOps() {
         {"assembly_preset", "Put a ready link (assembly_presets) at a place: wheels, a hinge about the normal, a slider...",
          "{target: int, preset: str, face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z], axis?: 0|1|2, flip?: bool, mirror?: bool}", {},
          [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
-             LinkPreset p;
+             LinkPreset p = LinkPreset::Hinge;
              const Entity* t = entityOf(g, a);
              if (!t || !presetFromWord(a["preset"].text(""), p)) return e = "needs a shape's id and a known preset", false;
              const FaceSnap at = placeFrom(g, a, t->size);
@@ -131,7 +131,7 @@ SceneOp wheelModuleOp() {
                    "{target: int, side: front_left|front_right|rear_left|rear_right|left|right, model?: bodies|point, suspension?: bool, "
                    "encoder?: lines (0: none), power?: bool, battery?: int, radius?: m, rolling?: C_rr of a point wheel}", {},
                    [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
-        Side side;
+        Side side = Side::FrontLeft;
         if (!entityOf(g, a) || !sideFromWord(a["side"].text(""), side)) return e = "needs a shape's id and a side: front_left, front_right, rear_left, rear_right, left, right", false;
         WheelModuleOptions o;
         o.suspension = a["suspension"].truth(true), o.encoderLines = a["encoder"].integer(500), o.powered = a["power"].truth(true);
@@ -334,7 +334,7 @@ std::vector<SceneOp> assemblySceneOps() {
                    "axis: 0 and 1 across the face, 2 along its normal (a wheel)",
                    "{target: int, face: '+x'..'-z', joint?: 'hinge'|'weld'|'slider'|'ball'|'cylinder'|'universal'|'planar', axis?: 0|1|2, size?: [x,y,z], name?: str}",
                    {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
-        BoxFace f;
+        BoxFace f = BoxFace::PlusX;
         const Entity* t = entityOf(g, a);
         if (!t || !face(a["face"], f) || !kindOk(a["joint"])) return e = "needs a shape's id, a face and a known joint kind", false;
         const Attached done = attachToFace(g, t->id, f, linkLike(g, *t, a), JointType::Hinge, a["axis"].integer(0));

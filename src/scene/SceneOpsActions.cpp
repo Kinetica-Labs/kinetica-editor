@@ -62,7 +62,7 @@ bool addShapeOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     if (sized) x.size = size;
     if (at) x.position = position;
     if (a.has("name")) x.name = a["name"].text("");
-    Role role;
+    Role role = Role::Rigid;
     const bool fixed = a["fixed"].truth(false), roled = a.has("role") || fixed; // a fixed shape is a rigid one held still
     if (roled && !roleOfWord(a["role"].text("rigid"), role)) return e = "role is rigid or collider", false;
     const std::string note = roled ? setRoles(g, {id}, role, true) : std::string();

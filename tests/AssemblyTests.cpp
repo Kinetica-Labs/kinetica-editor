@@ -514,7 +514,7 @@ void testGoalPathTurnLength() {
 }
 
 void testSmoothPath() {
-    constexpr double kPiArm = 3.14159265358979323846;
+    static constexpr double kPiArm = 3.14159265358979323846;
     Entity goal;
     goal.goalOf = 1, goal.pathSpeed = 1, goal.path = {{1, 0, 0}, {1, 1, 0}, {0, 1, 1}}, goal.pathTurns = {{0, 90, 0}, {45, 90, 30}, {90, 0, 90}};
     auto walk = [&goal](bool smooth, double& corner, double& speedOff, double& rateJump, double& near, double& turnOff) {

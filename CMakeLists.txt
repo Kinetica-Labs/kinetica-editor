@@ -85,6 +85,7 @@ if(NOT KE_CORE_LIBS STREQUAL "Threads::Threads;box3d::box3d")
 endif()
 if(MSVC)
   target_compile_options(kecore PRIVATE /W4 /wd4100 /utf-8)
+  target_compile_definitions(kecore PUBLIC _CRT_SECURE_NO_WARNINGS) # std::getenv and std::fopen are standard C++, not "unsafe"
 else()
   target_compile_options(kecore PRIVATE -Wall -Wextra -Wno-unused-parameter)
   # ke::sin and the others give the same bits in every build: Dekker's exact product inside breaks
