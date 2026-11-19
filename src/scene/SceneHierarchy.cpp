@@ -76,6 +76,7 @@ const SceneObject* findObject(const SceneGraph& g, uint32_t id) {
     if (const SceneObject* o = findIn(g.lights, id)) return o;
     if (const SceneObject* o = findIn(g.cameras, id)) return o;
     if (const SceneObject* o = findIn(g.sensors, id)) return o;
+    if (const SceneObject* o = findIn(g.sequences, id)) return o;
     return findIn(g.wheels, id);
 }
 
@@ -263,6 +264,7 @@ uint32_t nextId(const SceneGraph& g) {
     for (const SensorObject& s : g.sensors) next = std::max(next, s.id + 1);
     for (const WheelObject& w : g.wheels) next = std::max(next, w.id + 1);
     for (const ControllerObject& c : g.controllers) next = std::max(next, c.id + 1);
+    for (const SequenceObject& q : g.sequences) next = std::max(next, q.id + 1);
     return next;
 }
 

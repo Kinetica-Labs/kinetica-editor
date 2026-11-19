@@ -5,6 +5,8 @@
 #include "core/Probe.h"
 #include "physics/HullPoints.h"
 #include "scene/Assembly.h"
+#include "scene/Animation.h"
+#include "scene/SceneActions.h"
 #include "scene/Kinematics.h"
 #include "sim/LiveSensors.h"
 
@@ -12,6 +14,7 @@
 #include <filesystem>
 #include <functional>
 #include <unordered_map>
+#include <unordered_set>
 #include <limits>
 #include <cmath>
 
@@ -122,7 +125,13 @@ void describeLights(const SceneGraph& g, Frame& out) {
     }
 }
 
-RobotWorld::RobotWorld(SceneGraph graph) : graph_(std::move(graph)), live_(graph_) {}
+// The scene starts as its active sequence has it at 0 s: an animated body begins where its track does, not with a jump.
+static SceneGraph atSequenceStart(SceneGraph g) {
+    if (SequenceObject* q = findSequence(g, 0)) seekSequence(g, *q, 0);
+    return g;
+}
+
+RobotWorld::RobotWorld(SceneGraph graph) : graph_(atSequenceStart(std::move(graph))), live_(graph_) {}
 
 std::shared_ptr<const TriMesh> RobotWorld::meshOf(const Entity& e) const {
     const std::string key = entityGeometryKey(e, graph_.baseDirectory);
@@ -145,11 +154,14 @@ void RobotWorld::build(PhysicsWorld& physics) {
     flat_ = worldEntities(graph_);
     robotOf_ = robotGroups(graph_);
     const std::unordered_map<uint32_t, int>& groups = robotOf_;
+    const std::unordered_set<uint32_t> animated = animatedEntities(graph_);
+    posed_ = graph_;
     const PhysicsSettings& p = graph_.world.physics;
     for (const Entity& e : flat_) {
         if (!e.visible || entityIsGeometryOnly(e)) continue;
         BodyDesc d;
-        d.type = e.rigid.enabled && !e.rigid.fixed ? BodyDesc::Type::Dynamic : BodyDesc::Type::Static;
+        d.type = animated.count(e.id) ? BodyDesc::Type::Kinematic // the sequence's: led along its track, it pushes what it meets
+               : e.rigid.enabled && !e.rigid.fixed ? BodyDesc::Type::Dynamic : BodyDesc::Type::Static;
         d.position = e.position, d.rotation = entityRotation(e);
         d.velocity = e.rigid.velocity, d.angularVelocity = e.rigid.angularVelocity;
         d.density = e.rigid.density;
@@ -162,6 +174,7 @@ void RobotWorld::build(PhysicsWorld& physics) {
             continue;
         }
         bodyOfEntity_[e.id] = b;
+        if (animated.count(e.id)) animated_.push_back({e.id, b});
         if (entityOfBody_.size() <= size_t(b)) entityOfBody_.resize(size_t(b) + 1, 0);
         entityOfBody_[size_t(b)] = e.id;
     }
@@ -419,6 +432,36 @@ void RobotWorld::leadGoals(PhysicsWorld& physics, Real dt) {
     }
 }
 
+// The entities the active sequence moves: those it binds or inside a group it binds - not a robot's link a joint drives
+// (it rides on its animated base).
+std::unordered_set<uint32_t> RobotWorld::animatedEntities(const SceneGraph& g) {
+    std::unordered_set<uint32_t> out, driven;
+    const SequenceObject* q = activeSequence(g);
+    if (!q || q->tracks.empty()) return out;
+    for (const JointObject& j : g.joints) driven.insert(j.a);
+    for (const Entity& e : g.entities) {
+        if (driven.count(e.id)) continue;
+        for (const uint32_t id : ancestry(g, e.id))
+            if (trackOf(*q, id)) out.insert(e.id);
+    }
+    return out;
+}
+
+// Every animated body led over the next h to where the active sequence has it at `time` (posed_: the graph there).
+void RobotWorld::leadAnimation(PhysicsWorld& physics, Real time, Real h) {
+    SequenceObject* sequence = findSequence(posed_, 0);
+    if (!sequence) return;
+    seekSequence(posed_, *sequence, time);
+    for (const auto& [id, body] : animated_) {
+        const SceneObject* o = findObject(posed_, id);
+        Vector3 p;
+        Quaternion q;
+        if (!o) continue;
+        worldPose(posed_, *o, p, q);
+        physics.moveKinematic(body, p, q, h);
+    }
+}
+
 void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     leadGoals(physics, dt);
     physics.moveHand(grabJoint_, grabTarget_, dt);
@@ -428,6 +471,7 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
             Probe::Timer timer("physics/drives ms");
             for (const LiveJoint& j : joints_) drive(physics, j, dt / Real(n));
             carryGrab(physics);
+            if (!animated_.empty()) leadAnimation(physics, Real(double(clockNs_) * 1e-9) + dt / Real(n), dt / Real(n)); // the clock moves on per substep
         }
         {
             Probe::Timer timer("physics/engine ms");
@@ -441,11 +485,13 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
 }
 
 void RobotWorld::readPoses(const PhysicsWorld& physics) {
+    if (SequenceObject* q = findSequence(live_, 0)) seekSequence(live_, *q, Real(double(clockNs_) * 1e-9)); // lights, cameras, shapes it moves
     for (Entity& e : live_.entities) {
         const int b = bodyOf(e.id);
         if (b < 0 || !physics.alive(b)) continue;
         const BodyState s = physics.state(b);
-        if (s.mass <= 0) continue; // static: where it was put
+        const bool led = std::any_of(animated_.begin(), animated_.end(), [&](const auto& a) { return a.second == b; });
+        if (s.mass <= 0 && !led) continue; // static: where it was put
         setWorldPose(live_, e, s.position, s.rotation);
     }
 }

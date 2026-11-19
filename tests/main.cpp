@@ -72,6 +72,7 @@ int main() {
     run("world: a mesh's own collider takes its extremes along 120 directions, not its every point", testSimMeshColliderThinned);
     run("world: assembly_goal_pose puts the UR5e's goal at a pose at once - the arm gets there and settles", testSimGoalPoseSettles);
     run("world: the sensors read the physics through their probes and datasheets - 1 g at rest, none falling, a weight, a wall, a turn past pi", testSimSensors);
+    run("sim: the active sequence - a kinematic pusher on its track pushes a box ahead of it", testSimSequence);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);
@@ -83,7 +84,7 @@ int main() {
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
-    run("scene: the Sequencer's clip - poses between keys, held, looped; keys, the file, the playhead", testAnimationClip);
+    run("scene: the Sequencer - a sequence's poses between keys, held, looped; keys, the file, the playhead, a lost track", testSequence);
     run("assembly: six-freedom joints in the scene file come back to the bit", testSceneJointsRoundTrip);
     run("assembly: a shape snapped to each face of a turned box touches it exactly", testSnapToFace);
     run("assembly: the core edits put, get, set, remove and their inverses", testSceneEditsCore);

@@ -18,6 +18,7 @@
 #include <memory>
 #include <string>
 #include <unordered_map>
+#include <unordered_set>
 #include <vector>
 
 namespace ke {
@@ -114,6 +115,8 @@ private:
     void drive(PhysicsWorld& physics, const LiveJoint& j, Real h) const; // h: the substep
     void readPoses(const PhysicsWorld& physics);
     void leadGoals(PhysicsWorld& physics, Real dt);
+    static std::unordered_set<uint32_t> animatedEntities(const SceneGraph& g);
+    void leadAnimation(PhysicsWorld& physics, Real time, Real h);
     std::shared_ptr<const TriMesh> meshOf(const Entity& e) const;
 
     SceneGraph graph_, live_;
@@ -122,6 +125,8 @@ private:
     std::vector<uint32_t> entityOfBody_;             // body -> entity id (0: none)
     std::vector<LiveJoint> joints_;
     std::vector<std::unique_ptr<LiveSensor>> sensors_;
+    SceneGraph posed_;                                 // the graph at the clip's time (Animation.h)
+    std::vector<std::pair<uint32_t, int>> animated_;   // the clip's entities and their kinematic bodies
     int64_t clockNs_ = 0;
     std::unordered_map<uint32_t, int> robotOf_;      // entities tied by joints - robots' links - and their robot (robotGroups)
     std::unordered_map<uint32_t, std::pair<Vector3, Quaternion>> carried_; // goal id -> the pose its effector is led to now

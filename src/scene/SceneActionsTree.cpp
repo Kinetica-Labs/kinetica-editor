@@ -3,7 +3,6 @@
 // live without it: the joints that lose a link, the sensors on a body or a joint. World poses are kept
 // whenever an object changes parent, as Unity's SetParent(worldPositionStays = true) and Blender's
 // "Keep Transform" do.
-#include "scene/Animation.h"
 #include "scene/SceneActions.h"
 
 #include "scene/Assembly.h"
@@ -122,7 +121,7 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids) {
     eraseDead(g.batteries, named), eraseDead(g.drivers, named), eraseDead(g.controllers, named);
     eraseDead(g.entities, dead), eraseDead(g.groups, dead), eraseDead(g.arrays, dead), eraseDead(g.lights, dead), eraseDead(g.cameras, dead);
     eraseDead(g.wheels, dead);
-    if (!dead.empty()) removeTracks(g, std::vector<uint32_t>(dead.begin(), dead.end())); // an object gone takes its animation
+    eraseDead(g.sequences, named); // a sequence named; an object gone leaves its track lost (skipped), as Unreal's broken binding
 }
 
 std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots) {

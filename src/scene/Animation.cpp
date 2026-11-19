@@ -1,4 +1,4 @@
-// The scene's animation (Animation.h): sampling, applying, keying.
+// The Sequencer's work on a sequence (Animation.h): sampling, playing, keying.
 #include "scene/Animation.h"
 
 #include <algorithm>
@@ -8,26 +8,27 @@ namespace ke {
 
 namespace {
 
-// The turn of Euler degrees as an object's: R = Ry Rx Rz (SceneGraph.h, objectRotation).
-Quaternion turnOf(const Vector3& d) {
-    const Real k = kPi / 180;
-    return (Quaternion::fromAxisAngle({0, 1, 0}, d.y * k) * Quaternion::fromAxisAngle({1, 0, 0}, d.x * k) *
-            Quaternion::fromAxisAngle({0, 0, 1}, d.z * k)).normalized();
-}
+// The turn of Euler degrees as an object's: R = Ry Rx Rz (SceneHierarchy.cpp, objectRotation).
+Quaternion turnOf(const Vector3& d) { SceneObject o; o.rotationDeg = d; return objectRotation(o).normalized(); }
 
 const Real kSameTime = 1e-6_r; // keys closer than a microsecond are one
 
+template <class T> SceneObject* in(std::vector<T>& objects, uint32_t id) {
+    for (T& o : objects)
+        if (o.id == id) return &o;
+    return nullptr;
+}
+
 } // namespace
 
-Real Animation::length() const {
+Real SequenceObject::length() const {
     Real last = 0;
-    for (const AnimTrack& t : tracks)
+    for (const SequenceTrack& t : tracks)
         if (!t.keys.empty()) last = std::max(last, t.keys.back().time);
     return last;
 }
 
-bool samplePose(const AnimTrack& track, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation) {
-    const std::vector<AnimKey>& k = track.keys;
+bool samplePose(const std::vector<AnimKey>& k, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation) {
     if (k.empty()) return false;
     if (loop && length > 0) time = time - length * std::floor(time / length);
     if (time <= k.front().time || k.size() == 1) return position = k.front().position, rotation = turnOf(k.front().rotationDeg), true;
@@ -40,30 +41,45 @@ bool samplePose(const AnimTrack& track, Real time, bool loop, Real length, Vecto
     return true;
 }
 
-const AnimTrack* trackOf(const SceneGraph& g, uint32_t object) {
-    for (const AnimTrack& t : g.animation.tracks)
+SceneObject* posedObject(SceneGraph& g, uint32_t id) {
+    if (id == 0) return nullptr;
+    for (SceneObject* o : {in(g.entities, id), in(g.groups, id), in(g.arrays, id), in(g.lights, id), in(g.cameras, id)})
+        if (o) return o;
+    return nullptr;
+}
+
+SequenceObject* findSequence(SceneGraph& g, uint32_t id) {
+    for (SequenceObject& q : g.sequences)
+        if (id ? q.id == id : q.active) return &q;
+    return nullptr;
+}
+
+const SequenceObject* activeSequence(const SceneGraph& g) { return findSequence(const_cast<SceneGraph&>(g), 0); }
+
+const SequenceTrack* trackOf(const SequenceObject& q, uint32_t object) {
+    for (const SequenceTrack& t : q.tracks)
         if (t.object == object) return &t;
     return nullptr;
 }
 
-void applyAnimation(SceneGraph& g, Real time) {
-    g.animation.time = time;
-    const Real length = g.animation.length();
-    for (const AnimTrack& t : g.animation.tracks) {
-        SceneObject* o = const_cast<SceneObject*>(findObject(g, t.object)); // the graph is ours to change
+void seekSequence(SceneGraph& g, SequenceObject& q, Real time) {
+    q.time = time;
+    const Real length = q.length();
+    for (const SequenceTrack& t : q.tracks) {
+        SceneObject* o = posedObject(g, t.object);
         Vector3 p;
-        Quaternion q;
-        if (!o || !samplePose(t, time, g.animation.loop, length, p, q)) continue;
+        Quaternion r;
+        if (!o || !samplePose(t.keys, time, q.loop, length, p, r)) continue;
         o->position = p;
-        o->rotationDeg = eulerDegrees(q);
+        o->rotationDeg = eulerDegrees(r);
     }
 }
 
-bool keyObject(SceneGraph& g, uint32_t object, Real time) {
-    const SceneObject* o = findObject(g, object);
+bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real time) {
+    const SceneObject* o = posedObject(const_cast<SceneGraph&>(g), object);
     if (!o) return false;
-    auto t = std::find_if(g.animation.tracks.begin(), g.animation.tracks.end(), [&](const AnimTrack& x) { return x.object == object; });
-    if (t == g.animation.tracks.end()) g.animation.tracks.push_back({object, {}}), t = g.animation.tracks.end() - 1;
+    auto t = std::find_if(q.tracks.begin(), q.tracks.end(), [&](const SequenceTrack& x) { return x.object == object; });
+    if (t == q.tracks.end()) q.tracks.push_back({object, {}}), t = q.tracks.end() - 1;
     const AnimKey key{time, o->position, o->rotationDeg};
     auto at = std::lower_bound(t->keys.begin(), t->keys.end(), time - kSameTime, [](const AnimKey& x, Real s) { return x.time < s; });
     if (at != t->keys.end() && std::fabs(at->time - time) <= kSameTime) *at = key;
@@ -71,23 +87,26 @@ bool keyObject(SceneGraph& g, uint32_t object, Real time) {
     return true;
 }
 
-bool removeKey(SceneGraph& g, uint32_t object, Real time) {
-    for (AnimTrack& t : g.animation.tracks) {
+bool removeKey(SequenceObject& q, uint32_t object, Real time) {
+    for (SequenceTrack& t : q.tracks) {
         if (t.object != object) continue;
         const auto at = std::find_if(t.keys.begin(), t.keys.end(), [&](const AnimKey& k) { return std::fabs(k.time - time) <= kSameTime; });
         if (at == t.keys.end()) return false;
         t.keys.erase(at);
-        if (t.keys.empty()) removeTracks(g, {object});
+        if (t.keys.empty()) removeTracks(q, {object});
         return true;
     }
     return false;
 }
 
-void removeTracks(SceneGraph& g, const std::vector<uint32_t>& objects) {
-    std::vector<AnimTrack>& tracks = g.animation.tracks;
-    tracks.erase(std::remove_if(tracks.begin(), tracks.end(), [&](const AnimTrack& t) {
+void removeTracks(SequenceObject& q, const std::vector<uint32_t>& objects) {
+    q.tracks.erase(std::remove_if(q.tracks.begin(), q.tracks.end(), [&](const SequenceTrack& t) {
         return objects.empty() || std::find(objects.begin(), objects.end(), t.object) != objects.end();
-    }), tracks.end());
+    }), q.tracks.end());
+}
+
+void makeActive(SceneGraph& g, uint32_t sequence) {
+    for (SequenceObject& q : g.sequences) q.active = q.id == sequence;
 }
 
 } // namespace ke

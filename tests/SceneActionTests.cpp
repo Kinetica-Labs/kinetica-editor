@@ -205,19 +205,29 @@ void testTargetCamera() {
     CHECK(made && noCamera && noObject, "scene_add_camera kind target, or camera_aim's refusals: %s", error.c_str());
 }
 
-// The Sequencer's clip (scene/Animation.h). A cube keyed at 0 s at the origin, unturned, and at 2 s 1 m along x turned
-// 90 degrees about y: at 1 s it is half way, 0.5 m, turned exactly 45 degrees; before 0 s and after 2 s it holds; looped,
-// 3 s is 1 s. A key at the same time replaces; the clip comes back from the file to the bit; the playhead (anim_seek)
-// puts the cube where the clip has it; deleting the cube takes its track; anim_key refuses an object not there.
-void testAnimationClip() {
+// The Sequencer (scene/Animation.h): a sequence - an object of the scene holding an animation of others. A cube keyed at
+// 0 s at the origin, unturned, and at 2 s 1 m along x turned 90 degrees about y: at 1 s it is half way, 0.5 m, turned
+// exactly 45 degrees; before 0 s and after 2 s it holds; looped, 3 s is 1 s. The keys are the sequence's, the cube holds
+// none. A key at the same time replaces; the scene comes back from the file to the bit; the playhead (sequence_seek)
+// puts the cube where the sequence has it; sequence_key with no sequence makes one, active; the cube deleted leaves its
+// track lost and the sequence whole; sequence_key refuses an object not there.
+void testSequence() {
     SceneGraph g;
+    std::string error;
+    Value answer = Value::map();
     const uint32_t cube = addShape(g, ShapeKind::Box);
     const auto entity = [&]() -> Entity& { return *std::find_if(g.entities.begin(), g.entities.end(), [&](const Entity& e) { return e.id == cube; }); };
+    const auto run = [&](const char* op, Value args) { answer = Value::map(); return findSceneOp(op)->edit(g, args, answer, error); };
+    const auto key = [&](Real time) {
+        Value a = Value::map(), ids = Value::list();
+        ids.push(int(cube)), a.set("ids", ids), a.set("time", double(time));
+        return run("sequence_key", a);
+    };
     entity().position = Vector3(0.0_r), entity().rotationDeg = Vector3(0.0_r);
-    keyObject(g, cube, 0);
+    const bool made = key(0) && g.sequences.size() == 1 && g.sequences[0].active && answer["sequence"].integer() == int(g.sequences[0].id);
     entity().position = Vector3(1, 0, 0), entity().rotationDeg = Vector3(0, 90, 0);
-    keyObject(g, cube, 2);
-    const AnimTrack& t = *trackOf(g, cube);
+    key(2);
+    const std::vector<AnimKey>& t = trackOf(g.sequences[0], cube)->keys;
     Vector3 p;
     Quaternion q;
     samplePose(t, 1, false, 2, p, q);
@@ -230,24 +240,26 @@ void testAnimationClip() {
     samplePose(t, 3, true, 2, p, q);
     const bool looped = std::fabs(p.x - 0.5_r) < 1e-6_r;
     entity().position = Vector3(2, 0, 0);
-    keyObject(g, cube, 2); // the same time: replaced, not a second key
-    const bool replaced = trackOf(g, cube)->keys.size() == 2 && trackOf(g, cube)->keys.back().position.x == 2;
+    key(2); // the same time: replaced, not a second key
+    const bool replaced = trackOf(g.sequences[0], cube)->keys.size() == 2 && trackOf(g.sequences[0], cube)->keys.back().position.x == 2;
     SceneGraph back;
-    std::string error;
     const std::string text = g.save();
-    const bool file = back.load(text, error) && back.save() == text && back.animation.tracks.size() == 1 && back.animation.tracks[0].keys.size() == 2;
-    Value seek = Value::map(), answer = Value::map();
+    const bool file = back.load(text, error) && back.save() == text && back.sequences.size() == 1 && back.sequences[0].tracks[0].keys.size() == 2;
+    Value seek = Value::map();
     seek.set("time", 1.0);
-    const bool seeked = findSceneOp("anim_seek")->edit(g, seek, answer, error) && std::fabs(entity().position.x - 1) < 1e-6_r && g.animation.time == 1;
-    Value key = Value::map();
-    key.set("id", 999);
-    const bool refused = !findSceneOp("anim_key")->edit(g, key, answer, error) && error.find("999") != std::string::npos;
+    const bool seeked = run("sequence_seek", seek) && std::fabs(entity().position.x - 1) < 1e-6_r && g.sequences[0].time == 1;
+    Value stranger = Value::map(), ids = Value::list();
+    ids.push(999), stranger.set("ids", ids);
+    const bool refused = !run("sequence_key", stranger) && error.find("999") != std::string::npos;
+    error.clear();
     deleteObjects(g, {cube});
-    const bool gone = g.animation.tracks.empty();
-    std::printf("  a cube keyed at 0 s and 2 s (1 m, 90 deg): at 1 s %.4f m turned %.4f deg; held before %s and after %s; looped %s; a key replaced %s; "
-                "the file to the bit %s; anim_seek %s; refused %s; deleted, its track gone %s\n", double(p.x), double(angle), before ? "yes" : "no",
-                after ? "yes" : "no", looped ? "yes" : "no", replaced ? "yes" : "no", file ? "yes" : "no", seeked ? "yes" : "no", refused ? "yes" : "no",
-                gone ? "yes" : "no");
-    CHECK(middle && before && after && looped, "the clip's poses between, before, after and looped");
-    CHECK(replaced && file && seeked && refused && gone, "keys, the file, the playhead, the refusal, the track of a deleted object: %s", error.c_str());
+    Value read = Value::map();
+    findSceneOp("sequence_get")->query(g, Value::map(), read, error);
+    const bool lost = g.sequences.size() == 1 && read["sequences"].items()[0]["tracks"].items()[0]["lost"].truth(false);
+    std::printf("  a cube keyed at 0 s and 2 s (1 m, 90 deg): at 1 s %.4f m turned %.4f deg; held before %s and after %s; looped %s; a sequence "
+                "made by the first key %s; a key replaced %s; the file to the bit %s; sequence_seek %s; refused %s; the cube deleted, its track "
+                "lost %s\n", double(p.x), double(angle), before ? "yes" : "no", after ? "yes" : "no", looped ? "yes" : "no", made ? "yes" : "no",
+                replaced ? "yes" : "no", file ? "yes" : "no", seeked ? "yes" : "no", refused ? "yes" : "no", lost ? "yes" : "no");
+    CHECK(middle && before && after && looped, "the sequence's poses between, before, after and looped");
+    CHECK(made && replaced && file && seeked && refused && lost, "keys, the file, the playhead, the refusal, a lost track: %s", error.c_str());
 }

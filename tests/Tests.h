@@ -52,6 +52,7 @@ void testSimTugUr5e();
 void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
 void testSimSensors();
+void testSimSequence();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testScenePhysicsLine();
@@ -67,7 +68,7 @@ void testActionsDeleteAndDuplicate();
 void testActionsTransforms();
 void testSceneOpsRegistry();
 void testTargetCamera();
-void testAnimationClip();
+void testSequence();
 // AssemblyTests.cpp
 void testSceneJointsRoundTrip();
 void testSnapToFace();

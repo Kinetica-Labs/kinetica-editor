@@ -9,6 +9,7 @@
 #include "TestRunner.h"
 
 #include "physics/HullPoints.h"
+#include "scene/Animation.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
 #include "scene/SceneOps.h"
@@ -502,4 +503,31 @@ void testSimSensors() {
                 double(length(load.a)), double(armWeight), double(drive.value), double(armWeight * 0.2_r * std::cos(x)));
     CHECK(std::fabs(length(load.a) / armWeight - 1) < 0.02_r, "the wrench reads %f N, not the arm's weight %f", double(length(load.a)), double(armWeight));
     CHECK(std::fabs(drive.value / (armWeight * 0.2_r * std::cos(x)) - 1) < 0.02_r, "the effort reads %f N m", double(drive.value));
+}
+
+// The active sequence in the running world: a pusher it moves from x 0 to 2 m in 2 s, a free box in its way at 0.6 m.
+// The pusher is a kinematic body led along its track: at 1 s it stands at 1 m, at 2 s at 2 m and stays there (held);
+// the box it meets is pushed ahead of it, past 2 m - the animation moves the world, it is not a ghost.
+void testSimSequence() {
+    SceneGraph g;
+    g.world.physics.sleeping = false;
+    g.entities.push_back(solid(1, "Толкатель", {0.2_r, 0.2_r, 0.4_r}, {0, 0.1_r, 0}, false));
+    g.entities.push_back(solid(2, "Ящик", Vector3(0.2_r), {0.6_r, 0.1_r, 0}, false));
+    SequenceObject q;
+    q.id = 10, q.name = "Толчок", q.active = true;
+    q.tracks.push_back({1, {{0, {0, 0.1_r, 0}, Vector3(0.0_r)}, {2, {2, 0.1_r, 0}, Vector3(0.0_r)}}});
+    g.sequences.push_back(q);
+    Simulation s;
+    s.load(g);
+    const auto x = [&s](uint32_t id) { return s.physics()->state(s.robot()->bodyOf(id)).position.x; };
+    while (s.time() < 1 - 1e-6_r) s.stepFrame();
+    const Real half = x(1);
+    while (s.time() < 2 - 1e-6_r) s.stepFrame();
+    const Real end = x(1);
+    while (s.time() < 2.5_r - 1e-6_r) s.stepFrame();
+    const Real held = x(1), box = x(2);
+    std::printf("  a pusher on the active sequence (0 -> 2 m in 2 s): at 1 s %.4f m, at 2 s %.4f m, at 2.5 s %.4f m; the box from 0.6 m pushed to %.4f m\n",
+                double(half), double(end), double(held), double(box));
+    CHECK(std::fabs(half - 1) < 1e-3_r && std::fabs(end - 2) < 1e-3_r && std::fabs(held - 2) < 1e-3_r, "the pusher off its track");
+    CHECK(box > 2.15_r, "the box in the pusher's way was not pushed ahead of it: %f m", double(box));
 }

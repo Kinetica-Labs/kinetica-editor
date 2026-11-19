@@ -346,24 +346,27 @@ struct WorldSettings {
     PhysicsSettings physics;
 };
 
-// The scene's animation - the Sequencer's (scene/Animation.h): tracks of objects (a group, a robot's root, a body, a
-// camera, a light), each a list of keys, the object's pose on its parent at a time. Between two keys the place goes in
-// a line and the turn the shortest way (slerp); before the first key and after the last the pose holds, or the clip
-// loops over its length (the last key's time). The clip's poses are the objects' while it plays: the editor scrubs
-// them, the running world moves an animated body as a kinematic one that pushes what it meets.
+// A sequence - the Sequencer's, a simple Unreal Level Sequence (scene/Animation.h): an object of the scene that holds an
+// animation of others, never written into them. Its tracks bind objects by id (a group, a robot's root, a body, a camera,
+// a light), each a list of keys - the object's pose on its parent at a time. Between two keys the place goes in a line
+// and the turn the shortest way (slerp); before the first and after the last the pose holds, or the sequence loops over
+// its length. A scene holds as many as it likes - scenarios, recorded runs - and plays the active one: the editor scrubs
+// it, the running world moves its bodies as kinematic ones that push what they meet. An object deleted leaves its track
+// lost, skipped (Unreal's broken binding).
 struct AnimKey {
     Real time = 0;              // s
-    Vector3 position{0.0_r};    // on its parent, as SceneObject::position
+    Vector3 position{0.0_r};    // as SceneObject::position
     Vector3 rotationDeg{0.0_r}; // as SceneObject::rotationDeg
 };
-struct AnimTrack {
-    uint32_t object = 0;
+struct SequenceTrack {
+    uint32_t object = 0;        // the bound object
     std::vector<AnimKey> keys;  // by time, one a time
 };
-struct Animation {
-    std::vector<AnimTrack> tracks;
-    Real time = 0;              // the playhead
+struct SequenceObject : SceneObject {
+    std::vector<SequenceTrack> tracks;
+    Real time = 0;              // the playhead, s
     bool loop = false;
+    bool active = false;        // the one the scene plays (one at most)
     Real length() const;        // the last key's time of any track (0: none)
 };
 
@@ -380,7 +383,7 @@ struct SceneGraph {
     std::vector<SensorObject> sensors;
     std::vector<WheelObject> wheels;
     std::vector<ControllerObject> controllers;
-    Animation animation;
+    std::vector<SequenceObject> sequences;
     // Not saved: the folder relative mesh files are found in (the scene file's own folder). load()
     // keeps it as it was.
     std::string baseDirectory;

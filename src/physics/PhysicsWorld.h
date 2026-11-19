@@ -118,6 +118,9 @@ public:
     virtual void applyForce(int body, const Vector3& force, const Vector3& point) = 0; // world, at a world point
     virtual void applyTorque(int body, const Vector3& torque) = 0;
     virtual void applyImpulse(int body, const Vector3& impulse, const Vector3& point) = 0;
+    // A kinematic body led to this pose (its frame) over the next dt seconds: the engine gives it the velocities that
+    // take it there, so it pushes what it meets (an animated conveyor, a door, an obstacle).
+    virtual void moveKinematic(int body, const Vector3& position, const Quaternion& rotation, Real dt) = 0;
 
     virtual int addJoint(const JointDesc& joint, std::string& error) = 0;
     virtual void removeJoint(int joint) = 0;

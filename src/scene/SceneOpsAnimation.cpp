@@ -1,6 +1,9 @@
-// The Sequencer's operations (SceneOps.h, the work in Animation.h): a key of objects where they stand, a key removed, a
-// track cleared, the playhead put at a time - the animated objects to their poses there -, the clip's loop, and the
-// whole clip read back. Each change is one undo step of the client and a line of its journal.
+// The Sequencer's operations (SceneOps.h, the work in Animation.h). A sequence is an object of the scene holding an
+// animation of others (SceneGraph.h, SequenceObject): sequence_add makes one, sequence_key keys objects in it where they
+// stand (no sequence yet: one is made), sequence_delete_key and sequence_clear remove keys and tracks, sequence_seek puts
+// its playhead at a time - the objects it binds to their poses there -, sequence_set names it, loops it, makes it the
+// one that plays, sequence_get reads them back. `sequence` absent: the active one. Each change is one undo step of the
+// client and a line of its journal; a sequence is deleted as any object (scene_delete).
 #include "scene/SceneOps.h"
 
 #include "scene/Animation.h"
@@ -11,8 +14,8 @@ namespace ke {
 
 namespace {
 
-bool timeArg(const Value& a, const SceneGraph& g, Real& t, std::string& e) {
-    const double x = a["time"].number(double(g.animation.time));
+bool timeArg(const Value& a, Real otherwise, Real& t, std::string& e) {
+    const double x = a["time"].number(double(otherwise));
     if (!std::isfinite(x) || x < 0 || x > 86400) return e = "time is seconds 0..86400", false;
     return t = Real(x), true;
 }
@@ -23,61 +26,104 @@ std::vector<uint32_t> objectsArg(const Value& a) {
     return ids;
 }
 
+SequenceObject& addSequence(SceneGraph& g, const std::string& name) {
+    SequenceObject q;
+    q.id = nextId(g);
+    q.name = name.empty() ? "Секвенция " + std::to_string(g.sequences.size() + 1) : name;
+    q.active = !activeSequence(g);
+    g.sequences.push_back(q);
+    return g.sequences.back();
+}
+
+SequenceObject* sequenceArg(SceneGraph& g, const Value& a, std::string& e) {
+    const uint32_t id = uint32_t(a["sequence"].integer());
+    if (SequenceObject* q = findSequence(g, id)) return q;
+    return e = id ? "no sequence " + std::to_string(id) : "no active sequence (sequence_add)", nullptr;
+}
+
 Value vec3(const Vector3& v) {
     Value out = Value::list();
     out.push(double(v.x)), out.push(double(v.y)), out.push(double(v.z));
     return out;
 }
 
+Value describe(const SceneGraph& g, const SequenceObject& q) {
+    Value s = Value::map(), tracks = Value::list();
+    for (const SequenceTrack& t : q.tracks) {
+        Value track = Value::map(), keys = Value::list();
+        for (const AnimKey& k : t.keys) {
+            Value key = Value::map();
+            key.set("time", double(k.time)), key.set("position", vec3(k.position)), key.set("rotation", vec3(k.rotationDeg));
+            keys.push(key);
+        }
+        const SceneObject* o = findObject(g, t.object);
+        track.set("object", int(t.object)), track.set("name", o ? o->name : std::string()), track.set("lost", !o), track.set("keys", keys);
+        tracks.push(track);
+    }
+    s.set("id", int(q.id)), s.set("name", q.name), s.set("active", q.active), s.set("time", double(q.time));
+    s.set("length", double(q.length())), s.set("loop", q.loop), s.set("tracks", tracks);
+    return s;
+}
+
 } // namespace
 
 std::vector<SceneOp> animationSceneOps() {
     std::vector<SceneOp> ops;
-    ops.push_back({"anim_key", "A key of each object at `time` (the playhead when none) where it stands now - its place and turn on its parent "
-                               "(one at the same time replaced): the Sequencer's K", "{id?: int, ids?: [int], time?: s}", {},
-                   [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
-        Real t;
-        if (!timeArg(a, g, t, e)) return false;
+    ops.push_back({"sequence_add", "A sequence: an animation of objects of the scene, kept apart from them (the first one made is the active one)",
+                   "{name?: str}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string&) {
+        return r.set("id", int(addSequence(g, a["name"].text("")).id)), true;
+    }});
+    ops.push_back({"sequence_key", "A key of each object at `time` (the sequence's playhead when none) where it stands now - its place and turn on "
+                                   "its parent (one at the same time replaced); no sequence yet: one is made. The Sequencer's K",
+                   "{ids: [int], time?: s, sequence?: int}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         const std::vector<uint32_t> ids = objectsArg(a);
-        if (ids.empty()) return e = "id or ids: the objects to key", false;
+        if (ids.empty()) return e = "ids: the objects to key", false;
+        SequenceObject* q = !a.has("sequence") && g.sequences.empty() ? &addSequence(g, "") : sequenceArg(g, a, e);
+        Real t;
+        if (!q || !timeArg(a, q->time, t, e)) return false;
         for (uint32_t id : ids)
-            if (!keyObject(g, id, t)) return e = "no object " + std::to_string(id), false;
-        return r.set("time", double(t)), r.set("length", double(g.animation.length())), true;
-    }});
-    ops.push_back({"anim_delete_key", "The object's key at `time` removed (its last: its track goes)", "{id: int, time: s}", {},
+            if (!keyObject(g, *q, id, t)) return e = "object " + std::to_string(id) + ": nothing a sequence can move", false;
+        return r.set("sequence", int(q->id)), r.set("time", double(t)), r.set("length", double(q->length())), true;
+    }, true});
+    ops.push_back({"sequence_delete_key", "The object's key at `time` removed (its last: its track goes)", "{id: int, time: s, sequence?: int}", {},
                    [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+        SequenceObject* q = sequenceArg(g, a, e);
         Real t;
-        if (!timeArg(a, g, t, e)) return false;
-        return removeKey(g, uint32_t(a["id"].integer()), t) || (e = "no key of " + std::to_string(a["id"].integer()) + " at that time", false);
+        if (!q || !a.has("time") || !timeArg(a, 0, t, e)) return e.empty() ? (e = "time: the key's, s", false) : false;
+        return removeKey(*q, uint32_t(a["id"].integer()), t) || (e = "no key of " + std::to_string(a["id"].integer()) + " at that time", false);
     }});
-    ops.push_back({"anim_clear", "The objects' tracks removed (none named: the whole clip)", "{id?: int, ids?: [int]}", {},
-                   [](SceneGraph& g, const Value& a, Value&, std::string&) { return removeTracks(g, objectsArg(a)), true; }});
-    ops.push_back({"anim_seek", "The playhead at `time`: every animated object to its pose there (in a line between keys, the shortest turn)",
-                   "{time: s}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    ops.push_back({"sequence_clear", "The objects' tracks removed from the sequence (none named: all of them)", "{ids?: [int], sequence?: int}", {},
+                   [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+        SequenceObject* q = sequenceArg(g, a, e);
+        return q && (removeTracks(*q, objectsArg(a)), true);
+    }});
+    ops.push_back({"sequence_seek", "The sequence's playhead at `time`: every object it binds to its pose there (in a line between keys, the "
+                                    "shortest turn)", "{time: s, sequence?: int}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
+        SequenceObject* q = sequenceArg(g, a, e);
         Real t;
+        if (!q) return false;
         if (!a.has("time")) return e = "time: where the playhead goes, s", false;
-        if (!timeArg(a, g, t, e)) return false;
-        applyAnimation(g, t);
+        if (!timeArg(a, 0, t, e)) return false;
+        seekSequence(g, *q, t);
         return r.set("time", double(t)), true;
     }});
-    ops.push_back({"anim_set", "The clip's loop: past its last key it starts over", "{loop: bool}", {},
-                   [](SceneGraph& g, const Value& a, Value&, std::string&) { return g.animation.loop = a["loop"].truth(g.animation.loop), true; }});
-    ops.push_back({"anim_get", "The clip: the playhead, its length, the loop, and each track's object and keys (time s, position m and rotation "
-                               "degrees on the object's parent)", "{}", [](const SceneGraph& g, const Value&, Value& r, std::string&) {
-        Value tracks = Value::list();
-        for (const AnimTrack& t : g.animation.tracks) {
-            Value track = Value::map(), keys = Value::list();
-            for (const AnimKey& k : t.keys) {
-                Value key = Value::map();
-                key.set("time", double(k.time)), key.set("position", vec3(k.position)), key.set("rotation", vec3(k.rotationDeg));
-                keys.push(key);
-            }
-            const SceneObject* o = findObject(g, t.object);
-            track.set("object", int(t.object)), track.set("name", o ? o->name : std::string()), track.set("keys", keys);
-            tracks.push(track);
-        }
-        r.set("time", double(g.animation.time)), r.set("length", double(g.animation.length())), r.set("loop", g.animation.loop);
-        return r.set("tracks", tracks), true;
+    ops.push_back({"sequence_set", "The sequence's name, its loop (past its last key it starts over), and whether it is the one that plays",
+                   "{sequence?: int, name?: str, loop?: bool, active?: bool}", {}, [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+        SequenceObject* q = sequenceArg(g, a, e);
+        if (!q) return false;
+        q->name = a["name"].text(q->name);
+        q->loop = a["loop"].truth(q->loop);
+        if (a.has("active")) a["active"].truth(false) ? makeActive(g, q->id) : void(q->active = false);
+        return true;
+    }});
+    ops.push_back({"sequence_get", "The sequences: each one's id, name, whether it plays, its playhead, length and loop, and its tracks - the "
+                                   "object bound (lost: deleted) and its keys (time s, position m and rotation degrees on its parent)",
+                   "{sequence?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string&) {
+        Value list = Value::list();
+        const uint32_t only = uint32_t(a["sequence"].integer());
+        for (const SequenceObject& q : g.sequences)
+            if (!only || q.id == only) list.push(describe(g, q));
+        return r.set("sequences", list), true;
     }, {}});
     return ops;
 }

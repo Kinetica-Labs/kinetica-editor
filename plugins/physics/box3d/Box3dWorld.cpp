@@ -266,6 +266,12 @@ public:
         b3Body_EnableSleep(held, false);
         return int(joints_.size()) - 1;
     }
+    void moveKinematic(int body, const Vector3& position, const Quaternion& rotation, Real dt) override {
+        if (!alive(body) || !(dt > 0)) return;
+        const b3BodyId id = bodies_[size_t(body)];
+        if (b3Body_GetType(id) == b3_kinematicBody) b3Body_SetTargetTransform(id, {b3v(position), b3q(rotation)}, float(dt), true);
+    }
+
     void moveHand(int joint, const Vector3& target, Real dt) override {
         if (!jointAlive(joint) || B3_IS_NULL(joints_[size_t(joint)].hand) || !(dt > 0)) return;
         b3Body_SetTargetTransform(joints_[size_t(joint)].hand, {b3v(target), b3Quat_identity}, float(dt), true);

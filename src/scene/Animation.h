@@ -1,20 +1,24 @@
 #pragma once
-// The scene's animation (SceneGraph.h, struct Animation): an object's pose at a time from its track, the clip applied
-// to the scene at a time (the Sequencer's playhead), keys made from where objects stand and removed. The running world
-// (src/sim) and the editor sample it alike.
+// The Sequencer's work on a sequence (SceneGraph.h, SequenceObject - a simple Unreal Level Sequence): a bound object's
+// pose at a time, a sequence played onto the scene at its playhead, keys made from where objects stand and removed. The
+// sequence holds the animation; the objects it binds never do. The running world (src/sim) and the editor sample it alike.
 #include "scene/SceneGraph.h"
 
 namespace ke {
 
-// The track's pose at `time` on the object's parent: in a line between two keys and the shortest turn (slerp); held
-// before the first key and after the last, or - `loop` - wrapped over `length`. False: the track has no key.
-bool samplePose(const AnimTrack& track, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation);
-const AnimTrack* trackOf(const SceneGraph& g, uint32_t object);
-// Every animated object put to its pose at `time` (gone objects' tracks are left alone); the playhead there.
-void applyAnimation(SceneGraph& g, Real time);
-// A key of the object at `time` where it stands now (one at the same time replaced). False: no such object.
-bool keyObject(SceneGraph& g, uint32_t object, Real time);
-bool removeKey(SceneGraph& g, uint32_t object, Real time); // false: no key there
-void removeTracks(SceneGraph& g, const std::vector<uint32_t>& objects); // their tracks (none given: all)
+// The pose of keys at `time` on the object's parent: in a line between two keys and the shortest turn (slerp); held
+// before the first key and after the last, or - `loop` - wrapped over `length`. False: no key.
+bool samplePose(const std::vector<AnimKey>& keys, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation);
+SceneObject* posedObject(SceneGraph& g, uint32_t id); // one a sequence can bind: an entity, a group, an array, a light, a camera
+SequenceObject* findSequence(SceneGraph& g, uint32_t id);       // 0: the active one
+const SequenceObject* activeSequence(const SceneGraph& g);      // none: nullptr
+const SequenceTrack* trackOf(const SequenceObject& q, uint32_t object);
+// The sequence's playhead at `time` and every object it binds put to its pose there (a lost binding skipped).
+void seekSequence(SceneGraph& g, SequenceObject& q, Real time);
+// A key of the object at `time` where it stands now (one at the same time replaced). False: nothing to bind.
+bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real time);
+bool removeKey(SequenceObject& q, uint32_t object, Real time);            // false: no key there (its last: the track goes)
+void removeTracks(SequenceObject& q, const std::vector<uint32_t>& objects); // their tracks (none named: all)
+void makeActive(SceneGraph& g, uint32_t sequence);                         // it plays, no other
 
 } // namespace ke
