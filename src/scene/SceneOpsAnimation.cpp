@@ -69,9 +69,11 @@ Value describe(const SceneGraph& g, const SequenceObject& q) {
 
 std::vector<SceneOp> animationSceneOps() {
     std::vector<SceneOp> ops;
-    ops.push_back({"sequence_add", "A sequence: an animation of objects of the scene, kept apart from them (the first one made is the active one)",
-                   "{name?: str}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string&) {
-        return r.set("id", int(addSequence(g, a["name"].text("")).id)), true;
+    ops.push_back({"sequence_add", "A sequence: an animation of objects of the scene, kept apart from them (the first one made, or `active`, is the "
+                                   "one that plays)", "{name?: str, active?: bool}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string&) {
+        const uint32_t id = addSequence(g, a["name"].text("")).id;
+        if (a["active"].truth(false)) makeActive(g, id);
+        return r.set("id", int(id)), true;
     }});
     ops.push_back({"sequence_key", "A key of each object at `time` (the sequence's playhead when none) where it stands now - its place and turn on "
                                    "its parent (one at the same time replaced); no sequence yet: one is made. The Sequencer's K",

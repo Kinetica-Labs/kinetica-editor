@@ -12,6 +12,7 @@
 #include "RoleBar.h"
 #include "PlotPanel.h"
 #include "SceneBuilder.h"
+#include "SequencerPanel.h"
 #include "Viewport.h"
 
 #include "core/Probe.h"
@@ -63,6 +64,7 @@ MainWindow::MainWindow() {
     connectSceneBuilder();
     buildOperators();
     buildConsoleDock();
+    buildSequencerDock();
     buildLayoutActions();
     buildLaboratory(); // before the top bar: its button «Лаборатория» sits there
     buildMainToolbar();
@@ -568,6 +570,7 @@ void MainWindow::poll() {
     const auto frames = ctrl_->takePublished();
     if (frames.empty()) return;
     labRecord(frames);
+    if (sequencer_) sequencer_->setPlayTime(double(frames.back()->time)); // the world plays the sequence: the playhead follows
     onSnapshot(frames.back());
 }
 

@@ -148,6 +148,7 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
 int runManyTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Lights and cameras: made, picked, moved, lighting a cube, looked through (SelfTestLights.cpp).
 int runLightTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
+int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir); // SelfTestSequencer.cpp
 // The play-mode pass: the top bar's widths, the same look in play, the banner, K, Ctrl+K, the
 // orbit pivot, the blank-window check (SelfTestPlay.cpp).
 int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);

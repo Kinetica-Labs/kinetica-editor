@@ -52,6 +52,8 @@
 #include "scene/SceneGraph.h"
 
 #include <QElapsedTimer>
+
+#include <optional>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
@@ -259,6 +261,13 @@ public:
     uint32_t lookingThrough() const { return throughId_; }
     // Looking through a camera the view moved: the camera goes where the view is now.
     void onViewMovedThroughCamera(const ke::Vector3& eye, const ke::Vector3& forward, const ke::Vector3& up);
+
+    // The Sequencer's preview in edit mode (SceneBuilderSequence.cpp): the active sequence's poses at a time drawn while
+    // the playhead is dragged or played, no edit yet; ending it puts the graph back - the panel then makes the one edit,
+    // sequence_seek, an undo step and a line.
+    void beginSequencePreview();
+    void previewSequence(double time);
+    void endSequencePreview();
 
     // Scripted edits (the self-test, later a script console): one undo step each.
     void select(uint32_t id) { setSelected(id); }
@@ -523,6 +532,7 @@ private:
     struct HistoryEntry { ke::SceneGraph graph; };
     std::vector<HistoryEntry> undo_, redo_;
     QElapsedTimer lastRemember_;
+    std::optional<ke::SceneGraph> previewFrom_; // the graph before a Sequencer preview
     bool goalDragging_ = false; // the mouse drags a goal (dragGoal): one undo step, its code said as it ends
     bool typing_ = false; // the last step was a typed number's: another typed within 0.7 s joins it, nothing else does
 

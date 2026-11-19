@@ -294,6 +294,7 @@ void EditorOps::addViewOps() {
     addSync("ui_trigger", "Press a button or a menu item by its text or name (as ui_actions lists them), a plain panel button "
             "by its text or tooltip, or a visible tab by its text", "{text: str}", [this](const QJsonObject& a) {
         const QString want = a.value("text").toString();
+        if (want.isEmpty()) return error("text: the button's, item's or tab's words or name (ui_actions lists them)"); // "" begins every tooltip
         for (QAction* act : window_->findChildren<QAction*>())
             if (act->isEnabled() && (act->text().remove('&') == want || act->objectName() == want)) return act->trigger(), ok();
         for (QAbstractButton* b : window_->findChildren<QAbstractButton*>())

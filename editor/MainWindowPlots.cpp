@@ -15,10 +15,14 @@
 #include "scene/Kinematics.h"
 #include "PlotPanel.h"
 #include "SceneBuilder.h"
+#include "SequencerPanel.h"
 #include "Viewport.h"
 
 #include <QAction>
 #include <QDockWidget>
+#include <QMenu>
+#include <QMenuBar>
+#include <QShortcut>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -107,7 +111,10 @@ void MainWindow::recordFrames(const std::vector<SimController::Reading>& reading
 // they stay closed) or nobody watches (the automation's pictures keep their layout).
 void MainWindow::autoOpenPlots() {
     if (graphsAct_->isChecked() || plotsClosedByHand_ || auto_.active) return;
+    auto* sequencer = findChild<QDockWidget*>("sequencerDock");
+    const bool timeline = sequencer && sequencer->isVisible() && !sequencer->visibleRegion().isEmpty(); // its tab in front
     setGraphsVisible(true);
+    if (timeline) sequencer->raise(); // ▶ watched on the timeline: the plots open behind it
     if (auto* dock = findChild<QDockWidget*>("resultsDock")) {
         resizeDocks({dock}, {210}, Qt::Vertical);
         if (armWatched_) dock->raise(); // a goal selected before ▶: its arm's charts in front
@@ -264,4 +271,28 @@ void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
     const int object = plots_->research()->body();
     if (object > 0) watchBody(object);
     plots_->showObject(object > 0 ? watchLabel(object) : QString());
+}
+
+// The Sequencer, a tab of the bottom panel beside the plots and the console: it follows every change of the scene (an
+// edit, an undo, a call of the API) and the mode; I keys the selection anywhere in the window (a text field keeps it).
+void MainWindow::buildSequencerDock() {
+    auto* dock = new QDockWidget("Секвенсор", this);
+    dock->setObjectName("sequencerDock");
+    sequencer_ = new SequencerPanel(ops_, builder_, dock);
+    dock->setWidget(sequencer_);
+    addDockWidget(Qt::BottomDockWidgetArea, dock);
+    if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock);
+    connect(builder_, &SceneBuilder::editSnapshot, sequencer_, [this] { sequencer_->sync(); });
+    connect(builder_, &SceneBuilder::modeChanged, sequencer_, &SequencerPanel::sync);
+    connect(builder_, &SceneBuilder::selectionChanged, sequencer_, &SequencerPanel::sync);
+    connect(new QShortcut(QKeySequence(Qt::Key_I), this), &QShortcut::activated, sequencer_, &SequencerPanel::keySelected);
+    if (auto* view = menuBar()->findChild<QMenu*>("viewMenu")) {
+        QAction* show = view->addAction("Секвенсор");
+        show->setObjectName("actionSequencer");
+        show->setToolTip("Анимация объектов: секвенции, ключи, бегунок");
+        connect(show, &QAction::triggered, dock, [dock] {
+            dock->show();
+            dock->raise();
+        });
+    }
 }

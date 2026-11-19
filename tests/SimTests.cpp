@@ -13,6 +13,7 @@
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
 #include "scene/SceneOps.h"
+#include "sim/Channels.h"
 #include "sim/Simulation.h"
 
 #include <algorithm>
@@ -510,7 +511,7 @@ void testSimSensors() {
 // the box it meets is pushed ahead of it, past 2 m - the animation moves the world, it is not a ghost.
 void testSimSequence() {
     SceneGraph g;
-    g.world.physics.sleeping = false;
+    g.world.physics.sleeping = true; // as a scene of the editor: a kinematic body led wakes, never sleeps on its track
     g.entities.push_back(solid(1, "Толкатель", {0.2_r, 0.2_r, 0.4_r}, {0, 0.1_r, 0}, false));
     g.entities.push_back(solid(2, "Ящик", Vector3(0.2_r), {0.6_r, 0.1_r, 0}, false));
     SequenceObject q;
@@ -522,12 +523,16 @@ void testSimSequence() {
     const auto x = [&s](uint32_t id) { return s.physics()->state(s.robot()->bodyOf(id)).position.x; };
     while (s.time() < 1 - 1e-6_r) s.stepFrame();
     const Real half = x(1);
+    double speed = -1; // the plots' channel: a led body has no mass, it still has a speed
+    for (const Measurement& m : measureObject(s, {1, "Толкатель"}))
+        if (m.info.id == "Толкатель/speed") speed = m.value;
     while (s.time() < 2 - 1e-6_r) s.stepFrame();
     const Real end = x(1);
     while (s.time() < 2.5_r - 1e-6_r) s.stepFrame();
     const Real held = x(1), box = x(2);
-    std::printf("  a pusher on the active sequence (0 -> 2 m in 2 s): at 1 s %.4f m, at 2 s %.4f m, at 2.5 s %.4f m; the box from 0.6 m pushed to %.4f m\n",
-                double(half), double(end), double(held), double(box));
+    std::printf("  a pusher on the active sequence (0 -> 2 m in 2 s): at 1 s %.4f m, its speed channel %.4f m/s; at 2 s %.4f m, at 2.5 s %.4f m; "
+                "the box from 0.6 m pushed to %.4f m\n", double(half), speed, double(end), double(held), double(box));
     CHECK(std::fabs(half - 1) < 1e-3_r && std::fabs(end - 2) < 1e-3_r && std::fabs(held - 2) < 1e-3_r, "the pusher off its track");
     CHECK(box > 2.15_r, "the box in the pusher's way was not pushed ahead of it: %f m", double(box));
+    CHECK(std::fabs(speed - 1) < 1e-3, "the pusher's speed channel reads %f m/s, it goes 1 m/s", speed);
 }

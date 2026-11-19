@@ -239,6 +239,8 @@ private:
     SceneBuilder* builder_ = nullptr;
     void buildOperators(); // the API's operations and the magnet, before the top bar
     void buildConsoleDock(); // the API console: every call as a Python line, and a line to type calls
+    void buildSequencerDock(); // the Sequencer: a tab of the bottom panel (MainWindowPlots.cpp)
+    class SequencerPanel* sequencer_ = nullptr;
     class EditorOps* ops_ = nullptr;
     class EditorServer* apiServer_ = nullptr; // the API, once started (apiPort)
     class MagnetController* magnet_ = nullptr;

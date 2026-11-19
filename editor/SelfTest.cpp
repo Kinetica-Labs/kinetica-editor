@@ -630,6 +630,7 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
     run("create", [&] { c.failures += runCreateTests(w, *b, v, shotsDir); });
     run("many", [&] { c.failures += runManyTests(w, *b, v, shotsDir); });
     run("lights", [&] { c.failures += runLightTests(w, *b, v, shotsDir); });
+    run("sequencer", [&] { c.failures += runSequencerTests(w, *b, v, shotsDir); });
     run("shaders", [&] { c.failures += runShaderTests(v); });
     run("bump", [&] { c.failures += runBumpTests(w, *b, v, shotsDir); });
     run("textures", [&] { c.failures += runTextureTests(w, *b, v, shotsDir); });

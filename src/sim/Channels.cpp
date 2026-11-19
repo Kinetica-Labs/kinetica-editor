@@ -43,16 +43,22 @@ void put(std::vector<Measurement>& out, const char* id, double value) {
 }
 
 // What is summed over the members of anything: mass, first moment, momentum, energy, angular momentum about
-// the origin (Σ x × m v + I ω: moved to the centre of mass afterwards, L_X = L_O - X × P).
+// the origin (Σ x × m v + I ω: moved to the centre of mass afterwards, L_X = L_O - X × P). Members without a mass - a
+// fixed body, one a sequence leads (kinematic: its mass is unbounded) - store no energy, but they stand somewhere and
+// may move: with no mass in the sum, the centre and the velocity are their plain means.
 struct Totals {
     double mass = 0, translational = 0, rotational = 0, potential = 0;
     Double3 firstMoment, momentum, angularAboutOrigin;
+    int massless = 0;
+    Double3 masslessCentres, masslessVelocities;
     Totals& operator+=(const Totals& o) {
         mass += o.mass, translational += o.translational, rotational += o.rotational, potential += o.potential;
         firstMoment += o.firstMoment, momentum += o.momentum, angularAboutOrigin += o.angularAboutOrigin;
+        massless += o.massless, masslessCentres += o.masslessCentres, masslessVelocities += o.masslessVelocities;
         return *this;
     }
-    Double3 centre() const { return mass > 0 ? firstMoment * (1.0 / mass) : Double3(); }
+    Double3 centre() const { return mass > 0 ? firstMoment * (1.0 / mass) : massless ? masslessCentres * (1.0 / massless) : Double3(); }
+    Double3 velocity() const { return mass > 0 ? momentum * (1.0 / mass) : massless ? masslessVelocities * (1.0 / massless) : Double3(); }
 };
 
 // The height reference of the potential energy: the floor, y = 0 (U = -m g . x).
@@ -60,7 +66,10 @@ Totals bodyTotals(const PhysicsWorld& physics, int body, const Vector3& gravity)
     Totals t;
     if (body < 0 || !physics.alive(body)) return t;
     const BodyState s = physics.state(body);
-    if (s.mass <= 0) return t; // static: it neither moves nor stores energy
+    if (s.mass <= 0) { // fixed or led: no energy, a place and a velocity
+        t.massless = 1, t.masslessCentres = Double3(s.centre), t.masslessVelocities = Double3(s.velocity);
+        return t;
+    }
     const double m = s.mass;
     const Double3 x(s.centre), v(s.velocity), w(s.angularVelocity), Iw(s.inertia * s.angularVelocity);
     t.mass = m;
@@ -83,7 +92,7 @@ void addTotals(std::vector<Measurement>& out, const std::string& label, ChannelG
     auto add = [&](const char* quantity, const char* unit, const char* name, double value) {
         out.push_back(measured(label + "/" + quantity, unit, name, group, value));
     };
-    const Double3 c = t.centre(), v = t.mass > 0 ? t.momentum * (1.0 / t.mass) : Double3();
+    const Double3 c = t.centre(), v = t.velocity();
     add("mass", "кг", "Масса", t.mass);
     add("centre x", "м", "Центр масс, x", c.x);
     add("centre y", "м", "Центр масс, y", c.y);
