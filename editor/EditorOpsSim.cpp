@@ -10,6 +10,7 @@
 #include "SimController.h"
 #include "UiWindowSpace.h"
 #include "Viewport.h"
+#include "core/Probe.h"
 #include "scene/Assembly.h"
 #include "scene/SceneGraph.h"
 #include "scene/SensorSpec.h"
@@ -164,6 +165,11 @@ QJsonObject liveState(const Simulation& s) {
     QJsonArray sensors;
     for (const auto& x : robot->sensors()) sensors.append(sensorState(*x));
     out.insert("sensors", sensors);
+    QJsonObject timers; // where the last frame's step went: the drives, the engine, the sensors (core/Probe.h)
+    for (const Probe::Channel& c : Probe::snapshot().channels)
+        if (c.name.rfind("physics/", 0) == 0 && c.name.size() > 3 && c.name.compare(c.name.size() - 3, 3, " ms") == 0)
+            timers.insert(QString::fromStdString(c.name.substr(8, c.name.size() - 11)), c.value);
+    out.insert("step_ms", timers);
     out.insert("contacts", contacts);
     if (!notes.isEmpty()) out.insert("notes", notes);
     return out;

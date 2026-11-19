@@ -211,9 +211,13 @@ void testPhysicsWeightOnContacts() {
     int points = 0;
     for (const ContactPoint& c : w->contacts())
         if (c.a == crate || c.b == crate) impulse += c.normalImpulse, ++points;
+    Real own = 0;
+    int ownPoints = 0;
+    for (const ContactPoint& c : w->contactsOf(crate)) own += c.normalImpulse, ++ownPoints;
     const Real weight = w->state(crate).mass * 9.81_r;
-    std::printf("  a crate of %.2f kg at rest: %d contact points carry %.4f N (m g = %.4f N)\n", double(w->state(crate).mass), points,
-                double(impulse / kDt), double(weight));
+    std::printf("  a crate of %.2f kg at rest: %d contact points carry %.4f N (m g = %.4f N); its own contacts: %d points, %.4f N\n",
+                double(w->state(crate).mass), points, double(impulse / kDt), double(weight), ownPoints, double(own / kDt));
+    CHECK(ownPoints == points && std::fabs(own - impulse) < 1e-6_r, "contactsOf(crate) is not the crate's share of contacts()");
     CHECK(points >= 3, "%d contact points under a box at rest", points);
     CHECK(std::fabs(impulse / kDt / weight - 1) < 0.01_r, "the contacts carry %f N, not m g = %f N", double(impulse / kDt), double(weight));
 }

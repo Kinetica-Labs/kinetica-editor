@@ -132,6 +132,7 @@ public:
     // The nearest body a ray from `from` to `to` meets, but `ignore`; false: none.
     virtual bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore = -1) const = 0;
     virtual std::vector<ContactPoint> contacts() const = 0;
+    virtual std::vector<ContactPoint> contactsOf(int body) const = 0; // one body's, at the cost of its own contacts only
 
     virtual void setGravity(const Vector3& gravity) = 0;
     // One step of dt seconds in `substeps` substeps (the settings' when 0).

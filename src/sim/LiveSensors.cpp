@@ -183,8 +183,7 @@ public:
         mount_.pose(physics, p, q);
         const Vector3 x = q.rotate(Vector3(1, 0, 0));
         truth.value = 0, truth.count = 0;
-        for (const ContactPoint& c : physics.contacts()) {
-            if (c.a != mount_.body && c.b != mount_.body) continue;
+        for (const ContactPoint& c : physics.contactsOf(mount_.body)) { // its body's alone: a pile of a thousand touches elsewhere costs nothing
             const Vector3 out = c.a == mount_.body ? c.normal : -c.normal;
             if (dot(out, x) < ke::cos(kPi / 4)) continue;
             truth.value += h > 0 ? c.normalImpulse / h : 0, ++truth.count;
