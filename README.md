@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/images/kinetica-labs.png" alt="Kinetica Labs" width="560"></p>
+
 # Kinetica Editor
 
 Редактор робототехники на C++17 и Qt 6: рука-манипулятор, дрон, колёсный робот, их суставы, приводы и
