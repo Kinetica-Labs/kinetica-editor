@@ -61,6 +61,13 @@ SequenceObject* findSequence(SceneGraph& g, uint32_t id) {
 
 const SequenceObject* activeSequence(const SceneGraph& g) { return findSequence(const_cast<SceneGraph&>(g), 0); }
 
+SequenceObject* playingSequence(SceneGraph& g) {
+    SequenceObject* q = findSequence(g, 0);
+    return q && q->play ? q : nullptr;
+}
+
+const SequenceObject* playingSequence(const SceneGraph& g) { return playingSequence(const_cast<SceneGraph&>(g)); }
+
 const SequenceTrack* trackOf(const SequenceObject& q, uint32_t object) {
     for (const SequenceTrack& t : q.tracks)
         if (t.object == object) return &t;

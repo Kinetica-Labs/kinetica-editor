@@ -230,6 +230,7 @@ private:
     QAction* playAct_ = nullptr;
     QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
     class QTimer* recordBlink_ = nullptr;
+    qint64 recordSince_ = 0;       // when the take started: a second press within 0.5 s is a double click's, not a stop
     void buildRecordAction();
     void syncRecord();             // the button as the take is: on, blinking, or off
     QAction* pauseAct_ = nullptr;

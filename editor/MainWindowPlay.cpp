@@ -17,6 +17,7 @@
 #include "Viewport.h"
 
 #include <QAction>
+#include <QDateTime>
 #include <QLabel>
 #include <QJsonObject>
 #include <QDockWidget>
@@ -110,18 +111,21 @@ void MainWindow::checkBlankView(bool pretend) {
 }
 
 void MainWindow::buildRecordAction() {
-    recordAct_ = new QAction(controlIcon(ControlIcon::Record, 48), "Запись", this);
+    recordAct_ = new QAction(controlIcon(ControlIcon::Record, 48), "Запись", this); // ▶●
     recordAct_->setObjectName("actionRecord");
     recordAct_->setCheckable(true);
     recordAct_->setShortcut(QKeySequence("Ctrl+R"));
-    recordAct_->setToolTip("Запись (Ctrl+R): Пуск — и физика пишется. Ещё раз или ■ Стоп — запись становится секвенцией «Запись N» "
-                           "во вкладке «Секвенсор»: бегунком смотреть, ▶ Просмотр, Пуск — как анимация");
+    recordAct_->setToolTip("Пуск и запись (Ctrl+R): физика идёт и пишется. Ещё раз или ■ Стоп — запись становится секвенцией "
+                           "«Запись N» во вкладке «Секвенсор»: смотреть бегунком и ▶ Просмотром; «▶ в Пуске» — повторять её как анимацию");
     connect(recordAct_, &QAction::triggered, this, [this](bool on) {
+        const qint64 now = QDateTime::currentMSecsSinceEpoch();
+        if (!on && now - recordSince_ < 500) return recordAct_->setChecked(true); // the second click of a double click
+        if (on) recordSince_ = now;
         ops_->run("sim_record", QJsonObject{{"on", on}}, [this](const QJsonObject& r) {
             syncRecord();
             if (!r["ok"].toBool()) return status_->setText(r["error"].toString());
             if (!r.contains("tracks")) return;
-            status_->setText(QString("Записано: тел %1, ключей %2, %3 с — секвенция во вкладке «Секвенсор»")
+            status_->setText(QString("Записано: тел %1, ключей %2, %3 с — во вкладке «Секвенсор»: бегунок, ▶ Просмотр; «▶ в Пуске» повторит как анимацию")
                                  .arg(r["tracks"].toInt()).arg(r["keys"].toInt()).arg(r["length"].toDouble(), 0, 'f', 2));
             if (auto* dock = findChild<QDockWidget*>("sequencerDock")) dock->show(), dock->raise(); // the take to look at
         }, "ui");

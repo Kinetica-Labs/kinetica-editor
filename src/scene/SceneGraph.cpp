@@ -194,7 +194,7 @@ static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneO
 // A sequence: the object head, its clip line, then each track - its object, then its keys, by time.
 static void saveSequence(std::ostringstream& o, const SequenceObject& q) {
     saveObjectHead(o, "sequence", q);
-    o << "  clip time " << num(q.time) << " loop " << (q.loop ? 1 : 0) << " active " << (q.active ? 1 : 0) << "\n";
+    o << "  clip time " << num(q.time) << " loop " << (q.loop ? 1 : 0) << " active " << (q.active ? 1 : 0) << " play " << (q.play ? 1 : 0) << "\n";
     for (const SequenceTrack& t : q.tracks) {
         o << "  track object " << t.object << "\n";
         for (const AnimKey& k : t.keys) {
@@ -854,7 +854,7 @@ static bool readControllerLine(const std::vector<std::string>& w, ControllerObje
 }
 
 
-// "clip time <s> loop <0|1> active <0|1>", "track object <id>", "key time <s> position x y z rotation x y z" (to the
+// "clip time <s> loop <0|1> active <0|1> play <0|1>", "track object <id>", "key time <s> position x y z rotation x y z" (to the
 // track above, by time).
 static bool readSequenceLine(const std::vector<std::string>& w, SequenceObject& q, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, q, bad);
@@ -862,7 +862,8 @@ static bool readSequenceLine(const std::vector<std::string>& w, SequenceObject& 
     if (w[0] == "clip") {
         while (!r.done()) {
             const std::string k = r.key();
-            if (!(k == "time" ? r.number(q.time) : k == "loop" ? r.flag(q.loop) : k == "active" ? r.flag(q.active) : false)) return fail(bad, k);
+            if (!(k == "time" ? r.number(q.time) : k == "loop" ? r.flag(q.loop) : k == "active" ? r.flag(q.active) : k == "play" ? r.flag(q.play) : false))
+                return fail(bad, k);
         }
         return true;
     }

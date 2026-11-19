@@ -12,7 +12,9 @@ namespace ke {
 bool samplePose(const std::vector<AnimKey>& keys, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation);
 SceneObject* posedObject(SceneGraph& g, uint32_t id); // one a sequence can bind: an entity, a group, an array, a light, a camera
 SequenceObject* findSequence(SceneGraph& g, uint32_t id);       // 0: the active one
-const SequenceObject* activeSequence(const SceneGraph& g);      // none: nullptr
+const SequenceObject* activeSequence(const SceneGraph& g);      // the Sequencer's; none: nullptr
+SequenceObject* playingSequence(SceneGraph& g);                 // the active one when ▶ plays it (SequenceObject::play)
+const SequenceObject* playingSequence(const SceneGraph& g);
 const SequenceTrack* trackOf(const SequenceObject& q, uint32_t object);
 // The sequence's playhead at `time` and every object it binds put to its pose there (a lost binding skipped).
 void seekSequence(SceneGraph& g, SequenceObject& q, Real time);

@@ -127,7 +127,7 @@ void describeLights(const SceneGraph& g, Frame& out) {
 
 // The scene starts as its active sequence has it at 0 s: an animated body begins where its track does, not with a jump.
 static SceneGraph atSequenceStart(SceneGraph g) {
-    if (SequenceObject* q = findSequence(g, 0)) seekSequence(g, *q, 0);
+    if (SequenceObject* q = playingSequence(g)) seekSequence(g, *q, 0);
     return g;
 }
 
@@ -440,7 +440,7 @@ void RobotWorld::leadGoals(PhysicsWorld& physics, Real dt) {
 // (it rides on its animated base).
 std::unordered_set<uint32_t> RobotWorld::animatedEntities(const SceneGraph& g) {
     std::unordered_set<uint32_t> out, driven;
-    const SequenceObject* q = activeSequence(g);
+    const SequenceObject* q = playingSequence(g);
     if (!q || q->tracks.empty()) return out;
     for (const JointObject& j : g.joints) driven.insert(j.a);
     for (const Entity& e : g.entities) {
@@ -453,7 +453,7 @@ std::unordered_set<uint32_t> RobotWorld::animatedEntities(const SceneGraph& g) {
 
 // Every animated body led over the next h to where the active sequence has it at `time` (posed_: the graph there).
 void RobotWorld::leadAnimation(PhysicsWorld& physics, Real time, Real h) {
-    SequenceObject* sequence = findSequence(posed_, 0);
+    SequenceObject* sequence = playingSequence(posed_);
     if (!sequence) return;
     seekSequence(posed_, *sequence, time);
     for (const auto& [id, body] : animated_) {
@@ -516,7 +516,7 @@ void RobotWorld::sampleTake(const PhysicsWorld& physics) {
 
 SequenceObject RobotWorld::takeRecording(const std::string& name) {
     SequenceObject q;
-    q.name = name, q.active = true;
+    q.name = name, q.active = true, q.play = false; // shown, not replayed: the next ▶ is physics again
     for (size_t i = 0; recording_ && i < free_.size(); ++i) {
         std::vector<AnimKey> keys = thinKeys(take_[i], 0.0005_r, 0.2_r);
         if (keys.size() < 2 || (length(keys.front().position - keys.back().position) < 1e-6_r && keys.size() == 2 &&
@@ -531,7 +531,7 @@ SequenceObject RobotWorld::takeRecording(const std::string& name) {
 }
 
 void RobotWorld::readPoses(const PhysicsWorld& physics) {
-    if (SequenceObject* q = findSequence(live_, 0)) seekSequence(live_, *q, Real(double(clockNs_) * 1e-9)); // lights, cameras, shapes it moves
+    if (SequenceObject* q = playingSequence(live_)) seekSequence(live_, *q, Real(double(clockNs_) * 1e-9)); // lights, cameras, shapes it moves
     for (Entity& e : live_.entities) {
         const int b = bodyOf(e.id);
         if (b < 0 || !physics.alive(b)) continue;

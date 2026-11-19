@@ -566,7 +566,8 @@ void testSimRecording() {
         samplePose(keys, k.time, false, 0, p, q);
         worst = std::max(worst, length(p - k.position));
     }
-    take.id = 10;
+    const bool shownOnly = take.active && !take.play; // the next ▶ is physics, not this take
+    take.id = 10, take.play = true;
     g.sequences.push_back(take);
     Simulation replay;
     replay.load(g);
@@ -578,7 +579,7 @@ void testSimRecording() {
     std::printf("  a box thrown off 1 m recorded 1.5 s: %s, %zu track(s), %zu keys for %zu frames; the keys give the run back within %.3f mm; "
                 "replayed as the active sequence within %.3f mm\n", taken ? "taken" : "none", take.tracks.size(), keys.size(), truth.size(),
                 double(worst) * 1e3, double(replayWorst) * 1e3);
-    CHECK(taken && take.tracks.size() == 1 && take.tracks[0].object == 1, "the take holds the box's track and not the post's");
+    CHECK(taken && shownOnly && take.tracks.size() == 1 && take.tracks[0].object == 1, "the take holds the box's track and not the post's, shown, not played");
     CHECK(keys.size() * 3 < truth.size() && worst <= 0.0005_r + 1e-6_r, "the take thinned to %zu keys of %zu frames, %f mm off", keys.size(), truth.size(),
           double(worst) * 1e3);
     CHECK(replayWorst < 0.001_r, "the take replayed: the box %f mm off its run", double(replayWorst) * 1e3);

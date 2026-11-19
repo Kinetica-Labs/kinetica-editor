@@ -61,7 +61,7 @@ Value describe(const SceneGraph& g, const SequenceObject& q) {
         track.set("object", int(t.object)), track.set("name", o ? o->name : std::string()), track.set("lost", !o), track.set("keys", keys);
         tracks.push(track);
     }
-    s.set("id", int(q.id)), s.set("name", q.name), s.set("active", q.active), s.set("time", double(q.time));
+    s.set("id", int(q.id)), s.set("name", q.name), s.set("active", q.active), s.set("play", q.play), s.set("time", double(q.time));
     s.set("length", double(q.length())), s.set("loop", q.loop), s.set("tracks", tracks);
     return s;
 }
@@ -110,16 +110,18 @@ std::vector<SceneOp> animationSceneOps() {
         seekSequence(g, *q, t);
         return r.set("time", double(t)), true;
     }});
-    ops.push_back({"sequence_set", "The sequence's name, its loop (past its last key it starts over), and whether it is the one that plays",
-                   "{sequence?: int, name?: str, loop?: bool, active?: bool}", {}, [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+    ops.push_back({"sequence_set", "The sequence's name, its loop (past its last key it starts over), whether it is the Sequencer's (active), and "
+                                   "whether ▶ plays it when active (play: its bodies led along their tracks; off: shown only, the physics its own)",
+                   "{sequence?: int, name?: str, loop?: bool, active?: bool, play?: bool}", {}, [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         SequenceObject* q = sequenceArg(g, a, e);
         if (!q) return false;
         q->name = a["name"].text(q->name);
         q->loop = a["loop"].truth(q->loop);
+        q->play = a["play"].truth(q->play);
         if (a.has("active")) a["active"].truth(false) ? makeActive(g, q->id) : void(q->active = false);
         return true;
     }});
-    ops.push_back({"sequence_get", "The sequences: each one's id, name, whether it plays, its playhead, length and loop, and its tracks - the "
+    ops.push_back({"sequence_get", "The sequences: each one's id, name, whether it is the Sequencer's and whether ▶ plays it, its playhead, length and loop, and its tracks - the "
                                    "object bound (lost: deleted) and its keys (time s, position m and rotation degrees on its parent)",
                    "{sequence?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string&) {
         Value list = Value::list();

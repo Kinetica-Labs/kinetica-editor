@@ -14,7 +14,8 @@
 // Rigid a moving body).
 enum class RoleIcon { Rigid, Collider, Count };
 
-// Buttons of the simulation: run, record (a red dot; ringed while it records, the two in turns blink), pause, stop, one
+// Buttons of the simulation: run, run and record (▶ with a red dot; the dot lit while it records, the two in turns blink),
+// pause, stop, one
 // step, back to the start, undo, redo, eye, lock,
 // and the tools of the edit mode: select, move, rotate, scale.
 enum class ControlIcon {

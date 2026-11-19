@@ -206,7 +206,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     };
     sequences_ = new QComboBox(this);
     sequences_->setObjectName("sequencerSequences");
-    sequences_->setToolTip("Какая секвенция играет. Секвенций в сцене сколько угодно: сценарии, записанные прогоны");
+    sequences_->setToolTip("Какая секвенция открыта. Секвенций в сцене сколько угодно: сценарии, записанные прогоны");
     sequences_->setMinimumContentsLength(14);
     bar->addWidget(sequences_);
     add_ = button("+", "Новая секвенция: пустая, сразу играет она", "sequencerAdd");
@@ -215,6 +215,9 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     play_->setCheckable(true);
     loop_ = button("↻ Петля", "После последнего ключа — сначала", "sequencerLoop");
     loop_->setCheckable(true);
+    plays_ = button("▶ в Пуске", "Пуск играет эту секвенцию: её тела идут по дорожкам как анимация и толкают встречное. Выключено — "
+                                 "секвенция только для просмотра, физика тел своя (так приходит запись физики)", "sequencerPlays");
+    plays_->setCheckable(true);
     key_ = button("◆ Ключ", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)", "sequencerKey");
     record_ = button("⏺ Запись", "Записать физику: сцена играет, каждое свободное тело пишется каждый кадр; ещё раз или «Стоп» — "
                                  "запись становится новой секвенцией «Запись N», и её можно смотреть бегунком и проиграть как анимацию",
@@ -256,7 +259,12 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     connect(play_, &QToolButton::toggled, this, &SequencerPanel::togglePreview);
     connect(loop_, &QToolButton::clicked, this, [this](bool on) { run("sequence_set", QJsonObject{{"loop", on}}); });
     connect(key_, &QToolButton::clicked, this, &SequencerPanel::keySelected);
-    connect(record_, &QToolButton::clicked, this, [this](bool on) { run("sim_record", QJsonObject{{"on", on}}); });
+    connect(record_, &QToolButton::clicked, this, [this](bool on) {
+        if (!on && recordClock_.isValid() && recordClock_.elapsed() < 500) return record_->setChecked(true); // a double click
+        if (on) recordClock_.start();
+        run("sim_record", QJsonObject{{"on", on}});
+    });
+    connect(plays_, &QToolButton::clicked, this, [this](bool on) { run("sequence_set", QJsonObject{{"play", on}}); });
     sync();
 }
 
@@ -338,9 +346,11 @@ void SequencerPanel::sync() {
     for (QToolButton* b : {add_, start_, key_}) b->setEnabled(editing);
     play_->setEnabled(editing && active && !active->tracks.empty());
     loop_->setEnabled(editing && active);
+    plays_->setEnabled(editing && active);
     {
-        const QSignalBlocker hush(loop_), quiet(record_);
+        const QSignalBlocker hush(loop_), quiet(record_), still(plays_);
         loop_->setChecked(active && active->loop);
+        plays_->setChecked(active && active->play);
         record_->setChecked(ops_->recording());
     }
     if (const QString words = ops_->recording() ? "■ Закончить запись" : "⏺ Запись"; record_->text() != words) { // not every frame

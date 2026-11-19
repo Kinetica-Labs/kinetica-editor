@@ -177,5 +177,22 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     std::printf("  «Запись» on the top bar: played and checked %s; ■ Стоп: «%s», the button off %s\n", barPlays ? "yes" : "no",
                 barTake ? barTake->name.c_str() : "", recordAct && !recordAct->isChecked() ? "yes" : "no");
     c.check(barPlays && barMade, "«Запись» beside ▶ records; ■ Стоп ends the take into a sequence");
+
+    // A second take with the first one open: the physics runs again (a take is shown, not played), «Запись 2» holds the
+    // fall. «▶ в Пуске» on it: ▶ replays it, the cube a kinematic body on its track.
+    recordAct->trigger();
+    pump(1000);
+    stopAct->trigger();
+    pump(400);
+    const SequenceObject* again = activeSequence(b.graph());
+    const bool fell = again && again->name == "Запись 2" && again->tracks.size() == 1 && again->tracks[0].keys.size() > 2 && !again->play;
+    const std::string againName = again ? again->name : std::string(); // again goes with the graph the next edit replaces
+    const size_t againKeys = again && !again->tracks.empty() ? again->tracks[0].keys.size() : 0;
+    if (auto* plays = w.findChild<QToolButton*>("sequencerPlays")) plays->click();
+    pump(60);
+    const bool replays = activeSequence(b.graph()) && activeSequence(b.graph())->play;
+    std::printf("  a second take after the first: «%s», %zu keys, not played %s; «▶ в Пуске» sets it to play %s\n", againName.c_str(), againKeys,
+                fell ? "yes" : "no", replays ? "yes" : "no");
+    c.check(fell && replays, "a take is shown, not played: the next take records the physics again; «▶ в Пуске» replays it");
     return c.failures;
 }

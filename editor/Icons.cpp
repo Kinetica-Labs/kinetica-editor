@@ -312,16 +312,20 @@ void drawControl(QPainter& p, ControlIcon c) {
         p.drawRoundedRect(QRectF(24, 18, 18, 64), 4, 4);
         p.drawRoundedRect(QRectF(58, 18, 18, 64), 4, 4);
         break;
-    case ControlIcon::Recording:
-        p.setBrush(Qt::NoBrush);
-        p.setPen(QPen(QColor(255, 120, 110), 6));
-        p.drawEllipse(QPointF(50, 50), 38, 38);
-        p.setPen(Qt::NoPen);
-        [[fallthrough]];
-    case ControlIcon::Record:
-        p.setBrush(QColor(232, 64, 64));
-        p.drawEllipse(QPointF(50, 50), 26, 26);
+    case ControlIcon::Record: // ▶ and ● together: it plays and it records
+    case ControlIcon::Recording: { // the dot lit and ringed, in turns with Record: a blink
+        p.setBrush(QColor(88, 200, 110));
+        const QPointF tri[] = {{8, 20}, {54, 50}, {8, 80}};
+        p.drawPolygon(tri, 3);
+        const bool lit = c == ControlIcon::Recording;
+        if (lit) {
+            p.setBrush(QColor(255, 120, 110, 110));
+            p.drawEllipse(QPointF(72, 50), 27, 27);
+        }
+        p.setBrush(lit ? QColor(255, 70, 60) : QColor(214, 58, 58));
+        p.drawEllipse(QPointF(72, 50), 19, 19);
         break;
+    }
     case ControlIcon::Stop:
         p.setBrush(QColor(236, 96, 96));
         p.drawRoundedRect(QRectF(22, 22, 56, 56), 7, 7);

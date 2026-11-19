@@ -351,9 +351,11 @@ struct WorldSettings {
 // a light), each a list of keys - the object's pose on its parent at a time. Between two keys the place goes in a line
 // and the turn the shortest way (slerp); before the first and after the last the pose holds, or the sequence loops over
 // its length; between two keys that both carry a velocity (a recorded run's) the place follows the cubic with those
-// velocities at its ends (Hermite: a fall's parabola, a slide's braking, exactly). A scene holds as many as it likes - scenarios, recorded runs - and plays the active one: the editor scrubs
-// it, the running world moves its bodies as kinematic ones that push what they meet. An object deleted leaves its track
-// lost, skipped (Unreal's broken binding).
+// velocities at its ends (Hermite: a fall's parabola, a slide's braking, exactly). A scene holds as many as it likes -
+// scenarios, recorded runs. The active one is the Sequencer's (shown, scrubbed, keyed); ▶ plays it only when it is set
+// to play (Unreal's Auto Play): its bodies are then kinematic ones led along their tracks, pushing what they meet. A
+// take of a run comes not playing - the next ▶ is physics again -; set to play, it replays the run as an animation. An
+// object deleted leaves its track lost, skipped (Unreal's broken binding).
 struct AnimKey {
     Real time = 0;              // s
     Vector3 position{0.0_r};    // as SceneObject::position
@@ -369,7 +371,8 @@ struct SequenceObject : SceneObject {
     std::vector<SequenceTrack> tracks;
     Real time = 0;              // the playhead, s
     bool loop = false;
-    bool active = false;        // the one the scene plays (one at most)
+    bool active = false;        // the Sequencer's (one at most)
+    bool play = true;           // ▶ plays it when it is the active one: its bodies led along their tracks
     Real length() const;        // the last key's time of any track (0: none)
 };
 
