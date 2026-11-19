@@ -8,11 +8,17 @@
 // sequencer.png and sequencer-take.png.
 #include "SelfTestSupport.h"
 
+#include "EditorOps.h"
+#include "MainWindow.h"
 #include "SequencerPanel.h"
+#include "SequencerViews.h"
 #include "scene/Animation.h"
 
 #include <QAction>
 #include <QDockWidget>
+#include <QElapsedTimer>
+#include <QJsonArray>
+#include <QJsonObject>
 #include <QToolButton>
 
 #include <cmath>
@@ -27,12 +33,8 @@ void mouse(QWidget* w, QEvent::Type type, const QPointF& p) {
     QCoreApplication::sendEvent(w, &e);
 }
 
-// Where the timeline draws time t (SequencerPanel.cpp: the names' column 160 px, a margin 12, the view at least 5 s).
-double xAt(QWidget* timeline, const SceneBuilder& b, double t) {
-    const SequenceObject* q = activeSequence(b.graph());
-    const double span = std::max(5.0, std::ceil(double(q ? q->length() : 0) + 1));
-    return 160 + 12 + t * double(timeline->width() - 160 - 24) / span;
-}
+// Where the views draw time t (SequencerViews.h, the axis they share).
+double xAt(QWidget* timeline, const SceneBuilder& b, double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width()).x(t); }
 
 } // namespace
 
@@ -58,7 +60,7 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     const bool first = b.graph().sequences.size() == 1 && q && q->tracks.size() == 1 && q->tracks[0].object == cube && q->tracks[0].keys.size() == 1;
 
     const auto clickAt = [&](double t) {
-        const QPointF at(xAt(timeline, b, t), 22 + 11);
+        const QPointF at(xAt(timeline, b, t), 11); // the ruler
         mouse(timeline, QEvent::MouseButtonPress, at), mouse(timeline, QEvent::MouseButtonRelease, at);
         pump(60);
     };
@@ -76,7 +78,7 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
 
     // The playhead dragged to the middle: the cube half way; released, one undo step takes it back where it stood.
     const double length = q ? double(q->length()) : 0;
-    const QPointF from(xAt(timeline, b, length), 22 + 30), to(xAt(timeline, b, length / 2), 22 + 30);
+    const QPointF from(xAt(timeline, b, length), 11), to(xAt(timeline, b, length / 2), 11);
     mouse(timeline, QEvent::MouseButtonPress, from);
     pump(30);
     mouse(timeline, QEvent::MouseMove, to);
@@ -102,7 +104,7 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
 
     // The second diamond clicked, Delete: one key left.
     const double last = double(activeSequence(b.graph())->tracks[0].keys[1].time);
-    const QPointF diamond(xAt(timeline, b, last), 22 + 11);
+    const QPointF diamond = static_cast<SequencerTimeline*>(timeline)->pointOf(cube, last);
     mouse(timeline, QEvent::MouseButtonPress, diamond), mouse(timeline, QEvent::MouseButtonRelease, diamond);
     timeline->setFocus();
     QKeyEvent del(QEvent::KeyPress, Qt::Key_Delete, Qt::NoModifier);
@@ -194,5 +196,96 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     std::printf("  a second take after the first: «%s», %zu keys, not played %s; «▶ в Пуске» sets it to play %s\n", againName.c_str(), againKeys,
                 fell ? "yes" : "no", replays ? "yes" : "no");
     c.check(fell && replays, "a take is shown, not played: the next take records the physics again; «▶ в Пуске» replays it");
+
+    // Folding: three cubes in a group and one loose, all keyed - «Все дорожки», the group folded, the loose cube's track;
+    // the group's arrow unfolds its three; the arrow of «Все дорожки» folds everything into one row.
+    auto* tree = static_cast<SequencerTimeline*>(timeline);
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    const auto call = [ops](const char* name, const QJsonObject& args) {
+        bool ok = false;
+        ops->run(name, args, [&ok](const QJsonObject& r) { ok = r["ok"].toBool(); }, "ui");
+        return ok;
+    };
+    b.newScene();
+    std::vector<uint32_t> cubes;
+    for (int k = 0; k < 4; ++k) cubes.push_back(selftest::made(b, b.createActions()[0]));
+    const QJsonArray all{int(cubes[0]), int(cubes[1]), int(cubes[2]), int(cubes[3])}, three{int(cubes[0]), int(cubes[1]), int(cubes[2])};
+    const bool built = call("scene_group", {{"ids", three}}) && call("sequence_key", {{"ids", all}, {"time", 0.0}}) &&
+                       call("scene_move", {{"ids", all}, {"by", QJsonArray{0.0, 0.5, 0.0}}}) && call("sequence_key", {{"ids", all}, {"time", 2.0}});
+    pump(80);
+    const int grouped = tree->rows();
+    QPointF fold = tree->foldOf(1);
+    mouse(tree, QEvent::MouseButtonPress, fold), mouse(tree, QEvent::MouseButtonRelease, fold);
+    pump(40);
+    const int unfolded = tree->rows();
+    fold = tree->foldOf(0);
+    mouse(tree, QEvent::MouseButtonPress, fold), mouse(tree, QEvent::MouseButtonRelease, fold);
+    pump(40);
+    const int folded = tree->rows();
+    mouse(tree, QEvent::MouseButtonPress, fold), mouse(tree, QEvent::MouseButtonRelease, fold); // open again for the curves
+    pump(40);
+    std::printf("  three cubes grouped and one loose, keyed: rows %d (all, the group folded, the loose track); the group unfolded %d; all folded %d\n",
+                grouped, unfolded, folded);
+    c.check(built && grouped == 3 && unfolded == 6 && folded == 1, "the tracks fold by the scene's groups");
+
+    // The curves: the loose cube's; its second key's y dragged up 40 px - y higher, one edit, one undo back.
+    auto* curvesButton = w.findChild<QToolButton*>("sequencerCurvesButton");
+    auto* curves = static_cast<SequencerCurves*>(w.findChild<QWidget*>("sequencerCurves"));
+    b.select(cubes[3]);
+    if (curvesButton) curvesButton->click();
+    pump(120);
+    const auto yOfKey = [&b, &cubes] { return trackOf(*activeSequence(b.graph()), cubes[3])->keys[1].position.y; };
+    const float before = yOfKey();
+    const QPointF dot = curves->pointOf(1, 1);
+    mouse(curves, QEvent::MouseButtonPress, dot), mouse(curves, QEvent::MouseMove, dot + QPointF(0, -10)), mouse(curves, QEvent::MouseMove, dot + QPointF(0, -40));
+    mouse(curves, QEvent::MouseButtonRelease, dot + QPointF(0, -40));
+    pump(60);
+    const float raised = yOfKey();
+    b.undoAction()->trigger();
+    pump(60);
+    const float lowered = yOfKey();
+    if (!shotsDir.isEmpty()) {
+        b.select(cubes[3]);
+        pump(60);
+        w.grab().save(shotsDir + "/sequencer-curves.png");
+    }
+    if (curvesButton) curvesButton->click();
+    std::printf("  the curves of «%s»: its key at 2 s, y %.3f m, dragged up 40 px: %.3f m; one undo: %.3f m\n", findObject(b.graph(), cubes[3])->name.c_str(),
+                double(before), double(raised), double(lowered));
+    c.check(dot.x() > 0 && raised > before + 0.01f && std::fabs(lowered - before) < 1e-6f, "a key's dot dragged on the curves changes its value, one undo step");
+
+    // A hundred thousand tracks (bound to objects not there: lost): folded by themselves, built and drawn in a blink.
+    std::string error;
+    b.transact([](SceneGraph& g, std::string&) {
+        SequenceObject q;
+        q.id = nextId(g), q.name = "Сто тысяч", q.active = true, q.play = false;
+        q.tracks.reserve(100000);
+        for (uint32_t k = 0; k < 100000; ++k)
+            q.tracks.push_back({5000000 + k, {{0, Vector3(0.0f), Vector3(0.0f)}, {Real(1 + (k % 50) * 0.1f), Vector3(1, 0, 0), Vector3(0.0f)}}});
+        for (SequenceObject& s : g.sequences) s.active = false;
+        g.sequences.push_back(std::move(q));
+        return true;
+    }, error);
+    pump(60);
+    QElapsedTimer clock;
+    clock.start();
+    tree->setFilter(QString()); // built again
+    const qint64 buildMs = clock.elapsed();
+    const int onlyAll = tree->rows();
+    clock.restart();
+    tree->repaint();
+    const qint64 foldedMs = clock.elapsed();
+    tree->toggle(0);
+    const int every = tree->rows();
+    clock.restart();
+    tree->repaint();
+    const qint64 openMs = clock.elapsed();
+    tree->toggle(0);
+    b.undoAction()->trigger();
+    pump(60);
+    std::printf("  100000 tracks: built in %lld ms, %d row folded (drawn in %lld ms), %d rows unfolded (drawn in %lld ms)\n", static_cast<long long>(buildMs),
+                onlyAll, static_cast<long long>(foldedMs), every, static_cast<long long>(openMs));
+    c.check(onlyAll == 1 && every == 100001 && buildMs < 1500 && foldedMs < 100 && openMs < 100,
+            "a hundred thousand tracks come folded, build and draw fast");
     return c.failures;
 }

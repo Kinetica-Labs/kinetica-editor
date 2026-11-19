@@ -6,8 +6,8 @@
 
 namespace ke {
 
-// The pose of keys at `time` on the object's parent: in a line between two keys (the Hermite cubic when both carry a
-// velocity) and the shortest turn (slerp); held
+// The pose of keys at `time` on the object's parent: from a key to the next as the key says (AnimInterp: in a line, the
+// Hermite cubic, or held) and the shortest turn (slerp); held
 // before the first key and after the last, or - `loop` - wrapped over `length`. False: no key.
 bool samplePose(const std::vector<AnimKey>& keys, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation);
 SceneObject* posedObject(SceneGraph& g, uint32_t id); // one a sequence can bind: an entity, a group, an array, a light, a camera
@@ -21,6 +21,10 @@ void seekSequence(SceneGraph& g, SequenceObject& q, Real time);
 // A key of the object at `time` where it stands now (one at the same time replaced). False: nothing to bind.
 bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real time);
 bool removeKey(SequenceObject& q, uint32_t object, Real time);            // false: no key there (its last: the track goes)
+// The object's key at `time` (a microsecond either way); nullptr: none.
+AnimKey* keyAt(SequenceObject& q, uint32_t object, Real time);
+// The key moved to `to` (s), kept in time order; false: another key is there.
+bool moveKey(SequenceObject& q, uint32_t object, Real time, Real to);
 void removeTracks(SequenceObject& q, const std::vector<uint32_t>& objects); // their tracks (none named: all)
 void makeActive(SceneGraph& g, uint32_t sequence);                         // it plays, no other
 // Samples of a motion (a recorded run, a frame each) thinned to the keys that give it back: every sample dropped lies

@@ -28,18 +28,39 @@ Real SequenceObject::length() const {
     return last;
 }
 
+const char* interpName(AnimInterp i) { return i == AnimInterp::Smooth ? "smooth" : i == AnimInterp::Step ? "step" : "linear"; }
+
+bool interpOf(const std::string& name, AnimInterp& i) {
+    for (AnimInterp x : {AnimInterp::Linear, AnimInterp::Smooth, AnimInterp::Step})
+        if (name == interpName(x)) return i = x, true;
+    return false;
+}
+
+namespace {
+
+// The velocity a smooth key goes through: its own (recorded), else the slope between its neighbours, none at the ends.
+Vector3 slopeAt(const std::vector<AnimKey>& k, size_t i) {
+    if (k[i].hasVelocity) return k[i].velocity;
+    if (i == 0 || i + 1 >= k.size()) return Vector3(0.0_r);
+    return (k[i + 1].position - k[i - 1].position) / (k[i + 1].time - k[i - 1].time);
+}
+
+} // namespace
+
 bool samplePose(const std::vector<AnimKey>& k, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation) {
     if (k.empty()) return false;
     if (loop && length > 0) time = time - length * std::floor(time / length);
     if (time <= k.front().time || k.size() == 1) return position = k.front().position, rotation = turnOf(k.front().rotationDeg), true;
     if (time >= k.back().time) return position = k.back().position, rotation = turnOf(k.back().rotationDeg), true;
     const auto after = std::upper_bound(k.begin(), k.end(), time, [](Real t, const AnimKey& x) { return t < x.time; });
-    const AnimKey &a = *(after - 1), &b = *after;
+    const size_t i = size_t(after - k.begin()) - 1;
+    const AnimKey &a = k[i], &b = k[i + 1];
+    if (a.interp == AnimInterp::Step) return position = a.position, rotation = turnOf(a.rotationDeg), true;
     const Real h = b.time - a.time, s = (time - a.time) / h;
-    if (a.hasVelocity && b.hasVelocity) { // Hermite: the cubic with the keys' velocities at its ends
+    if (a.interp == AnimInterp::Smooth) { // Hermite: the cubic with the keys' velocities at its ends
         const Real s2 = s * s, s3 = s2 * s;
-        position = a.position * (2 * s3 - 3 * s2 + 1) + a.velocity * (h * (s3 - 2 * s2 + s)) + b.position * (3 * s2 - 2 * s3) +
-                   b.velocity * (h * (s3 - s2));
+        position = a.position * (2 * s3 - 3 * s2 + 1) + slopeAt(k, i) * (h * (s3 - 2 * s2 + s)) + b.position * (3 * s2 - 2 * s3) +
+                   slopeAt(k, i + 1) * (h * (s3 - s2));
     } else
         position = a.position + (b.position - a.position) * s;
     rotation = slerp(turnOf(a.rotationDeg), turnOf(b.rotationDeg), s);
@@ -96,6 +117,23 @@ bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real tim
     auto at = std::lower_bound(t->keys.begin(), t->keys.end(), time - kSameTime, [](const AnimKey& x, Real s) { return x.time < s; });
     if (at != t->keys.end() && std::fabs(at->time - time) <= kSameTime) *at = key;
     else t->keys.insert(at, key);
+    return true;
+}
+
+AnimKey* keyAt(SequenceObject& q, uint32_t object, Real time) {
+    for (SequenceTrack& t : q.tracks)
+        if (t.object == object)
+            for (AnimKey& k : t.keys)
+                if (std::fabs(k.time - time) <= kSameTime) return &k;
+    return nullptr;
+}
+
+bool moveKey(SequenceObject& q, uint32_t object, Real time, Real to) {
+    AnimKey* k = keyAt(q, object, time);
+    if (!k || (std::fabs(to - time) > kSameTime && keyAt(q, object, to))) return false;
+    k->time = to;
+    for (SequenceTrack& t : q.tracks)
+        if (t.object == object) std::stable_sort(t.keys.begin(), t.keys.end(), [](const AnimKey& x, const AnimKey& y) { return x.time < y.time; });
     return true;
 }
 

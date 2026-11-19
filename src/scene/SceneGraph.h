@@ -356,13 +356,20 @@ struct WorldSettings {
 // to play (Unreal's Auto Play): its bodies are then kinematic ones led along their tracks, pushing what they meet. A
 // take of a run comes not playing - the next ▶ is physics again -; set to play, it replays the run as an animation. An
 // object deleted leaves its track lost, skipped (Unreal's broken binding).
+// How a key goes on to the next one (Unreal's and After Effects' key interpolation): in a line; smoothly - the cubic
+// (Hermite) through the keys with the key's velocity at it, a recorded key's own or, set by hand, the slope from the
+// key before to the key after (a first and a last key: none, the motion starts and stops softly); or held, a step.
+enum class AnimInterp : uint8_t { Linear, Smooth, Step };
 struct AnimKey {
     Real time = 0;              // s
     Vector3 position{0.0_r};    // as SceneObject::position
     Vector3 rotationDeg{0.0_r}; // as SceneObject::rotationDeg
     Vector3 velocity{0.0_r};    // m/s on the parent, when hasVelocity
     bool hasVelocity = false;   // a recorded key: the motion's velocity there
+    AnimInterp interp = AnimInterp::Linear; // to the next key
 };
+const char* interpName(AnimInterp i);                  // "linear", "smooth", "step"
+bool interpOf(const std::string& name, AnimInterp& i); // false: no such
 struct SequenceTrack {
     uint32_t object = 0;        // the bound object
     std::vector<AnimKey> keys;  // by time, one a time

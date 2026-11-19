@@ -55,6 +55,7 @@ Value describe(const SceneGraph& g, const SequenceObject& q) {
             Value key = Value::map();
             key.set("time", double(k.time)), key.set("position", vec3(k.position)), key.set("rotation", vec3(k.rotationDeg));
             if (k.hasVelocity) key.set("velocity", vec3(k.velocity));
+            key.set("interp", interpName(k.interp));
             keys.push(key);
         }
         const SceneObject* o = findObject(g, t.object);
@@ -78,16 +79,48 @@ std::vector<SceneOp> animationSceneOps() {
     }});
     ops.push_back({"sequence_key", "A key of each object at `time` (the sequence's playhead when none) where it stands now - its place and turn on "
                                    "its parent (one at the same time replaced); no sequence yet: one is made. The Sequencer's K",
-                   "{ids: [int], time?: s, sequence?: int}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
+                   "{ids: [int], time?: s, sequence?: int, interp?: str}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         const std::vector<uint32_t> ids = objectsArg(a);
         if (ids.empty()) return e = "ids: the objects to key", false;
         SequenceObject* q = !a.has("sequence") && g.sequences.empty() ? &addSequence(g, "") : sequenceArg(g, a, e);
         Real t;
         if (!q || !timeArg(a, q->time, t, e)) return false;
-        for (uint32_t id : ids)
+        AnimInterp interp = AnimInterp::Linear;
+        if (a.has("interp") && !interpOf(a["interp"].text(""), interp)) return e = "interp: linear, smooth or step", false;
+        for (uint32_t id : ids) {
             if (!keyObject(g, *q, id, t)) return e = "object " + std::to_string(id) + ": nothing a sequence can move", false;
+            if (a.has("interp")) keyAt(*q, id, t)->interp = interp;
+        }
         return r.set("sequence", int(q->id)), r.set("time", double(t)), r.set("length", double(q->length())), true;
     }, true});
+    ops.push_back({"sequence_key_set", "The object's key at `time` changed: moved to new_time, its place or turn on the parent, how it goes on to "
+                                       "the next key (interp: linear, smooth - the cubic through the keys -, step - held); the bound objects then "
+                                       "stand where the sequence has them at its playhead. The Sequencer's curves",
+                   "{id: int, time: s, sequence?: int, new_time?: s, position?: [x,y,z], rotation?: [x,y,z], interp?: str}", {},
+                   [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+        SequenceObject* q = sequenceArg(g, a, e);
+        Real t = 0;
+        if (!q || !a.has("time") || !timeArg(a, 0, t, e)) return e.empty() ? (e = "time: the key's, s", false) : false;
+        const uint32_t id = uint32_t(a["id"].integer());
+        AnimKey* k = keyAt(*q, id, t);
+        if (!k) return e = "no key of " + std::to_string(id) + " at that time", false;
+        const auto vec = [&a](const char* name, Vector3& v) {
+            const std::vector<Value>& x = a[name].items();
+            if (x.size() == 3) v = Vector3(Real(x[0].number(0)), Real(x[1].number(0)), Real(x[2].number(0)));
+            return !a.has(name) || x.size() == 3;
+        };
+        if (!vec("position", k->position) || !vec("rotation", k->rotationDeg)) return e = "position and rotation: [x, y, z]", false;
+        if (a.has("interp") && !interpOf(a["interp"].text(""), k->interp)) return e = "interp: linear, smooth or step", false;
+        if (a.has("new_time")) {
+            Value moved = Value::map();
+            moved.set("time", a["new_time"]);
+            Real to = 0;
+            if (!timeArg(moved, 0, to, e)) return false;
+            if (!moveKey(*q, id, t, to)) return e = "another key of " + std::to_string(id) + " is there", false;
+        }
+        seekSequence(g, *q, q->time);
+        return true;
+    }});
     ops.push_back({"sequence_delete_key", "The object's key at `time` removed (its last: its track goes)", "{id: int, time: s, sequence?: int}", {},
                    [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         SequenceObject* q = sequenceArg(g, a, e);

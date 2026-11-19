@@ -263,3 +263,51 @@ void testSequence() {
     CHECK(middle && before && after && looped, "the sequence's poses between, before, after and looped");
     CHECK(made && replaced && file && seeked && refused && lost, "keys, the file, the playhead, the refusal, a lost track: %s", error.c_str());
 }
+
+// The keys' interpolation (SceneGraph.h, AnimInterp) and their edit (sequence_key_set). x keyed 0 m at 0 s, 1 m at 1 s,
+// 0 m at 2 s. Linear: 0.25 m at 0.25 s. Smooth: the cubic through the keys with no velocity at the first (an end) and at
+// the middle (its neighbours stand level) - at 0.25 s exactly 3 s^2 - 2 s^3 = 0.15625 m, a soft start. Step: held at 0 m
+// up to 1 s. sequence_key_set moves the middle key to 1.5 s and 2 m (the cube then stands where the sequence has it at
+// its playhead), refuses a key onto another, and the file keeps the interpolation to the bit.
+void testSequenceInterp() {
+    SceneGraph g;
+    std::string error;
+    Value answer = Value::map();
+    const uint32_t cube = addShape(g, ShapeKind::Box);
+    SequenceObject q;
+    q.id = nextId(g), q.active = true;
+    q.tracks.push_back({cube, {{0, Vector3(0.0_r), Vector3(0.0_r)}, {1, Vector3(1, 0, 0), Vector3(0.0_r)}, {2, Vector3(0.0_r), Vector3(0.0_r)}}});
+    g.sequences.push_back(q);
+    std::vector<AnimKey>& k = g.sequences[0].tracks[0].keys;
+    const auto x = [&k](Real t) {
+        Vector3 p;
+        Quaternion r;
+        samplePose(k, t, false, 2, p, r);
+        return p.x;
+    };
+    const Real linear = x(0.25_r);
+    for (AnimKey& key : k) key.interp = AnimInterp::Smooth;
+    const Real smooth = x(0.25_r), through = x(1);
+    k[0].interp = AnimInterp::Step;
+    const Real held = x(0.99_r), after = x(1);
+    const auto set = [&](Value a) { answer = Value::map(); return findSceneOp("sequence_key_set")->edit(g, a, answer, error); };
+    Value move = Value::map(), place = Value::list();
+    place.push(2.0), place.push(0.0), place.push(0.0);
+    move.set("id", int(cube)), move.set("time", 1.0), move.set("new_time", 1.5), move.set("position", place), move.set("interp", "linear");
+    g.sequences[0].time = 1.5_r;
+    const bool moved = set(move) && std::fabs(g.sequences[0].tracks[0].keys[1].time - 1.5_r) < 1e-6_r &&
+                       g.sequences[0].tracks[0].keys[1].position.x == 2 && g.sequences[0].tracks[0].keys[1].interp == AnimInterp::Linear &&
+                       std::fabs(findObject(g, cube)->position.x - 2) < 1e-6_r;
+    Value onto = Value::map();
+    onto.set("id", int(cube)), onto.set("time", 1.5), onto.set("new_time", 2.0);
+    const bool refused = !set(onto);
+    SceneGraph back;
+    const std::string text = g.save();
+    const bool file = back.load(text, error) && back.save() == text && back.sequences[0].tracks[0].keys[0].interp == AnimInterp::Step;
+    std::printf("  x keyed 0, 1, 0 m at 0, 1, 2 s: at 0.25 s linear %.5f m, smooth %.5f m (3s^2-2s^3: 0.15625), through the middle key %.5f m; "
+                "step held %.3f m to 0.99 s, %.3f at 1 s; a key moved and set %s; onto another refused %s; the file to the bit %s\n", double(linear),
+                double(smooth), double(through), double(held), double(after), moved ? "yes" : "no", refused ? "yes" : "no", file ? "yes" : "no");
+    CHECK(std::fabs(linear - 0.25_r) < 1e-6_r && std::fabs(smooth - 0.15625_r) < 1e-6_r && std::fabs(through - 1) < 1e-6_r, "linear and smooth keys");
+    CHECK(held == 0 && std::fabs(after - 1) < 1e-6_r, "a step key holds to the next");
+    CHECK(moved && refused && file, "sequence_key_set moves and sets a key, refuses a collision; the file keeps it: %s", error.c_str());
+}

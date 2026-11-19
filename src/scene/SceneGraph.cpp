@@ -200,6 +200,7 @@ static void saveSequence(std::ostringstream& o, const SequenceObject& q) {
         for (const AnimKey& k : t.keys) {
             o << "  key time " << num(k.time) << " position " << vec(k.position) << " rotation " << vec(k.rotationDeg);
             if (k.hasVelocity) o << " velocity " << vec(k.velocity);
+            if (k.interp != AnimInterp::Linear) o << " interp " << interpName(k.interp);
             o << "\n";
         }
     }
@@ -876,7 +877,8 @@ static bool readSequenceLine(const std::vector<std::string>& w, SequenceObject& 
     while (!r.done()) {
         const std::string k = r.key();
         if (!(k == "time" ? r.number(key.time) : k == "position" ? r.vector(key.position) : k == "rotation" ? r.vector(key.rotationDeg)
-              : k == "velocity" ? (key.hasVelocity = true, r.vector(key.velocity)) : false))
+              : k == "velocity" ? (key.hasVelocity = true, key.interp = AnimInterp::Smooth, r.vector(key.velocity))
+              : k == "interp" ? !r.done() && interpOf(r.key(), key.interp) : false))
             return fail(bad, k);
     }
     std::vector<AnimKey>& keys = q.tracks.back().keys;

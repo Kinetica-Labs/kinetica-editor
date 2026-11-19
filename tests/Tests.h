@@ -70,6 +70,7 @@ void testActionsTransforms();
 void testSceneOpsRegistry();
 void testTargetCamera();
 void testSequence();
+void testSequenceInterp();
 // AssemblyTests.cpp
 void testSceneJointsRoundTrip();
 void testSnapToFace();

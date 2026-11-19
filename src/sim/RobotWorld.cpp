@@ -509,7 +509,7 @@ void RobotWorld::sampleTake(const PhysicsWorld& physics) {
         Quaternion turn;
         if (const SceneObject* parent = findObject(live_, o->parent)) worldPose(live_, *parent, at, turn), v = turn.conjugate().rotate(v);
         AnimKey k{t, o->position, o->rotationDeg};
-        k.velocity = v, k.hasVelocity = true;
+        k.velocity = v, k.hasVelocity = true, k.interp = AnimInterp::Smooth;
         take_[i].push_back(k);
     }
 }

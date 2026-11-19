@@ -124,6 +124,7 @@ if(Qt6_FOUND)
     editor/SceneBuilder.h    editor/SceneBuilder.cpp editor/SceneBuilderPanels.cpp editor/SceneBuilderObjects.cpp
     editor/SceneBuilderClone.cpp editor/SceneBuilderMulti.cpp editor/SceneBuilderLights.cpp editor/SceneBuilderKeep.cpp
     editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
+    editor/SequencerViews.h editor/SequencerTimeline.cpp editor/SequencerCurves.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
     editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
     editor/SceneBuilderSensors.cpp editor/SceneBuilderDevices.cpp

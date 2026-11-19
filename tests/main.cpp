@@ -86,6 +86,7 @@ int main() {
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("scene: the Sequencer - a sequence's poses between keys, held, looped; keys, the file, the playhead, a lost track", testSequence);
+    run("scene: a key's interpolation - linear, smooth (Hermite, soft ends), step - and sequence_key_set", testSequenceInterp);
     run("assembly: six-freedom joints in the scene file come back to the bit", testSceneJointsRoundTrip);
     run("assembly: a shape snapped to each face of a turned box touches it exactly", testSnapToFace);
     run("assembly: the core edits put, get, set, remove and their inverses", testSceneEditsCore);
