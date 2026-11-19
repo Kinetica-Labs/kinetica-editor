@@ -9,7 +9,6 @@
 
 #include "RoleBar.h"
 
-#include "ColliderPanel.h"
 #include "InspectorWidgets.h"
 #include "ObjectInspector.h"
 
@@ -46,16 +45,7 @@ void takeObject(const SceneObject& before, const SceneObject& after, SceneObject
     take(before.rotationDeg, after.rotationDeg, target.rotationDeg);
 }
 
-void takeCollider(const ColliderRole& before, const ColliderRole& after, ColliderRole& target) {
-    if (after.kind != before.kind) target.kind = after.kind;
-    take(before.fitToGeometry, after.fitToGeometry, target.fitToGeometry);
-    take(before.size, after.size, target.size);
-    take(before.offset, after.offset, target.offset);
-    take(before.rotationDeg, after.rotationDeg, target.rotationDeg);
-}
-
-// The geometry and the numbers of the components (the components themselves are switched by
-// toggleRole, not by these widgets).
+// The geometry and its look (the components' numbers are their cards', which write the one field edited themselves).
 void takeShape(const Entity& before, const Entity& after, Entity& t) {
     if (after.shape != before.shape) t.shape = after.shape;
     if (before.texture.kind != after.texture.kind) t.texture.kind = after.texture.kind;
@@ -64,20 +54,9 @@ void takeShape(const Entity& before, const Entity& after, Entity& t) {
     take(before.texture.bumpHeight, after.texture.bumpHeight, t.texture.bumpHeight);
     if (before.texture.heightFile != after.texture.heightFile) t.texture.heightFile = after.texture.heightFile;
     take(before.size, after.size, t.size);
-    take(before.rigid.density, after.rigid.density, t.rigid.density);
-    take(before.rigid.friction, after.rigid.friction, t.rigid.friction);
-    take(before.rigid.restitution, after.rigid.restitution, t.rigid.restitution);
-    take(before.rigid.fixed, after.rigid.fixed, t.rigid.fixed);
-    take(before.rigid.velocity, after.rigid.velocity, t.rigid.velocity);
-    take(before.rigid.angularVelocity, after.rigid.angularVelocity, t.rigid.angularVelocity);
-    takeCollider(before.collider, after.collider, t.collider);
 }
 
-// "—" in a number field when the selected differ in it.
-void markNumber(QDoubleSpinBox* s, const std::vector<Entity>& all, Real (*get)(const Entity&)) {
-    for (const Entity& e : all)
-        if (get(e) != get(all.front())) return showMixed(s);
-}
+// "—" in a number of the three when the selected differ in it.
 void markVector(Vec3Row* r, const std::vector<Entity>& all, Vector3 (*get)(const Entity&)) {
     for (int k = 0; k < 3; ++k)
         for (const Entity& e : all)
@@ -86,17 +65,6 @@ void markVector(Vec3Row* r, const std::vector<Entity>& all, Vector3 (*get)(const
                 break;
             }
 }
-void markCheck(QCheckBox* c, const std::vector<Entity>& all, bool (*get)(const Entity&)) {
-    for (const Entity& e : all)
-        if (get(e) != get(all.front())) { // unchecked, and says so: a click checks it for all
-            const QSignalBlocker quiet(c);
-            c->setProperty("realText", c->text());
-            c->setText(c->text() + "  (—: у всех разное)");
-            c->setChecked(false);
-            return;
-        }
-}
-
 } // namespace
 
 std::vector<Entity*> SceneBuilder::selectedEntities() {
@@ -145,12 +113,6 @@ void SceneBuilder::markMixed() {
     if (all.size() != selection_.size()) return; // not all shapes: only the object's part is shown
     if (std::any_of(all.begin(), all.end(), [&](const Entity& e) { return e.shape != all.front().shape; })) shape_->setCurrentIndex(-1);
     markVector(size_, all, [](const Entity& e) { return e.size; });
-    markNumber(rigidDensity_, all, [](const Entity& e) { return e.rigid.density; });
-    markNumber(friction_, all, [](const Entity& e) { return e.rigid.friction; });
-    markNumber(restitution_, all, [](const Entity& e) { return e.rigid.restitution; });
-    markCheck(fixed_, all, [](const Entity& e) { return e.rigid.fixed; });
-    markVector(velocity_, all, [](const Entity& e) { return e.rigid.velocity; });
-    markVector(spin_, all, [](const Entity& e) { return e.rigid.angularVelocity; });
 }
 
 // A widget changed: what differs from what was shown goes to every selected object - its own part

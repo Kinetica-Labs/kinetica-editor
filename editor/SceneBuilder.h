@@ -64,8 +64,6 @@
 #include <string>
 #include <vector>
 
-class ArrayPanel;
-class ColliderPanel;
 class ComponentCard;
 class GroupPanel;
 class InlineBanner;
@@ -312,9 +310,9 @@ private:
     void buildAddComponent(QVBoxLayout* col);      // "+ Добавить компонент" and its menu
     void buildManyCards(QVBoxLayout* col);         // "Группа", "Массив" and the instance's link
     void fillAddMenu();                            // the components the object does not have yet
-    ComponentCard* componentCard(QVBoxLayout* col, RoleIcon role, QFormLayout*& form);
-    QDoubleSpinBox* numberField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals);
-    QCheckBox* checkField(QFormLayout* f, const QString& text);
+    ComponentCard* componentCard(QVBoxLayout* col, RoleIcon role);
+    class FieldForm* shapeFields(ComponentCard* card, class FieldForm* SceneBuilder::*slot); // over the selected shapes' masters
+    class FieldForm* arrayFields();
     Vec3Row* vectorField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals);
 
     // Editing
@@ -323,7 +321,6 @@ private:
     void reloadNeeded(const QString& why);
     void onObjectEdited();
     void onDetailsEdited();
-    void onArrayEdited();
     void onWorldEdited(const ke::WorldSettings& settings);
     void onListClicked(QTreeWidgetItem* item, int column);
     void setSelected(uint32_t id);                              // just this one (0: nothing)
@@ -333,7 +330,7 @@ private:
     // Graph <-> widgets
     void fillInspector();
     void fillManyCards(const ke::SceneObject& o); // the group, array and instance cards of the active object
-    void fillDetails(const ke::Entity& e);
+    void fillDetails();
     void readDetails(ke::Entity& e) const;
     void fillWorld();
     void refreshList();
@@ -353,10 +350,7 @@ private:
     // Lights and cameras (SceneBuilderLights.cpp)
     void buildLightActions();
     void buildLightCards(QVBoxLayout* col);
-    QDoubleSpinBox* lightNumber(QFormLayout* f, const QString& label, double min, double max, double step, int decimals, bool camera);
     void fillLightCards(const ke::SceneObject& o);
-    void onLightEdited();
-    void onCameraEdited();
     void addObjectDone(uint32_t id);            // select it, list it, show it
     void refreshLightsAndCameras();             // the wireframes and the view through a camera
     void refreshMarkers();
@@ -384,6 +378,24 @@ private:
         *live = draft;
         afterCardEdit(live->id, click);
     }
+    // A card over every selected thing of its kind (`find`: what an id stands for, else null): fill shows the active
+    // one and "—" where they differ; an edit writes the one field into each of them, the rest of each stays its own.
+    template <class Form, class T, class Find> void fillSelected(Form* form, T& draft, Find find) {
+        std::vector<T*> all{find(selectedId_)};
+        if (!all.front()) return;
+        for (uint32_t id : selection_)
+            if (T* x = find(id); x && id != selectedId_) all.push_back(x);
+        form->fill(int(all.size()), [&](int i) { draft = *all[size_t(i)]; });
+    }
+    template <class Form, class T, class Find> void commitSelected(const Form* form, T& draft, Find find, bool click) {
+        if (filling_ || !find(selectedId_)) return;
+        remember(!click);
+        for (uint32_t id : selection_)
+            if (T* x = find(id)) draft = *x, form->repeat(), *x = draft;
+        draft = *find(selectedId_);
+        afterCardEdit(selectedId_, click);
+    }
+    ke::Entity* masterById(uint32_t id); // the shape an id shows (an instance's master), else null
     void afterCardEdit(uint32_t id, bool click);
     void pollLive();                            // the selected sensor's, battery's or driver's readings
     ke::SensorObject* sensorById(uint32_t id);
@@ -580,24 +592,19 @@ private:
     InlineBanner* instanceLink_ = nullptr; // "Экземпляр: связан с «Куб 1»" [Отвязать]
     ComponentCard *groupCard_ = nullptr, *arrayCard_ = nullptr;
     GroupPanel* groupPanel_ = nullptr;
-    ArrayPanel* arrayPanel_ = nullptr;
+    class FieldForm* arrayFields_ = nullptr;
+    ke::ArrayObject arrayDraft_;
     QPushButton* addComponent_ = nullptr;
     QMenu* addMenu_ = nullptr;
     InlineBanner* noCollider_ = nullptr; // in the rigid card: a body without a collider falls through
-    ColliderPanel* collider_ = nullptr;
-    QDoubleSpinBox *rigidDensity_ = nullptr, *friction_ = nullptr, *restitution_ = nullptr;
-    QCheckBox* fixed_ = nullptr;
-    Vec3Row *velocity_ = nullptr, *spin_ = nullptr;
-    // The "Свет" and "Камера" cards; what they showed (an edit is what differs, for every selected one)
+    class FieldForm *rigidFields_ = nullptr, *colliderFields_ = nullptr;
+    ke::Entity shapeDraft_; // the active shape's master, the rigid and collider cards' edits written here first
+    // The "Свет" and "Камера" cards over every selected light or camera
     ComponentCard *lightCard_ = nullptr, *cameraCard_ = nullptr;
-    QFormLayout *lightForm_ = nullptr, *cameraForm_ = nullptr;
-    QToolButton* lightKind_[3] = {};
-    QDoubleSpinBox *lightIntensity_ = nullptr, *lightRange_ = nullptr, *lightCone_ = nullptr, *lightSoftness_ = nullptr;
-    QCheckBox* lightShadows_ = nullptr;
-    QDoubleSpinBox *cameraFov_ = nullptr, *cameraNear_ = nullptr, *cameraFar_ = nullptr;
+    class FieldForm *lightFields_ = nullptr, *cameraFields_ = nullptr;
+    ke::Light lightDraft_;
+    ke::Camera cameraDraft_;
     QPushButton* throughButton_ = nullptr;
-    ke::Light lightShown_;
-    ke::Camera cameraShown_;
     // The "Датчик" card; the electrics' cards, shown instead of the object's when one is selected
     ComponentCard* sensorCard_ = nullptr;
     QLabel *sensorMount_ = nullptr, *sensorLive_ = nullptr;

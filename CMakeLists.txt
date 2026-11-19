@@ -127,7 +127,6 @@ if(Qt6_FOUND)
     editor/Icons.h           editor/Icons.cpp
     editor/ManyPanels.h      editor/ManyPanels.cpp
     editor/ClonePopover.h    editor/ClonePopover.cpp
-    editor/ColliderPanel.h   editor/ColliderPanel.cpp
     editor/ColliderGuides.h  editor/ColliderGuides.cpp
     editor/WorldPanel.h      editor/WorldPanel.cpp
     editor/TexturePanel.h    editor/TexturePanel.cpp editor/TextureBumpPanel.cpp
