@@ -398,11 +398,17 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     const bool noisy = sensor() && sensor()->noise;
     number("sensorSeed", 7);
     const bool seed = sensor() && sensor()->seed == 7;
+    b.play(); // the running world reads it: the robot's reading and the probe's truth beside it
+    pump(900);
+    const bool live = says("м/с²") && says("истина");
+    b.stop();
+    pump(60);
     std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, its model's datasheet %s, 200 Hz typed over it %s; "
-                "quiet %s, undone %s, seed 7 %s\n", encoder ? "yes" : "no", lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no", sheet ? "yes" : "no",
-                typed ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no");
+                "quiet %s, undone %s, seed 7 %s; playing, it reads %s\n", encoder ? "yes" : "no", lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no",
+                sheet ? "yes" : "no", typed ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no", live ? "yes" : "no");
     c.check(encoder && lines && zero && imu && quiet && noisy && seed, "a sensor's card shows its kind's fields and writes each edit into its line");
     c.check(sheet && typed, "an IMU's card: its model's datasheet from the table, a number typed over it the sensor's, the model said changed");
+    c.check(live, "the scene playing, the IMU's card shows what the robot reads and the truth beside it");
 }
 
 // The cards «Батарея» and «Драйвер мотора»: the UR5e's elbow made a DC motor and fed (assembly_power: a driver and a

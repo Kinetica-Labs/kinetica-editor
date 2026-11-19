@@ -56,7 +56,30 @@ uint32_t jointOfLink(const SceneGraph& g, uint32_t entity) {
     return 0;
 }
 
-const char* kNoReadings = "Показаний пока нет: мир робота ещё не моделирует датчики";
+// What the robot reads from a sensor now, in words, and the truth of its probe beside it - the person sees both.
+QString sensorLiveText(const Simulation& s, uint32_t id) {
+    const LiveSensor* x = s.robot() ? s.robot()->sensor(id) : nullptr;
+    if (!x) return "В работающем мире этого датчика нет (стереокамера снимает по запросу)";
+    const SensorReading& r = x->reading();
+    if (!r.problem.empty()) return "Не читает: " + QString::fromStdString(r.problem);
+    const auto n = [](double v, int d = 3) { return QString::number(v, 'f', d); };
+    const auto vec = [&n](const Vector3& v, int d = 3) { return "(" + n(v.x, d) + ", " + n(v.y, d) + ", " + n(v.z, d) + ")"; };
+    const SensorValues& t = x->truth();
+    QString text;
+    switch (x->spec().kind) {
+    case SensorKind::Imu: text = "a " + vec(r.a) + " м/с²\nω " + vec(r.b, 4) + " рад/с\nистина: a " + vec(t.a) + ", ω " + vec(t.b, 4); break;
+    case SensorKind::Wrench: text = "F " + vec(r.a, 2) + " Н\nM " + vec(r.b) + " Н·м\nистина: F " + vec(t.a, 2) + ", M " + vec(t.b); break;
+    case SensorKind::Sonar: text = (r.value < 0 ? QString("эха нет") : "дальность " + n(r.value, 4) + " м") + " · истина " + (t.value < 0 ? QString("нет эха") : n(t.value, 4) + " м"); break;
+    case SensorKind::Touch: text = "сила " + n(r.value, 2) + " Н, точек " + QString::number(r.count); break;
+    case SensorKind::Effort: text = "усилие " + n(r.value, 4); break;
+    case SensorKind::Encoder:
+        text = "счёт " + QString::number(r.count) + (r.referenced ? " · " + n(r.value, 5) : " · от старта " + n(r.value, 5) + " (нуль не задан)") +
+               " · истина " + n(t.value, 5);
+        break;
+    case SensorKind::Stereo: break;
+    }
+    return text + (r.saturated ? "\nна пределе диапазона" : QString()) + "\nотсчёт " + n(double(r.sampleNs) * 1e-9, 4) + " с";
+}
 
 } // namespace
 
@@ -287,18 +310,19 @@ void SceneBuilder::fillSensorCard(const SceneObject& o) {
     sensorMount_->setText(QString(kSensorNames[int(s->kind)]) + " · " + on + (j ? QString(" — место задаёт сочленение") : QString()));
     sensorCard_->setIcon(deviceIcon(DeviceIcon(int(s->kind)), 22));
     sensorFields_->fill();
-    sensorLive_->setText(kNoReadings);
+    sensorLive_->setText(editing() ? "Показания — при пуске сцены: что читает робот и истина физики рядом" : "…");
 }
 
-// Four times a second while the scene plays: the selected joint's coordinate, target and effort, read on the
-// simulation's thread.
+// Four times a second while the scene plays: the selected joint's coordinate, target and effort, or the selected
+// sensor's reading, read on the simulation's thread.
 void SceneBuilder::pollLive() {
     const uint32_t id = selectedId_;
-    if (!findJoint(graph_, id) || editing() || selection_.size() != 1) return;
+    const bool joint = findJoint(graph_, id) != nullptr;
+    if ((!joint && !sensorById(id)) || editing() || selection_.size() != 1) return;
     QPointer<SceneBuilder> self(this);
-    QPointer<QLabel> shown(jointLive_);
-    ctrl_->post([self, shown, id](Simulation& s) {
-        const QString text = jointLiveText(s, id);
+    QPointer<QLabel> shown(joint ? jointLive_ : sensorLive_);
+    ctrl_->post([self, shown, id, joint](Simulation& s) {
+        const QString text = joint ? jointLiveText(s, id) : sensorLiveText(s, id);
         QMetaObject::invokeMethod(self, [self, shown, id, text] {
             if (self && shown && self->selectedId_ == id && !text.isEmpty()) shown->setText(text);
         }, Qt::QueuedConnection);

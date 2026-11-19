@@ -12,6 +12,7 @@
 #include "physics/PhysicsWorld.h"
 #include "scene/SceneGraph.h"
 #include "sim/Frame.h"
+#include "sim/LiveSensors.h"
 
 #include <map>
 #include <memory>
@@ -53,6 +54,13 @@ public:
     // (N m or N, our code), a velocity motor's (the engine's). 0: no drive.
     Real jointEffort(const PhysicsWorld& physics, uint32_t joint) const;
     const JointObject* jointSpec(uint32_t joint) const; // the joint as the world runs it (null: none)
+    // The load a joint passes to its link a over the last substep, in the joint's frame on a about its anchor: N, N m.
+    bool jointWrench(const PhysicsWorld& physics, uint32_t joint, Vector3& force, Vector3& torque) const;
+    // The scene's sensors as the world runs them (LiveSensors.h), sampled after every substep on the world's clock:
+    // what a robot reads, and the truth beside it for the privileged loop. Null: none (a stereo camera's is on request).
+    const LiveSensor* sensor(uint32_t id) const;
+    const std::vector<std::unique_ptr<LiveSensor>>& sensors() const { return sensors_; }
+    int64_t clockNs() const { return clockNs_; } // the world's clock, whole nanoseconds
     // The joints edited while the world runs (an IK goal dragged, a servo's target typed): a joint built as
     // before takes its new drive - target, gains, motor - at once. False, and nothing changed, when the
     // joints are no longer the same (one added or removed, its kind, links, frames, limits or motion
@@ -113,6 +121,8 @@ private:
     std::unordered_map<uint32_t, int> bodyOfEntity_; // entity id -> body
     std::vector<uint32_t> entityOfBody_;             // body -> entity id (0: none)
     std::vector<LiveJoint> joints_;
+    std::vector<std::unique_ptr<LiveSensor>> sensors_;
+    int64_t clockNs_ = 0;
     std::unordered_map<uint32_t, int> robotOf_;      // entities tied by joints - robots' links - and their robot (robotGroups)
     std::unordered_map<uint32_t, std::pair<Vector3, Quaternion>> carried_; // goal id -> the pose its effector is led to now
     std::vector<std::string> notes_;

@@ -49,6 +49,7 @@ void testSimUr5eHolds();
 void testSimTugUr5e();
 void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
+void testSimSensors();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testScenePhysicsLine();

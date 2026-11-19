@@ -72,6 +72,7 @@ add_library(kecore STATIC
   src/physics/HullPoints.h src/physics/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/box3d/Box3dWorld.cpp
   src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp
+  src/sim/LiveSensors.h    src/sim/LiveSensors.cpp
   src/sim/Channels.h       src/sim/Channels.cpp
   src/sim/Simulation.h     src/sim/Simulation.cpp
 )

@@ -431,3 +431,75 @@ void testSimGoalPoseSettles() {
     CHECK(off < 0.005_r && turnOff < 1 && fastest < 0.005_r && refused, "the gripper %f m and %f deg off the posed goal, moving %f m/s", double(off),
           double(turnOff), double(fastest));
 }
+
+// The sensors of the running world, each its probe of the physics and its datasheet's device, against exact answers. A
+// 0.2 m box resting on the floor: an IMU on its top reads 1 g up on its z and no turn, a touch pad under it its weight
+// m g, a sonar on its side the wall 0.85 m away; an IMU on a box falling free reads no force at all. A hinge spun by a
+// velocity motor past a full turn: its encoder counts on (the turn unwrapped), its reading within a step of the truth.
+// A servo holding an arm against gravity: the wrench sensor on its hinge reads the arm's weight, the effort sensor the
+// servo's torque m g d cos x. With its datasheet's noise an IMU reads other than the truth - the robot's input is never
+// the physics' number.
+void testSimSensors() {
+    SceneGraph g;
+    g.world.physics.sleeping = false;
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 0.1_r, 0}, false));
+    g.entities.push_back(solid(2, "Стена", {0.1_r, 1, 2}, {1, 0.5_r, 0}, true));
+    g.entities.push_back(solid(3, "Камень", Vector3(0.2_r), {-1, 2.5_r, 0}, false));
+    const auto put = [&g](uint32_t on, BoxFace face, SensorKind kind, bool noise) {
+        const uint32_t id = attachSensor(g, on, snapToFace(g, on, face, Vector3(0.0_r)), kind);
+        g.sensors.back().noise = noise;
+        return id;
+    };
+    const uint32_t imu = put(1, BoxFace::PlusY, SensorKind::Imu, false), noisy = put(1, BoxFace::PlusY, SensorKind::Imu, true);
+    const uint32_t touch = put(1, BoxFace::MinusY, SensorKind::Touch, false), sonar = put(1, BoxFace::PlusX, SensorKind::Sonar, false);
+    const uint32_t falling = put(3, BoxFace::PlusY, SensorKind::Imu, false);
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 20; ++k) s.stepFrame();
+    const SensorReading fall = s.robot()->sensor(falling)->reading();
+    for (int k = 0; k < 100; ++k) s.stepFrame();
+    const RobotWorld& w = *s.robot();
+    const SensorReading rest = w.sensor(imu)->reading(), pad = w.sensor(touch)->reading(), echo = w.sensor(sonar)->reading();
+    const Real weight = s.physics()->state(w.bodyOf(1)).mass * 9.81_r, range = w.sensor(sonar)->truth().value;
+    const Vector3 off = w.sensor(noisy)->reading().a - w.sensor(noisy)->truth().a;
+    std::printf("  resting box: IMU accel (%.4f %.4f %.4f) m/s^2, gyro |%.5f| rad/s; touch pad %.2f N on %lld points (m g %.2f N); sonar %.4f m "
+                "(truth %.4f, 0.85); falling IMU |a| %.4f m/s^2; with noise the IMU reads %.3f m/s^2 off the truth\n", double(rest.a.x), double(rest.a.y),
+                double(rest.a.z), double(length(rest.b)), double(pad.value), static_cast<long long>(pad.count), double(weight), double(echo.value),
+                double(range), double(length(fall.a)), double(length(off)));
+    CHECK(std::fabs(rest.a.z - 9.81_r) < 0.05_r && std::fabs(rest.a.x) < 0.05_r && std::fabs(rest.a.y) < 0.05_r && length(rest.b) < 0.01_r,
+          "an IMU at rest does not read 1 g up");
+    CHECK(length(fall.a) < 0.05_r && fall.sampleNs > 0, "an IMU falling free reads %f m/s^2, not none", double(length(fall.a)));
+    CHECK(std::fabs(pad.value / weight - 1) < 0.02_r && pad.count > 0, "the pad under the box reads %f N, not its weight %f", double(pad.value), double(weight));
+    CHECK(std::fabs(range - 0.85_r) < 1e-3_r && std::fabs(echo.value - range) < 1e-6_r, "the sonar reads %f m, the wall is 0.85 m away", double(echo.value));
+    CHECK(length(off) > 0.01_r, "an IMU with its datasheet's noise reads the truth itself");
+
+    JointDrive spin;
+    spin.enabled = true, spin.targetVelocity = 2, spin.maxForce = 100;
+    SceneGraph motor = armOnPost(spin);
+    motor.world.gravity = Vector3(0.0_r);
+    const uint32_t encoder = attachEncoder(motor, 3, 500);
+    Simulation m;
+    m.load(motor);
+    for (int k = 0; k < 240; ++k) m.stepFrame();
+    const LiveSensor& e = *m.robot()->sensor(encoder);
+    const double step = 2 * kPi / 2000;
+    std::printf("  encoder 500 lines on a hinge spun 4 s at 2 rad/s: count %lld, reads %.4f rad, the hinge turned %.4f rad (unwrapped); "
+                "referenced: %s\n", static_cast<long long>(e.reading().count), double(e.reading().value), double(e.truth().value), e.reading().referenced ? "yes" : "no");
+    CHECK(e.truth().value > 2 * kPi && std::fabs(double(e.reading().value - e.truth().value)) <= step, "the encoder past a turn: %f vs %f",
+          double(e.reading().value), double(e.truth().value));
+
+    JointDrive servo;
+    servo.enabled = true, servo.stiffness = 60, servo.damping = 4, servo.target = 0.5_r, servo.maxForce = 100;
+    SceneGraph held = armOnPost(servo);
+    const uint32_t wrench = attachJointSensor(held, 3, SensorKind::Wrench), effort = attachJointSensor(held, 3, SensorKind::Effort);
+    held.sensors[0].noise = false;
+    Simulation h;
+    h.load(held);
+    for (int k = 0; k < 360; ++k) h.stepFrame();
+    const Real armWeight = h.physics()->state(h.robot()->bodyOf(2)).mass * 9.81_r, x = armAngle(h);
+    const SensorReading load = h.robot()->sensor(wrench)->reading(), drive = h.robot()->sensor(effort)->reading();
+    std::printf("  servo holding the arm at %.4f rad: wrench |F| %.4f N (m g %.4f), effort %.5f N m (m g d cos x %.5f)\n", double(x),
+                double(length(load.a)), double(armWeight), double(drive.value), double(armWeight * 0.2_r * std::cos(x)));
+    CHECK(std::fabs(length(load.a) / armWeight - 1) < 0.02_r, "the wrench reads %f N, not the arm's weight %f", double(length(load.a)), double(armWeight));
+    CHECK(std::fabs(drive.value / (armWeight * 0.2_r * std::cos(x)) - 1) < 0.02_r, "the effort reads %f N m", double(drive.value));
+}
