@@ -184,7 +184,6 @@ private:
     void fillBodyCard(const LabBodyFacts& f);
     void labScrubStarted();                   // the timeline was taken: the scene pauses
     void labWentLive();                       // back to the newest frame: the scene runs on if it ran
-    void updateLabTimeline();                 // shown while the Laboratory is open and the scene is not edited
     bool sceneRunning() const;
     void labPlot(const QString& channel);     // «Построить график»: the channel into the plots, the plots shown
 
@@ -236,6 +235,7 @@ private:
     void buildOperators(); // the API's operations and the magnet, before the top bar
     void buildConsoleDock(); // the API console: every call as a Python line, and a line to type calls
     void buildSequencerDock(); // the Sequencer: a tab of the bottom panel (MainWindowPlots.cpp)
+    void connectHistory();     // its playhead over the run's last frames (MainWindowPlots.cpp)
     class SequencerPanel* sequencer_ = nullptr;
     class EditorOps* ops_ = nullptr;
     class EditorServer* apiServer_ = nullptr; // the API, once started (apiPort)
@@ -267,7 +267,7 @@ private:
     QStringList onlyViewDocks_;                     // what "only the 3D view" closed (docks, then "shelf", "status")
     class QDockWidget* labDock_ = nullptr;
     class LabPanel* lab_ = nullptr;
-    class LabTimeline* timeline_ = nullptr;
+    class FrameHistory* history_ = nullptr; // the run's last frames: the Sequencer's playhead goes back over them
     bool labResume_ = false;       // the timeline paused a running scene: «Вживую» lets it run on
     bool labFresh_ = false;        // new frames were recorded since the view last drew one
 

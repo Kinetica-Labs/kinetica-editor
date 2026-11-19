@@ -57,6 +57,9 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     filter_->setClearButtonEnabled(true);
     filter_->setFixedWidth(140);
     bar->addWidget(filter_);
+    live_ = button("● Вживую", "Назад к последнему кадру запуска: сцена пойдёт дальше, если шла", "sequencerLive");
+    live_->setStyleSheet("QToolButton { color: #7cff9a; font-weight: bold; }");
+    live_->hide();
     note_ = new QLabel(this);
     note_->setStyleSheet("color: #ff6a5a;");
     bar->addWidget(note_, 1);
@@ -106,13 +109,24 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
         run("sim_record", QJsonObject{{"on", on}});
     });
     connect(curves_, &QToolButton::toggled, this, &SequencerPanel::showCurves);
+    connect(live_, &QToolButton::clicked, this, &SequencerPanel::liveWanted);
     connect(filter_, &QLineEdit::textChanged, timeline_, &SequencerTimeline::setFilter);
     sync();
 }
 
+void SequencerPanel::showPast(bool past, double time) {
+    past_ = past;
+    live_->setVisible(past);
+    playTime_ = past ? time : liveTime_;
+    timeline_->update(), curvesView_->update();
+    time_->setText(QString("%1 / %2 с").arg(playTime_, 0, 'f', 2).arg(liveTime_, 0, 'f', 2));
+}
+
+double SequencerPanel::atLeast() const { return builder_->editing() ? 0 : std::ceil(liveTime_) + 1; }
+
 double SequencerPanel::playhead() const {
-    if (scrubbing_ || previewTimer_->isActive()) return scrubTime_;
     if (!builder_->editing()) return playTime_;
+    if (scrubbing_ || previewTimer_->isActive()) return scrubTime_;
     const ke::SequenceObject* q = ke::activeSequence(builder_->graph());
     return q ? double(q->time) : 0;
 }
@@ -131,7 +145,11 @@ void SequencerPanel::seek(double time) {
 }
 
 void SequencerPanel::scrub(double time) {
-    if (!builder_->editing() || !ke::activeSequence(builder_->graph())) return;
+    if (!builder_->editing()) { // a run on screen: its frame then, from the history (the scene pauses)
+        scrubbing_ = true, scrubTime_ = time;
+        return emit pastWanted(std::min(time, liveTime_));
+    }
+    if (!ke::activeSequence(builder_->graph())) return;
     if (!scrubbing_) builder_->beginSequencePreview(), scrubbing_ = true;
     scrubTime_ = time;
     builder_->previewSequence(time); // the view redrawn: sync follows (MainWindow, editSnapshot)
@@ -139,6 +157,7 @@ void SequencerPanel::scrub(double time) {
 
 void SequencerPanel::endScrub() {
     scrubbing_ = false;
+    if (!builder_->editing()) return; // the run's frame stays on screen until «● Вживую» or ▶
     builder_->endSequencePreview();
     seek(scrubTime_);
 }
@@ -196,6 +215,8 @@ void SequencerPanel::keySelected() {
 
 // In play only the playhead moves: the time and the views, not the sequences (the edited scene stands still).
 void SequencerPanel::setPlayTime(double time) {
+    liveTime_ = time;
+    if (past_) return; // a kept frame on screen: the playhead stays on it
     playTime_ = time;
     if (builder_->editing()) return;
     const ke::SequenceObject* q = ke::activeSequence(builder_->graph());

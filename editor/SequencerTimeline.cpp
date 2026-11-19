@@ -25,7 +25,9 @@ namespace sequencer {
 
 double Axis::time(double x) const { return std::clamp((x - kNames - kPad) * span / std::max(1, width - kNames - 2 * kPad), 0.0, span); }
 
-Axis axisOf(const ke::SequenceObject* q, int width) { return {width, std::max(5.0, std::ceil(double(q ? q->length() : 0) + 1))}; }
+Axis axisOf(const ke::SequenceObject* q, int width, double atLeast) {
+    return {width, std::max({5.0, std::ceil(double(q ? q->length() : 0) + 1), atLeast})};
+}
 
 // A figure every 1, 5, 10 or 30 s by how long the view is, a tick between; the last figure at the edge written before its tick.
 void drawRuler(QPainter& p, const Axis& a, const QPalette& pal, int height) {
@@ -231,7 +233,7 @@ bool SequencerTimeline::keyAt(const QPointF& at, uint32_t& object, double& time)
     const int r = rowAt(at.y());
     const ke::SequenceObject* q = ke::activeSequence(panel_->builder()->graph());
     if (r < 0 || !q || rows_[size_t(r)].kind != Row::Track || rows_[size_t(r)].track >= q->tracks.size()) return false;
-    const Axis a = axisOf(q, width());
+    const Axis a = axisOf(q, width(), panel_->atLeast());
     const ke::SequenceTrack& t = q->tracks[rows_[size_t(r)].track];
     for (const ke::AnimKey& k : t.keys)
         if (std::fabs(a.x(double(k.time)) - at.x()) <= 6) return object = t.object, time = double(k.time), true;
@@ -240,7 +242,7 @@ bool SequencerTimeline::keyAt(const QPointF& at, uint32_t& object, double& time)
 
 QPointF SequencerTimeline::pointOf(uint32_t object, double time) const {
     const int first = scroll_->value();
-    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width());
+    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
     for (int r = first; r < int(rows_.size()); ++r) {
         const double y = kRuler + (r - first) * kRow;
         if (y + kRow > height()) break;
@@ -264,7 +266,7 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
     p.fillRect(QRect(0, 0, kNames, height()), pal.color(QPalette::Window));
     const ke::SceneGraph& g = panel_->builder()->graph();
     const ke::SequenceObject* q = ke::activeSequence(g);
-    const Axis a = axisOf(q, width());
+    const Axis a = axisOf(q, width(), panel_->atLeast());
     drawRuler(p, a, pal, height());
     if (!q || q->tracks.empty()) {
         p.setPen(pal.color(QPalette::PlaceholderText));
@@ -350,11 +352,11 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
         }
     }
     keyObject_ = 0, keyTime_ = -1;
-    if (at.x() >= kNames) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width()).time(at.x()));
+    if (at.x() >= kNames) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(at.x()));
 }
 
 void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
-    if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width()).time(e->position().x()));
+    if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
 }
 
 void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {

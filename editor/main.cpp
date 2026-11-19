@@ -150,7 +150,7 @@ static QString builderStyle() {
            "QFrame#inlineBanner QPushButton#bannerButton:hover { background: #e2b448; }";
 }
 
-// The Laboratory (LabPanel, LabCard, LabTimeline): the same dark ground, one accent blue, quiet captions.
+// The Laboratory (LabPanel, LabCard): the same dark ground, one accent blue, quiet captions.
 static QString labStyle() {
     return "QWidget#labPanel QLabel#labIntro { color: #8b93a2; }"
            "QWidget#labPanel QLabel#labSection { color: #8fc1ff; font-weight: 600; margin-top: 4px; }"
@@ -167,12 +167,7 @@ static QString labStyle() {
            "QFrame#labCard QLabel#labCardName { color: #aab1bd; }"
            "QFrame#labCard QLabel#labCardValue { font-family: Consolas, 'Cascadia Mono', monospace; }"
            "QFrame#labCard QPushButton#labCardButton { padding: 6px 10px; border: 1px solid #4096ff; border-radius: 6px; background: #24466f; }"
-           "QFrame#labCard QPushButton#labCardButton:hover { background: #2d5c99; }"
-           "QFrame#labTimeline { background: rgba(18, 20, 24, 200); border: 1px solid rgba(255, 255, 255, 40); border-radius: 10px; }"
-           "QFrame#labTimeline QLabel#labTimelineText { color: #b8c4d0; }"
-           "QFrame#labTimeline QToolButton#labStep { padding: 1px 7px; border-radius: 6px; font-size: 14px; color: #cfd8e3; }"
-           "QFrame#labTimeline QPushButton#labLive { padding: 4px 10px; border-radius: 6px; border: 1px solid #3a3f48; }"
-           "QFrame#labTimeline QPushButton#labLive[past=\"true\"] { background: #1f4a33; border: 1px solid #7cff9a; color: #d8ffe2; font-weight: 600; }";
+           "QFrame#labCard QPushButton#labCardButton:hover { background: #2d5c99; }";
 }
 
 // Software rendering for PCs without a usable GPU / OpenGL driver: Qt's Mesa llvmpipe

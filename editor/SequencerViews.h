@@ -28,7 +28,7 @@ struct Axis {
     double x(double t) const { return kNames + kPad + t * double(width - kNames - 2 * kPad) / span; }
     double time(double x) const;
 };
-Axis axisOf(const ke::SequenceObject* q, int width);
+Axis axisOf(const ke::SequenceObject* q, int width, double atLeast = 0); // atLeast: a run's time (SequencerPanel::atLeast)
 void drawRuler(QPainter& p, const Axis& a, const QPalette& pal, int height); // seconds, and faint lines down the view
 void drawPlayhead(QPainter& p, const Axis& a, double time, int height);
 void drawKey(QPainter& p, const QPointF& at, ke::AnimInterp interp, const QColor& fill, bool picked, const QColor& outline);

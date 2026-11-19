@@ -17,7 +17,7 @@
 // plots-normalized.png.
 #include "SelfTestSupport.h"
 
-#include "LabTimeline.h"
+#include "FrameHistory.h"
 #include "PlotPanel.h"
 
 #include <QAction>
@@ -26,7 +26,6 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QRegularExpression>
-#include <QSlider>
 #include <QTreeWidget>
 
 #include <cmath>
@@ -40,7 +39,7 @@ struct Plots {
     PlotPanel* panel = nullptr;
     QAction* graphs = nullptr;
     QDockWidget* dock = nullptr;
-    LabTimeline* timeline = nullptr;
+    FrameHistory* timeline = nullptr; // the run's kept frames
 };
 
 bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
@@ -320,21 +319,21 @@ void testLanes(Checker& c, QMainWindow& w, SceneBuilder& b, const Plots& p, cons
     trigger(w, "actionLaboratory");
     pump(200);
     const int k = p.timeline->count() / 3;
-    p.timeline->findChild<QSlider*>("labScrubber")->setValue(k); // the scrubber taken: the scene pauses
+    p.timeline->seek(k); // the playhead taken back (SelfTestLab presses it by hand): the scene pauses
     pump(100);
     const double at = p.timeline->frameAt(k)->time;
     bool cursor = !p.panel->views().empty();
     for (const TrackChart* lane : p.panel->views()) cursor = cursor && lane->cursorTime() == at;
-    c.check(cursor, "the Laboratory's scrubber moves the plots' cursor on every lane");
+    c.check(cursor, "going back in the run moves the plots' cursor on every lane");
 
     const int target = p.timeline->count() * 2 / 3;
     TrackChart* lane = p.panel->views().front();
     click(lane, QPointF(lane->xAtTime(p.timeline->frameAt(target)->time), lane->plotArea().center().y()));
     const int landed = p.timeline->position();
-    std::printf("  the scrubber at frame %d: the cursor there on every lane: %s; a click at frame %d's moment -> frame %d\n", k,
+    std::printf("  back at frame %d: the cursor there on every lane: %s; a click at frame %d's moment -> frame %d\n", k,
                 cursor ? "yes" : "no", target, landed);
     c.check(std::abs(landed - target) <= 1 && p.panel->views().front()->cursorTime() == p.timeline->frameAt(landed)->time,
-            "a click on a plot takes the Laboratory's timeline to that moment");
+            "a click on a plot takes the view back to that moment of the run");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-lanes.png");
     p.timeline->goLive();
     pump(100);
@@ -424,9 +423,9 @@ void testThirtyMinutes(Checker& c, Viewport* v) {
 int runPlotTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
     Plots p{w.findChild<PlotPanel*>(), w.findChild<QAction*>("actionGraphs"), w.findChild<QDockWidget*>("resultsDock"),
-            v->findChild<LabTimeline*>()};
+            w.findChild<FrameHistory*>()};
     if (!p.panel || !p.graphs || !p.dock || !p.timeline) {
-        c.check(false, "the window has the plots, their action and dock, the Laboratory's timeline");
+        c.check(false, "the window has the plots, their action and dock, the run's history");
         return c.failures;
     }
     testZeroClicks(c, w, b, v, p, shotsDir);

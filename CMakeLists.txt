@@ -157,7 +157,7 @@ if(Qt6_FOUND)
     editor/LabPanel.h        editor/LabPanel.cpp
     editor/LabLayers.h       editor/LabLayers.cpp
     editor/LabCard.h         editor/LabCard.cpp
-    editor/LabTimeline.h     editor/LabTimeline.cpp
+    editor/FrameHistory.h     editor/FrameHistory.cpp
     editor/ProfilerBar.h     editor/ProfilerBar.cpp
     editor/SimController.h   editor/SimController.cpp
     editor/EditView.h        editor/EditView.cpp

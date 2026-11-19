@@ -10,7 +10,7 @@
 //   4. «Сохранить CSV»: the lines on the charts, to a file.
 #include "MainWindow.h"
 
-#include "LabTimeline.h"
+#include "FrameHistory.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
 #include "PlotPanel.h"
@@ -68,11 +68,11 @@ void MainWindow::connectPlots() {
         if (object > 0 && builder_->selectedId() != uint32_t(object)) builder_->select(builder_->clickTarget(uint32_t(object)));
     });
     connect(plots_, &PlotPanel::timeClicked, this, &MainWindow::labSeekTime);
-    connect(timeline_, &LabTimeline::showFrame, this, [this](LabTimeline::Frame s) {
-        if (s && timeline_->showingPast()) plots_->setCursorTime(s->time);
+    connect(history_, &FrameHistory::showFrame, this, [this](FrameHistory::Frame s) {
+        if (s && history_->showingPast()) plots_->setCursorTime(s->time);
         else plots_->clearCursor();
     });
-    connect(timeline_, &LabTimeline::wentLive, plots_, &PlotPanel::clearCursor);
+    connect(history_, &FrameHistory::wentLive, plots_, &PlotPanel::clearCursor);
     connect(builder_, &SceneBuilder::selectionChanged, this, [this] { watchSelected(); });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { watchSelected(); });
     connect(plots_, &PlotPanel::saveCsvRequested, this, &MainWindow::saveVisibleCsv);
@@ -215,25 +215,24 @@ bool MainWindow::watchArm() {
     return true;
 }
 
-// --- The Laboratory's timeline --------------------------------------------------------------------
+// --- Back in the run -----------------------------------------------------------------------------
 
-// A click on a plot: the timeline shows the kept frame nearest to that moment, and the scene pauses
-// as when the strip is taken by hand. A moment the timeline no longer keeps (or the Laboratory
-// closed): the status bar says so.
+// A click on a plot: the view shows the kept frame nearest that moment and the scene pauses, as when the Sequencer's
+// playhead is taken back. A moment no longer kept: the status bar says so.
 void MainWindow::labSeekTime(double t) {
-    if (!timeline_ || !timeline_->isVisible() || timeline_->count() == 0) {
-        statusBar()->showMessage("Перейти к моменту графика можно при открытой Лаборатории (F8), пока идёт запись", 4000);
-        return;
-    }
-    int best = 0;
-    for (int i = 1; i < timeline_->count(); ++i)
-        if (std::fabs(timeline_->frameAt(i)->time - t) < std::fabs(timeline_->frameAt(best)->time - t)) best = i;
-    if (std::fabs(timeline_->frameAt(best)->time - t) > 0.05) {
-        statusBar()->showMessage("Этот момент уже не записан: Лаборатория хранит последние кадры", 4000);
-        return;
-    }
-    if (!timeline_->showingPast()) labScrubStarted();
-    timeline_->seek(best);
+    const int best = history_ ? history_->nearest(t) : -1;
+    if (best < 0) return statusBar()->showMessage("Перейти к моменту графика можно, пока идёт запуск: хранятся его последние кадры", 4000);
+    if (std::fabs(double(history_->frameAt(best)->time) - t) > 0.05)
+        return statusBar()->showMessage("Этот момент уже не хранится: в памяти последние 10 с запуска", 4000);
+    history_->seek(best);
+}
+
+// The Sequencer's playhead taken back while a run is on screen: the kept frame nearest that moment; «● Вживую» back.
+void MainWindow::connectHistory() {
+    connect(sequencer_, &SequencerPanel::pastWanted, this, [this](double t) {
+        if (const int k = history_->nearest(t); k >= 0) history_->seek(k);
+    });
+    connect(sequencer_, &SequencerPanel::liveWanted, history_, &FrameHistory::goLive);
 }
 
 // --- The file -------------------------------------------------------------------------------------

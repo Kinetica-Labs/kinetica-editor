@@ -1,5 +1,5 @@
 // The Laboratory in the window (see MainWindow.h): the «Лаборатория» button and F8, the dock with the
-// layers, the card and the profiler (LabPanel), the timeline strip on the view (LabTimeline), and what
+// layers, the card and the profiler (LabPanel), the run's last frames (FrameHistory, gone back over by the Sequencer's playhead), and what
 // a click in the view means while the Laboratory is open:
 //   1. a contact point within 10 px of the cursor (the contacts of the frame on screen) - its card:
 //      the two bodies, the depth, the normal, the impulse;
@@ -12,7 +12,8 @@
 
 #include "LabCard.h"
 #include "LabPanel.h"
-#include "LabTimeline.h"
+#include "FrameHistory.h"
+#include "SequencerPanel.h"
 #include "PlotPanel.h"
 #include "ProfilerBar.h"
 #include "SceneBuilder.h"
@@ -84,9 +85,10 @@ void MainWindow::buildLaboratory() {
     labDock_->setMinimumWidth(290);
     addDockWidget(Qt::LeftDockWidgetArea, labDock_);
     labDock_->hide();
-    timeline_ = new LabTimeline(view_);
+    history_ = new FrameHistory(this);
     menuBar()->findChild<QMenu*>("viewMenu")->addAction(labAct_);
     connectLaboratory();
+    connectHistory(); // the Sequencer is built before: its playhead goes back over this history
 }
 
 void MainWindow::connectLaboratory() {
@@ -97,9 +99,12 @@ void MainWindow::connectLaboratory() {
     connect(view_, &Viewport::labClicked, this, &MainWindow::onLabClicked);
     connect(lab_->card(), &LabCard::plotRequested, this, &MainWindow::labPlot);
     connect(lab_->profiler(), &ProfilerBar::plotRequested, this, &MainWindow::labPlot);
-    connect(timeline_, &LabTimeline::showFrame, this, [this](LabTimeline::Frame s) { view_->setSnapshot(std::move(s)); });
-    connect(timeline_, &LabTimeline::scrubStarted, this, &MainWindow::labScrubStarted);
-    connect(timeline_, &LabTimeline::wentLive, this, &MainWindow::labWentLive);
+    connect(history_, &FrameHistory::showFrame, this, [this](FrameHistory::Frame s) {
+        if (sequencer_ && s) sequencer_->showPast(history_->showingPast(), double(s->time));
+        view_->setSnapshot(std::move(s));
+    });
+    connect(history_, &FrameHistory::scrubStarted, this, &MainWindow::labScrubStarted);
+    connect(history_, &FrameHistory::wentLive, this, &MainWindow::labWentLive);
 }
 
 void MainWindow::setLaboratoryVisible(bool on) {
@@ -110,46 +115,31 @@ void MainWindow::setLaboratoryVisible(bool on) {
     updateChannelRequests(); // the scene's energy and momentum are measured while the Laboratory is open
     if (!on) view_->setLabMarker(false);
     lab_->syncFromProbe();
-    updateLabTimeline();
 }
 
-// The strip is there while the Laboratory is open and something simulated is on screen (not while the
-// scene is edited: then there is nothing to replay). Leaving it shows the live frame again, quietly.
-void MainWindow::updateLabTimeline() {
-    if (!timeline_) return;
-    const bool show = labAct_->isChecked() && !builder_->editing();
-    if (!show && timeline_->showingPast()) {
-        timeline_->blockSignals(true);
-        timeline_->goLive();
-        timeline_->blockSignals(false);
-        labResume_ = false;
-    }
-    timeline_->setVisible(show);
-}
-
-// Every simulated frame: kept by the timeline, timed by the profiler. A new frame while the past is on
+// Every simulated frame: kept by the history, timed by the profiler. A new frame while the past is on
 // screen means the scene runs again (▶ was pressed): the view follows it live.
-// The recording keeps every frame the simulation made, drawn or not (a paused scene publishes the same
-// frame again after each command: the timeline keeps it once). The profiler learns each new frame too.
+// The history keeps every frame the simulation made, drawn or not (a paused scene publishes the same
+// frame again after each command: it is kept once). The profiler learns each new frame too.
 void MainWindow::labRecord(const std::vector<std::shared_ptr<const ke::Frame>>& frames) {
-    if (!timeline_ || builder_->editing()) return; // edit mode shows the authored scene, not a run
+    if (!history_ || builder_->editing()) return; // edit mode shows the authored scene, not a run
     for (const auto& s : frames) {
-        const LabTimeline::Frame before = timeline_->newest();
-        timeline_->record(s);
-        if (timeline_->newest() == before) continue;
+        const FrameHistory::Frame before = history_->newest();
+        history_->record(s);
+        if (history_->newest() == before) continue;
         labFresh_ = true;
         if (labAct_->isChecked()) lab_->profiler()->addFrame(s->probe);
     }
 }
 
 // The frame the view is about to draw: the layer boxes follow the Probe; new frames of a running scene
-// take a timeline that shows the past back to «Вживую» (someone pressed ▶ Пуск).
+// take a history that shows the past back to «Вживую» (someone pressed ▶ Пуск).
 bool MainWindow::labOnSnapshot() {
-    if (!timeline_) return true;
+    if (!history_) return true;
     if (labAct_->isChecked()) lab_->syncFromProbe();
-    if (timeline_->showingPast() && labFresh_ && sceneRunning()) timeline_->goLive();
+    if (history_->showingPast() && labFresh_ && sceneRunning()) history_->goLive();
     labFresh_ = false;
-    return !timeline_->showingPast();
+    return !history_->showingPast();
 }
 
 bool MainWindow::sceneRunning() const { return builder_->mode() == SceneBuilder::Mode::Playing; }
@@ -229,7 +219,7 @@ void MainWindow::showBodyCard(int body) {
     f.label = watchLabel(int(f.object)).toStdString();
     fillBodyCard(f);
     view_->setLabMarker(true, f.pos);
-    if (timeline_->showingPast() || builder_->editing() || f.object == 0) return; // a kept frame: nothing live to ask
+    if (history_->showingPast() || builder_->editing() || f.object == 0) return; // a kept frame: nothing live to ask
     watchBody(int(f.object)); // its channels from the next frame on: the card's numbers can be plotted
     const ke::ObjectRef ref{f.object, f.label};
     QPointer<MainWindow> self(this);

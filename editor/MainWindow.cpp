@@ -12,6 +12,7 @@
 #include "RoleBar.h"
 #include "PlotPanel.h"
 #include "SceneBuilder.h"
+#include "FrameHistory.h"
 #include "SequencerPanel.h"
 #include "Viewport.h"
 
@@ -251,7 +252,13 @@ void MainWindow::onModeChanged() {
     syncRecord();
     updateToolShelf();
     updateSimulationBar();
-    updateLabTimeline(); // the Laboratory's strip: not while the scene is edited
+    if (builder_->editing() && history_ && history_->showingPast()) { // edited: the authored scene, not a run's past
+        history_->blockSignals(true);
+        history_->goLive();
+        history_->blockSignals(false);
+        labResume_ = false;
+        if (sequencer_) sequencer_->showPast(false, 0);
+    }
 }
 
 // The right click of the edit mode, as the quad menu of 3ds Max: an object under the cursor that is

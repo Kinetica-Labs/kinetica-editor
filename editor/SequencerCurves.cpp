@@ -78,7 +78,7 @@ double SequencerCurves::vAt(double y) const {
 }
 
 void SequencerCurves::fitRange(const std::vector<ke::AnimKey>& keys) {
-    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width());
+    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
     double lo = 1e300, hi = -1e300;
     for (int c = 0; c < 3; ++c) {
         if (!shown_[size_t(c)]) continue;
@@ -96,7 +96,7 @@ void SequencerCurves::fitRange(const std::vector<ke::AnimKey>& keys) {
 bool SequencerCurves::dotAt(const QPointF& at, size_t& key, int& channel) const {
     const ke::SequenceTrack* t = track();
     if (!t) return false;
-    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width());
+    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
     for (int c = 2; c >= 0; --c) // the one drawn last, on top, first
         for (size_t k = 0; shown_[size_t(c)] && k < t->keys.size(); ++k)
             if (std::hypot(a.x(double(t->keys[k].time)) - at.x(), yOf(valueOf(t->keys[k], c)) - at.y()) <= 7) return key = k, channel = c, true;
@@ -106,7 +106,7 @@ bool SequencerCurves::dotAt(const QPointF& at, size_t& key, int& channel) const 
 QPointF SequencerCurves::pointOf(size_t key, int channel) const {
     const ke::SequenceTrack* t = track();
     if (!t || key >= t->keys.size()) return QPointF(-1, -1);
-    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width());
+    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
     return QPointF(a.x(double(t->keys[key].time)), yOf(valueOf(t->keys[key], channel)));
 }
 
@@ -118,7 +118,7 @@ void SequencerCurves::paintEvent(QPaintEvent*) {
     p.fillRect(rect(), pal.color(QPalette::Base));
     p.fillRect(QRect(0, 0, kNames, height()), pal.color(QPalette::Window));
     const ke::SequenceObject* q = ke::activeSequence(panel_->builder()->graph());
-    const Axis a = axisOf(q, width());
+    const Axis a = axisOf(q, width(), panel_->atLeast());
     drawRuler(p, a, pal, height());
     const ke::SequenceTrack* t = track();
     if (!t) {
@@ -198,11 +198,11 @@ void SequencerCurves::mousePressEvent(QMouseEvent* e) {
         draft_ = t->keys, dragKey_ = long(key), dragChannel_ = channel, pressAt_ = at, drag_ = Drag::None;
         return update();
     }
-    if (at.x() >= kNames) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width()).time(at.x()));
+    if (at.x() >= kNames) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(at.x()));
 }
 
 void SequencerCurves::mouseMoveEvent(QMouseEvent* e) {
-    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width());
+    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
     if (panel_->scrubbing()) return panel_->scrub(a.time(e->position().x()));
     const ke::SequenceTrack* t = track();
     if (dragKey_ < 0 || !t || size_t(dragKey_) >= draft_.size()) return;
