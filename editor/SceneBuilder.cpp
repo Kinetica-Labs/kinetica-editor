@@ -464,7 +464,7 @@ bool SceneBuilder::loadIntoSimulation() {
 }
 
 std::string SceneBuilder::displayName() const {
-    return fileName_.isEmpty() ? sceneName() : sceneName() + ": " + fileName_.toStdString();
+    return fileName_.isEmpty() ? std::string("Новая сцена") : fileName_.toStdString(); // what a person calls it, not «Конструктор»
 }
 
 void SceneBuilder::refreshView() {

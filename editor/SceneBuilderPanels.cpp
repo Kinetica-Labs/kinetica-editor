@@ -152,6 +152,9 @@ void SceneBuilder::buildSceneList() {
     row->addWidget(dup);
     row->addWidget(rem);
     col->addLayout(row);
+    const auto showFor = [dup, rem](uint32_t id) { dup->setVisible(id != 0), rem->setVisible(id != 0); }; // nothing selected: nothing to act on
+    connect(this, &SceneBuilder::selectionChanged, dup, showFor);
+    showFor(0);
 }
 
 void SceneBuilder::buildWorldPanel() {

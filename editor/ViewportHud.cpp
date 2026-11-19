@@ -2,8 +2,8 @@
 // large figures coloured by how smooth they are (green from 55, amber from 30, red below), the last two seconds of
 // frame times as a line against the 60 Hz frame (16.7 ms), and in small print what one frame took to paint, what the
 // physics' step took, what the GPU took for the frame and its shadows (timer queries: a view bound by the GPU shows
-// there, not in the processor's time), how fast the scene runs against the wall clock and who draws. Editing,
-// the view is painted on a change only: the plate says so and shows the last paint. The operation view_hud shows and
+// there, not in the processor's time), how fast the scene runs against the wall clock and who draws. It is there while
+// the scene runs or stands paused - not while it is edited, when the view is painted on a change only. The operation view_hud shows and
 // hides it; its numbers are the frame_timing of sim_state.
 #include "Viewport.h"
 
@@ -98,7 +98,7 @@ void Viewport::setShowHud(bool on) {
 }
 
 void Viewport::drawHud(QPainter& p) {
-    if (!showHud_ || !snap_) return;
+    if (!showHud_ || !snap_ || !playFrame_) return; // edited, nothing runs: the plate stays away (F3 still sets it)
     const bool playing = !editMode_;
     const double fps = liveFps();
     QFont big = p.font();
