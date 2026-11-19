@@ -100,7 +100,7 @@ std::vector<SceneOp> coreSceneOps() {
 const std::vector<SceneOp>& sceneOps() {
     static const std::vector<SceneOp> all = [] {
         std::vector<SceneOp> ops = coreSceneOps();
-        for (std::vector<SceneOp> part : {actionSceneOps(), assemblySceneOps(), kinematicSceneOps(), controllerSceneOps()})
+        for (std::vector<SceneOp> part : {actionSceneOps(), assemblySceneOps(), kinematicSceneOps(), controllerSceneOps(), animationSceneOps()})
             ops.insert(ops.end(), part.begin(), part.end());
         return ops;
     }();

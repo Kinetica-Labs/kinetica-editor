@@ -4,6 +4,7 @@
 // their sensors, and the gizmo's move, turn and scale.
 #include "TestRunner.h"
 
+#include "scene/Animation.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
 #include "scene/SceneOps.h"
@@ -202,4 +203,51 @@ void testTargetCamera() {
     aim.set("camera", int(g.cameras.back().id)), aim.set("at", 777);
     const bool noObject = !findSceneOp("camera_aim")->edit(g, aim, answer, error) && error.find("777") != std::string::npos;
     CHECK(made && noCamera && noObject, "scene_add_camera kind target, or camera_aim's refusals: %s", error.c_str());
+}
+
+// The Sequencer's clip (scene/Animation.h). A cube keyed at 0 s at the origin, unturned, and at 2 s 1 m along x turned
+// 90 degrees about y: at 1 s it is half way, 0.5 m, turned exactly 45 degrees; before 0 s and after 2 s it holds; looped,
+// 3 s is 1 s. A key at the same time replaces; the clip comes back from the file to the bit; the playhead (anim_seek)
+// puts the cube where the clip has it; deleting the cube takes its track; anim_key refuses an object not there.
+void testAnimationClip() {
+    SceneGraph g;
+    const uint32_t cube = addShape(g, ShapeKind::Box);
+    const auto entity = [&]() -> Entity& { return *std::find_if(g.entities.begin(), g.entities.end(), [&](const Entity& e) { return e.id == cube; }); };
+    entity().position = Vector3(0.0_r), entity().rotationDeg = Vector3(0.0_r);
+    keyObject(g, cube, 0);
+    entity().position = Vector3(1, 0, 0), entity().rotationDeg = Vector3(0, 90, 0);
+    keyObject(g, cube, 2);
+    const AnimTrack& t = *trackOf(g, cube);
+    Vector3 p;
+    Quaternion q;
+    samplePose(t, 1, false, 2, p, q);
+    const Real angle = 2 * std::acos(std::min(1.0_r, std::fabs(q.w))) * 180 / kPi;
+    const bool middle = std::fabs(p.x - 0.5_r) < 1e-6_r && std::fabs(angle - 45) < 1e-3_r;
+    samplePose(t, -1, false, 2, p, q);
+    const bool before = length(p) < 1e-9_r;
+    samplePose(t, 5, false, 2, p, q);
+    const bool after = std::fabs(p.x - 1) < 1e-9_r;
+    samplePose(t, 3, true, 2, p, q);
+    const bool looped = std::fabs(p.x - 0.5_r) < 1e-6_r;
+    entity().position = Vector3(2, 0, 0);
+    keyObject(g, cube, 2); // the same time: replaced, not a second key
+    const bool replaced = trackOf(g, cube)->keys.size() == 2 && trackOf(g, cube)->keys.back().position.x == 2;
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    const bool file = back.load(text, error) && back.save() == text && back.animation.tracks.size() == 1 && back.animation.tracks[0].keys.size() == 2;
+    Value seek = Value::map(), answer = Value::map();
+    seek.set("time", 1.0);
+    const bool seeked = findSceneOp("anim_seek")->edit(g, seek, answer, error) && std::fabs(entity().position.x - 1) < 1e-6_r && g.animation.time == 1;
+    Value key = Value::map();
+    key.set("id", 999);
+    const bool refused = !findSceneOp("anim_key")->edit(g, key, answer, error) && error.find("999") != std::string::npos;
+    deleteObjects(g, {cube});
+    const bool gone = g.animation.tracks.empty();
+    std::printf("  a cube keyed at 0 s and 2 s (1 m, 90 deg): at 1 s %.4f m turned %.4f deg; held before %s and after %s; looped %s; a key replaced %s; "
+                "the file to the bit %s; anim_seek %s; refused %s; deleted, its track gone %s\n", double(p.x), double(angle), before ? "yes" : "no",
+                after ? "yes" : "no", looped ? "yes" : "no", replaced ? "yes" : "no", file ? "yes" : "no", seeked ? "yes" : "no", refused ? "yes" : "no",
+                gone ? "yes" : "no");
+    CHECK(middle && before && after && looped, "the clip's poses between, before, after and looped");
+    CHECK(replaced && file && seeked && refused && gone, "keys, the file, the playhead, the refusal, the track of a deleted object: %s", error.c_str());
 }

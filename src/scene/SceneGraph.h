@@ -346,6 +346,27 @@ struct WorldSettings {
     PhysicsSettings physics;
 };
 
+// The scene's animation - the Sequencer's (scene/Animation.h): tracks of objects (a group, a robot's root, a body, a
+// camera, a light), each a list of keys, the object's pose on its parent at a time. Between two keys the place goes in
+// a line and the turn the shortest way (slerp); before the first key and after the last the pose holds, or the clip
+// loops over its length (the last key's time). The clip's poses are the objects' while it plays: the editor scrubs
+// them, the running world moves an animated body as a kinematic one that pushes what it meets.
+struct AnimKey {
+    Real time = 0;              // s
+    Vector3 position{0.0_r};    // on its parent, as SceneObject::position
+    Vector3 rotationDeg{0.0_r}; // as SceneObject::rotationDeg
+};
+struct AnimTrack {
+    uint32_t object = 0;
+    std::vector<AnimKey> keys;  // by time, one a time
+};
+struct Animation {
+    std::vector<AnimTrack> tracks;
+    Real time = 0;              // the playhead
+    bool loop = false;
+    Real length() const;        // the last key's time of any track (0: none)
+};
+
 struct SceneGraph {
     WorldSettings world;
     std::vector<Entity> entities;
@@ -359,6 +380,7 @@ struct SceneGraph {
     std::vector<SensorObject> sensors;
     std::vector<WheelObject> wheels;
     std::vector<ControllerObject> controllers;
+    Animation animation;
     // Not saved: the folder relative mesh files are found in (the scene file's own folder). load()
     // keeps it as it was.
     std::string baseDirectory;

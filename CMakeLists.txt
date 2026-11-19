@@ -67,7 +67,8 @@ add_library(kecore STATIC
   src/scene/Describe.h     src/scene/Describe.cpp
   src/scene/SensorSpec.h   src/scene/SensorSpec.cpp
   src/scene/SceneOps.h     src/scene/SceneOps.cpp src/scene/SceneOpsActions.cpp src/scene/SceneOpsAssembly.cpp
-  src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp
+  src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp src/scene/SceneOpsAnimation.cpp
+  src/scene/Animation.h    src/scene/Animation.cpp
   src/robot/ArmPlanner.h   src/robot/ArmPlanner.cpp
   src/robot/ArmSelfCollision.h src/robot/ArmSelfCollision.cpp
   src/robot/ArmSurfaceCover.h src/robot/ArmSurfaceCover.cpp

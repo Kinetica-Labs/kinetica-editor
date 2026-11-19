@@ -36,6 +36,7 @@ std::vector<SceneOp> actionSceneOps();     // add, delete, duplicate, group, rol
 std::vector<SceneOp> assemblySceneOps();   // a face's place, links, ready presets, joints, sensors, power
 std::vector<SceneOp> kinematicSceneOps();  // inverse kinematics: an effector to a point with a turn
 std::vector<SceneOp> controllerSceneOps(); // a controller: added as a ready panel for an arm (SceneOpsControllers.cpp)
+std::vector<SceneOp> animationSceneOps();  // the Sequencer: keys, the playhead, the clip (SceneOpsAnimation.cpp)
 
 // Arguments and answers as the operations read and write them.
 bool vectorArg(const Value& args, const char* key, Vector3& out); // [x, y, z]

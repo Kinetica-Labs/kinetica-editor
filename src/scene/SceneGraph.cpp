@@ -426,6 +426,15 @@ std::string SceneGraph::save() const {
     for (const SensorObject& x : sensors) saveSensor(o, x);
     for (const WheelObject& w : wheels) saveWheel(o, w);
     for (const ControllerObject& c : controllers) saveController(o, c);
+    if (!animation.tracks.empty() || animation.time != 0) { // left out when there is none: older files read and write the same
+        o << "animation \"Анимация\"\n  clip time " << num(animation.time) << " loop " << (animation.loop ? 1 : 0) << "\n";
+        for (const AnimTrack& t : animation.tracks) {
+            o << "  track object " << t.object << "\n";
+            for (const AnimKey& k : t.keys)
+                o << "  key time " << num(k.time) << " position " << vec(k.position) << " rotation " << vec(k.rotationDeg) << "\n";
+        }
+        o << "end\n";
+    }
     return o.str();
 }
 
@@ -836,8 +845,35 @@ static bool readControllerLine(const std::vector<std::string>& w, ControllerObje
     return r.integer(c.id) || fail(bad, w[0]);
 }
 
+// "clip time <s> loop <0|1>", "track object <id>", "key time <s> position x y z rotation x y z" (to the track above).
+static bool readAnimationLine(const std::vector<std::string>& w, Animation& a, std::string& bad) {
+    LineReader r(w, 1);
+    if (w[0] == "clip") {
+        while (!r.done()) {
+            const std::string k = r.key();
+            if (!(k == "time" ? r.number(a.time) : k == "loop" ? r.flag(a.loop) : false)) return fail(bad, k);
+        }
+        return true;
+    }
+    if (w[0] == "track") {
+        a.tracks.emplace_back();
+        return (!r.done() && r.key() == "object" && r.integer(a.tracks.back().object) && r.done()) || fail(bad, "track");
+    }
+    if (w[0] != "key" || a.tracks.empty()) return fail(bad, w[0]);
+    AnimKey key;
+    while (!r.done()) {
+        const std::string k = r.key();
+        if (!(k == "time" ? r.number(key.time) : k == "position" ? r.vector(key.position) : k == "rotation" ? r.vector(key.rotationDeg) : false))
+            return fail(bad, k);
+    }
+    std::vector<AnimKey>& keys = a.tracks.back().keys;
+    if (!keys.empty() && !(key.time > keys.back().time)) return fail(bad, "time"); // by time, one a time
+    keys.push_back(key);
+    return true;
+}
+
 namespace {
-enum class Block { None, Entity, Group, Array, Light, Camera, Joint, Battery, Driver, Sensor, Wheel, Controller };
+enum class Block { None, Entity, Group, Array, Light, Camera, Joint, Battery, Driver, Sensor, Wheel, Controller, Animation };
 }
 
 // One line of a scene file in the block it belongs to (or starting / ending one).
@@ -863,6 +899,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         else if (w[0] == "sensor") g.sensors.emplace_back(), g.sensors.back().name = name, block = Block::Sensor;
         else if (w[0] == "wheel") g.wheels.emplace_back(), g.wheels.back().name = name, block = Block::Wheel;
         else if (w[0] == "controller") g.controllers.emplace_back(), g.controllers.back().name = name, block = Block::Controller;
+        else if (w[0] == "animation") block = Block::Animation;
         else return fail(bad, w[0]);
         return true;
     }
@@ -883,6 +920,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
     if (block == Block::Sensor) return readSensorLine(w, g.sensors.back(), bad);
     if (block == Block::Wheel) return readWheelLine(w, g.wheels.back(), bad);
     if (block == Block::Controller) return readControllerLine(w, g.controllers.back(), bad);
+    if (block == Block::Animation) return readAnimationLine(w, g.animation, bad);
     return readArrayLine(w, g.arrays.back(), bad);
 }
 
