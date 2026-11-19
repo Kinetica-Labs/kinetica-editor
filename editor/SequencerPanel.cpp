@@ -133,6 +133,14 @@ double SequencerPanel::playhead() const {
 
 uint32_t SequencerPanel::pickedObject() const { return timeline_->pickedObject(); }
 
+void SequencerPanel::addBarAction(QAction* a, const QString& text) {
+    auto* b = new QToolButton(this);
+    b->setDefaultAction(a);
+    b->setText(text);
+    b->setObjectName(a->objectName() + "Button");
+    static_cast<QHBoxLayout*>(static_cast<QVBoxLayout*>(layout())->itemAt(0)->layout())->insertWidget(9, b); // after «〰 Кривые»
+}
+
 void SequencerPanel::run(const QString& name, const QJsonObject& args) {
     ops_->run(name, args, [this](const QJsonObject& r) {
         note_->setText(r["ok"].toBool() ? QString() : r["error"].toString());

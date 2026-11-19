@@ -287,5 +287,19 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 onlyAll, static_cast<long long>(foldedMs), every, static_cast<long long>(openMs));
     c.check(onlyAll == 1 && every == 100001 && buildMs < 1500 && foldedMs < 100 && openMs < 100,
             "a hundred thousand tracks come folded, build and draw fast");
+
+    // ⇔: the bottom panel under the inspector too, its right edge at the window's (the tool shelf keeps the left); again,
+    // back beside the inspector.
+    auto* wide = w.findChild<QToolButton*>("actionBottomWideButton");
+    const int narrow = dock->width();
+    if (wide) wide->click();
+    pump(150);
+    const int widened = dock->width(), reach = dock->mapTo(&w, QPoint(dock->width(), 0)).x();
+    if (wide) wide->click();
+    pump(150);
+    std::printf("  ⇔: the bottom panel %d px wide, its right edge at %d of the window's %d px; back %d px\n", widened, reach, w.width(),
+                dock->width());
+    c.check(wide && widened > narrow + 100 && reach >= w.width() - 12 && std::abs(dock->width() - narrow) <= 2,
+            "⇔ spreads the bottom panel the window's whole width and back");
     return c.failures;
 }

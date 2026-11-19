@@ -8,10 +8,13 @@
 // the panels however they open and close (their ✕, F8, F9, "Эксперт").
 #include "MainWindow.h"
 
+#include "SequencerPanel.h"
+
 #include "Icons.h"
 
 #include <QAction>
 #include <QDockWidget>
+#include <QSettings>
 #include <QHBoxLayout>
 #include <QMenu>
 #include <QMenuBar>
@@ -56,6 +59,19 @@ void MainWindow::addLayoutButtons() {
         viewMenu->addAction(act);
         *a.act = act;
     }
+    // The bottom panel under the inspector too, the window's whole width - Blender's timeline (the Sequencer's ⇔).
+    bottomWideAct_ = new QAction("Нижняя панель во всю ширину", this);
+    bottomWideAct_->setObjectName("actionBottomWide");
+    bottomWideAct_->setCheckable(true);
+    bottomWideAct_->setToolTip("Нижняя панель — Секвенсор, графики, консоль — во всю ширину окна, и под инспектором");
+    connect(bottomWideAct_, &QAction::toggled, this, [this](bool on) {
+        setCorner(Qt::BottomRightCorner, on ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea);
+        setCorner(Qt::BottomLeftCorner, on ? Qt::BottomDockWidgetArea : Qt::LeftDockWidgetArea);
+        QSettings().setValue("layout/bottomWide", on);
+    });
+    bottomWideAct_->setChecked(QSettings().value("layout/bottomWide", false).toBool());
+    viewMenu->addAction(bottomWideAct_);
+    if (sequencer_) sequencer_->addBarAction(bottomWideAct_, "⇔"); // the Sequencer is built before
     // Small and flat, as in VS Code: the filled area of the icon tells open from closed, so a checked
     // button gets no highlight of its own, and the menu button no arrow.
     // Small and flat, as in VS Code: the filled area of the icon tells open from closed, so a checked

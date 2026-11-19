@@ -45,6 +45,7 @@ public:
     void endScrub();                // the preview ends: one sequence_seek
     void keyMenu(uint32_t object, double time, const QPoint& at); // a key's menu: how it goes on, the playhead to it, delete
     uint32_t pickedObject() const;  // the key picked on the tracks (0: none)
+    void addBarAction(QAction* a, const QString& text); // a window's action as a button of the bar (⇔ the whole width)
 
 signals:
     void pastWanted(double time);   // the playhead taken back while a run is on screen: show its frame then
