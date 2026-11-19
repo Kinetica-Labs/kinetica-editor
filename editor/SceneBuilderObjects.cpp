@@ -246,15 +246,6 @@ void SceneBuilder::explodeArray(uint32_t id) {
     applyEdit(0);
 }
 
-void SceneBuilder::editArray(uint32_t id, const std::function<void(ArrayObject&)>& change) {
-    if (!arrayById(id)) return;
-    remember(true);
-    change(*arrayById(id));
-    refreshList();
-    if (id == selectedId_) fillInspector();
-    applyEdit(0);
-}
-
 // ---------------------------------------------------------------------------
 // Instances
 // ---------------------------------------------------------------------------

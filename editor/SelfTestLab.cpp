@@ -39,7 +39,7 @@ struct Lab {
     QDockWidget* dock = nullptr;
 };
 
-Lab labOf(QMainWindow& w, Viewport* v) {
+Lab labOf(QMainWindow& w) {
     return {w.findChild<LabPanel*>(), w.findChild<FrameHistory*>(), w.findChild<QDockWidget*>("labDock")};
 }
 
@@ -239,7 +239,7 @@ void testProfiler(Checker& c, Viewport* v, const Lab& lab) {
 
 int runLabTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
-    const Lab lab = labOf(w, v);
+    const Lab lab = labOf(w);
     if (!lab.panel || !lab.history || !lab.dock) {
         c.check(false, "the window has the Laboratory's panel and dock, the run's history");
         return c.failures;

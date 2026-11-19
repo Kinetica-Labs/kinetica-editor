@@ -117,7 +117,7 @@ class FieldForm : public QWidget {
 public:
     struct Unit { QString suffix; double scale = 1, step = 0; }; // shown = stored * scale; step 0: the field's own
     struct Option { QString text; double value; };
-    struct Tile { QIcon icon; QString text, tip; };
+    struct Tile { QIcon icon; QString text, tip = {}; }; // a tile without words of its own: no tip
     using Get = std::function<double()>;
     using Set = std::function<void(double)>;
     using GetVector = std::function<ke::Vector3()>;

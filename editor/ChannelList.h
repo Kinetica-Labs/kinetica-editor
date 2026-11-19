@@ -60,7 +60,6 @@ public:
     // For the self-test.
     QLineEdit* search() const { return search_; }
     QTreeWidget* tree() const { return tree_; }
-    std::vector<std::string> visibleChannels() const; // the rows the filter lets through, top to bottom
     QTreeWidgetItem* rowOf(const std::string& id) const;
     std::vector<QString> shownTexts() const;          // every word the open list shows
 

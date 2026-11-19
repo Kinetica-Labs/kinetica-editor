@@ -20,7 +20,6 @@ namespace ke {
 // The fields of a kind's datasheet (core/Field.h: key with its unit's suffix, UCUM unit, range, the value with no model).
 const std::vector<Field>& specFields(SensorKind kind); // empty: the kind has no datasheet (yet)
 const char* sensorKindKey(SensorKind kind);                // "imu", "sonar", "wrench"...: its table's name, its file word
-bool sensorKindOf(const std::string& key, SensorKind& kind);
 
 Real specValue(const SensorObject& s, const std::string& key); // the sensor's number, else its field's value
 ImuSpec imuSpec(const SensorObject& s);

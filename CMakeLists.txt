@@ -43,35 +43,30 @@ add_library(kecore STATIC
   src/core/Units.h         src/core/Units.cpp
   src/core/Field.h         src/core/Field.cpp
   src/core/Probe.h         src/core/Probe.cpp
-  src/core/Parallel.h      src/core/Parallel.cpp
   src/core/Random.h
   src/core/Mesh.h          src/core/Mesh.cpp
   src/core/RuntimePolicy.h src/core/RuntimePolicy.cpp
   src/core/SurfaceTexture.h
   src/spatial/BVH.h        src/spatial/BVH.cpp
   src/devices/PinEdge.h
-  src/devices/Encoder.h    src/devices/Encoder.cpp src/devices/EncoderMeasurement.h
+  src/devices/Encoder.h    src/devices/Encoder.cpp
   src/devices/Signal.h     src/devices/Signal.cpp
   src/devices/Imu.h        src/devices/Imu.cpp
   src/devices/Sonar.h      src/devices/Sonar.cpp
   src/devices/ForceTorque.h src/devices/ForceTorque.cpp
   src/electro/Battery.h    src/electro/Battery.cpp
-  src/electro/PowerBus.h   src/electro/PowerBus.cpp
   src/scene/JointModel.h   src/scene/JointModel.cpp src/scene/Visuals.h
   src/scene/SceneGraph.h   src/scene/SceneGraph.cpp src/scene/SceneHierarchy.cpp src/scene/EntityShapes.cpp
   src/scene/SceneEdits.h   src/scene/SceneEdits.cpp
   src/scene/SceneActions.h src/scene/SceneActions.cpp src/scene/SceneActionsTree.cpp
   src/scene/Assembly.h     src/scene/Assembly.cpp src/scene/AssemblyPresets.cpp
   src/scene/CameraHousing.h src/scene/CameraHousing.cpp
-  src/scene/Kinematics.h   src/scene/Kinematics.cpp src/scene/ArmModelOf.cpp
+  src/scene/Kinematics.h   src/scene/Kinematics.cpp
   src/scene/Describe.h     src/scene/Describe.cpp
   src/scene/SensorSpec.h   src/scene/SensorSpec.cpp
   src/scene/SceneOps.h     src/scene/SceneOps.cpp src/scene/SceneOpsActions.cpp src/scene/SceneOpsAssembly.cpp
   src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp src/scene/SceneOpsAnimation.cpp
   src/scene/Animation.h    src/scene/Animation.cpp
-  src/robot/ArmPlanner.h   src/robot/ArmPlanner.cpp
-  src/robot/ArmSelfCollision.h src/robot/ArmSelfCollision.cpp
-  src/robot/ArmSurfaceCover.h src/robot/ArmSurfaceCover.cpp
   src/physics/HullPoints.h src/physics/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/box3d/Box3dWorld.cpp
   src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp src/sim/RobotControllers.cpp

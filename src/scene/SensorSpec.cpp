@@ -86,12 +86,6 @@ const std::vector<Field>& specFields(SensorKind kind) {
 
 const char* sensorKindKey(SensorKind kind) { return kKindKeys[std::clamp(int(kind), 0, 6)]; }
 
-bool sensorKindOf(const std::string& key, SensorKind& kind) {
-    for (int k = 0; k < 7; ++k)
-        if (key == kKindKeys[k]) return kind = SensorKind(k), true;
-    return false;
-}
-
 Real specValue(const SensorObject& s, const std::string& key) {
     const auto at = s.spec.find(key);
     if (at != s.spec.end()) return at->second;

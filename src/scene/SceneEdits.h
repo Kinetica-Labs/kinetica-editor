@@ -11,7 +11,7 @@
 //   removeObject an object out, with what cannot live without it (its joints and the sensors on it
 //                or on them; children keep their world pose under the removed one's parent);
 //   getWorld     the world's lines, and putWorld to set them;
-//   diffEdits    the edits between two scenes (a change made by hand, as code), applyEdits to replay them.
+//   diffEdits    the edits between two scenes (a change made by hand, as code).
 //
 // Each edit has an inverse - put the old block back, or remove what was put - so an undo history
 // is a list of (before, after) blocks, and a button or an agent composes everything else (add a
@@ -55,9 +55,8 @@ struct GraphEdit {
 // The core edits that turn `before` into `after`: what is gone removed first (with what goes with it),
 // what is new put, and what changed set word span by word span - from the first word that differs to
 // the last, after the key nearest before it - where a line keeps its count of words (a moved shape:
-// "position x y z"), else put whole; the world's lines when they changed. Replayed on `before`
-// (applyEdits), they give `after` to the bit.
+// "position x y z"), else put whole; the world's lines when they changed - each as the API's edit
+// (scene_set, scene_put, scene_remove), so a change by hand is said as the code that makes it.
 std::vector<GraphEdit> diffEdits(const SceneGraph& before, const SceneGraph& after);
-bool applyEdits(SceneGraph& g, const std::vector<GraphEdit>& edits, std::string& error);
 
 } // namespace ke

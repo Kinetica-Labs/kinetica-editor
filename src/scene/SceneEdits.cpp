@@ -228,7 +228,7 @@ bool putWorld(SceneGraph& g, const std::string& text, std::string& error) {
 }
 
 // ---------------------------------------------------------------------------
-// A change as edits (diffEdits) and their replay (applyEdits)
+// A change as edits (diffEdits)
 // ---------------------------------------------------------------------------
 namespace {
 
@@ -330,17 +330,6 @@ std::vector<GraphEdit> diffEdits(const SceneGraph& before, const SceneGraph& aft
         else if (was != is) objectEdits(id, was, is, out);
     }
     return out;
-}
-
-bool applyEdits(SceneGraph& g, const std::vector<GraphEdit>& edits, std::string& error) {
-    for (const GraphEdit& e : edits) {
-        const bool done = e.kind == GraphEdit::Kind::World  ? putWorld(g, e.text, error)
-                        : e.kind == GraphEdit::Kind::Remove ? (removeObject(g, e.id), true)
-                        : e.kind == GraphEdit::Kind::Put    ? putObject(g, e.text, error) != 0
-                                                            : setField(g, e.id, e.line, e.key, e.values, error) != 0;
-        if (!done) return false;
-    }
-    return true;
 }
 
 } // namespace ke

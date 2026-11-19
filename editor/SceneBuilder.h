@@ -207,7 +207,6 @@ public:
     void setGlued(uint32_t groupId, bool glued); // "Склеить в одно тело": the members become one rigid body
     void makeArrayOfSelected();       // "Сделать массивом…": each selected shape becomes the template of a row of 5
     void explodeArray(uint32_t id);   // "Разобрать на объекты": every copy an object of its own
-    void editArray(uint32_t id, const std::function<void(ke::ArrayObject&)>& change);
     void unlinkInstance(uint32_t id); // "Отвязать": the instance gets its own geometry and components
     const ke::SceneObject* object(uint32_t id) const { return ke::findObject(graph_, id); }
     QString objectTitle(uint32_t id) const; // "Куб 1", "Группа 1", "Массив: 5 × Куб 1"

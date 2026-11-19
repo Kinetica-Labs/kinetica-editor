@@ -251,17 +251,6 @@ void ChannelList::applyFilter() {
     }
 }
 
-std::vector<std::string> ChannelList::visibleChannels() const {
-    std::vector<std::string> ids;
-    for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
-        const QTreeWidgetItem* g = tree_->topLevelItem(i);
-        if (g->isHidden()) continue;
-        for (int k = 0; k < g->childCount(); ++k)
-            if (!g->child(k)->isHidden()) ids.push_back(g->child(k)->data(0, kIdRole).toString().toStdString());
-    }
-    return ids;
-}
-
 QTreeWidgetItem* ChannelList::rowOf(const std::string& id) const {
     for (const auto& [group, g] : groups_)
         for (int k = 0; k < g->childCount(); ++k)

@@ -39,7 +39,7 @@ QJsonObject EditorOps::ok(QJsonObject fields) {
 QJsonObject EditorOps::error(const QString& why) { return QJsonObject{{"ok", false}, {"error", why}}; }
 
 void EditorOps::add(const QString& name, const QString& help, const QString& args, Handler run) {
-    ops_[name] = Op{help, args, std::move(run)};
+    ops_[name] = Op{help, args, std::move(run), {}};
 }
 
 void EditorOps::addSync(const QString& name, const QString& help, const QString& args, std::function<QJsonObject(const QJsonObject&)> run) {

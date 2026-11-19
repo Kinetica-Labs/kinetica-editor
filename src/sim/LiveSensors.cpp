@@ -243,7 +243,7 @@ private:
 };
 
 // The quadrature encoder: its edges as the coordinate moves over the substep, the count a decoder keeps, and the
-// coordinate it means - with a known zero only (EncoderMeasurement.h).
+// coordinate it means - with a known zero only.
 class EncoderDevice : public SensorDevice {
 public:
     EncoderDevice(const SensorObject& s) : encoder_(s.dof >= DofRx ? std::max(s.lines, 1) : 0, s.dof >= DofRx ? 0 : 4.0 * std::max(s.lines, 1)),
