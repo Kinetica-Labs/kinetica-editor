@@ -568,6 +568,8 @@ void Viewport::paintGL() {
                    QString("OpenGL 3.0 недоступен (%1).\nЗапустите с ключом --software-gl — рендер на процессоре.").arg(renderer_));
         return;
     }
+    QElapsedTimer painting;
+    painting.start();
     syncLookThrough();
     if (snap_) {
         pruneMeshCache();
@@ -587,7 +589,7 @@ void Viewport::paintGL() {
     glBindVertexArray(0);
     glUseProgram(0);
     if (overlayVisible_) drawOverlay();
-    countFrame();
+    countFrame(painting.nsecsElapsed());
 }
 
 // QPainter (the 2D overlay) may have changed the GL state during the previous frame: set it again.
@@ -643,12 +645,16 @@ void Viewport::drawOverlays3D(const QMatrix4x4& vp) {
     drawGizmo(vp);
 }
 
-void Viewport::countFrame() {
+// The frames painted over the last second and what one took on the window's thread, on average (with a software
+// renderer the drawing itself; with a GPU what it took to hand the frame over).
+void Viewport::countFrame(qint64 paintNs) {
     ++fpsFrames_;
+    paintNs_ += paintNs;
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (now - fpsLast_ > 1000) {
         fps_ = float(fpsFrames_) * 1000.0f / float(now - fpsLast_);
-        fpsFrames_ = 0;
+        paintMs_ = float(double(paintNs_) * 1e-6 / std::max(fpsFrames_, 1));
+        fpsFrames_ = 0, paintNs_ = 0;
         fpsLast_ = now;
     }
 }

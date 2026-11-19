@@ -321,7 +321,8 @@ void EditorOps::addStateOp() {
         "as the robot reads it (its datasheet's device: an IMU's accel and gyro, a sonar's distance, an encoder's count, a wrench's force and "
         "torque, a pad's force) with its probe's truth beside it, which entities "
         "touch (contacts: a, b - 0 the floor -, points, normal force N, deepest overlap m), what the world could not build (notes); "
-        "frame_timing: the last 120 frames' mean wall ms in posted commands, the step and the snapshot (the scene runs slower than "
+        "frame_timing: the last 120 frames' mean wall ms in posted commands, the step and the snapshot, and the window's painting - its "
+        "frames a second, one frame's ms and the renderer, a GPU or llvmpipe (the scene runs slower than "
         "the wall clock when they pass frame_dt_ms). The physics engine's truth, for checks - not a robot's sensors", "{}",
         [this](const QJsonObject&, const Reply& reply) {
         if (builder_->mode() == SceneBuilder::Mode::Edit) return reply(ok({{"mode", "edit"}}));
@@ -333,7 +334,9 @@ void EditorOps::addStateOp() {
                 state.insert("frame_timing", QJsonObject{{"frames", t.frames}, {"frame_dt_ms", t.frameDtMs}, {"commands_ms", t.commandsMs},
                                                           {"step_ms", t.stepMs}, {"step_max_ms", t.stepMaxMs}, {"publish_ms", t.publishMs},
                                                           {"commands_per_frame", t.commandsPerFrame}, {"slowest_command_ms", t.slowestCommandMs},
-                                                          {"slowest_command", QString::fromStdString(t.slowestCommand)}});
+                                                          {"slowest_command", QString::fromStdString(t.slowestCommand)},
+                                                          {"render_fps", double(view_->renderFps())}, {"paint_ms", double(view_->paintMs())},
+                                                          {"renderer", view_->renderer()}});
                 reply(state);
             }, Qt::QueuedConnection);
         }, "sim_state");

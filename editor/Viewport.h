@@ -55,6 +55,8 @@ public:
     // world box (an invalid box: the world box again).
     void setFocusBox(const ke::AABB& box) { focusBox_ = box; }
     float renderFps() const { return fps_; }
+    const QString& renderer() const { return renderer_; } // GL_RENDERER: the GPU, or llvmpipe
+    float paintMs() const { return paintMs_; } // one frame's painting on the window's thread, the last second's mean
 
     // Interaction (used by the ViewportTool strategies; ViewportInput.cpp)
     OrbitCamera& camera() { return camera_; }
@@ -310,7 +312,7 @@ private:
     void drawColliderGuides(const QMatrix4x4& vp);
     void drawPaths(const QMatrix4x4& vp);
     static constexpr size_t kContactDotsMost = 3000; // more contacts than this: no dots
-    void countFrame();
+    void countFrame(qint64 paintNs);
     void updateBodyOrbit();
     static QMatrix4x4 modelMatrix(const ke::Frame::Body& b); // the body's pose: its mesh into the world
     QMatrix4x4 viewMatrix() const { return camera_.view(); }
@@ -416,5 +418,6 @@ private:
     // fps
     qint64 fpsLast_ = 0;
     int fpsFrames_ = 0;
-    float fps_ = 0;
+    float fps_ = 0, paintMs_ = 0;
+    qint64 paintNs_ = 0;
 };
