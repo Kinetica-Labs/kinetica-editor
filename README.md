@@ -1,4 +1,14 @@
-<p align="center"><img src="docs/images/kinetica-labs.png" alt="Kinetica Labs" width="560"></p>
+<p align="center">
+  <img src="docs/images/kinetica-editor-logo.png" alt="Kinetica Editor" width="700">
+</p>
+
+<p align="center"><b>Редактор робототехники: собрать робота, оживить физикой, записать и повторить — руками, кодом или ИИ-агентом</b></p>
+
+<p align="center">
+  <a href="https://github.com/Kinetica-Labs/kinetica-editor/releases/latest">Скачать</a> ·
+  <a href="docs/contracts/README.md">Контракты и плагины</a> ·
+  <a href="docs/constitution.md">Конституция</a>
+</p>
 
 # Kinetica Editor
 
@@ -83,3 +93,5 @@ build/kinetica --self-test                    # самотест окна: жм�
 Клиент на Python — `tools/ke_editor.py`, сервер MCP для агентов — `tools/ke_editor_mcp.py` (подключён в `.mcp.json`).
 
 Лицензия — MIT ([LICENSE](LICENSE)); чужой код и его лицензии — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+<p align="center"><img src="docs/images/kinetica-labs.png" alt="Kinetica Labs" width="200"></p>
