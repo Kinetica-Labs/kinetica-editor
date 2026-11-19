@@ -11,6 +11,7 @@
 #include "SequencerPanel.h"
 #include "scene/Animation.h"
 
+#include <QAction>
 #include <QDockWidget>
 #include <QToolButton>
 
@@ -161,5 +162,20 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 gone ? "yes" : "no");
     c.check(playing && made && std::fabs(back - 1) < 1e-5f && landed > 0.05f && landed < 0.2f && gone,
             "a take records the physics into a sequence that shows the cube landed at its end");
+
+    // The same from the top bar: «Запись» beside ▶ plays and records, ■ Стоп ends the take.
+    auto* recordAct = w.findChild<QAction*>("actionRecord");
+    auto* stopAct = w.findChild<QAction*>("actionStop");
+    if (recordAct && stopAct) recordAct->trigger();
+    pump(80);
+    const bool barPlays = recordAct && recordAct->isChecked() && b.mode() == SceneBuilder::Mode::Playing;
+    pump(1000);
+    if (stopAct) stopAct->trigger();
+    pump(400);
+    const SequenceObject* barTake = activeSequence(b.graph());
+    const bool barMade = barTake && barTake->name == "Запись 1" && barTake->tracks.size() == 1 && !recordAct->isChecked() && b.editing();
+    std::printf("  «Запись» on the top bar: played and checked %s; ■ Стоп: «%s», the button off %s\n", barPlays ? "yes" : "no",
+                barTake ? barTake->name.c_str() : "", recordAct && !recordAct->isChecked() ? "yes" : "no");
+    c.check(barPlays && barMade, "«Запись» beside ▶ records; ■ Стоп ends the take into a sequence");
     return c.failures;
 }

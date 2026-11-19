@@ -228,6 +228,10 @@ private:
     QAction* collidersAct_ = nullptr; // every object's collider as a green wireframe, not only the selected one's
     class QTabWidget* inspectorTabs_ = nullptr; // "Сцена" | "Объект"
     QAction* playAct_ = nullptr;
+    QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
+    class QTimer* recordBlink_ = nullptr;
+    void buildRecordAction();
+    void syncRecord();             // the button as the take is: on, blinking, or off
     QAction* pauseAct_ = nullptr;
     QAction* stopAct_ = nullptr;
     QAction* stepAct_ = nullptr;

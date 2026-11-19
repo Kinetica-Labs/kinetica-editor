@@ -155,6 +155,7 @@ void MainWindow::buildRunActions() {
     stopAct_->setToolTip("Стоп (Shift+пробел): назад к правке — сцена такая, какой её нарисовали");
     connect(stopAct_, &QAction::triggered, this, [this] { builder_->stop(); });
 
+    buildRecordAction();
     stepAct_ = new QAction(controlIcon(ControlIcon::Step, 48), "Шаг", this);
     stepAct_->setShortcut(Qt::Key_Period);
     stepAct_->setToolTip("Один кадр (.)");
@@ -185,7 +186,7 @@ void MainWindow::buildMenus() {
 
     auto* sim = menuBar()->addMenu("&Симуляция");
     sim->setObjectName("simulationMenu");
-    for (QAction* a : {playAct_, pauseAct_, stopAct_, stepAct_}) sim->addAction(a);
+    for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_, stepAct_}) sim->addAction(a);
     auto* rt = sim->addAction("Не быстрее реального времени");
     rt->setCheckable(true);
     rt->setChecked(true);
@@ -271,6 +272,7 @@ void MainWindow::onModeChanged() {
     playAct_->setEnabled(m != SceneBuilder::Mode::Playing);
     pauseAct_->setEnabled(m == SceneBuilder::Mode::Playing);
     stopAct_->setEnabled(!edit);
+    syncRecord();
     updateToolShelf();
     status_->setText(modeText());
     updateSimulationBar();

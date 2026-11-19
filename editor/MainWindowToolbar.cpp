@@ -67,7 +67,7 @@ void MainWindow::buildMainToolbar() {
     }
     addSensorButton(tb);
     tb->addSeparator();
-    for (QAction* a : {playAct_, pauseAct_, stopAct_, stepAct_, builder_->undoAction(), builder_->redoAction()}) {
+    for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_, stepAct_, builder_->undoAction(), builder_->redoAction()}) {
         if (a == builder_->undoAction()) tb->addSeparator();
         tb->addAction(a);
         runButtons_.push_back(qobject_cast<QToolButton*>(tb->widgetForAction(a)));

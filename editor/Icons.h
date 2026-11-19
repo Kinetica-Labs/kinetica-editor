@@ -14,10 +14,11 @@
 // Rigid a moving body).
 enum class RoleIcon { Rigid, Collider, Count };
 
-// Buttons of the simulation: run, pause, stop, one step, back to the start, undo, redo, eye, lock,
+// Buttons of the simulation: run, record (a red dot; ringed while it records, the two in turns blink), pause, stop, one
+// step, back to the start, undo, redo, eye, lock,
 // and the tools of the edit mode: select, move, rotate, scale.
 enum class ControlIcon {
-    Play, Pause, Stop, Step, Reset, Undo, Redo, Visible, Hidden, Locked, Unlocked,
+    Play, Record, Recording, Pause, Stop, Step, Reset, Undo, Redo, Visible, Hidden, Locked, Unlocked,
     ToolSelect, ToolMove, ToolRotate, ToolScale, Count
 };
 

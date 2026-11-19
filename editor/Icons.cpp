@@ -312,6 +312,16 @@ void drawControl(QPainter& p, ControlIcon c) {
         p.drawRoundedRect(QRectF(24, 18, 18, 64), 4, 4);
         p.drawRoundedRect(QRectF(58, 18, 18, 64), 4, 4);
         break;
+    case ControlIcon::Recording:
+        p.setBrush(Qt::NoBrush);
+        p.setPen(QPen(QColor(255, 120, 110), 6));
+        p.drawEllipse(QPointF(50, 50), 38, 38);
+        p.setPen(Qt::NoPen);
+        [[fallthrough]];
+    case ControlIcon::Record:
+        p.setBrush(QColor(232, 64, 64));
+        p.drawEllipse(QPointF(50, 50), 26, 26);
+        break;
     case ControlIcon::Stop:
         p.setBrush(QColor(236, 96, 96));
         p.drawRoundedRect(QRectF(22, 22, 56, 56), 7, 7);
@@ -915,7 +925,7 @@ int dumpIcons(const QString& dir, int size) {
     for (int k = 0; k < int(LinkIcon::Count); ++k) save(links[k], linkDraw(LinkIcon(k)));
     const char* colliders[] = {"collider-auto", "collider-box", "collider-sphere", "collider-capsule", "collider-hull", "collider-cylinder"};
     for (int k = 0; k < 6; ++k) save(colliders[k], colliderDraw(ke::ColliderKind(k)));
-    const char* controls[] = {"play", "pause", "stop", "step", "reset", "undo", "redo", "visible", "hidden", "locked", "unlocked",
+    const char* controls[] = {"play", "record", "recording", "pause", "stop", "step", "reset", "undo", "redo", "visible", "hidden", "locked", "unlocked",
                               "tool-select", "tool-move", "tool-rotate", "tool-scale"};
     static_assert(sizeof(controls) / sizeof(controls[0]) == size_t(ControlIcon::Count), "a file name for every ControlIcon");
     for (int k = 0; k < int(ControlIcon::Count); ++k) {
