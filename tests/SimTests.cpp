@@ -584,3 +584,38 @@ void testSimRecording() {
           double(worst) * 1e3);
     CHECK(replayWorst < 0.001_r, "the take replayed: the box %f mm off its run", double(replayWorst) * 1e3);
 }
+
+// A robot's link in a take: an arm on a post, its shoulder's motor turning it at 2 rad/s. Recorded 1.5 s, the take has
+// the arm's track (a link its joint moves, recorded as any body; the fixed post none); played back, the arm is a
+// kinematic body on that track - its angle goes as the motor turned it, frame by frame.
+void testSimRecordingArm() {
+    JointDrive spin;
+    spin.enabled = true, spin.targetVelocity = 2, spin.maxForce = 100;
+    SceneGraph g = armOnPost(spin);
+    g.world.gravity = Vector3(0.0_r);
+    Simulation s;
+    s.load(g);
+    s.startRecording();
+    std::vector<Real> angles;
+    for (int k = 0; k < 90; ++k) s.stepFrame(), angles.push_back(armAngle(s));
+    SequenceObject take;
+    const bool taken = s.takeRecording("Запись 1", take);
+    const bool armOnly = take.tracks.size() == 1 && take.tracks[0].object == 2;
+    take.id = 10, take.play = true;
+    g.sequences.push_back(take);
+    Simulation replay;
+    replay.load(g);
+    Real worst = 0;
+    for (size_t k = 0; k < angles.size(); ++k) {
+        replay.stepFrame();
+        Real d = armAngle(replay) - angles[k];
+        d = std::atan2(std::sin(d), std::cos(d));
+        worst = std::max(worst, std::fabs(d));
+    }
+    const bool led = replay.physics()->state(replay.robot()->bodyOf(2)).mass <= 0;
+    std::printf("  an arm its motor turns at 2 rad/s, recorded 1.5 s (%.2f rad): %s, the arm's track only %s, %zu keys for 90 frames; replayed "
+                "kinematic %s, its angle within %.4f deg of the run\n", double(angles.back()), taken ? "taken" : "none", armOnly ? "yes" : "no",
+                take.tracks.empty() ? size_t(0) : take.tracks[0].keys.size(), led ? "yes" : "no", double(worst) * 180 / double(kPi));
+    CHECK(taken && armOnly, "a take records a robot's link a joint moves");
+    CHECK(led && worst < 0.2_r * kPi / 180, "the arm replayed off its run by %f deg", double(worst) * 180 / double(kPi));
+}

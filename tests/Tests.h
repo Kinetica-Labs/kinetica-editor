@@ -54,6 +54,7 @@ void testSimGoalPoseSettles();
 void testSimSensors();
 void testSimSequence();
 void testSimRecording();
+void testSimRecordingArm();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testScenePhysicsLine();

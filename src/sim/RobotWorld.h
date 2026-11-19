@@ -36,8 +36,9 @@ public:
     // The bodies and joints in `physics`; what could not be built is said in notes().
     void build(PhysicsWorld& physics);
     // One step of dt in `substeps` substeps: before each, the drives' forces on the links.
-    // A take - the Sequencer's record of a run (Unreal's Take Recorder): from now, every free body's pose on its parent
-    // a frame (a dynamic body of no robot, no joint and no sequence); taken, a sequence of it - each body a track, its
+    // A take - the Sequencer's record of a run (Unreal's Take Recorder): from now, every dynamic body's pose on its
+    // parent a frame - a robot's links that its joints and IK move as well as a thrown box; not the bodies the playing
+    // sequence leads; taken, a sequence of it - each body a track, its
     // samples thinned to the keys that give the motion back within 0.5 mm and 0.2 degrees, the first at 0 s - and the
     // recording ends. Bodies that never moved get no track.
     void startRecording(const PhysicsWorld& physics);
@@ -135,7 +136,7 @@ private:
     std::vector<std::unique_ptr<LiveSensor>> sensors_;
     SceneGraph posed_;                                 // the graph at the clip's time (Animation.h)
     std::vector<std::pair<uint32_t, int>> animated_;   // the clip's entities and their kinematic bodies
-    std::vector<uint32_t> free_;                       // the entities on free dynamic bodies: what a take records
+    std::vector<uint32_t> free_;                       // the entities on dynamic bodies no sequence leads: what a take records
     bool recording_ = false;
     int64_t takeFromNs_ = 0;
     std::vector<std::vector<AnimKey>> take_;           // a sample a frame, an entity of free_ each

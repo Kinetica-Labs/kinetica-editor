@@ -33,11 +33,11 @@ std::string blockOf(ke::SequenceObject take) {
 } // namespace
 
 void EditorOps::addRecordOp() {
-    add("sim_record", "The Sequencer's take: on - the scene plays (from edit, as ▶) and every free body (dynamic, of no robot, no joint, no "
-                      "sequence) is recorded a frame, its pose and velocity; off - the scene stops and the take comes in as a new active "
-                      "sequence «Запись N» (a scene_put: one undo step), each body a track of keys that give its run back within 0.5 mm and "
-                      "0.2 degrees (Hermite between recorded keys). ■ Stop while recording ends it the same way. A robot's links are not "
-                      "recorded yet (a joint track is a kind still to come)", "{on: bool}", [this](const QJsonObject& a, const Reply& reply) {
+    add("sim_record", "The Sequencer's take: on - the scene plays (from edit, as ▶) and every dynamic body the playing "
+                      "sequence does not lead is recorded a frame, its pose and velocity; off - the scene stops and the take comes in as a new "
+                      "sequence «Запись N», open, not played by ▶ (a scene_put: one undo step), each body a track of keys that give its run back within 0.5 mm and "
+                      "0.2 degrees (Hermite between recorded keys); a robot's links its joints and IK move are recorded too, bodies that "
+                      "stood still are not. ■ Stop while recording ends it the same way", "{on: bool}", [this](const QJsonObject& a, const Reply& reply) {
         const bool on = a.value("on").toBool(!recording_);
         if (on == recording_) return reply(error(on ? "already recording" : "not recording"));
         if (on) {

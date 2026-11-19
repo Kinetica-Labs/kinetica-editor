@@ -175,14 +175,11 @@ void RobotWorld::build(PhysicsWorld& physics) {
         }
         bodyOfEntity_[e.id] = b;
         if (animated.count(e.id)) animated_.push_back({e.id, b});
-        else if (d.type == BodyDesc::Type::Dynamic && !groups.count(e.id) && !isArrayCopyId(e.id)) free_.push_back(e.id);
+        else if (d.type == BodyDesc::Type::Dynamic && !isArrayCopyId(e.id)) free_.push_back(e.id); // a take records it, a robot's link too
         if (entityOfBody_.size() <= size_t(b)) entityOfBody_.resize(size_t(b) + 1, 0);
         entityOfBody_[size_t(b)] = e.id;
     }
     for (const JointObject& j : graph_.joints) buildJoint(physics, j);
-    free_.erase(std::remove_if(free_.begin(), free_.end(), [this](uint32_t id) { // a joint's link moves with its robot
-        return std::any_of(graph_.joints.begin(), graph_.joints.end(), [id](const JointObject& j) { return j.a == id || j.b == id; });
-    }), free_.end());
     for (const SensorObject& x : graph_.sensors) { // each composed of its probe of the physics and its datasheet's device
         std::string why;
         if (auto live = makeSensor(x, graph_, *this, why)) sensors_.push_back(std::move(live));
@@ -436,14 +433,18 @@ void RobotWorld::leadGoals(PhysicsWorld& physics, Real dt) {
     }
 }
 
-// The entities the active sequence moves: those it binds or inside a group it binds - not a robot's link a joint drives
-// (it rides on its animated base).
+// The entities the playing sequence moves: those it binds (a robot's link recorded in a take among them), and those
+// inside a group it binds - not a robot's link a joint drives there (it rides on its animated base).
 std::unordered_set<uint32_t> RobotWorld::animatedEntities(const SceneGraph& g) {
     std::unordered_set<uint32_t> out, driven;
     const SequenceObject* q = playingSequence(g);
     if (!q || q->tracks.empty()) return out;
     for (const JointObject& j : g.joints) driven.insert(j.a);
     for (const Entity& e : g.entities) {
+        if (trackOf(*q, e.id)) {
+            out.insert(e.id);
+            continue;
+        }
         if (driven.count(e.id)) continue;
         for (const uint32_t id : ancestry(g, e.id))
             if (trackOf(*q, id)) out.insert(e.id);
@@ -514,15 +515,27 @@ void RobotWorld::sampleTake(const PhysicsWorld& physics) {
     }
 }
 
+// Every sample within the take's tolerances of the first: 0.5 mm and 0.2 degrees.
+static bool stoodStill(const std::vector<AnimKey>& samples) {
+    if (samples.size() < 2) return true;
+    const std::vector<AnimKey> first{samples.front()};
+    Vector3 p;
+    Quaternion q0, q;
+    samplePose(first, 0, false, 0, p, q0);
+    for (const AnimKey& k : samples) {
+        samplePose({k}, 0, false, 0, p, q);
+        if (length(k.position - samples.front().position) > 0.0005_r || std::fabs(q.w * q0.w + q.x * q0.x + q.y * q0.y + q.z * q0.z) < std::cos(0.1_r * kPi / 180))
+            return false;
+    }
+    return true;
+}
+
 SequenceObject RobotWorld::takeRecording(const std::string& name) {
     SequenceObject q;
     q.name = name, q.active = true, q.play = false; // shown, not replayed: the next ▶ is physics again
     for (size_t i = 0; recording_ && i < free_.size(); ++i) {
+        if (stoodStill(take_[i])) continue; // a resting box's settling, a held link: no track
         std::vector<AnimKey> keys = thinKeys(take_[i], 0.0005_r, 0.2_r);
-        if (keys.size() < 2 || (length(keys.front().position - keys.back().position) < 1e-6_r && keys.size() == 2 &&
-                                keys.front().rotationDeg.x == keys.back().rotationDeg.x && keys.front().rotationDeg.y == keys.back().rotationDeg.y &&
-                                keys.front().rotationDeg.z == keys.back().rotationDeg.z))
-            continue; // it stood still
         q.tracks.push_back({free_[i], std::move(keys)});
     }
     recording_ = false;
