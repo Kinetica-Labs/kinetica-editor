@@ -127,7 +127,7 @@ SceneOp wheelModuleOp() {
     return {"assembly_wheel", "A wheel module at a side of a body (forward +x, left -z of its own frame): a shock absorber, a motor wheel "
                    "whose positive duty drives forward, an encoder counting forward as positive, a driver at duty 0 on the battery",
                    "{target: int, side: front_left|front_right|rear_left|rear_right|left|right, model?: bodies|point, suspension?: bool, "
-                   "encoder?: lines (0: none), power?: bool, battery?: int, radius?: m, rolling?: C_rr of a point wheel}", {},
+                   "encoder?: lines (0: none), power?: bool, battery?: int, radius?: m, rolling?: number (C_rr of a point wheel)}", {},
                    [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         Side side = Side::FrontLeft;
         if (!entityOf(g, a) || !sideFromWord(a["side"].text(""), side)) return e = "needs a shape's id and a side: front_left, front_right, rear_left, rear_right, left, right", false;
@@ -164,8 +164,14 @@ bool driveOne(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     }
     if (dof < 0) return e = "dof is tx, ty, tz, rx, ry or rz (the joint has no free one to take by default)", false;
     JointDrive d = j->dof[dof].drive;
-    const std::string kind = a["kind"].text(d.constant > 0 ? "dcmotor" : d.stiffness > 0 || !d.enabled ? "servo" : "velocity");
+    // The kind: as said; else as the fields given say (a stiffness or a target: a servo; a voltage, a resistance or a
+    // constant: a DC motor); else the drive's own - never guessed from what the call did not give.
+    const std::string own = d.constant > 0 ? "dcmotor" : !d.enabled || d.stiffness > 0 || d.damping > 0 ? "servo" : "velocity";
+    const std::string kind = a["kind"].text(a.has("stiffness") || a.has("target") ? "servo"
+                                            : a.has("voltage") || a.has("resistance") || a.has("constant") ? "dcmotor" : own);
     if (kind != "servo" && kind != "velocity" && kind != "dcmotor") return e = "kind is servo, velocity or dcmotor", false;
+    if (kind == "velocity" && (a.has("stiffness") || a.has("target")))
+        return e = "a velocity motor has no stiffness or target: it holds a speed (velocity, force). A position: kind servo", false;
     const struct { const char* name; Real* to; bool positive; } fields[] = {
         {"stiffness", &d.stiffness, true}, {"damping", &d.damping, true}, {"target", &d.target, false}, {"velocity", &d.targetVelocity, false},
         {"force", &d.maxForce, true}, {"voltage", &d.voltage, false}, {"resistance", &d.resistance, true}, {"constant", &d.constant, true}};
@@ -175,13 +181,24 @@ bool driveOne(SceneGraph& g, const Value& a, Value& r, std::string& e) {
         if (!std::isfinite(v) || (f.positive && v < 0)) return e = std::string(f.name) + (f.positive ? " is a number, 0 or more" : " is a number"), false;
         *f.to = Real(v);
     }
-    if (kind == "velocity") d.stiffness = 0;
+    if (kind == "velocity") d.stiffness = d.damping = 0;
     if (kind != "dcmotor") d.constant = 0;
     if (kind == "dcmotor" && !(d.constant > 0 && d.resistance > 0)) return e = "a DC motor needs constant > 0 and resistance > 0", false;
+    const bool turn = dof >= DofRx;
+    if (kind == "servo" && !(d.stiffness > 0))
+        return e = std::string("a servo needs stiffness > 0 (") + (turn ? "N m/rad" : "N/m") + ") to hold its target: e.g. stiffness " +
+                   (turn ? "50, damping 5" : "500, damping 50") + "; a speed alone: kind velocity", false;
     d.enabled = a.has("on") ? a["on"].truth(true) : true;
     j->dof[dof].drive = d;
     if (j->dof[dof].motion == JointMotion::Locked) j->dof[dof].motion = JointMotion::Free; // a drive on a locked freedom would move nothing
     r.set("joint", j->id), r.set("dof", dofs[dof]), r.set("kind", kind);
+    Value drive = Value::map(); // the drive as it now stands: no second call to read it back
+    drive.set("on", d.enabled), drive.set("unit", turn ? "rad" : "m");
+    if (kind == "servo") drive.set("stiffness", d.stiffness), drive.set("damping", d.damping), drive.set("target", d.target);
+    if (kind != "dcmotor") drive.set("velocity", d.targetVelocity);
+    if (kind == "dcmotor") drive.set("voltage", d.voltage), drive.set("resistance", d.resistance), drive.set("constant", d.constant);
+    if (std::isfinite(d.maxForce)) drive.set("force", d.maxForce);
+    r.set("drive", drive);
     return true;
 }
 
@@ -203,11 +220,13 @@ bool driveOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
 
 SceneOp driveSceneOp() {
     return {"assembly_drive", "A drive on a joint's freedom (none: its main one - a hinge's turn, a slider's travel), its output a "
-                   "generalised force the robot's own code puts on the joint: servo (stiffness, damping, target, velocity, force), velocity motor (damping, "
-                   "velocity, force) or DC motor (voltage, resistance, constant; a driver feeds it: assembly_power). Fields not given keep "
-                   "their values; joints: several at once, in the same step of a running scene (a gripper's fingers)",
-                   "{joint: int | joints: [int], dof?: tx|ty|tz|rx|ry|rz, kind?: servo|velocity|dcmotor, stiffness?, damping?, target?, "
-                   "velocity?, force?, voltage?, resistance?, constant?, on?: bool}", {}, driveOp};
+                   "generalised force the robot's own code puts on the joint: servo (stiffness > 0, damping, target, velocity, force), velocity motor "
+                   "(velocity, force) or DC motor (voltage, resistance, constant; a driver feeds it: assembly_power); a turn in rad and N m, a "
+                   "travel in m and N. The kind: as given, else as the fields given say (stiffness or target: servo; voltage, resistance or "
+                   "constant: DC motor), else the drive's own. Fields not given keep their values; the answer gives the drive as it now stands; joints: several at once, in the same step of a running scene (a gripper's fingers)",
+                   "{joint: int | joints: [int], dof?: tx|ty|tz|rx|ry|rz, kind?: servo|velocity|dcmotor, stiffness?: number (N m/rad or N/m), "
+                   "damping?: number (N m s/rad or N s/m), target?: number (rad or m), velocity?: number (rad/s or m/s), force?: number (N m or N), "
+                   "voltage?: number (V), resistance?: number (ohm), constant?: number (N m/A), on?: bool}", {}, driveOp};
 }
 
 // assembly_grip: a gripper closed or opened, as Robotiq's grippers are driven - a target and a force limit: closing,

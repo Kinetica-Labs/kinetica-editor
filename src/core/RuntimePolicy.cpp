@@ -12,11 +12,11 @@ const char* const kRuntimeStatusHelp =
     "Read active API resource usage, limits and monotonic idle lease without renewing it. "
     "Limits bound managed work, not operating-system CPU or memory usage.";
 const char* const kRuntimeConfigureHelp =
-    "Configure bounded API resources transactionally: max_fps in 1..60, idle_timeout_ms in 1000..300000, "
+    "Configure bounded API resources transactionally: max_fps in 1..60, idle_timeout_ms in 1000..3600000, "
     "max_background_tasks in 1..2. An arm with its camera consumes two tasks. Stop work before lowering "
     "a limit below its current use. Status polling does not renew the idle lease.";
 const char* const kRuntimeConfigureArgs =
-    "{max_fps?: number (60), idle_timeout_ms?: number (60000), max_background_tasks?: int (2)}";
+    "{max_fps?: number (60), idle_timeout_ms?: number (300000), max_background_tasks?: int (2)}";
 const char* const kRuntimeStopHelp =
     "Hold managed arms at measured coordinates, stop managed stereo/perception, and pause the host without "
     "resetting the authored scene. Releases API work; never kills unrelated applications.";
@@ -44,7 +44,7 @@ bool RuntimePolicy::configure(const Value& args, const Usage& usage, std::string
     Limits next = limits_;
     double tasks = next.maxBackgroundTasks;
     if (!readLimit(args, "max_fps", 1, 60, next.maxFps, error) ||
-        !readLimit(args, "idle_timeout_ms", 1000, 300000, next.idleTimeoutMs, error) ||
+        !readLimit(args, "idle_timeout_ms", 1000, 3600000, next.idleTimeoutMs, error) ||
         !readLimit(args, "max_background_tasks", 1, 2, tasks, error)) return false;
     if (tasks != 1 && tasks != 2) return error = "max_background_tasks is an integer", false;
     next.maxBackgroundTasks = uint32_t(tasks);

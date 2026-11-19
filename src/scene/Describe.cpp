@@ -74,16 +74,17 @@ std::string jointWords(const SceneGraph& g, const JointObject& j) {
     for (const auto& w : words)
         if (kind == w[0]) s = w[1];
     const int main = mainFreedom(j);
-    if (main < 0) return s;
+    const std::string id = " (сочленение #" + std::to_string(j.id) + ")";
+    if (main < 0) return s + id;
     const JointFreedom& f = j.dof[main];
     s += ", " + axisWords(j, main);
     if (f.motion == JointMotion::Limited) s += ", ход " + num(f.lower) + " … " + num(f.upper) + (main >= DofRx ? " рад" : " м");
     if (f.drive.enabled && f.drive.constant > 0) s += ", мотор постоянного тока " + num(f.drive.voltage, 1) + " В";
     else if (f.drive.enabled && f.drive.stiffness > 0)
         s += ", серво к " + num(f.drive.target) + (main >= DofRx ? " рад" : " м") + ", жёсткость " + num(f.drive.stiffness, 0) + (main >= DofRx ? " Н·м/рад" : " Н/м");
-    else if (f.drive.enabled && f.drive.damping > 0) s += ", мотор скорости " + num(f.drive.targetVelocity) + (main >= DofRx ? " рад/с" : " м/с");
+    else if (f.drive.enabled) s += ", мотор скорости " + num(f.drive.targetVelocity) + (main >= DofRx ? " рад/с" : " м/с");
     if (const DriverObject* d = driverOf(g, j.id)) s += ", драйвер " + quoted(d->name) + " ШИМ " + num(d->duty, 2);
-    return s;
+    return s + id;
 }
 
 const JointObject* holder(const SceneGraph& g, uint32_t entity) {
@@ -96,7 +97,7 @@ const JointObject* holder(const SceneGraph& g, uint32_t entity) {
 void pointWheels(const SceneGraph& g, uint32_t body, int depth, std::string& out) {
     for (const WheelObject& w : g.wheels) {
         if (w.parent != body) continue;
-        out += std::string(2 * depth + 2, ' ') + "- " + quoted(w.name) + ": точечное колесо r " + num(w.radius) + " м, пружина " + num(w.stiffness, 0) +
+        out += std::string(2 * depth + 2, ' ') + "- " + quoted(w.name) + " #" + std::to_string(w.id) + ": точечное колесо r " + num(w.radius) + " м, пружина " + num(w.stiffness, 0) +
                " Н/м, ход " + num(w.rest) + " м, качение C_rr " + num(w.rolling);
         if (w.constant > 0) out += ", мотор постоянного тока " + num(w.voltage, 1) + " В";
         if (const DriverObject* d = driverOf(g, w.id)) out += ", драйвер " + quoted(d->name) + " ШИМ " + num(d->duty, 2);
@@ -108,7 +109,7 @@ void tree(const SceneGraph& g, uint32_t id, int depth, std::string& out) {
     for (const Entity& e : g.entities) {
         const JointObject* j = holder(g, e.id);
         if ((j ? j->b : 0) != id || (depth == 0 && j && j->b != 0)) continue;
-        out += std::string(2 * depth + 2, ' ') + "- " + quoted(e.name) + ": " + shapeWords(e);
+        out += std::string(2 * depth + 2, ' ') + "- " + quoted(e.name) + " #" + std::to_string(e.id) + ": " + shapeWords(e);
         if (j) out += "; " + jointWords(g, *j) + (j->b ? " — на " + quoted(findObject(g, j->b)->name) : " — к миру");
         else out += "; в мире " + vec(e.position);
         out += "\n";
@@ -120,7 +121,7 @@ void tree(const SceneGraph& g, uint32_t id, int depth, std::string& out) {
 std::string sensors(const SceneGraph& g) {
     std::string out;
     for (const SensorObject& s : g.sensors) {
-        out += "  - " + quoted(s.name) + (s.model.empty() ? std::string() : " (" + s.model + ")") + ": ";
+        out += "  - " + quoted(s.name) + " #" + std::to_string(s.id) + (s.model.empty() ? std::string() : " (" + s.model + ")") + ": ";
         if (s.kind == SensorKind::Encoder) {
             const JointObject* j = findJoint(g, s.parent);
             const SceneObject* on = findObject(g, s.parent);
@@ -170,7 +171,7 @@ std::string describeScene(const SceneGraph& g) {
     tree(g, 0, 0, out);
     if (!g.sensors.empty()) out += "Датчики:\n" + sensors(g);
     for (const BatteryObject& b : g.batteries)
-        out += (&b == &g.batteries.front() ? "Электрика:\n" : "") + std::string("  - ") + quoted(b.name) + ": " + std::to_string(b.series) + "S" +
+        out += (&b == &g.batteries.front() ? "Электрика:\n" : "") + std::string("  - ") + quoted(b.name) + " #" + std::to_string(b.id) + ": " + std::to_string(b.series) + "S" +
                std::to_string(b.parallel) + "P, " + num(b.capacityAh * b.parallel, 2) + " А·ч, заряд " + num(100 * b.soc, 0) + " %\n";
     return out;
 }

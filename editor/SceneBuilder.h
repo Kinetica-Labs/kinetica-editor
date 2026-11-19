@@ -262,9 +262,11 @@ public:
     // The Sequencer's preview in edit mode (SceneBuilderSequence.cpp): the active sequence's poses at a time drawn while
     // the playhead is dragged or played, no edit yet; ending it puts the graph back - the panel then makes the one edit,
     // sequence_seek, an undo step and a line.
-    // One undo step for many edits: a plugin's command, whatever it changes through the API (PluginHost). Nested.
+    // One undo step for many edits: a plugin's command, whatever it changes through the API (PluginHost). Nested. Ended
+    // not kept (the call failed), the outermost group's edits are taken back: the scene as before it, no step left.
+    // True: something was taken back.
     void beginUndoGroup();
-    void endUndoGroup();
+    bool endUndoGroup(bool keep = true);
     void beginSequencePreview();
     void previewSequence(double time);
     void endSequencePreview();
@@ -283,8 +285,9 @@ public:
     // Edit mode: the simulation built from the graph and left on pause, not one frame stepped (the
     // API steps exact frame counts from there). False when it cannot be built.
     bool loadPaused();
-    void undoStep() { undo(); }
-    void redoStep() { redo(); }
+    bool undoStep() { return !undo_.empty() && (undo(), true); }
+    bool redoStep() { return !redo_.empty() && (redo(), true); }
+    size_t undoSteps() const { return undo_.size(); }
 
 signals:
     void statusMessage(const QString& text);               // "Коллайдер добавлен: без него тело провалится"

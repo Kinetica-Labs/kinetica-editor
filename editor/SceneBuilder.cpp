@@ -327,7 +327,15 @@ void SceneBuilder::beginUndoGroup() {
     if (undoGroup_++ == 0) undoGroupTaken_ = false;
 }
 
-void SceneBuilder::endUndoGroup() { undoGroup_ = std::max(0, undoGroup_ - 1); }
+bool SceneBuilder::endUndoGroup(bool keep) {
+    undoGroup_ = std::max(0, undoGroup_ - 1);
+    if (keep || undoGroup_ > 0 || !undoGroupTaken_ || undo_.empty()) return false;
+    SceneGraph before = std::move(undo_.back().graph); // the scene before the group's first edit
+    undo_.pop_back();
+    undoGroupTaken_ = false;
+    restore(std::move(before));
+    return true;
+}
 
 void SceneBuilder::remember(bool mergeWithLast) {
     rememberedNow_ = false;

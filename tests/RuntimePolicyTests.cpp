@@ -47,7 +47,7 @@ void testRuntimePolicyTransactional() {
     Value args = Value::map();
     args.set("max_fps", 10), args.set("idle_timeout_ms", 2000), args.set("max_background_tasks", 1.5);
     CHECK(!policy.configure(args, empty, error), "fractional task count accepted");
-    CHECK(policy.limits().maxFps == 60 && policy.limits().idleTimeoutMs == 60000, "partial configuration leaked before validation");
+    CHECK(policy.limits().maxFps == 60 && policy.limits().idleTimeoutMs == 300000, "partial configuration leaked before validation");
     args.set("max_background_tasks", 1);
     CHECK(policy.configure(args, empty, error), "valid bounded settings rejected: %s", error.c_str());
     CHECK(policy.limits().maxFps == 10 && policy.limits().idleTimeoutMs == 2000 && policy.limits().maxBackgroundTasks == 1,
@@ -58,7 +58,7 @@ void testRuntimePolicyTransactional() {
     CHECK(!policy.configure(args, running, error) && policy.limits().maxFps == 10, "lowering limit silently changed live usage");
     args = Value::map(), args.set("disable_limits", true);
     CHECK(!policy.configure(args, empty, error), "unknown setting silently accepted");
-    args = Value::map(), args.set("idle_timeout_ms", 300001);
+    args = Value::map(), args.set("idle_timeout_ms", 3600001);
     CHECK(!policy.configure(args, empty, error), "unbounded lease accepted");
     args.set("idle_timeout_ms", 999);
     CHECK(!policy.configure(args, empty, error), "invalid short lease accepted");
@@ -69,7 +69,7 @@ void testRuntimePolicyLease() {
     RuntimePolicy policy([&] { return now; });
     const RuntimePolicy::Usage usage;
     const auto advance = [&](int ms) { now += std::chrono::milliseconds(ms); };
-    advance(59999);
+    advance(299999);
     const Value before = policy.status(usage);
     CHECK(!policy.expired() && before["lease_remaining_ms"].number() == 1, "lease expired before exact deadline");
     advance(1);

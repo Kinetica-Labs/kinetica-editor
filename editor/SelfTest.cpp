@@ -484,6 +484,8 @@ uint32_t replayLines(EditorOps& ops, std::vector<std::pair<QString, QJsonObject>
         for (const QJsonValue& v : a.value("ids").toArray()) ids.append(int(uint32_t(v.toInt()) + (uint32_t(v.toInt()) >= from ? by : 0)));
         if (a.contains("ids")) a["ids"] = ids;
         const QJsonObject answer = ops.runNow(op, a);
+        if (!answer.value("ok").toBool())
+            std::printf("  %s refused: %s\n", qPrintable(op), qPrintable(answer.value("error").toString()));
         all = all && answer.value("ok").toBool();
         if (op == "scene_add" && by == 0) by = uint32_t(answer.value("id").toInt()) - firstMade;
     }

@@ -214,7 +214,7 @@ std::vector<SceneOp> actionSceneOps() {
         {"scene_add", "A shape as the toolbar's button adds it: in the air over a free spot, named after its shape; role: a moving body "
                       "(rigid, with its collider) or a static obstacle (collider), as scene_role gives it; fixed: a rigid body held still in the world. A cylinder's "
                       "axis is its own y",
-         "{shape: box|sphere|cylinder|cone|plane, name?, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool}",
+         "{shape: box|sphere|cylinder|cone|plane, name?: str, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool}",
          {}, addShapeOp},
         {"scene_add_light", "A light as the menu adds it: the sun high at a slant, a lamp or a spot over `at` (else the scene's centre); "
                             "with `position` it stands there shining at `target` (else at `at`)",
@@ -236,7 +236,7 @@ std::vector<SceneOp> actionSceneOps() {
          "{ids, role: rigid|collider, on?: bool}", {}, roleOp, true},
         transform("scene_move", "Objects moved by a step in the world, their angles kept (the gizmo's arrows)", "{ids, by: [x,y,z]}"),
         transform("scene_turn", "Objects turned about an axis by degrees around a pivot (no pivot: the last object's centre) - the rings",
-                  "{ids, axis: x|y|z|[x,y,z], degrees, pivot?: [x,y,z]}"),
+                  "{ids, axis: x|y|z|[x,y,z], degrees: number, pivot?: [x,y,z]}"),
         transform("scene_scale", "Objects scaled by factors along their own axes, a group's spacing too (the cubes)", "{ids, by: [x,y,z] | number}"),
     };
 }

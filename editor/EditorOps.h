@@ -65,6 +65,8 @@ public:
     void addPluginOp(const QString& name, const QString& help, const QString& args, Handler run, const QJsonObject& schema = {});
     void addOp(const QString& name, const QString& help, const QString& args, Handler run) { add(name, help, args, std::move(run)); } // the plugins' own
     void removePluginOp(const QString& name);
+    // Why a name is no operation now, when someone knows (a plugin's command while the plugin is down: PluginHost).
+    void setUnknownHint(std::function<QString(const QString&)> hint) { unknownHint_ = std::move(hint); }
     static bool isQuery(const QString& name); // EditorJournal.cpp
     static bool windowOnly(const QString& name); // the window's state or time, no change of the scene (EditorJournal.cpp)
 
@@ -128,6 +130,8 @@ private:
     QWidget* window_;
     std::map<QString, Op> ops_;
     std::set<QString> pluginOps_;
+    std::function<QString(const QString&)> unknownHint_;
+    QString unknown(const QString& name) const;
     std::function<void()> refresh_;
     bool recording_ = false;
     std::vector<Listener> listeners_;

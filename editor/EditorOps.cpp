@@ -3,12 +3,17 @@
 // operations only the window has - a new scene, files, undo and redo. The scene's own operations come
 // from the core (EditorOpsCore.cpp).
 #include "EditorOps.h"
+
+#include "ArgsSchema.h"
 #include "EditorRuntime.h"
 
 #include "SceneBuilder.h"
 #include "core/Format.h"
 #include "scene/Assembly.h"
 #include "scene/SceneEdits.h"
+
+#include <QJsonArray>
+#include <QRegularExpression>
 
 #include <algorithm>
 
@@ -39,7 +44,7 @@ QJsonObject EditorOps::ok(QJsonObject fields) {
 QJsonObject EditorOps::error(const QString& why) { return QJsonObject{{"ok", false}, {"error", why}}; }
 
 void EditorOps::add(const QString& name, const QString& help, const QString& args, Handler run) {
-    ops_[name] = Op{help, args, std::move(run), {}};
+    ops_[name] = Op{help, args, std::move(run), argsSchema(args)}; // the line a person reads is the schema a model's client builds from
 }
 
 void EditorOps::addSync(const QString& name, const QString& help, const QString& args, std::function<QJsonObject(const QJsonObject&)> run) {
@@ -52,6 +57,11 @@ void EditorOps::addPluginOp(const QString& name, const QString& help, const QStr
     pluginOps_.insert(name);
 }
 
+QString EditorOps::unknown(const QString& name) const {
+    const QString hint = unknownHint_ ? unknownHint_(name) : QString();
+    return hint.isEmpty() ? "нет операции «" + name + "» (ops_list называет все)" : hint;
+}
+
 void EditorOps::removePluginOp(const QString& name) {
     if (!pluginOps_.erase(name)) return;
     ops_.erase(name);
@@ -59,7 +69,8 @@ void EditorOps::removePluginOp(const QString& name) {
 
 void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& reply, const QString& source) {
     auto it = ops_.find(name);
-    if (it == ops_.end()) return reply(error("no operation '" + name + "' (ops_list names them)"));
+    if (it == ops_.end()) return reply(error(unknown(name)));
+    if (const QString why = argsProblem(args, it->second.schema); !why.isEmpty()) return reply(error(why)); // refused, not guessed
     // An edit's changes are its own line: the window does not say them again. A hand's input (ui_pointer,
     // ui_key, ui_trigger) is no edit: what the window does with it is said by the window, as for a hand.
     // A query changes nothing: it leaves the window's lines alone (a drag in progress stays one line).
@@ -94,7 +105,7 @@ QJsonArray EditorOps::list() const {
     QJsonArray out;
     for (const auto& [name, op] : ops_) {
         QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}};
-        if (!op.schema.isEmpty()) entry.insert("schema", op.schema); // a plugin's command: its fields as JSON Schema
+        entry.insert("schema", op.schema); // JSON Schema: a plugin's fields, or the core's line of arguments read (ArgsSchema.h)
         out.append(entry);
     }
     return out;
@@ -125,6 +136,22 @@ void EditorOps::addSceneOps() {
         builder_->newScene();
         return ok();
     });
-    addSync("edit_undo", "Undo the last step", "{}", [this](const QJsonObject&) { builder_->undoStep(); return ok(); });
-    addSync("edit_redo", "Redo the step undone last", "{}", [this](const QJsonObject&) { builder_->redoStep(); return ok(); });
+    // What a step of history changed, so a caller need not read the scene again to know: the objects, the world.
+    const auto stepped = [this](bool undo) {
+        const SceneGraph before = builder_->graph();
+        const bool done = undo ? builder_->undoStep() : builder_->redoStep();
+        QJsonArray changed;
+        bool world = false;
+        static const QRegularExpression idOf(R"(\bid (\d+))");
+        for (const ke::GraphEdit& e : diffEdits(before, builder_->graph())) {
+            if (e.kind == ke::GraphEdit::Kind::World) { world = true; continue; }
+            const auto m = idOf.match(QString::fromStdString(e.text));
+            const qint64 id = e.kind == ke::GraphEdit::Kind::Put && m.hasMatch() ? m.captured(1).toLongLong() : qint64(e.id);
+            if (!changed.contains(id)) changed.append(id);
+        }
+        return ok({{undo ? "undone" : "redone", done}, {"changed", changed}, {"world", world}, {"undo_steps", qint64(builder_->undoSteps())}});
+    };
+    addSync("edit_undo", "Undo the last step. Answers what it changed: the objects' ids, whether the world did; undone false: nothing "
+            "left to undo", "{}", [stepped](const QJsonObject&) { return stepped(true); });
+    addSync("edit_redo", "Redo the step undone last. Answers what it changed, as edit_undo", "{}", [stepped](const QJsonObject&) { return stepped(false); });
 }

@@ -40,6 +40,7 @@ def lift(scene, height: float = field(0.1, unit="м", range=(-1.0, 1.0), label="
 
 @command(label="Ошибка")
 def broken(scene):
+    scene.client.call("scene_add", shape="box")  # half built when it falls: the call taken back whole
     return 1 / 0
 
 
@@ -126,14 +127,17 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
     c.check(press && std::fabs(y(a) - before - 0.3f) < 1e-4f && shown && shown->text() == "Поднято: 2",
             "a plugin's panel: its button runs the command with the panel's field, its value shows what the plugin said");
 
-    // An error in a command: the author's file and line in the answer.
+    // An error in a command: the author's file and line in the answer, and what it had built taken back.
+    const size_t objects = b.graph().entities.size();
     QJsonObject failed;
     ops->run("lifter_broken", {}, [&failed](const QJsonObject& r) { failed = r; }, "ui");
     waitUntil([&] { return !failed.isEmpty(); }, 5000);
     const QString why = failed.value("error").toString();
     std::printf("  lifter_broken: %s\n", qPrintable(why));
-    c.check(!failed.value("ok").toBool() && why.contains("plugin.py:15") && why.contains("ZeroDivisionError"),
+    c.check(!failed.value("ok").toBool() && why.contains("plugin.py:16") && why.contains("ZeroDivisionError"),
             "an error in a command answers with the author's file and line");
+    c.check(b.graph().entities.size() == objects && why.contains("отменены"),
+            "a command that fails changes nothing: the cube it had added is taken back, and the answer says so");
 
     // Saved: back with its new words.
     clock.restart();
@@ -152,6 +156,9 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
     }, 8000);
     std::printf("  fallen: «%s»; the lifter's button gone %s\n", qPrintable(banner), action(w, "plugin:lifter_lift") ? "no" : "yes");
     c.check(said && banner.contains("сломано") && !action(w, "plugin:lifter_lift"), "a plugin that falls over says its file and line on the status bar");
+    const QString gone = ops->runNow("lifter_lift", {}).value("error").toString();
+    std::printf("  its command called now: %s\n", qPrintable(gone));
+    c.check(gone.contains("упал") && gone.contains("plugin.py:3"), "a fallen plugin's command, called, says the plugin fell and where - not «no operation»");
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

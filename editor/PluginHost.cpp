@@ -72,26 +72,6 @@ QJsonObject jsonSchema(const QJsonObject& args) {
     return {{"type", "object"}, {"properties", properties}, {"additionalProperties", false}};
 }
 
-// A call's arguments held to the fields: no field it does not have, a value of its type within its range - refused, not
-// clamped (docs/constitution.md, I: the editor says what is wrong, it does not fix it quietly).
-QString badArgs(const QJsonObject& args, const QJsonObject& fields) {
-    for (auto it = args.begin(); it != args.end(); ++it) {
-        if (it.key().startsWith('_')) continue;
-        if (!fields.contains(it.key())) return "нет поля «" + it.key() + "»; поля: " + QStringList(fields.keys()).join(", ");
-        const QJsonObject f = fields.value(it.key()).toObject();
-        const QString type = f.value("type").toString();
-        const QJsonValue v = it.value();
-        const bool fits = type == "boolean" ? v.isBool() : type == "string" ? v.isString()
-                          : type == "integer" ? v.isDouble() && v.toDouble() == std::floor(v.toDouble()) : v.isDouble();
-        if (!fits) return it.key() + ": ожидалось " + type;
-        if (f.contains("enum") && !f.value("enum").toArray().contains(v)) return it.key() + ": не из списка";
-        if (v.isDouble() && ((f.contains("minimum") && v.toDouble() < f.value("minimum").toDouble()) ||
-                             (f.contains("maximum") && v.toDouble() > f.value("maximum").toDouble())))
-            return QString("%1: %2 вне %3…%4").arg(it.key()).arg(v.toDouble()).arg(f.value("minimum").toDouble()).arg(f.value("maximum").toDouble());
-    }
-    return {};
-}
-
 QString argsHelp(const QJsonObject& args, const QJsonArray& order) {
     QStringList parts;
     for (const QJsonValue& n : order) {
@@ -107,6 +87,17 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
                        std::function<void(PluginPanel*, bool)> place)
     : QObject(window), ops_(ops), builder_(builder), window_(window), menu_(menu), apiPort_(std::move(apiPort)), place_(std::move(place)),
       watcher_(new QFileSystemWatcher(this)) {
+    ops_->setUnknownHint([this](const QString& op) -> QString { // a command of a plugin that is down: why, and what to do
+        for (const auto& p : plugins_) {
+            if (!op.startsWith(p->name + "_")) continue;
+            if (p->state == "упал")
+                return "«" + op + "» - команда плагина «" + p->name + "», а он упал: " + (p->error.isEmpty() ? QString("без сообщения") : p->error) +
+                       ". Исправьте файл и сохраните - плагин перезапустится сам";
+            if (p->state == "запускается") return "плагин «" + p->name + "» ещё запускается: «" + op + "» появится через секунду";
+            if (p->state == "остановлен") return "плагин «" + p->name + "» остановлен: plugin_reload {name: \"" + p->name + "\"} запустит его";
+        }
+        return QString();
+    });
     commandsEnd_ = menu_->addSeparator();
     connect(watcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) {
         QTimer::singleShot(150, this, [this, path] { // an editor writes in steps: the file as it stands a moment later
@@ -124,6 +115,7 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
 }
 
 PluginHost::~PluginHost() {
+    ops_->setUnknownHint(nullptr);
     for (auto& p : plugins_)
         if (p->process) p->process->disconnect(this), p->process->kill(), p->process->waitForFinished(500);
 }
@@ -287,8 +279,9 @@ void PluginHost::unregister(Plugin& p) {
 void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args, const EditorOps::Reply& reply) {
     const int id = ++nextCall_;
     builder_->beginUndoGroup(); // every edit the plugin makes for this call: one step of Ctrl+Z
-    p.open[id] = [this, reply](const QJsonObject& r) {
-        builder_->endUndoGroup();
+    p.open[id] = [this, reply](QJsonObject r) { // a call that failed changes nothing: what it had built is taken back
+        if (builder_->endUndoGroup(r.value("ok").toBool()))
+            r.insert("error", r.value("error").toString() + ". Правки этого вызова отменены: сцена как до него");
         reply(r);
     };
     QJsonObject given;
@@ -392,7 +385,7 @@ void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
                                    "(python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
-                "maximum, enum}}, order: [field]}]}",
+                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui)}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
@@ -409,10 +402,9 @@ void PluginHost::addOps() {
             ops_->addPluginOp(cmd.op, QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ",
                                                                 QString("(plugin %1)").arg(plugin)),
                               argsHelp(cmd.args, c.value("order").toArray()),
-                              [this, plugin, command, fields = cmd.args](const QJsonObject& args, const EditorOps::Reply& r) {
+                              [this, plugin, command](const QJsonObject& args, const EditorOps::Reply& r) {
                 Plugin* q = find(plugin);
                 if (!q || !q->process) return r(EditorOps::error("плагин «" + plugin + "» не запущен"));
-                if (const QString why = badArgs(args, fields); !why.isEmpty()) return r(EditorOps::error(why));
                 call(*q, command, args, r);
             }, jsonSchema(cmd.args));
             cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() ? QString() : "…"), window_);
@@ -456,7 +448,7 @@ void PluginHost::addOps() {
         reply(EditorOps::ok({{"ops", made}}));
     });
     ops_->addOp("plugin_panel_set", "A plugin's panel shows these values: its fields' and its words' (a measured number, a state)",
-                "{name, token, values: {name: value}}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
+                "{name: str, token: str, values: {name: value}}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
         if (!p) return reply(refusal);
@@ -473,7 +465,7 @@ void PluginHost::addOps() {
         p->waiting = reply;
         deliver(*p);
     });
-    ops_->addOp("plugin_reply", "A plugin's answer to a call: its result, or the error with its file and line", "{name, token, call: int, result?: {}, error?: str}",
+    ops_->addOp("plugin_reply", "A plugin's answer to a call: its result, or the error with its file and line", "{name: str, token: str, call: int, result?: {}, error?: str}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);

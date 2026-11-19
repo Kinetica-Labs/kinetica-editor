@@ -118,7 +118,7 @@ if(Qt6_FOUND)
     editor/SceneBuilder.h    editor/SceneBuilder.cpp editor/SceneBuilderPanels.cpp editor/SceneBuilderObjects.cpp
     editor/SceneBuilderClone.cpp editor/SceneBuilderMulti.cpp editor/SceneBuilderLights.cpp editor/SceneBuilderKeep.cpp
     editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/ControllerKeys.h editor/ControllerKeys.cpp
-    editor/PluginHost.h editor/PluginHost.cpp editor/PluginPanel.h editor/PluginPanel.cpp editor/MainWindowPlugins.cpp editor/PythonRuntime.h editor/Resources.h editor/SequencerPanel.h editor/SequencerPanel.cpp
+    editor/PluginHost.h editor/PluginHost.cpp editor/PluginPanel.h editor/PluginPanel.cpp editor/MainWindowPlugins.cpp editor/PythonRuntime.h editor/Resources.h editor/ArgsSchema.h editor/ArgsSchema.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
     editor/SequencerViews.h editor/SequencerTimeline.cpp editor/SequencerCurves.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
     editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
