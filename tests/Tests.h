@@ -38,6 +38,7 @@ void testPhysicsPyramid();
 void testPhysicsGroups();
 void testPhysicsHand();
 void testPhysicsRepeatable();
+void testPhysicsThreadsDeterministic();
 // SimTests.cpp
 void testSimBoxRestsOnFloor();
 void testSimServoHoldsAndDroops();

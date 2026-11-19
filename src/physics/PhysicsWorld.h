@@ -139,7 +139,12 @@ public:
     virtual void step(Real dt, int substeps = 0) = 0;
 };
 
-// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>).
-std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity);
+// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>). `threads`: how many
+// threads step it - 0 the machine's (physicsThreads). The bits of a world do not depend on them: an engine that ran
+// otherwise on another machine could not be reproduced there (docs/constitution.md, article 3; tested).
+std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads = 0);
+// The machine's: KE_PHYSICS_THREADS when set, else one a physical core - half the hardware threads, as hyper-threads
+// add little to a solver - at most 8.
+int physicsThreads();
 
 } // namespace ke

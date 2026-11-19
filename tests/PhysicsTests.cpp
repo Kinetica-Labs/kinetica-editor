@@ -410,3 +410,43 @@ void testPhysicsRepeatable() {
     std::printf("  ten falling crates, two worlds built alike: %s after 3 s\n", a == b ? "equal to the bit" : "DIFFERENT");
     CHECK(a == b, "two worlds built alike went apart");
 }
+
+// The same world on 1, 2, 4 and the machine's threads: 300 boxes of three sizes, turned every way and thrown with a
+// spin onto a floor and a fixed post, tumbling into a pile for 3 s - every body's pose equal to the bit, or a scene
+// replayed on another machine would not be the scene that was recorded (docs/constitution.md, article 3).
+void testPhysicsThreadsDeterministic() {
+    const auto run = [](int threads) {
+        PhysicsSettings s;
+        auto w = makePhysicsWorld(s, kGravity, threads);
+        body(*w, {0, -0.5_r, 0}, {box({5, 0.5_r, 5})}, BodyDesc::Type::Static);
+        body(*w, {0.1_r, 0.4_r, 0}, {box({0.05_r, 0.4_r, 0.05_r})}, BodyDesc::Type::Static);
+        std::vector<int> boxes;
+        uint32_t h = 7;
+        const auto next = [&h] { h = h * 1664525u + 1013904223u; return Real(h >> 8) / Real(1 << 24); }; // [0, 1)
+        for (int k = 0; k < 300; ++k) {
+            const Real half = 0.02_r + 0.015_r * Real(k % 3);
+            const Quaternion turn = Quaternion::fromAxisAngle(normalize(Vector3(next() - 0.5_r, next() - 0.5_r, next() - 0.5_r)), 6.28_r * next());
+            const int b = body(*w, {0.6_r * next() - 0.2_r, 0.3_r + 1.7_r * next(), 0.6_r * next() - 0.3_r}, {box(Vector3(half))}, BodyDesc::Type::Dynamic,
+                               700, turn);
+            w->setVelocity(b, Vector3(next() - 0.5_r, 0, next() - 0.5_r), Vector3(8 * next() - 4, 8 * next() - 4, 8 * next() - 4));
+            boxes.push_back(b);
+        }
+        for (int k = 0; k < 180; ++k) w->step(kDt);
+        std::vector<Real> out;
+        for (int b : boxes) {
+            const BodyState st = w->state(b);
+            out.insert(out.end(), {st.position.x, st.position.y, st.position.z, st.rotation.w, st.rotation.x, st.rotation.y, st.rotation.z});
+        }
+        return out;
+    };
+    const std::vector<Real> one = run(1);
+    std::string report;
+    bool same = true;
+    for (int threads : {2, 4, physicsThreads()}) {
+        const bool equal = run(threads) == one;
+        same = same && equal;
+        report += " " + std::to_string(threads) + (equal ? ": equal" : ": DIFFERENT") + ";";
+    }
+    std::printf("  300 tumbling boxes for 3 s, against one thread:%s\n", report.c_str());
+    CHECK(same, "the world's bits depend on its threads:%s", report.c_str());
+}

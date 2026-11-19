@@ -59,6 +59,7 @@ int main() {
     run("physics: the bodies of one group never touch each other", testPhysicsGroups);
     run("physics: the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may", testPhysicsHand);
     run("physics: two worlds built alike stay equal to the bit", testPhysicsRepeatable);
+    run("physics: the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit", testPhysicsThreadsDeterministic);
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
     run("world: a DC motor spins up to U / K with the time constant I R / K^2", testSimDcMotorSpinsUp);

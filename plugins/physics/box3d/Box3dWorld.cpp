@@ -15,6 +15,8 @@
 #include "physics/HullPoints.h"
 #include "physics/PhysicsWorld.h"
 
+#include <cstdlib>
+#include <thread>
 #include <box3d/box3d.h>
 
 #include <algorithm>
@@ -70,14 +72,14 @@ float closestNotIgnored(b3ShapeId shape, b3Pos point, b3Vec3 normal, float fract
 
 class Box3dWorld final : public PhysicsWorld {
 public:
-    Box3dWorld(const PhysicsSettings& s, const Vector3& gravity) : settings_(s) {
+    Box3dWorld(const PhysicsSettings& s, const Vector3& gravity, int threads) : settings_(s) {
         b3WorldDef def = b3DefaultWorldDef();
         def.gravity = b3v(gravity);
         def.contactHertz = float(s.contactHertz);
         def.contactDampingRatio = float(s.contactDamping);
         def.enableSleep = s.sleeping;
         def.enableContinuous = s.continuous;
-        def.workerCount = 1; // one thread: the same bits every run
+        def.workerCount = uint32_t(std::max(threads, 1)); // Box3D's own scheduler; the same bits on any count (tested)
         world_ = b3CreateWorld(&def);
         b3BodyDef ground = b3DefaultBodyDef();
         ground_ = b3CreateBody(world_, &ground);
@@ -418,8 +420,13 @@ private:
 
 } // namespace
 
-std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity) {
-    return std::make_unique<Box3dWorld>(settings, gravity);
+int physicsThreads() {
+    if (const char* given = std::getenv("KE_PHYSICS_THREADS"); given && std::atoi(given) > 0) return std::min(std::atoi(given), 64);
+    return std::clamp(int(std::thread::hardware_concurrency()) / 2, 1, 8);
+}
+
+std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads) {
+    return std::make_unique<Box3dWorld>(settings, gravity, threads > 0 ? threads : physicsThreads());
 }
 
 } // namespace ke
