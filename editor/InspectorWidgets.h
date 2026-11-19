@@ -179,7 +179,7 @@ private:
     void report(size_t row, double value, bool click, int axis = 0);
     void show(Row& r);
     void showMixed(Row& r, const std::vector<bool>& mixed);
-    void texts(); // the notes and labels from the thing
+    void texts(); // the notes, labels and choices' words from the thing
     QFormLayout* layout_;
     std::vector<Row> rows_;
     std::function<void(bool)> edited_;

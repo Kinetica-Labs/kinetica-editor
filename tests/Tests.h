@@ -18,8 +18,9 @@ void testBatteryEnergyBooks();
 void testBatteryPack();
 // DeviceTests.cpp
 void testEncoderQuadrature();
-void testMpu6050Registers();
-void testMpu6050Noise();
+void testImuSpec();
+void testImuNoise();
+void testSensorDatasheet();
 void testSonarNoise();
 // PhysicsTests.cpp
 void testPhysicsFreeFall();

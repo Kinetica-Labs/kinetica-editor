@@ -15,6 +15,7 @@
 #include "scene/JointModel.h"
 
 #include <cstdint>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -259,12 +260,18 @@ struct ControllerObject {
 // on the joint's two links counts the same. A parent removed takes its sensors with it; `against`
 // removed leaves the sensor reading nothing and saying why.
 //
-// An IMU (an MPU-6050, devices/Mpu6050.h) rides on an entity and reads against the world only - an
-// accelerometer and a gyroscope measure against an inertial frame: the specific force at its point
-// and the angular rate, in its axes (its pose on the parent is the chip's axes). A sonar (an HC-SR04,
-// devices/Hcsr04.h) sends its beam along its x axis and hears the nearest echo off the rigid bodies
-// and the walls and floor of the scene's box - its carrier left out, as the beam starts on its face.
-// An IMU or a sonar with parent 0 is fixed in the world, at its own pose.
+// An IMU (devices/Imu.h) rides on an entity and reads against the world only - an accelerometer and a
+// gyroscope measure against an inertial frame: the specific force at its point and the angular rate, in
+// its axes (its pose on the parent is the chip's axes). A sonar (devices/Sonar.h) sends its beam along
+// its x axis and hears the nearest echo off the rigid bodies and the walls and floor of the scene's box -
+// its carrier left out, as the beam starts on its face. An IMU or a sonar with parent 0 is fixed in the
+// world, at its own pose.
+//
+// The kind says what a sensor measures, not which unit it is: the unit is its datasheet, `spec` - the
+// numbers a kind's model needs (rate, range, noise, offsets, mass...; their keys, units and the values of
+// a sensor no model was given: scene/SensorSpec.h) - and `model`, the name of the table's row they were
+// copied from (catalog/sensors/<kind>.csv). The numbers are the sensor's own: a scene reads the same with
+// no table at hand, and a number typed over the model's makes the unit what was typed.
 //
 // The force sensors read what crosses a boundary - MuJoCo's touch, force, torque and actuatorfrc sensors.
 // A touch pad lies on a face of an entity (its x out of the face, as a sonar's beam) and reads the
@@ -274,7 +281,8 @@ struct ControllerObject {
 // the joint's frame on a about its anchor - a six-axis force-torque sensor at a robot's wrist (ATI's
 // and Robotiq's), a load cell inline. An effort sensor reads a joint's drive along one freedom: the
 // force or torque its motor puts out (positive pushes the coordinate up) - a servo's current sense.
-// They read the physics engine's forces of each substep: ideal readings, no datasheet's noise yet.
+// A touch pad and an effort sensor read the physics engine's forces of each substep: ideal readings, no
+// datasheet's noise yet; a wrench sensor has a datasheet (devices/ForceTorque.h).
 //
 // A stereo camera is one frame with two pinhole cameras on it (src/sim): its x the optical axis, the
 // left camera b/2 along its +y, the right b/2 along -y, both looking along x, width x height pixels over a
@@ -285,13 +293,15 @@ struct ControllerObject {
 enum class SensorKind { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo };
 struct SensorObject : SceneObject {
     SensorKind kind = SensorKind::Encoder;
+    std::string model;                  // the catalog's model the datasheet was copied from ("": its own numbers)
+    std::map<std::string, Real> spec;   // the datasheet by key (scene/SensorSpec.h); a key not here: the field's value
     int lines = 500;                    // an encoder: per turn for a turn (rx, ry, rz), per metre for a travel (tx...)
     bool hasEncoderReference = false;   // explicit calibrated coordinate when count=0; never inferred from physics
     Real encoderReference = 0;          // rad for rotational DOFs, m for translational DOFs
     int dof = DofRx;
     uint32_t against = 0;               // an encoder on an entity: what it is measured against (0: the world)
-    bool noise = true;                  // an IMU, a sonar, a stereo camera: the unit's noise as its datasheet has them
-    uint32_t seed = 0;                  // an IMU, a sonar, a stereo camera: of its noise and offsets (0: its id)
+    bool noise = true;                  // the unit's noise and offsets as its datasheet has them (off: an ideal reference)
+    uint32_t seed = 0;                  // of its noise and offsets: the same seed, the same unit (0: its id)
     int width = 320, height = 240;      // a stereo camera: its images, pixels
     Real fovDeg = 65;                   // ... its horizontal field of view
     Real baseline = 0.10_r;             // ... the distance between its two cameras, m (a ZED-like rig: 65 degrees, 10 cm)

@@ -11,6 +11,7 @@
 #include "scene/SceneEdits.h"
 #include "scene/SceneGraph.h"
 #include "scene/SceneOps.h"
+#include "scene/SensorSpec.h"
 
 #include <algorithm>
 #include <chrono>
@@ -556,4 +557,76 @@ void testSmoothPath() {
                 double((goal.pathSmooth = true, pathLength(goal))), c1, c0, 100 * v1, j1, j0, 1000 * n1, t1);
     CHECK(c1 < 3 && c0 > 80 && v1 < 0.01 && n1 < 1e-3 && t1 < 0.5, "the flight is not smooth, steady and through its points turned as they say");
     CHECK(j1 < 0.5 * j0, "SQUAD's spin jumps as much as slerp's at the points: %g against %g", j1, j0);
+}
+
+// A sensor's datasheet is data: a table's row (quoted cells with commas, an empty cell left at the field's value, an
+// unknown column and a bad number reported, a later table's row of a model over the earlier's); the model's numbers
+// into a sensor, a number typed over them noticed; every number back from the scene file to the bit, an old file's
+// sensor with no datasheet at the fields' values; the program's own tables read with no problem, each number in its
+// field's range; sensor_spec and assembly_sensor by a model's name, an unknown name and a number out of range refused.
+void testSensorDatasheet() {
+    SensorCatalog c;
+    std::string problems = c.read(SensorKind::Imu, "model,rate_hz,bandwidth_hz,colour,source\n# a note\nTest-IMU,200,,red,\"a sheet, rev. 2\"\nBad,x1,5,,\n",
+                                  "imu.csv");
+    problems += c.read(SensorKind::Imu, "model,rate_hz\nBad,400\n", "mine/imu.csv");
+    const SensorModel* t = c.find(SensorKind::Imu, "Test-IMU");
+    const SensorModel* bad = c.find(SensorKind::Imu, "Bad");
+    std::printf("  a table: %zu models, problems:\n%s", c.models(SensorKind::Imu).size(), problems.c_str());
+    CHECK(t && t->source == "a sheet, rev. 2" && t->values.size() == 1 && t->values.at("rate_hz") == 200, "a row's cells: quotes, an empty cell");
+    CHECK(problems.find("colour") != std::string::npos && problems.find("x1") != std::string::npos, "an unknown column and a bad number are told");
+    CHECK(bad && bad->values.at("rate_hz") == 400 && c.models(SensorKind::Imu).size() == 2, "a later table's row of a model replaces the earlier's");
+    SensorObject s;
+    s.kind = SensorKind::Imu;
+    applyModel(s, *t);
+    const ImuSpec spec = imuSpec(s);
+    CHECK(s.model == "Test-IMU" && spec.rateHz == 200 && spec.bandwidthHz == 260 && specMatches(s, *t), "the model's numbers, the rest at the fields'");
+    s.spec["gyro_noise_dps"] = 0.002_r;
+    CHECK(!specMatches(s, *t) && imuSpec(s).gyroNoiseDps == double(0.002_r), "a number typed over the model's is the sensor's");
+
+    SceneGraph g;
+    Entity box;
+    box.id = 1, box.name = "Box";
+    g.entities.push_back(box);
+    const uint32_t id = attachSensor(g, 1, snapToFace(g, 1, BoxFace::PlusY, Vector3(0.0_r)), SensorKind::Imu);
+    SensorObject& placed = g.sensors.back();
+    placed.model = s.model, placed.spec = s.spec;
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    CHECK(back.load(text, error) && back.save() == text && back.sensors.size() == 1 && back.sensors[0].spec == placed.spec && back.sensors[0].model == "Test-IMU",
+          "the datasheet back from the file to the bit: %s", error.c_str());
+    std::string old = text;
+    for (const char* line : {"  model ", "  spec "}) {
+        const size_t at = old.find(line);
+        old.erase(at, old.find('\n', at) - at + 1);
+    }
+    CHECK(back.load(old, error) && back.sensors[0].spec.empty() && imuSpec(back.sensors[0]).rateHz == ImuSpec().rateHz, "an old file's IMU: the fields' values");
+
+    problems = sensorCatalog().load({KE_CATALOG});
+    int models = 0, outside = 0;
+    for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+        for (const SensorModel* m : sensorCatalog().models(k)) {
+            ++models;
+            for (const SpecField& f : specFields(k))
+                if (m->values.count(f.key) && !(m->values.at(f.key) >= f.min && m->values.at(f.key) <= f.max)) ++outside;
+        }
+    std::printf("  the program's tables: %zu files, %d models, %d numbers out of range; problems: %s\n", sensorCatalog().files().size(), models, outside,
+                problems.empty() ? "none" : problems.c_str());
+    CHECK(problems.empty() && sensorCatalog().files().size() == 3 && models >= 3 && outside == 0, "the program's tables read clean");
+
+    const std::string first = sensorCatalog().models(SensorKind::Imu).front()->name;
+    Value args = Value::map(), answer = Value::map(), spec2 = Value::map();
+    args.set("sensor", int(id)), args.set("model", first), spec2.set("rate_hz", 100.0), args.set("spec", spec2);
+    const bool set = findSceneOp("sensor_spec")->edit(g, args, answer, error);
+    CHECK(set && g.sensors.back().model == first && specValue(g.sensors.back(), "rate_hz") == 100 && !answer["datasheet"]["as_model"].truth(true),
+          "sensor_spec: the model's numbers, 100 Hz over them: %s", error.c_str());
+    args.set("model", "No-Such-IMU");
+    CHECK(!findSceneOp("sensor_spec")->edit(g, args, answer, error) && error.find(first) != std::string::npos, "an unknown model is refused, the table's named: %s", error.c_str());
+    Value far = Value::map(), big = Value::map();
+    far.set("sensor", int(id)), big.set("bits", 99.0), far.set("spec", big);
+    CHECK(!findSceneOp("sensor_spec")->edit(g, far, answer, error) && error.find("bits") != std::string::npos, "a number out of its field's range: %s", error.c_str());
+    Value put = Value::map();
+    put.set("target", 1), put.set("kind", "sonar"), put.set("face", "+x"), put.set("model", sensorCatalog().models(SensorKind::Sonar).front()->name);
+    CHECK(findSceneOp("assembly_sensor")->edit(g, put, answer, error) && g.sensors.back().model == sensorCatalog().models(SensorKind::Sonar).front()->name,
+          "assembly_sensor by a model's name: %s", error.c_str());
 }

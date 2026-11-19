@@ -49,8 +49,9 @@ add_library(kecore STATIC
   src/spatial/BVH.h        src/spatial/BVH.cpp
   src/devices/PinEdge.h
   src/devices/Encoder.h    src/devices/Encoder.cpp src/devices/EncoderMeasurement.h
-  src/devices/Mpu6050.h    src/devices/Mpu6050.cpp
-  src/devices/Hcsr04.h     src/devices/Hcsr04.cpp
+  src/devices/Signal.h     src/devices/Signal.cpp
+  src/devices/Imu.h        src/devices/Imu.cpp
+  src/devices/Sonar.h      src/devices/Sonar.cpp
   src/devices/ForceTorque.h src/devices/ForceTorque.cpp
   src/electro/Battery.h    src/electro/Battery.cpp
   src/electro/PowerBus.h   src/electro/PowerBus.cpp
@@ -62,6 +63,7 @@ add_library(kecore STATIC
   src/scene/CameraHousing.h src/scene/CameraHousing.cpp
   src/scene/Kinematics.h   src/scene/Kinematics.cpp src/scene/ArmModelOf.cpp
   src/scene/Describe.h     src/scene/Describe.cpp
+  src/scene/SensorSpec.h   src/scene/SensorSpec.cpp
   src/scene/SceneOps.h     src/scene/SceneOps.cpp src/scene/SceneOpsActions.cpp src/scene/SceneOpsAssembly.cpp
   src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp
   src/robot/ArmPlanner.h   src/robot/ArmPlanner.cpp
@@ -181,7 +183,8 @@ if(Qt6_FOUND)
   target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
   # "Открыть…" starts in examples/; the console's Python finds the kinetica package in python/.
   target_compile_definitions(kinetica PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
-                                              KE_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/python")
+                                              KE_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/python"
+                                              KE_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/catalog/sensors")
   if(MSVC)
     target_compile_options(kinetica PRIVATE /W4 /utf-8)
   else()
@@ -208,7 +211,8 @@ if(KE_TESTS)
     tests/AssemblyTests.cpp
   )
   target_link_libraries(ke_tests PRIVATE kecore)
-  target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples")
+  target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
+                                               KE_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/catalog/sensors")
   if(MSVC)
     target_compile_options(ke_tests PRIVATE /W4 /wd4100 /utf-8)
   else()

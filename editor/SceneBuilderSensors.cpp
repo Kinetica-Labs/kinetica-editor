@@ -13,12 +13,18 @@
 
 #include "InspectorWidgets.h"
 #include "scene/Assembly.h"
+#include "scene/SensorSpec.h"
 
 #include <QBoxLayout>
+#include <QCoreApplication>
+#include <QDir>
+#include <QFile>
+#include <QFileSystemWatcher>
 #include <QFontDatabase>
 #include <QLabel>
 #include <QMenu>
 #include <QPointer>
+#include <QStandardPaths>
 #include <QTimer>
 
 using namespace ke;
@@ -28,7 +34,7 @@ QString jointLiveText(const Simulation& sim, uint32_t id); // SceneBuilderJoints
 namespace {
 
 // SensorKind; a stereo camera of a scene file keeps its name, but none is offered: vision is a later stage.
-const char* kSensorNames[] = {"Энкодер", "IMU MPU-6050", "Сонар HC-SR04", "Касание", "Сила-момент", "Усилие привода", "Стереокамера"};
+const char* kSensorNames[] = {"Энкодер", "IMU", "Сонар", "Касание", "Сила-момент", "Усилие привода", "Стереокамера"};
 const int kSensorKinds = 6; // the kinds a person can put: up to the effort sensor
 const char* kDofWords[] = {"ход по x", "ход по y", "ход по z", "поворот вокруг x", "поворот вокруг y", "поворот вокруг z"};
 
@@ -53,6 +59,36 @@ uint32_t jointOfLink(const SceneGraph& g, uint32_t entity) {
 const char* kNoReadings = "Показаний пока нет: мир робота ещё не моделирует датчики";
 
 } // namespace
+
+// The tables of sensor models: the program's (catalog/sensors next to it when installed, else the source tree's) and
+// the person's own (<app data>/catalog/sensors, its rows over the program's), read at start and again when one changes.
+void SceneBuilder::loadSensorCatalog() {
+    const QString nextToExe = QCoreApplication::applicationDirPath() + "/catalog/sensors";
+#ifdef KE_CATALOG
+    const QString own = QDir(nextToExe).exists() ? nextToExe : QStringLiteral(KE_CATALOG);
+#else
+    const QString own = nextToExe;
+#endif
+    const QStringList dirs{own, QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/catalog/sensors"};
+    std::string problems;
+    sensorCatalog().clear();
+    for (const QString& dir : dirs)
+        for (SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}) {
+            QFile file(dir + "/" + sensorKindKey(kind) + ".csv");
+            if (file.open(QIODevice::ReadOnly)) problems += sensorCatalog().read(kind, file.readAll().toStdString(), file.fileName().toStdString());
+        }
+    if (!problems.empty()) emit statusMessage("Таблицы датчиков: " + QString::fromStdString(problems).trimmed().replace('\n', "; "));
+    if (!catalogWatch_) {
+        catalogWatch_ = new QFileSystemWatcher(this);
+        connect(catalogWatch_, &QFileSystemWatcher::fileChanged, this, &SceneBuilder::loadSensorCatalog);
+        connect(catalogWatch_, &QFileSystemWatcher::directoryChanged, this, &SceneBuilder::loadSensorCatalog);
+    }
+    for (const QString& dir : dirs)
+        if (QDir(dir).exists() && !catalogWatch_->directories().contains(dir)) catalogWatch_->addPath(dir);
+    for (const std::string& f : sensorCatalog().files())
+        if (!catalogWatch_->files().contains(QString::fromStdString(f))) catalogWatch_->addPath(QString::fromStdString(f)); // an editor saves anew
+    if (sensorById(selectedId_)) fillInspector();
+}
 
 SensorObject* SceneBuilder::sensorById(uint32_t id) {
     for (SensorObject& s : graph_.sensors)
@@ -109,8 +145,8 @@ const std::vector<QAction*>& SceneBuilder::sensorActions() {
 }
 
 void SceneBuilder::updateSensorActions() {
-    const char* tips[] = {"Квадратурный энкодер на сочленение тела: фронты A/B/Z и счёт", "Акселерометр и гироскоп MPU-6050 на верх тела",
-                          "Ультразвуковой дальномер HC-SR04 из грани, обращённой к виду", "Подушка касания на грани, обращённой к виду: сила контактов через неё",
+    const char* tips[] = {"Квадратурный энкодер на сочленение тела: фронты A/B/Z и счёт", "Акселерометр и гироскоп на верх тела: модель из таблицы catalog/sensors/imu.csv",
+                          "Ультразвуковой дальномер из грани, обращённой к виду: модель из таблицы catalog/sensors/sonar.csv", "Подушка касания на грани, обращённой к виду: сила контактов через неё",
                           "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота",
                           "Сила или момент мотора сочленения тела, как датчик тока сервы"};
     for (int k = 0; k < int(sensorActions().size()); ++k) {
@@ -143,8 +179,8 @@ void SceneBuilder::fillSensorMenu(const Entity& e) {
     addMenu_->addSection("Датчики");
     const bool joint = jointOfLink(graph_, e.id) != 0;
     const char* tips[] = {"Квадратурный энкодер на сочленение, которым держится это тело: фронты A/B/Z и счёт",
-                          "Акселерометр и гироскоп MPU-6050: регистры, шум и смещения по даташиту",
-                          "Ультразвуковой дальномер HC-SR04: луч 15° из грани, обращённой к виду",
+                          "Акселерометр и гироскоп: частота, диапазон, шум и смещения — из паспорта модели (catalog/sensors/imu.csv)",
+                          "Ультразвуковой дальномер из грани, обращённой к виду: луч, дальность и точность — из паспорта модели",
                           "Подушка на грани, обращённой к виду: нормальная сила контактов через неё — палец захвата, бампер, весы под ногой",
                           "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота: вес груза, удар, касание стола",
                           "Сила или момент мотора сочленения, как датчик тока сервы: чем тело давит, сколько держит"};
@@ -167,7 +203,7 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
     sensorCard_->body()->addWidget(sensorMount_);
     SensorObject& s = sensorDraft_;
     const auto is = [&s](std::vector<SensorKind> kinds) { return [&s, kinds] { return std::count(kinds.begin(), kinds.end(), s.kind) > 0; }; };
-    const auto encoder = is({SensorKind::Encoder}), noisy = is({SensorKind::Imu, SensorKind::Sonar}); // the force sensors read ideally
+    const auto encoder = is({SensorKind::Encoder}), noisy = is({SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}); // a datasheet's
     const auto rotary = [&s] { return s.dof >= DofRx; };
     sensorFields_ = new FieldForm([this](bool click) { commitDraft(sensorById(selectedId_), sensorDraft_, click); });
     FieldForm& f = *sensorFields_;
@@ -194,10 +230,38 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
     }, [&s] { return s.against; }, [&s](double v) { s.against = uint32_t(v); })
         .name("sensorAgainst").shown([this, &s, encoder] { return encoder() && !findJoint(graph_, s.parent); })
         .tip("Относительно чего мерить поворот или ход: другого тела или мира");
-    f.toggle("Шум и смещения по даташиту", [&s] { return s.noise; }, [&s](double on) { s.noise = on != 0; }).name("sensorNoise").shown(noisy)
-        .label([&s] { return s.kind == SensorKind::Imu ? "Шум и смещения по даташиту" : "Дрожание по даташиту (точность 3 мм)"; });
+    // The datasheet: a model of the kind's table, its numbers into the sensor, each to be typed over.
+    const auto models = [&s] { return sensorCatalog().models(s.kind); };
+    f.choice("Модель", [&s, models] {
+        std::vector<FieldForm::Option> out;
+        for (const SensorModel* m : models())
+            out.push_back({QString::fromStdString(m->name) + (m->name == s.model && !specMatches(s, *m) ? " (числа изменены)" : ""), double(out.size())});
+        if (!sensorCatalog().find(s.kind, s.model)) out.push_back({s.model.empty() ? QString("свои числа") : QString::fromStdString(s.model) + " (нет в таблице)", -1});
+        return out;
+    }, [&s, models] {
+        const auto all = models();
+        const auto at = std::find_if(all.begin(), all.end(), [&s](const SensorModel* m) { return m->name == s.model; });
+        return at == all.end() ? -1.0 : double(at - all.begin());
+    }, [&s, models](double k) {
+        if (k >= 0 && size_t(k) < models().size()) applyModel(s, *models()[size_t(k)]);
+    }).name("sensorModel").shown([&s] { return !specFields(s.kind).empty(); })
+        .tip("Модель — строка таблицы catalog/sensors/<вид>.csv: её числа из техописания переносятся в датчик, каждое можно поправить");
+    for (SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+        for (const SpecField& field : specFields(kind)) {
+            const std::string key = field.key;
+            f.number(field.label, field.min, field.max, field.step, field.decimals, [&s, key] { return double(specValue(s, key)); },
+                     [&s, key](double v) { s.spec[key] = Real(v); })
+                .unit(QString(" ") + field.unit).name(QString("spec_") + field.key).shown([&s, kind] { return s.kind == kind; });
+        }
+    f.note([&s] {
+        const SensorModel* m = sensorCatalog().find(s.kind, s.model);
+        return m && !m->source.empty() ? "Источник: " + QString::fromStdString(m->source) : QString();
+    }).name("roleRowLabel").shown([&s] { return !specFields(s.kind).empty(); });
+    f.toggle("Шум и смещения по паспорту", [&s] { return s.noise; }, [&s](double on) { s.noise = on != 0; }).name("sensorNoise").shown(noisy)
+        .label([&s] { return s.kind == SensorKind::Sonar ? "Дрожание по паспорту" : "Шум и смещения по паспорту"; })
+        .tip("Выключено — идеальный датчик: только для эталона и сравнения, управление робота так не читает");
     f.number("Зерно шума", 0, 1e6, 1, 0, [&s] { return s.seed; }, [&s](double v) { s.seed = uint32_t(v); }).name("sensorSeed").shown(noisy)
-        .tip("Зерно шума: тот же номер — тот же экземпляр микросхемы. 0 — по id датчика");
+        .tip("Зерно шума: тот же номер — тот же экземпляр датчика. 0 — по id датчика");
     sensorCard_->body()->addWidget(sensorFields_);
     sensorLive_ = new QLabel;
     sensorLive_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));

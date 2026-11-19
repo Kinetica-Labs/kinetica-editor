@@ -108,7 +108,7 @@ Attached attachToFace(SceneGraph& g, uint32_t target, BoxFace face, const Entity
 // A sensor put on a body at a place found by a snap (SensorObject: a child of what carries it), named
 // by its kind and number. A sonar looks out of the face: its x along the normal. An IMU lies flat on
 // it as a chip on a board: its z out of the face, its x along the face's first direction across - on
-// a top face at rest it reads +g on z, as an MPU-6050 on a table does. Returns its id (0: no place).
+// a top face at rest it reads +g on z, as an IMU on a table does. Returns its id (0: no place).
 uint32_t attachSensor(SceneGraph& g, uint32_t target, const FaceSnap& at, SensorKind kind);
 // An encoder on a joint's main freedom (rx of a hinge, tx of a slider), `lines` a turn (or a metre) - or
 // on a point wheel (WheelObject), counting its turns.

@@ -399,6 +399,7 @@ private:
     void afterCardEdit(uint32_t id, bool click);
     void pollLive();                            // the selected sensor's, battery's or driver's readings
     ke::SensorObject* sensorById(uint32_t id);
+    void loadSensorCatalog();                   // the tables of sensor models (scene/SensorSpec.h), read again on a change
     void addDeviceRows();                       // into the scene list: the batteries, their drivers under them
     bool isDevice(uint32_t id) const;           // a battery or a driver (no SceneObject)
     void buildDeviceCards(QVBoxLayout* col);
@@ -610,6 +611,7 @@ private:
     QLabel *sensorMount_ = nullptr, *sensorLive_ = nullptr;
     class FieldForm* sensorFields_ = nullptr;
     ke::SensorObject sensorDraft_; // the sensor the card shows, its edits written here first
+    class QFileSystemWatcher* catalogWatch_ = nullptr;
     QWidget* deviceBody_ = nullptr;
     ComponentCard *batteryCard_ = nullptr, *driverCard_ = nullptr;
     QLabel *batteryLive_ = nullptr, *driverMount_ = nullptr, *driverLive_ = nullptr;

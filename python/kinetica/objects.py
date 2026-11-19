@@ -187,22 +187,28 @@ class Body(SceneObject):
         shown += (f", battery={battery.ref}" if battery is not None else "") + (f", radius={radius!r}" if radius is not None else "")
         return WheelModule(self.scene, self.scene._call("assembly_wheel", f"{self.ref}.add_wheel({_q(side)}{shown})", **args))
 
-    def add_sonar(self, face="+x"):
-        """An HC-SR04 on a face - "+x" ... "-z", or "front", "rear", "top", "bottom", "left", "right" of the
-        body's own frame (forward +x, left -z) - looking out of it."""
-        return self._add_sensor("sonar", face)
+    def add_sonar(self, face="+x", model=None):
+        """An ultrasonic range finder on a face - "+x" ... "-z", or "front", "rear", "top", "bottom", "left", "right" of
+        the body's own frame (forward +x, left -z) - looking out of it. `model`: a row of catalog/sensors/sonar.csv
+        ("HC-SR04"); none: the table's first."""
+        return self._add_sensor("sonar", face, model)
 
-    def add_imu(self, face="+y"):
-        """An MPU-6050 flat on a face (as add_sonar names them), its z out of it."""
-        return self._add_sensor("imu", face)
+    def add_imu(self, face="+y", model=None):
+        """An IMU flat on a face (as add_sonar names them), its z out of it. `model`: a row of catalog/sensors/imu.csv
+        ("MPU-6050", "ICM-42688-P"...); none: the table's first."""
+        return self._add_sensor("imu", face, model)
 
     def add_touch(self, face="-y"):
         """A touch pad on a face (as add_sonar names them): the normal force of the contacts through it [N] -
         a fingertip's pad, a bumper, a load cell under a foot."""
         return self._add_sensor("touch", face)
 
-    def _add_sensor(self, kind, face):
-        answer = self.scene._call("assembly_sensor", f"{self.ref}.add_{kind}(face={_q(face)})", target=self.id, kind=kind, face=face)
+    def _add_sensor(self, kind, face, model=None):
+        args = {"target": self.id, "kind": kind, "face": face}
+        if model is not None:
+            args["model"] = model
+        shown = f", model={_q(model)}" if model is not None else ""
+        answer = self.scene._call("assembly_sensor", f"{self.ref}.add_{kind}(face={_q(face)}{shown})", **args)
         return self.scene.objects[answer["id"]]
 
     @property
@@ -343,6 +349,29 @@ class Sensor(SceneObject):
         """Why it reads nothing ("" when it reads; None: the scene is not running)."""
         return self._reading("problem")
 
+    @property
+    def model(self):
+        """The model of the catalog its datasheet was copied from ("" : its own numbers)."""
+        words = blocks.line(self.block(), "model")
+        return words[1] if words and len(words) > 1 else ""
+
+    @property
+    def spec(self):
+        """Its datasheet: {key: number}, the keys of its kind's fields (sensor_models), units in their names."""
+        words = blocks.line(self.block(), "spec") or []
+        return {words[k]: float(words[k + 1]) for k in range(1, len(words) - 1, 2)}
+
+    def set_spec(self, model=None, **values):
+        """A model's numbers from its table, then `values` over them: ``imu.set_spec("BMI088", rate_hz=400)``."""
+        args = {"sensor": self.id}
+        shown = [_q(model)] if model is not None else []
+        if model is not None:
+            args["model"] = model
+        if values:
+            args["spec"] = values
+            shown += [f"{k}={v!r}" for k, v in values.items()]
+        return self.scene._call("sensor_spec", f"{self.ref}.set_spec({', '.join(shown)})", **args)["datasheet"]
+
 
 class Encoder(Sensor):
     lines = property(lambda self: int(blocks.value(self.block(), "encoder", "lines")),
@@ -353,9 +382,8 @@ class Encoder(Sensor):
 
 
 class Imu(Sensor):
-    accel = property(lambda self: self._reading("accel"), doc="Specific force in the chip's axes, m/s^2, as decoded")
-    gyro = property(lambda self: self._reading("gyro"), doc="Angular rate in the chip's axes, rad/s, as decoded")
-    temperature = property(lambda self: self._reading("temperature"))
+    accel = property(lambda self: self._reading("accel"), doc="Specific force in the chip's axes, m/s^2, as its counts say")
+    gyro = property(lambda self: self._reading("gyro"), doc="Angular rate in the chip's axes, rad/s, as its counts say")
     noise = property(lambda self: blocks.value(self.block(), "imu", "noise") == 1,
                      lambda self, v: self._set("imu", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
 

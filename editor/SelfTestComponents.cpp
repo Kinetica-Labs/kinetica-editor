@@ -4,6 +4,7 @@
 // them. Each check prints one line.
 #include "SelfTestSupport.h"
 #include "scene/Assembly.h"
+#include "scene/SensorSpec.h"
 #include "sim/RobotWorld.h"
 
 #include "ColliderGuides.h"
@@ -115,7 +116,7 @@ void testAddComponentMenu(Checker& c, QMainWindow& w, SceneBuilder& b, const QSt
     if (!dir.isEmpty()) windowWithMenu(w, menu).save(dir + "/add-component-menu.png");
     QAction* imu = nullptr;
     for (QAction* a : menu->actions())
-        if (a->text() == "IMU MPU-6050") imu = a;
+        if (a->text() == "IMU") imu = a;
     menu->hide();
     for (ComponentCard* card : b.inspectorPanel()->findChildren<ComponentCard*>()) card->setOpen(true);
     c.check(!items.contains("Твёрдое тело") && !items.contains("Коллайдер") && imu, "the menu offers only what the object does not have");
@@ -125,7 +126,7 @@ void testAddComponentMenu(Checker& c, QMainWindow& w, SceneBuilder& b, const QSt
     pump(50);
     const bool put = b.graph().sensors.size() == sensors + 1 && b.graph().sensors.back().kind == SensorKind::Imu &&
                      b.graph().sensors.back().parent == cube;
-    c.check(put, "choosing «IMU MPU-6050» puts the sensor on the cube");
+    c.check(put, "choosing «IMU» puts the sensor on the cube");
     b.undoAction()->trigger();
     c.check(b.graph().sensors.size() == sensors, "one undo takes the sensor away");
 }
@@ -382,7 +383,14 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     const bool zero = sensor() && sensor()->hasEncoderReference && std::fabs(sensor()->encoderReference - 0.5_r) < 1e-6_r;
     put(23, SensorKind::Imu);
     const bool imu = sensor() && sensor()->kind == SensorKind::Imu && shows("sensorNoise") && shows("sensorSeed") && !shows("sensorLines") &&
-                     qobject_cast<QCheckBox*>(field("sensorNoise"))->text() == "Шум и смещения по даташиту";
+                     qobject_cast<QCheckBox*>(field("sensorNoise"))->text() == "Шум и смещения по паспорту";
+    // Its datasheet: the table's first model, its numbers in the card; one typed over them is the sensor's, the model said changed.
+    auto* model = qobject_cast<QComboBox*>(field("sensorModel"));
+    const std::vector<const SensorModel*> imus = sensorCatalog().models(SensorKind::Imu);
+    const bool sheet = sensor() && !imus.empty() && sensor()->model == imus.front()->name && shows("sensorModel") && shows("spec_gyro_noise_dps") &&
+                       !shows("spec_min_m") && model && model->currentText() == QString::fromStdString(imus.front()->name);
+    number("spec_rate_hz", 200);
+    const bool typed = sensor() && specValue(*sensor(), "rate_hz") == 200 && model && model->currentText().contains("изменены");
     tick("sensorNoise", false);
     const bool quiet = sensor() && !sensor()->noise;
     b.undoAction()->trigger();
@@ -390,9 +398,11 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     const bool noisy = sensor() && sensor()->noise;
     number("sensorSeed", 7);
     const bool seed = sensor() && sensor()->seed == 7;
-    std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, quiet %s, undone %s, seed 7 %s\n", encoder ? "yes" : "no",
-                lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no");
+    std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, its model's datasheet %s, 200 Hz typed over it %s; "
+                "quiet %s, undone %s, seed 7 %s\n", encoder ? "yes" : "no", lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no", sheet ? "yes" : "no",
+                typed ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no");
     c.check(encoder && lines && zero && imu && quiet && noisy && seed, "a sensor's card shows its kind's fields and writes each edit into its line");
+    c.check(sheet && typed, "an IMU's card: its model's datasheet from the table, a number typed over it the sensor's, the model said changed");
 }
 
 // The cards «Батарея» and «Драйвер мотора»: the UR5e's elbow made a DC motor and fed (assembly_power: a driver and a

@@ -40,9 +40,10 @@ int main() {
     run("electro: a battery's energy books balance, charging and discharging", testBatteryEnergyBooks);
     run("electro: a pack of cells scales in series and in parallel", testBatteryPack);
     run("devices: a quadrature encoder counts floor(theta 4N / 2 pi), its edges timed to the nanosecond", testEncoderQuadrature);
-    run("devices: an MPU-6050's registers as its datasheet has them", testMpu6050Registers);
-    run("devices: an MPU-6050's noise and offsets against the statistics they are drawn from", testMpu6050Noise);
+    run("devices: an IMU's rate, full scale, counts and filter from its datasheet", testImuSpec);
+    run("devices: an IMU's noise and offsets against the statistics they are drawn from", testImuNoise);
     run("devices: a sonar's jitter against the normal it is drawn from", testSonarNoise);
+    run("devices: a sensor's datasheet from its model's table row, kept in the scene file, set by the API", testSensorDatasheet);
     run("physics: a falling ball's speed is g t, its height on the parabola within the integrator's error", testPhysicsFreeFall);
     run("physics: a torque spins a box at tau t / I - computed from its volume, and given", testPhysicsTorque);
     run("physics: a pendulum's period is the compound pendulum's", testPhysicsPendulum);

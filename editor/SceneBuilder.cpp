@@ -3,7 +3,7 @@
 // modes and what the viewport shows in each. The panels are built in SceneBuilderPanels.cpp.
 #include "SceneBuilder.h"
 #include "core/Probe.h"
-#include "devices/Hcsr04.h"
+#include "scene/SensorSpec.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
 #include "WorldPanel.h"
@@ -43,6 +43,7 @@ SceneBuilder::SceneBuilder(SimController* ctrl, QObject* parent) : QObject(paren
     buildWorldPanel();
     connect(this, &SceneBuilder::modeChanged, this, [this] { worldPanel_->setEditable(editing()); });
     buildInspector();
+    loadSensorCatalog();
     fillWorld();
     refreshList();
     fillInspector();
@@ -477,10 +478,11 @@ void SceneBuilder::refreshView() {
     for (SensorVis& v : snap->sensors) {
         const SensorObject* s = sensorById(v.id);
         if (v.kind != int(SensorKind::Sonar) || !s) continue;
-        float nearest = float(Hcsr04::kMax);
+        const SonarSpec spec = sonarSpec(*s);
+        float nearest = float(spec.maxM);
         for (const PickHit& h : editView_.pickAll(graph_, Ray{v.position, v.rotation.rotate(Vector3(1.0f, 0.0f, 0.0f))}))
-            if (h.id != s->parent && h.t >= float(Hcsr04::kMin) && h.t < nearest) nearest = h.t;
-        v.reading = nearest < float(Hcsr04::kMax) ? nearest : -1.0f;
+            if (h.id != s->parent && h.t >= float(spec.minM) && h.t < nearest) nearest = h.t;
+        v.reading = nearest < float(spec.maxM) ? nearest : -1.0f;
     }
     emit editSnapshot(snap);
     sendViewportFlags();

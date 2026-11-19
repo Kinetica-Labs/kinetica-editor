@@ -1,0 +1,2 @@
+model,min_m,max_m,beam_deg,accuracy_mm,cycle_ms,timeout_ms,mass_g,source
+HC-SR04,0.02,4,15,3,60,38,,"ElecFreaks HC-SR04 Ultrasonic Ranging Module (the no-echo timeout is the 38 ms common modules show; the sheet gives none)"

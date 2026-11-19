@@ -1,14 +1,14 @@
 // The devices of mechatronics (src/devices) on their own, against exact answers. A quadrature
 // encoder: the count is floor(theta 4N / 2 pi) exactly at any speed; turning forward A leads B,
 // turning back B leads A; every edge is within a nanosecond of the moment its line is crossed; the
-// index comes once a turn. An IMU (MPU-6050): its registers as the datasheet has them, its noise
-// against the statistics it is drawn from. A sonar (HC-SR04): its jitter. The same devices mounted
+// index comes once a turn. An IMU from its datasheet: its rate, full scale, counts and filter, its
+// noise against the statistics it is drawn from. A sonar: its jitter. The same devices mounted
 // on a robot in a running world are tested with the world (src/sim).
 #include "TestRunner.h"
 
 #include "devices/Encoder.h"
-#include "devices/Hcsr04.h"
-#include "devices/Mpu6050.h"
+#include "devices/Imu.h"
+#include "devices/Sonar.h"
 
 #include <cmath>
 #include <cstdio>
@@ -17,7 +17,7 @@ namespace {
 
 const double kPiD = 3.14159265358979323846;
 
-int word(const Mpu6050& chip, int reg) { return int(int16_t(uint16_t(chip.read(uint8_t(reg)) << 8 | chip.read(uint8_t(reg + 1))))); }
+long counts(Real v, double step) { return std::lround(double(v) / step); }
 
 } // namespace
 
@@ -54,107 +54,84 @@ void testEncoderQuadrature() {
     CHECK(z == 1 && back.count() == int64_t(std::floor(-0.05 * 4 * N / (2 * pi))), "the index (%d) or the backward count is wrong", z);
 }
 
-// The MPU-6050's registers as its datasheet has them: WHO_AM_I 0x68; asleep at power-on, latching
-// nothing until PWR_MGMT_1 is cleared; 1 g at +-2 g is 16384 counts, at +-4 g 8192, and 3 g at +-2 g
-// holds at 32767; 100 deg/s at +-250 deg/s is 13100; 25 deg C is -3920 (TEMP_OUT / 340 + 36.53); the
-// data registers latch 8000 times a second with DLPF_CFG 0 and SMPLRT_DIV 0, 1000 with SMPLRT_DIV 7;
-// with DLPF_CFG 6 (5 Hz) a step of the rate is 1 - e^{-2 pi 5 t} of itself at t = 32 ms - the one
-// first-order stage sampled at 1 kHz; a write to WHO_AM_I is ignored and DEVICE_RESET restores all.
-void testMpu6050Registers() {
+// An IMU of the power-on MPU-6050's numbers (1 kHz, 260 Hz, +-2 g, +-250 deg/s, 16 bits) and of others: 10 samples
+// in 10 ms at 1 kHz, 80 at 8 kHz; 1 g reads 32768 / 2 = 16384 counts at +-2 g and 8192 at +-4 g, 100 deg/s reads
+// 100 * 32768 / 250 = 13107; 3 g at +-2 g holds at 32767 and says so; with a 5 Hz filter a step of the rate is
+// 1 - e^{-2 pi 5 t} of itself at t = 32 ms - the one first-order stage sampled at 1 kHz; 12 bits: the step is the
+// range over 2048.
+void testImuSpec() {
     const double g = 9.80665, deg = kPiD / 180;
-    Mpu6050 chip(1, false);
-    const bool powerOn = chip.read(Mpu6050::WhoAmI) == 0x68 && chip.read(Mpu6050::PwrMgmt1) == 0x40 && chip.asleep();
     const Vector3 oneG(0, Real(g), 0), spin(0, 0, Real(100 * deg));
-    chip.run(10000000, oneG, spin, 25);
-    const long long asleep = chip.samples();
-    chip.write(Mpu6050::PwrMgmt1, 0);
-    chip.run(20000000, oneG, spin, 25);
-    const long long fast = chip.samples() - asleep;
-    const int ay = word(chip, Mpu6050::AccelXoutH + 2), gz = word(chip, Mpu6050::GyroXoutH + 4), temp = word(chip, Mpu6050::TempOutH);
-    chip.write(Mpu6050::AccelConfig, 0x08); // AFS_SEL 1: +-4 g
-    chip.write(Mpu6050::SmplrtDiv, 7);
-    chip.run(30000000, oneG, spin, 25);
-    const int ay4 = word(chip, Mpu6050::AccelXoutH + 2);
-    const long long slow = chip.samples() - asleep - fast;
-    chip.write(Mpu6050::AccelConfig, 0);
-    chip.run(40000000, Vector3(0, Real(3 * g), 0), spin, 25);
-    const int held = word(chip, Mpu6050::AccelXoutH + 2);
-    chip.write(Mpu6050::Config, 6);
-    chip.write(Mpu6050::SmplrtDiv, 0);
-    chip.run(1040000000, oneG, Vector3(0.0_r), 25); // a second at rest: the 5 Hz filter settles
-    chip.run(1072000000, oneG, spin, 25);
-    double w[3];
-    chip.gyro(w);
-    const double stepped = w[2] / deg, expected = 100 * (1 - std::exp(-2 * kPiD * 5 * 0.032));
-    chip.write(Mpu6050::WhoAmI, 0x12);
-    const bool readOnly = chip.read(Mpu6050::WhoAmI) == 0x68;
-    chip.write(Mpu6050::PwrMgmt1, 0x80);
-    const bool reset = chip.asleep() && chip.read(Mpu6050::Config) == 0 && chip.read(Mpu6050::SmplrtDiv) == 0;
-    std::printf("  MPU-6050: power-on WHO_AM_I 0x68, PWR_MGMT_1 0x40 asleep: %s, %lld samples asleep; awake 10 ms: %lld samples; 1 g = %d, "
-                "at +-4 g %d (%lld samples in 10 ms at SMPLRT_DIV 7), 3 g at +-2 g %d; 100 deg/s = %d; 25 deg C = %d (%.4f deg C); 5 Hz filter "
-                "at 32 ms after a step: %.3f deg/s (1 - e^{-2 pi 5 t}: %.3f); WHO_AM_I read-only: %s; DEVICE_RESET: %s\n", powerOn ? "yes" : "no",
-                asleep, fast, ay, ay4, slow, held, gz, temp, double(temp) / 340 + 36.53, stepped, expected, readOnly ? "yes" : "no", reset ? "yes" : "no");
-    CHECK(powerOn && asleep == 0, "the chip does not power on asleep with WHO_AM_I 0x68");
-    CHECK(fast == 80 && slow == 10, "the sample rate is not 8 kHz / (1 + SMPLRT_DIV): %lld, %lld in 10 ms", fast, slow);
-    CHECK(ay == 16384 && ay4 == 8192 && held == 32767 && gz == 13100 && temp == -3920, "the counts %d %d %d %d %d are not the datasheet's", ay, ay4, held, gz, temp);
-    CHECK(std::fabs(stepped - expected) <= 1.0 / 131, "the 5 Hz filter's step %f is not %f", stepped, expected);
-    CHECK(readOnly && reset, "WHO_AM_I took a write, or DEVICE_RESET did not reset");
+    Imu imu, fast(ImuSpec{8000}), wide(ImuSpec{1000, 260, 4}), slow(ImuSpec{1000, 5}), coarse(ImuSpec{1000, 260, 2, 250, 12});
+    for (Imu* u : {&imu, &fast, &wide, &coarse}) u->run(10000000, oneG, spin);
+    const long ay = counts(imu.accel()[1], imu.accelStep()), gz = counts(imu.gyro()[2], imu.gyroStep());
+    const long ay4 = counts(wide.accel()[1], wide.accelStep()), ay12 = counts(coarse.accel()[1], coarse.accelStep());
+    const bool clean = !imu.saturated();
+    imu.run(20000000, Vector3(0, Real(3 * g), 0), spin);
+    const long held = counts(imu.accel()[1], imu.accelStep());
+    slow.run(1000000000, oneG, Vector3(0.0_r)); // a second at rest: the 5 Hz filter settles
+    slow.run(1032000000, oneG, spin);
+    const double stepped = double(slow.gyro()[2]) / deg, expected = 100 * (1 - std::exp(-2 * kPiD * 5 * 0.032));
+    std::printf("  IMU: %lld samples in 10 ms at 1 kHz, %lld at 8 kHz; 1 g = %ld counts (+-4 g: %ld, 12 bits: %ld), 100 deg/s = %ld; 3 g at +-2 g "
+                "holds at %ld, saturated: %s; 5 Hz filter at 32 ms after a step: %.3f deg/s (1 - e^{-2 pi 5 t}: %.3f)\n", imu.samples() - 10,
+                fast.samples(), ay, ay4, ay12, gz, held, imu.saturated() ? "yes" : "no", stepped, expected);
+    CHECK(imu.samples() == 20 && fast.samples() == 80, "the rate: %lld, %lld samples", imu.samples(), fast.samples());
+    CHECK(ay == 16384 && ay4 == 8192 && ay12 == 1024 && gz == 13107 && clean, "the counts %ld %ld %ld %ld are not the full scale's", ay, ay4, ay12, gz);
+    CHECK(held == 32767 && imu.saturated(), "3 g at +-2 g holds at %ld", held);
+    CHECK(std::fabs(stepped - expected) <= slow.gyroStep() / deg, "the 5 Hz filter's step %f is not %f", stepped, expected);
 }
 
-// The MPU-6050's imperfections against the statistics they are drawn from. At rest, 10 s of samples
-// read at 8 kHz (gyroscope) and 1 kHz (accelerometer) with the filters at 256 / 260 Hz: the standard
-// deviation is density sqrt(f / 2) sqrt(a / (2 - a)) - white noise through y += a (x - y) keeps the
-// share a / (2 - a) of its variance (std:: here as the independent reference); the mean is the unit's
-// own offset (the accelerometer's with its sensitivity times g); one seed gives the same bits twice,
-// another seed another unit; the offsets lie within the datasheet's tolerance.
-void testMpu6050Noise() {
+// The IMU's imperfections against the statistics they are drawn from. At rest, 9 s of samples at 1 kHz with the filter
+// at 260 Hz: the standard deviation is density sqrt(f / 2) sqrt(a / (2 - a)) - white noise through y += a (x - y) keeps
+// the share a / (2 - a) of its variance (std:: here as the independent reference); the mean is the unit's own offset
+// (the accelerometer's with its sensitivity times g); one seed gives the same bits twice, another seed another unit;
+// the offsets lie within the datasheet's tolerance.
+void testImuNoise() {
     const double g = 9.80665, deg = kPiD / 180;
-    Mpu6050 chip(7, true), twin(7, true), other(8, true);
-    for (Mpu6050* c : {&chip, &twin, &other}) c->write(Mpu6050::PwrMgmt1, 0);
+    const ImuSpec spec;
+    Imu imu(spec, 7, true), twin(spec, 7, true), other(spec, 8, true);
     double gs = 0, gss = 0, as = 0, ass = 0;
-    int ng = 0, na = 0;
+    int n = 0;
     bool same = true;
-    for (int64_t t = 125000; t <= 10000000000LL; t += 125000) {
-        chip.run(t, Vector3(0, Real(g), 0), Vector3(0.0_r), 25);
-        twin.run(t, Vector3(0, Real(g), 0), Vector3(0.0_r), 25);
-        const double x = word(chip, Mpu6050::GyroXoutH);
-        same = same && x == word(twin, Mpu6050::GyroXoutH);
-        if (t < 1000000000LL) continue; // the first second: the filters from zero to the offset
-        gs += x, gss += x * x, ++ng;
-        if (t % 1000000 != 0) continue;
-        const double y = word(chip, Mpu6050::AccelXoutH + 2);
-        as += y, ass += y * y, ++na;
+    for (int64_t t = 1000000; t <= 10000000000LL; t += 1000000) {
+        imu.run(t, Vector3(0, Real(g), 0), Vector3(0.0_r));
+        twin.run(t, Vector3(0, Real(g), 0), Vector3(0.0_r));
+        const double x = double(counts(imu.gyro()[0], imu.gyroStep())), y = double(counts(imu.accel()[1], imu.accelStep()));
+        same = same && imu.gyro()[0] == twin.gyro()[0];
+        if (t < 1000000000LL) continue; // the first second: the filter from zero to the offset
+        gs += x, gss += x * x, as += y, ass += y * y, ++n;
     }
-    const double gMean = gs / ng, gSd = std::sqrt(gss / ng - gMean * gMean), aMean = as / na, aSd = std::sqrt(ass / na - aMean * aMean);
-    const double ag = 1 - std::exp(-2 * kPiD * 256 / 8000), aa = 1 - std::exp(-2 * kPiD * 260 / 1000);
-    const double gExpected = 0.005 * std::sqrt(4000.0) * std::sqrt(ag / (2 - ag)) * 131, aExpected = 400e-6 * std::sqrt(500.0) * std::sqrt(aa / (2 - aa)) * 16384;
-    const double gOffset = chip.gyroBias[0] / deg * 131, aOffset = (chip.accelScale[1] * g + chip.accelBias[1]) / g * 16384;
+    const double gMean = gs / n, gSd = std::sqrt(gss / n - gMean * gMean), aMean = as / n, aSd = std::sqrt(ass / n - aMean * aMean);
+    const double a = 1 - std::exp(-2 * kPiD * 260 / 1000), share = std::sqrt(a / (2 - a));
+    const double gExpected = 0.005 * deg * std::sqrt(500.0) * share / imu.gyroStep(), aExpected = 400e-6 * g * std::sqrt(500.0) * share / imu.accelStep();
+    const Channel3 &gyro = imu.gyroChannel(), &accel = imu.accelChannel();
+    const double gOffset = gyro.offset[0] / imu.gyroStep(), aOffset = (accel.scale[1] * g + accel.offset[1]) / imu.accelStep();
     bool within = true;
-    for (int k = 0; k < 3; ++k)
-        within = within && std::fabs(chip.gyroBias[k]) <= 20 * deg && std::fabs(chip.accelBias[k]) <= (k == 2 ? 0.080 : 0.050) * g;
-    std::printf("  MPU-6050 noise, 9 s at rest: gyroscope x sd %.2f counts (density sqrt(f/2) sqrt(a/(2-a)) = %.2f), mean %.1f (its offset %.1f); "
+    for (int k = 0; k < 3; ++k) within = within && std::fabs(gyro.offset[k]) <= 20 * deg && std::fabs(accel.offset[k]) <= 0.050 * g;
+    std::printf("  IMU noise, 9 s at rest: gyroscope x sd %.2f counts (density sqrt(f/2) sqrt(a/(2-a)) = %.2f), mean %.1f (its offset %.1f); "
                 "accelerometer y sd %.2f counts (%.2f), mean %.1f (its scale g + offset %.1f); seed 7 twice the same bits: %s; seed 8 offset %.3f deg/s "
                 "vs %.3f; offsets within the datasheet's tolerance: %s\n", gSd, gExpected, gMean, gOffset, aSd, aExpected, aMean, aOffset,
-                same ? "yes" : "no", other.gyroBias[0] / deg, chip.gyroBias[0] / deg, within ? "yes" : "no");
+                same ? "yes" : "no", other.gyroChannel().offset[0] / deg, gyro.offset[0] / deg, within ? "yes" : "no");
     CHECK(std::fabs(gSd / gExpected - 1) < 0.03 && std::fabs(aSd / aExpected - 1) < 0.03, "the noise %f, %f is not the datasheet's %f, %f", gSd, aSd, gExpected, aExpected);
     CHECK(std::fabs(gMean - gOffset) < 1.0 && std::fabs(aMean - aOffset) < 5.0, "the means %f %f are not the offsets %f %f", gMean, aMean, gOffset, aOffset);
-    CHECK(same && other.gyroBias[0] != chip.gyroBias[0], "a seed does not give its own unit, the same each time");
+    CHECK(same && other.gyroChannel().offset[0] != gyro.offset[0], "a seed does not give its own unit, the same each time");
     CHECK(within, "an offset lies outside the datasheet's tolerance");
 }
 
-// The HC-SR04's jitter against the normal it is drawn from: 4000 measurements of an echo at 1 m read
-// 1 m on average, with a standard deviation of the datasheet's 3 mm accuracy as 3 sigma, 1 mm; without
-// noise every one reads 1 m to the nanosecond of the pulse; one seed gives the same pulses twice.
+// The sonar's jitter against the normal it is drawn from: 4000 measurements of an echo at 1 m read 1 m on average,
+// with a standard deviation of the datasheet's 3 mm accuracy as 3 sigma, 1 mm; without noise every one reads 1 m to
+// the nanosecond of the pulse; one seed gives the same pulses twice.
 void testSonarNoise() {
-    Hcsr04 noisy(5, true), twin(5, true), exact(5, false);
+    Sonar noisy(SonarSpec(), 5, true), twin(SonarSpec(), 5, true), exact(SonarSpec(), 5, false);
     std::vector<PinEdge> a, b, e;
     double sum = 0, sum2 = 0, worst = 0;
     bool same = true;
     for (int k = 0; k < 4000; ++k) {
-        const double x = noisy.measure(int64_t(k) * Hcsr04::kCycleNs, 1.0, 20, a), y = twin.measure(int64_t(k) * Hcsr04::kCycleNs, 1.0, 20, b);
+        const int64_t t = int64_t(k) * noisy.cycleNs();
+        const double x = noisy.measure(t, 1.0, 20, a), y = twin.measure(t, 1.0, 20, b);
         same = same && x == y;
         sum += x, sum2 += x * x;
-        worst = std::max(worst, std::fabs(exact.measure(int64_t(k) * Hcsr04::kCycleNs, 1.0, 20, e) - 1.0));
+        worst = std::max(worst, std::fabs(exact.measure(t, 1.0, 20, e) - 1.0));
     }
     const double mean = sum / 4000, sd = std::sqrt(sum2 / 4000 - mean * mean);
     std::printf("  sonar jitter: 4000 echoes at 1 m read %.5f m on average, sd %.4f mm (1 mm); without noise off by at most %.2g m; seed 5 twice "

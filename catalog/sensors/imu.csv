@@ -1,0 +1,2 @@
+model,rate_hz,bandwidth_hz,accel_range_g,gyro_range_dps,bits,accel_noise_ug,gyro_noise_dps,accel_offset_mg,gyro_offset_dps,scale_error_pct,mass_g,source
+MPU-6050,1000,260,2,250,16,400,0.005,50,20,3,,"InvenSense PS-MPU-6000A-00 rev. 3.4 (power-on: DLPF_CFG 0, AFS_SEL 0, FS_SEL 0; zero-g on z ±80 mg)"

@@ -325,6 +325,9 @@ FieldForm& FieldForm::name(const QString& objectName) {
 
 void FieldForm::texts() {
     for (Row& r : rows_) {
+        auto* box = qobject_cast<QComboBox*>(r.widget);
+        if (const auto options = box && r.options ? r.options() : std::vector<Option>(); int(options.size()) == (box ? box->count() : -1))
+            for (int i = 0; i < box->count(); ++i) box->setItemText(i, options[size_t(i)].text); // a choice's words follow an edit too
         if (!r.text) continue;
         if (auto* box = qobject_cast<QCheckBox*>(r.widget)) box->setText(r.text());
         else if (auto* words = qobject_cast<QLabel*>(r.widget)) words->setText(r.text());

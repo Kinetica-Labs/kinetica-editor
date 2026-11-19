@@ -1,0 +1,2 @@
+model,rate_hz,force_range_n,torque_range_nm,force_precision_n,torque_precision_nm,force_accuracy_n,torque_accuracy_nm,mass_g,source
+UR e-Series tool flange,500,50,10,3.5,0.2,4.0,0.3,,"Universal Robots UR5e datasheet, Force/torque sensor, tool flange (500 Hz: the controller's cycle; built into the arm)"

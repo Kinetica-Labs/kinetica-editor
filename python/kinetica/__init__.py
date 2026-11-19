@@ -4,7 +4,7 @@
 
     scene = ke.connect()                          # the editor started with --api (port 47801, KE_EDITOR_PORT)
     car = scene.objects["Шасси"]                  # a body, by name or id
-    sonar = car.add_sonar(face="+x")              # an HC-SR04 looking out of the front face
+    sonar = car.add_sonar(face="+x")              # an ultrasonic range finder looking out of the front face
     wheel = car.attach("motor_wheel", face="+z")[0]
     encoder = wheel.joint.add_encoder(lines=500)
     driver = wheel.joint.power()                  # its DC motor fed from a battery

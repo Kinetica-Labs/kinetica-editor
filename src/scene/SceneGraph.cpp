@@ -60,6 +60,7 @@
 #include "scene/SceneGraph.h"
 
 #include "core/Format.h"
+#include "scene/SensorSpec.h"
 
 #include <cstdlib>
 #include <sstream>
@@ -343,19 +344,26 @@ static void saveController(std::ostringstream& o, const ControllerObject& c) {
     o << "end\n";
 }
 
-// A sensor: the object head (its parent and its pose on it), then what it is and reads.
+// A kind's datasheet, every field written: the model it came from, and each number by its key.
+static void saveSpec(std::ostringstream& o, const SensorObject& s) {
+    if (specFields(s.kind).empty()) return;
+    if (!s.model.empty()) o << "  model " << quoted(s.model) << "\n";
+    o << "  spec";
+    for (const SpecField& f : specFields(s.kind)) o << " " << f.key << " " << num(specValue(s, f.key));
+    o << "\n";
+}
+
+// A sensor: the object head (its parent and its pose on it), then what it is and reads, then its datasheet.
 static void saveSensor(std::ostringstream& o, const SensorObject& s) {
     saveObjectHead(o, "sensor", s);
-    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar) {
-        o << (s.kind == SensorKind::Imu ? "  imu" : "  sonar") << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\nend\n";
+    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar || s.kind == SensorKind::Wrench) {
+        o << "  " << sensorKindKey(s.kind) << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\n";
+        saveSpec(o, s);
+        o << "end\n";
         return;
     }
     if (s.kind == SensorKind::Touch) {
         o << "  touch\nend\n";
-        return;
-    }
-    if (s.kind == SensorKind::Wrench) {
-        o << "  wrench noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\nend\n";
         return;
     }
     if (s.kind == SensorKind::Effort) {
@@ -689,6 +697,16 @@ static bool readDof(LineReader& r, int& dof) {
 
 static bool readSensorLine(const std::vector<std::string>& w, SensorObject& s, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, s, bad);
+    if (w[0] == "model") return w.size() == 2 ? (s.model = w[1], true) : fail(bad, "model");
+    if (w[0] == "spec") { // after the kind's line: its fields' keys
+        LineReader r(w, 1);
+        while (!r.done()) {
+            const std::string k = r.key();
+            const bool known = std::any_of(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const SpecField& f) { return k == f.key; });
+            if (!known || !r.number(s.spec[k])) return fail(bad, k);
+        }
+        return true;
+    }
     const char* words[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo"}; // in the order of SensorKind
     int kind = -1;
     for (int n = 0; n < 7; ++n)
