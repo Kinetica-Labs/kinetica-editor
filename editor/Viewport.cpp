@@ -6,6 +6,8 @@
 // ViewportShadows.cpp, the play frame, the orbit pivot and following a body in ViewportPlay.cpp.
 #include "Viewport.h"
 
+#include <QOpenGLTimeMonitor>
+
 #include "JointGlyphs.h"
 #include "MeshNormals.h"
 #include "SensorGlyphs.h"
@@ -75,6 +77,7 @@ Viewport::~Viewport() {
     releaseImageTextures();
     releaseShadowMaps();
     meshCache_.clear(); // GL objects must die while the context is current
+    for (QOpenGLTimeMonitor*& m : gpuClock_) delete m, m = nullptr; // its queries too: a child QObject would outlive the context
     doneCurrent();
 }
 
@@ -571,9 +574,11 @@ void Viewport::paintGL() {
     QElapsedTimer painting;
     painting.start();
     syncLookThrough();
+    beginGpuFrame();
     if (snap_) {
         pruneMeshCache();
         renderShadows();
+        markGpuShadows();
         QString slotKinds; // what each shadow slot holds this frame: the mesh shader compiles only those in
         for (const ShadowMap& m : shadowMaps_) slotKinds += m.light < 0 ? '-' : m.cube ? 'C' : 'M';
         if (slotKinds != meshSlots_) buildMeshShader(slotKinds);
@@ -589,6 +594,7 @@ void Viewport::paintGL() {
     glBindVertexArray(0);
     glUseProgram(0);
     if (overlayVisible_) drawOverlay();
+    endGpuFrame();
     countFrame(painting.nsecsElapsed());
 }
 

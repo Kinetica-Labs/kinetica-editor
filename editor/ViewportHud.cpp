@@ -1,12 +1,14 @@
 // The performance plate in the view's lower left corner (see Viewport.h): while the scene plays, the frames a second in
 // large figures coloured by how smooth they are (green from 55, amber from 30, red below), the last two seconds of
 // frame times as a line against the 60 Hz frame (16.7 ms), and in small print what one frame took to paint, what the
-// physics' step took, how fast the scene runs against the wall clock and who draws - the GPU or the processor. Editing,
+// physics' step took, what the GPU took for the frame and its shadows (timer queries: a view bound by the GPU shows
+// there, not in the processor's time), how fast the scene runs against the wall clock and who draws. Editing,
 // the view is painted on a change only: the plate says so and shows the last paint. The operation view_hud shows and
 // hides it; its numbers are the frame_timing of sim_state.
 #include "Viewport.h"
 
 #include <QFontMetrics>
+#include <QOpenGLTimeMonitor>
 #include <QPainter>
 #include <QPainterPath>
 
@@ -28,6 +30,48 @@ QString rendererWords(const QString& renderer) {
 }
 
 } // namespace
+
+// The GPU's clock: three marks a frame - its start, after the shadow pass, its end - in one of two monitors by turns,
+// read when the GPU has passed them (a frame later, never waiting), smoothed for reading.
+void Viewport::beginGpuFrame() {
+    gpuTimed_ = false;
+    if (!snap_) return;
+    if (!gpuClock_[0]) {
+        for (QOpenGLTimeMonitor*& m : gpuClock_) {
+            m = new QOpenGLTimeMonitor(this);
+            m->setSampleCount(3);
+            if (!m->create()) delete m, m = nullptr;
+        }
+        if (!gpuClock_[0] || !gpuClock_[1]) return;
+    }
+    const auto read = [this](int k, bool wait) {
+        if (!gpuPending_[k] || (!wait && !gpuClock_[k]->isResultAvailable())) return;
+        const QVector<GLuint64> ns = gpuClock_[k]->waitForIntervals();
+        if (ns.size() == 2 && ns[0] < 1000000000ull && ns[1] < 1000000000ull) { // a mark lost (a context's reset) reads as ages: dropped
+            const float shadow = float(double(ns[0]) * 1e-6), all = float(double(ns[0] + ns[1]) * 1e-6);
+            gpuShadowMs_ = gpuShadowMs_ < 0 ? shadow : 0.9f * gpuShadowMs_ + 0.1f * shadow;
+            gpuMs_ = gpuMs_ < 0 ? all : 0.9f * gpuMs_ + 0.1f * all;
+        }
+        gpuClock_[k]->reset();
+        gpuPending_[k] = false;
+    };
+    read(1 - gpuAt_, false);
+    read(gpuAt_, true); // two frames old: the GPU is through it
+    gpuClock_[gpuAt_]->recordSample();
+    gpuTimed_ = true;
+}
+
+void Viewport::markGpuShadows() {
+    if (gpuTimed_) gpuClock_[gpuAt_]->recordSample();
+}
+
+void Viewport::endGpuFrame() {
+    if (!gpuTimed_) return;
+    gpuClock_[gpuAt_]->recordSample();
+    gpuPending_[gpuAt_] = true;
+    gpuAt_ = 1 - gpuAt_;
+    gpuTimed_ = false;
+}
 
 // Called after each painted frame: its interval from the last one goes into the ring of the last 120.
 void Viewport::recordFrameInterval() {
@@ -63,11 +107,11 @@ void Viewport::drawHud(QPainter& p) {
     QFont small = p.font();
     small.setPointSizeF(8.5);
     small.setBold(false);
-    const QString row1 = playing ? QString("кадр %1 мс · рисование %2 мс · физика %3 мс")
-                                       .arg(fps > 0 ? 1000.0 / fps : 0.0, 0, 'f', 1)
-                                       .arg(double(paintMs_), 0, 'f', 1)
-                                       .arg(double(snap_->stepMs), 0, 'f', 1)
-                                 : QString("рисование %1 мс · физика стоит (правка)").arg(double(paintMs_), 0, 'f', 1);
+    const QString gpu = gpuMs_ >= 0 ? QString("видеокарта %1 мс (тени %2) · ").arg(double(gpuMs_), 0, 'f', 1).arg(double(gpuShadowMs_), 0, 'f', 1)
+                                     : QString();
+    const QString row1 = playing ? QString("кадр %1 мс · ").arg(fps > 0 ? 1000.0 / fps : 0.0, 0, 'f', 1) + gpu +
+                                       QString("процессор %1 мс · физика %2 мс").arg(double(paintMs_), 0, 'f', 1).arg(double(snap_->stepMs), 0, 'f', 1)
+                                 : gpu + QString("процессор %1 мс · физика стоит (правка)").arg(double(paintMs_), 0, 'f', 1);
     const QString speed = playing && realtime_ > 0 ? QString("×%1 реального времени · ").arg(realtime_, 0, 'f', 2) : QString();
     const QString row2 = speed + rendererWords(renderer_);
     const QFontMetrics fm(small); // the plate as wide as its words
