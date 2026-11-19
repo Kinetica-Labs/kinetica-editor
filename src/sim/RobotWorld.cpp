@@ -175,10 +175,14 @@ void RobotWorld::build(PhysicsWorld& physics) {
         }
         bodyOfEntity_[e.id] = b;
         if (animated.count(e.id)) animated_.push_back({e.id, b});
+        else if (d.type == BodyDesc::Type::Dynamic && !groups.count(e.id) && !isArrayCopyId(e.id)) free_.push_back(e.id);
         if (entityOfBody_.size() <= size_t(b)) entityOfBody_.resize(size_t(b) + 1, 0);
         entityOfBody_[size_t(b)] = e.id;
     }
     for (const JointObject& j : graph_.joints) buildJoint(physics, j);
+    free_.erase(std::remove_if(free_.begin(), free_.end(), [this](uint32_t id) { // a joint's link moves with its robot
+        return std::any_of(graph_.joints.begin(), graph_.joints.end(), [id](const JointObject& j) { return j.a == id || j.b == id; });
+    }), free_.end());
     for (const SensorObject& x : graph_.sensors) { // each composed of its probe of the physics and its datasheet's device
         std::string why;
         if (auto live = makeSensor(x, graph_, *this, why)) sensors_.push_back(std::move(live));
@@ -482,6 +486,48 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
         for (const auto& x : sensors_) x->step(physics, *this, dt / Real(n), clockNs_);
     }
     readPoses(physics);
+    if (recording_) sampleTake(physics);
+}
+
+void RobotWorld::startRecording(const PhysicsWorld& physics) {
+    recording_ = true;
+    takeFromNs_ = clockNs_;
+    take_.assign(free_.size(), {});
+    sampleTake(physics);
+}
+
+// Each free body's pose on its parent and the velocity of its frame's origin (v + w x r from the centre of mass), turned
+// onto its parent.
+void RobotWorld::sampleTake(const PhysicsWorld& physics) {
+    const Real t = Real(double(clockNs_ - takeFromNs_) * 1e-9);
+    for (size_t i = 0; i < free_.size(); ++i) {
+        const SceneObject* o = findObject(live_, free_[i]);
+        const int b = bodyOf(free_[i]);
+        if (!o || b < 0 || !physics.alive(b)) continue;
+        const BodyState s = physics.state(b);
+        Vector3 v = s.velocity + cross(s.angularVelocity, s.position - s.centre), at;
+        Quaternion turn;
+        if (const SceneObject* parent = findObject(live_, o->parent)) worldPose(live_, *parent, at, turn), v = turn.conjugate().rotate(v);
+        AnimKey k{t, o->position, o->rotationDeg};
+        k.velocity = v, k.hasVelocity = true;
+        take_[i].push_back(k);
+    }
+}
+
+SequenceObject RobotWorld::takeRecording(const std::string& name) {
+    SequenceObject q;
+    q.name = name, q.active = true;
+    for (size_t i = 0; recording_ && i < free_.size(); ++i) {
+        std::vector<AnimKey> keys = thinKeys(take_[i], 0.0005_r, 0.2_r);
+        if (keys.size() < 2 || (length(keys.front().position - keys.back().position) < 1e-6_r && keys.size() == 2 &&
+                                keys.front().rotationDeg.x == keys.back().rotationDeg.x && keys.front().rotationDeg.y == keys.back().rotationDeg.y &&
+                                keys.front().rotationDeg.z == keys.back().rotationDeg.z))
+            continue; // it stood still
+        q.tracks.push_back({free_[i], std::move(keys)});
+    }
+    recording_ = false;
+    take_.clear();
+    return q;
 }
 
 void RobotWorld::readPoses(const PhysicsWorld& physics) {

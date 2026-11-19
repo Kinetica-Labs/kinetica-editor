@@ -53,6 +53,7 @@ void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
 void testSimSensors();
 void testSimSequence();
+void testSimRecording();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testScenePhysicsLine();

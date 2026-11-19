@@ -350,13 +350,16 @@ struct WorldSettings {
 // animation of others, never written into them. Its tracks bind objects by id (a group, a robot's root, a body, a camera,
 // a light), each a list of keys - the object's pose on its parent at a time. Between two keys the place goes in a line
 // and the turn the shortest way (slerp); before the first and after the last the pose holds, or the sequence loops over
-// its length. A scene holds as many as it likes - scenarios, recorded runs - and plays the active one: the editor scrubs
+// its length; between two keys that both carry a velocity (a recorded run's) the place follows the cubic with those
+// velocities at its ends (Hermite: a fall's parabola, a slide's braking, exactly). A scene holds as many as it likes - scenarios, recorded runs - and plays the active one: the editor scrubs
 // it, the running world moves its bodies as kinematic ones that push what they meet. An object deleted leaves its track
 // lost, skipped (Unreal's broken binding).
 struct AnimKey {
     Real time = 0;              // s
     Vector3 position{0.0_r};    // as SceneObject::position
     Vector3 rotationDeg{0.0_r}; // as SceneObject::rotationDeg
+    Vector3 velocity{0.0_r};    // m/s on the parent, when hasVelocity
+    bool hasVelocity = false;   // a recorded key: the motion's velocity there
 };
 struct SequenceTrack {
     uint32_t object = 0;        // the bound object

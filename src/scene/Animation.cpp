@@ -35,8 +35,13 @@ bool samplePose(const std::vector<AnimKey>& k, Real time, bool loop, Real length
     if (time >= k.back().time) return position = k.back().position, rotation = turnOf(k.back().rotationDeg), true;
     const auto after = std::upper_bound(k.begin(), k.end(), time, [](Real t, const AnimKey& x) { return t < x.time; });
     const AnimKey &a = *(after - 1), &b = *after;
-    const Real s = (time - a.time) / (b.time - a.time);
-    position = a.position + (b.position - a.position) * s;
+    const Real h = b.time - a.time, s = (time - a.time) / h;
+    if (a.hasVelocity && b.hasVelocity) { // Hermite: the cubic with the keys' velocities at its ends
+        const Real s2 = s * s, s3 = s2 * s;
+        position = a.position * (2 * s3 - 3 * s2 + 1) + a.velocity * (h * (s3 - 2 * s2 + s)) + b.position * (3 * s2 - 2 * s3) +
+                   b.velocity * (h * (s3 - s2));
+    } else
+        position = a.position + (b.position - a.position) * s;
     rotation = slerp(turnOf(a.rotationDeg), turnOf(b.rotationDeg), s);
     return true;
 }
@@ -107,6 +112,31 @@ void removeTracks(SequenceObject& q, const std::vector<uint32_t>& objects) {
 
 void makeActive(SceneGraph& g, uint32_t sequence) {
     for (SequenceObject& q : g.sequences) q.active = q.id == sequence;
+}
+
+// Greedy: from the last key kept, the span grows while the samples inside it stay on the line; the sample before the
+// one that breaks it is kept. A span is at most 240 samples (4 s of frames): the check stays linear in the run.
+std::vector<AnimKey> thinKeys(const std::vector<AnimKey>& s, Real metres, Real degrees) {
+    if (s.size() <= 2) return s;
+    const Real cosHalf = std::cos(degrees * kPi / 360);
+    const auto holds = [&](size_t from, size_t to) {
+        const std::vector<AnimKey> line{s[from], s[to]};
+        for (size_t k = from + 1; k < to; ++k) {
+            Vector3 p;
+            Quaternion q;
+            samplePose(line, s[k].time, false, 0, p, q);
+            const Quaternion r = turnOf(s[k].rotationDeg);
+            const Real dot = std::fabs(q.w * r.w + q.x * r.x + q.y * r.y + q.z * r.z);
+            if (length(p - s[k].position) > metres || dot < cosHalf) return false;
+        }
+        return true;
+    };
+    std::vector<AnimKey> out{s.front()};
+    size_t from = 0;
+    for (size_t to = 2; to < s.size(); ++to)
+        if (to - from > 240 || !holds(from, to)) out.push_back(s[to - 1]), from = to - 1;
+    out.push_back(s.back());
+    return out;
 }
 
 } // namespace ke

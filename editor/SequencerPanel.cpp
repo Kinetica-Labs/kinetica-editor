@@ -216,6 +216,10 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     loop_ = button("↻ Петля", "После последнего ключа — сначала", "sequencerLoop");
     loop_->setCheckable(true);
     key_ = button("◆ Ключ", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)", "sequencerKey");
+    record_ = button("⏺ Запись", "Записать физику: сцена играет, каждое свободное тело пишется каждый кадр; ещё раз или «Стоп» — "
+                                 "запись становится новой секвенцией «Запись N», и её можно смотреть бегунком и проиграть как анимацию",
+                     "sequencerRecord");
+    record_->setCheckable(true);
     note_ = new QLabel(this);
     note_->setStyleSheet("color: #ff6a5a;");
     bar->addWidget(note_, 1);
@@ -252,6 +256,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     connect(play_, &QToolButton::toggled, this, &SequencerPanel::togglePreview);
     connect(loop_, &QToolButton::clicked, this, [this](bool on) { run("sequence_set", QJsonObject{{"loop", on}}); });
     connect(key_, &QToolButton::clicked, this, &SequencerPanel::keySelected);
+    connect(record_, &QToolButton::clicked, this, [this](bool on) { run("sim_record", QJsonObject{{"on", on}}); });
     sync();
 }
 
@@ -334,8 +339,13 @@ void SequencerPanel::sync() {
     play_->setEnabled(editing && active && !active->tracks.empty());
     loop_->setEnabled(editing && active);
     {
-        const QSignalBlocker hush(loop_);
+        const QSignalBlocker hush(loop_), quiet(record_);
         loop_->setChecked(active && active->loop);
+        record_->setChecked(ops_->recording());
+    }
+    if (const QString words = ops_->recording() ? "■ Закончить запись" : "⏺ Запись"; record_->text() != words) { // not every frame
+        record_->setText(words);
+        record_->setStyleSheet(ops_->recording() ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString());
     }
     const double length = active ? double(active->length()) : 0;
     time_->setText(QString("%1 / %2 с").arg(playhead(), 0, 'f', 2).arg(length, 0, 'f', 2));

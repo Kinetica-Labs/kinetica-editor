@@ -9,12 +9,20 @@
 namespace ke {
 
 void Simulation::load(const SceneGraph& graph) {
+    if (robot_ && robot_->recording()) endedTake_ = std::make_unique<SequenceObject>(robot_->takeRecording(""));
     robot_.reset();
     physics_ = makePhysicsWorld(graph.world.physics, graph.world.gravity);
     robot_ = std::make_unique<RobotWorld>(graph);
     robot_->build(*physics_);
     time_ = 0, frame_ = 0, stepMs_ = 0;
     measurements_.clear();
+}
+
+bool Simulation::takeRecording(const std::string& name, SequenceObject& out) {
+    if (robot_ && robot_->recording()) out = robot_->takeRecording(name);
+    else if (endedTake_) out = std::move(*endedTake_), out.name = name, endedTake_.reset();
+    else return false;
+    return true;
 }
 
 void Simulation::stepFrame() {

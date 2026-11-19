@@ -6,7 +6,8 @@
 
 namespace ke {
 
-// The pose of keys at `time` on the object's parent: in a line between two keys and the shortest turn (slerp); held
+// The pose of keys at `time` on the object's parent: in a line between two keys (the Hermite cubic when both carry a
+// velocity) and the shortest turn (slerp); held
 // before the first key and after the last, or - `loop` - wrapped over `length`. False: no key.
 bool samplePose(const std::vector<AnimKey>& keys, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation);
 SceneObject* posedObject(SceneGraph& g, uint32_t id); // one a sequence can bind: an entity, a group, an array, a light, a camera
@@ -20,5 +21,8 @@ bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real tim
 bool removeKey(SequenceObject& q, uint32_t object, Real time);            // false: no key there (its last: the track goes)
 void removeTracks(SequenceObject& q, const std::vector<uint32_t>& objects); // their tracks (none named: all)
 void makeActive(SceneGraph& g, uint32_t sequence);                         // it plays, no other
+// Samples of a motion (a recorded run, a frame each) thinned to the keys that give it back: every sample dropped lies
+// within `metres` and `degrees` of the line and the shortest turn between the keys kept around it.
+std::vector<AnimKey> thinKeys(const std::vector<AnimKey>& samples, Real metres, Real degrees);
 
 } // namespace ke

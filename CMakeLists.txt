@@ -123,7 +123,7 @@ if(Qt6_FOUND)
     editor/ApiConsole.h      editor/ApiConsole.cpp
     editor/SceneBuilder.h    editor/SceneBuilder.cpp editor/SceneBuilderPanels.cpp editor/SceneBuilderObjects.cpp
     editor/SceneBuilderClone.cpp editor/SceneBuilderMulti.cpp editor/SceneBuilderLights.cpp editor/SceneBuilderKeep.cpp
-    editor/SceneBuilderSequence.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
+    editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
     editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
     editor/SceneBuilderSensors.cpp editor/SceneBuilderDevices.cpp

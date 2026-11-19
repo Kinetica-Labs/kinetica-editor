@@ -212,6 +212,7 @@ void EditorOps::addSimOps() {
     // Paused (built from the graph first when editing), then exactly N frames on the simulation's
     // thread; the answer is the state after them.
     addStepOp();
+    addRecordOp();
     addStateOp();
     addImpulseOp();
     addChannelsOp();

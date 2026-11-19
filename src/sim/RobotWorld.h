@@ -36,6 +36,13 @@ public:
     // The bodies and joints in `physics`; what could not be built is said in notes().
     void build(PhysicsWorld& physics);
     // One step of dt in `substeps` substeps: before each, the drives' forces on the links.
+    // A take - the Sequencer's record of a run (Unreal's Take Recorder): from now, every free body's pose on its parent
+    // a frame (a dynamic body of no robot, no joint and no sequence); taken, a sequence of it - each body a track, its
+    // samples thinned to the keys that give the motion back within 0.5 mm and 0.2 degrees, the first at 0 s - and the
+    // recording ends. Bodies that never moved get no track.
+    void startRecording(const PhysicsWorld& physics);
+    bool recording() const { return recording_; }
+    SequenceObject takeRecording(const std::string& name);
     void step(PhysicsWorld& physics, Real dt, int substeps);
     void fill(const PhysicsWorld& physics, Frame& out) const;
     // The probe's debug layers that are on (core/Probe.h: contacts, centres of mass, inertia axes,
@@ -116,6 +123,7 @@ private:
     void readPoses(const PhysicsWorld& physics);
     void leadGoals(PhysicsWorld& physics, Real dt);
     static std::unordered_set<uint32_t> animatedEntities(const SceneGraph& g);
+    void sampleTake(const PhysicsWorld& physics);
     void leadAnimation(PhysicsWorld& physics, Real time, Real h);
     std::shared_ptr<const TriMesh> meshOf(const Entity& e) const;
 
@@ -127,6 +135,10 @@ private:
     std::vector<std::unique_ptr<LiveSensor>> sensors_;
     SceneGraph posed_;                                 // the graph at the clip's time (Animation.h)
     std::vector<std::pair<uint32_t, int>> animated_;   // the clip's entities and their kinematic bodies
+    std::vector<uint32_t> free_;                       // the entities on free dynamic bodies: what a take records
+    bool recording_ = false;
+    int64_t takeFromNs_ = 0;
+    std::vector<std::vector<AnimKey>> take_;           // a sample a frame, an entity of free_ each
     int64_t clockNs_ = 0;
     std::unordered_map<uint32_t, int> robotOf_;      // entities tied by joints - robots' links - and their robot (robotGroups)
     std::unordered_map<uint32_t, std::pair<Vector3, Quaternion>> carried_; // goal id -> the pose its effector is led to now

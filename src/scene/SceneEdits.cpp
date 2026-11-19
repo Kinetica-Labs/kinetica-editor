@@ -1,4 +1,5 @@
 // The core edits of a SceneGraph (SceneEdits.h): one object in and out as its block of the scene file.
+#include "scene/Animation.h"
 #include "scene/SceneEdits.h"
 
 #include "scene/Assembly.h"
@@ -96,7 +97,7 @@ std::string getObject(const SceneGraph& g, uint32_t id) {
     if (!copyOut(g.entities, id, one.entities) && !copyOut(g.groups, id, one.groups) && !copyOut(g.arrays, id, one.arrays) &&
         !copyOut(g.lights, id, one.lights) && !copyOut(g.cameras, id, one.cameras) && !copyOut(g.joints, id, one.joints) &&
         !copyOut(g.batteries, id, one.batteries) && !copyOut(g.drivers, id, one.drivers) && !copyOut(g.sensors, id, one.sensors) &&
-        !copyOut(g.wheels, id, one.wheels) && !copyOut(g.controllers, id, one.controllers))
+        !copyOut(g.wheels, id, one.wheels) && !copyOut(g.controllers, id, one.controllers) && !copyOut(g.sequences, id, one.sequences))
         return std::string();
     const std::string text = one.save();
     const size_t world = text.find("\nworld ");
@@ -108,7 +109,7 @@ uint32_t putObject(SceneGraph& g, const std::string& block, std::string& error) 
     SceneGraph one;
     if (!one.load(block, error)) return 0;
     const size_t n = one.entities.size() + one.groups.size() + one.arrays.size() + one.lights.size() + one.cameras.size() + one.joints.size() +
-                     one.batteries.size() + one.drivers.size() + one.sensors.size() + one.wheels.size() + one.controllers.size();
+                     one.batteries.size() + one.drivers.size() + one.sensors.size() + one.wheels.size() + one.controllers.size() + one.sequences.size();
     if (n != 1) {
         error = "the text holds " + std::to_string(n) + " objects, not one";
         return 0;
@@ -123,6 +124,11 @@ uint32_t putObject(SceneGraph& g, const std::string& block, std::string& error) 
     if (!one.drivers.empty()) return place(g, g.drivers, one.drivers[0], error);
     if (!one.wheels.empty()) return place(g, g.wheels, one.wheels[0], error);
     if (!one.controllers.empty()) return place(g, g.controllers, one.controllers[0], error);
+    if (!one.sequences.empty()) { // an active one plays alone
+        const uint32_t id = place(g, g.sequences, one.sequences[0], error);
+        if (id && one.sequences[0].active) makeActive(g, id);
+        return id;
+    }
     return place(g, g.sensors, one.sensors[0], error);
 }
 

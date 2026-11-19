@@ -2,7 +2,10 @@
 // sequence with its first key at 0 s; a click on the timeline's ruler puts the playhead at 2 s (one edit, sequence_seek);
 // the gizmo moves the cube 1 m and «◆ Ключ» keys it there; a drag of the playhead to the middle shows the cube half way
 // (the preview) and leaves it there on release, one undo step that takes it back; a click on the second diamond and
-// Delete remove that key; in play the playhead follows the world's time. With a directory, the picture sequencer.png.
+// Delete remove that key; in play the playhead follows the world's time. «⏺ Запись» on a cube dropped from 1 m plays the
+// scene and records it; pressed again, the scene stops - the cube back where it stood - and the take is a new active
+// sequence «Запись 1» whose end has the cube on the floor; one undo takes the take away. With a directory, the pictures
+// sequencer.png and sequencer-take.png.
 #include "SelfTestSupport.h"
 
 #include "SequencerPanel.h"
@@ -120,5 +123,43 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     pump(100);
     std::printf("  in play the playhead at %.3f s; the Sequencer's tab still in front %s\n", following, front ? "yes" : "no");
     c.check(following > 0.2 && front, "in play the playhead follows the world's time, the timeline stays in front");
+
+    // A take: the cube dropped from 1 m, recorded, stopped.
+    b.newScene();
+    const uint32_t drop = made(b, b.createActions()[0]);
+    b.editEntity(drop, [](Entity& e) { e.position = Vector3(0.0f, 1.0f, 0.0f), e.rotationDeg = Vector3(20, 0, 30), e.rigid.enabled = e.collider.enabled = true; });
+    pump(100);
+    auto* record = w.findChild<QToolButton*>("sequencerRecord");
+    if (!record) {
+        c.check(false, "the Sequencer has «⏺ Запись»");
+        return c.failures;
+    }
+    record->click();
+    pump(80);
+    const bool playing = b.mode() == SceneBuilder::Mode::Playing;
+    pump(1500);
+    record->click();
+    pump(400);
+    const SequenceObject* take = activeSequence(b.graph());
+    const bool made = take && take->name == "Запись 1" && take->tracks.size() == 1 && take->tracks[0].object == drop && take->tracks[0].keys.size() > 2;
+    const float back = findObject(b.graph(), drop)->position.y;
+    const size_t keys = made ? take->tracks[0].keys.size() : 0; // take goes with the graph the next edit replaces
+    const double seconds = made ? double(take->length()) : 0;
+    float landed = -1;
+    if (made) {
+        const QPointF end(xAt(timeline, b, seconds), 11); // on the ruler: a diamond there would take the click
+        mouse(timeline, QEvent::MouseButtonPress, end), mouse(timeline, QEvent::MouseButtonRelease, end);
+        pump(80);
+        landed = findObject(b.graph(), drop)->position.y;
+        if (!shotsDir.isEmpty()) w.grab().save(shotsDir + "/sequencer-take.png");
+    }
+    b.undoAction()->trigger(), b.undoAction()->trigger(); // the playhead, then the take
+    pump(80);
+    const bool gone = b.graph().sequences.empty();
+    std::printf("  «⏺ Запись» on a cube off 1 m: played %s; stopped: «Запись 1» %s, %zu keys over %.2f s; the cube back at y %.3f, at the take's end "
+                "y %.3f; two undos: no sequence %s\n", playing ? "yes" : "no", made ? "yes" : "no", keys, seconds, double(back), double(landed),
+                gone ? "yes" : "no");
+    c.check(playing && made && std::fabs(back - 1) < 1e-5f && landed > 0.05f && landed < 0.2f && gone,
+            "a take records the physics into a sequence that shows the cube landed at its end");
     return c.failures;
 }

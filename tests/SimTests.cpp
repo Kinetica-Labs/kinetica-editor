@@ -536,3 +536,50 @@ void testSimSequence() {
     CHECK(box > 2.15_r, "the box in the pusher's way was not pushed ahead of it: %f m", double(box));
     CHECK(std::fabs(speed - 1) < 1e-3, "the pusher's speed channel reads %f m/s, it goes 1 m/s", speed);
 }
+
+// A take of a run (RobotWorld::startRecording, the Sequencer's record): a box thrown sideways off 1 m falls, lands and
+// slides; a fixed post stands. Recorded 1.5 s, the take has one track - the box's, the post never moved - thinned to far
+// fewer keys than frames, and its keys give every frame's pose back within 0.5 mm. Put into the scene as the active
+// sequence and played, the box is a kinematic body that goes through the same poses: the run as an animation.
+void testSimRecording() {
+    SceneGraph g;
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 1, 0}, false));
+    g.entities.back().rigid.velocity = Vector3(1.5_r, 0, 0);
+    g.entities.back().rigid.angularVelocity = Vector3(0, 0, -3);
+    g.entities.push_back(solid(2, "Столб", {0.1_r, 0.5_r, 0.1_r}, {-1, 0.25_r, 0}, true));
+    Simulation s;
+    s.load(g);
+    s.startRecording();
+    std::vector<AnimKey> truth{{0, Vector3(0, 1, 0), Vector3(0.0_r)}};
+    while (s.time() < 1.5_r - 1e-6_r) {
+        s.stepFrame();
+        const SceneObject* o = findObject(s.robot()->live(), 1);
+        truth.push_back({s.time(), o->position, o->rotationDeg});
+    }
+    SequenceObject take;
+    const bool taken = s.takeRecording("Запись 1", take) && !s.robot()->recording();
+    const std::vector<AnimKey>& keys = take.tracks.empty() ? truth : take.tracks[0].keys;
+    Real worst = 0;
+    for (const AnimKey& k : truth) {
+        Vector3 p;
+        Quaternion q;
+        samplePose(keys, k.time, false, 0, p, q);
+        worst = std::max(worst, length(p - k.position));
+    }
+    take.id = 10;
+    g.sequences.push_back(take);
+    Simulation replay;
+    replay.load(g);
+    Real replayWorst = 0;
+    for (size_t k = 1; k < truth.size(); ++k) {
+        replay.stepFrame();
+        replayWorst = std::max(replayWorst, length(replay.physics()->state(replay.robot()->bodyOf(1)).position - truth[k].position));
+    }
+    std::printf("  a box thrown off 1 m recorded 1.5 s: %s, %zu track(s), %zu keys for %zu frames; the keys give the run back within %.3f mm; "
+                "replayed as the active sequence within %.3f mm\n", taken ? "taken" : "none", take.tracks.size(), keys.size(), truth.size(),
+                double(worst) * 1e3, double(replayWorst) * 1e3);
+    CHECK(taken && take.tracks.size() == 1 && take.tracks[0].object == 1, "the take holds the box's track and not the post's");
+    CHECK(keys.size() * 3 < truth.size() && worst <= 0.0005_r + 1e-6_r, "the take thinned to %zu keys of %zu frames, %f mm off", keys.size(), truth.size(),
+          double(worst) * 1e3);
+    CHECK(replayWorst < 0.001_r, "the take replayed: the box %f mm off its run", double(replayWorst) * 1e3);
+}

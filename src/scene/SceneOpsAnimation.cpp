@@ -54,6 +54,7 @@ Value describe(const SceneGraph& g, const SequenceObject& q) {
         for (const AnimKey& k : t.keys) {
             Value key = Value::map();
             key.set("time", double(k.time)), key.set("position", vec3(k.position)), key.set("rotation", vec3(k.rotationDeg));
+            if (k.hasVelocity) key.set("velocity", vec3(k.velocity));
             keys.push(key);
         }
         const SceneObject* o = findObject(g, t.object);

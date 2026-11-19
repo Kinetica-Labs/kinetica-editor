@@ -197,7 +197,11 @@ static void saveSequence(std::ostringstream& o, const SequenceObject& q) {
     o << "  clip time " << num(q.time) << " loop " << (q.loop ? 1 : 0) << " active " << (q.active ? 1 : 0) << "\n";
     for (const SequenceTrack& t : q.tracks) {
         o << "  track object " << t.object << "\n";
-        for (const AnimKey& k : t.keys) o << "  key time " << num(k.time) << " position " << vec(k.position) << " rotation " << vec(k.rotationDeg) << "\n";
+        for (const AnimKey& k : t.keys) {
+            o << "  key time " << num(k.time) << " position " << vec(k.position) << " rotation " << vec(k.rotationDeg);
+            if (k.hasVelocity) o << " velocity " << vec(k.velocity);
+            o << "\n";
+        }
     }
     o << "end\n";
 }
@@ -870,7 +874,8 @@ static bool readSequenceLine(const std::vector<std::string>& w, SequenceObject& 
     AnimKey key;
     while (!r.done()) {
         const std::string k = r.key();
-        if (!(k == "time" ? r.number(key.time) : k == "position" ? r.vector(key.position) : k == "rotation" ? r.vector(key.rotationDeg) : false))
+        if (!(k == "time" ? r.number(key.time) : k == "position" ? r.vector(key.position) : k == "rotation" ? r.vector(key.rotationDeg)
+              : k == "velocity" ? (key.hasVelocity = true, r.vector(key.velocity)) : false))
             return fail(bad, k);
     }
     std::vector<AnimKey>& keys = q.tracks.back().keys;

@@ -50,6 +50,7 @@ public:
     QJsonArray list() const; // name, help, args of every operation
     // What brings the window up to the simulation's newest frame (MainWindow sets it).
     void setRefresh(std::function<void()> refresh) { refresh_ = std::move(refresh); }
+    bool recording() const { return recording_; } // a take runs (sim_record)
     // Who sees every call as it is answered - the console: who called, the operation, its arguments, its
     // answer, and whether it was a query (it changed nothing).
     using Listener = std::function<void(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer, bool query)>;
@@ -93,6 +94,8 @@ private:
     void addRuntimeOps();   // EditorOpsRuntime.cpp: the lease, its limits, stop, quit
     void addImpulseOp();    // EditorOpsImpulse.cpp: a push on a running body, without an edit of the graph
     void addStepOp();
+    void addRecordOp();                      // EditorOpsRecord.cpp: sim_record, the Sequencer's take
+    void finishTake(const Reply& reply);     // the take into the scene as a new sequence (reply may be empty)
     void addStateOp();
     void addChannelsOp();   // EditorOpsSim.cpp: the channels the simulation measures, read after N frames
     ke::RuntimePolicy::Usage runtimeUsage() const;
@@ -119,6 +122,7 @@ private:
     QWidget* window_;
     std::map<QString, Op> ops_;
     std::function<void()> refresh_;
+    bool recording_ = false;
     std::vector<Listener> listeners_;
     std::deque<QJsonObject> recent_; // the journal's last lines (the file keeps them all)
     QString journalFile_;
