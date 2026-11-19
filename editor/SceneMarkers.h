@@ -26,6 +26,8 @@ struct SceneMarker {
     float range = 5, coneDeg = 40, softnessDeg = 10, fovDeg = 50;
     float reach = 0; // one being placed: its cone, frame or arrow drawn this far, to where it looks (0: the marker's size)
     bool selected = false;
+    bool aimed = false;  // a target camera: a faint line to its target and a cross there (3ds Max's camera target)
+    ke::Vector3 aim{0.0f};
 };
 
 // The graph's visible lights and cameras as markers, posed in the world.

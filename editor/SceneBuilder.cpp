@@ -566,6 +566,11 @@ void SceneBuilder::updateGizmoTarget() {
 // where the selected object's body is now, not where it was put.
 void SceneBuilder::onSimulationSnapshot(const Frame& s) {
     if (editing()) return;
+    if (const Camera* c = cameraById(throughId_); c && c->kind == CameraKind::Target && c->target) {
+        for (const Frame::Body& b : s.bodies) liveObjectPositions_[b.object] = b.pos; // where the running world has its target
+        for (const GoalVis& g : s.goals) liveObjectPositions_[g.id] = g.position;
+        emitCameraView();
+    }
     std::vector<uint32_t> bodyEntity(s.bodies.size());
     for (size_t b = 0; b < s.bodies.size(); ++b) { // an array's copy plays as the array (RobotWorld::objectIdOfBody)
         const uint32_t id = s.bodies[b].object;

@@ -221,6 +221,8 @@ static void saveCamera(std::ostringstream& o, const Camera& c) {
     saveObjectHead(o, "camera", c);
     o << "  lens fov " << num(c.fovDeg) << " near " << num(c.nearClip) << " far " << num(c.farClip) << " active "
       << (c.active ? 1 : 0) << "\n";
+    if (c.kind == CameraKind::Target) // a free camera has no target line: older files read the same
+        o << "  target " << (c.target ? "object " + std::to_string(c.target) : "point " + vec(c.targetPoint)) << "\n";
     o << "end\n";
 }
 
@@ -620,6 +622,13 @@ static bool readLightLine(const std::vector<std::string>& w, Light& l, std::stri
 
 static bool readCameraLine(const std::vector<std::string>& w, Camera& c, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, c, bad);
+    if (w[0] == "target") { // "target object <id>" | "target point x y z": a target camera
+        LineReader r(w, 1);
+        c.kind = CameraKind::Target;
+        const std::string k = r.done() ? std::string() : r.key();
+        const bool ok = k == "object" ? r.integer(c.target) && c.target != 0 : k == "point" ? r.vector(c.targetPoint) : false;
+        return ok && r.done() ? true : fail(bad, k.empty() ? "target" : k);
+    }
     if (w[0] != "lens") return fail(bad, w[0]);
     LineReader r(w, 1);
     while (!r.done()) {

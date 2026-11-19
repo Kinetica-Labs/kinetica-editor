@@ -161,8 +161,31 @@ void SceneBuilder::buildLightCards(QVBoxLayout* col) {
     cameraCard_ = new ComponentCard("Камера", sceneIcon(SceneIcon::Camera, 22));
     cameraCard_->setObjectName("cameraCard");
     Camera* c = &cameraDraft_;
+    const auto aimed = [c] { return c->kind == CameraKind::Target; };
     cameraFields_ = new FieldForm([this](bool click) { commitSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); }, click); });
-    cameraFields_->number("Угол обзора, °", 1, 170, 1, 1, c->fovDeg)
+    // Free or target (3ds Max's Free and Target cameras): turned one way or the other, it keeps looking where it looked.
+    cameraFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), "Свободная", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё"},
+                          {sceneIcon(SceneIcon::Camera, 26), "С целью", "Всегда смотрит на цель — объект или точку: двигаете камеру или цель, "
+                                                                      "она поворачивается за ней; в игре следит за телом"}}, 26,
+                         [c] { return double(int(c->kind)); }, [this, c](double k) {
+        if (CameraKind(int(k)) == c->kind) return;
+        Vector3 eye, forward, up;
+        cameraFrame(graph_, *c, eye, forward, up);
+        if (CameraKind(int(k)) == CameraKind::Target) c->target = 0, c->targetPoint = cameraTarget(graph_, *c);
+        else setWorldPose(graph_, *c, eye, lookTurn(eye, eye + forward));
+        c->kind = CameraKind(int(k));
+    }).name("cameraKind")
+        .choice("Цель", [this, c] {
+            std::vector<FieldForm::Option> out{{"точка", 0}};
+            for (const Entity& e : graph_.entities)
+                if (e.id != c->id) out.push_back({QString::fromStdString(e.name), double(e.id)});
+            return out;
+        }, [c] { return double(c->target); }, [this, c](double id) {
+            if (id == 0 && c->target) c->targetPoint = cameraTarget(graph_, *c); // from an object to its point: the view stays
+            c->target = uint32_t(id);
+        }).name("cameraTarget").shown(aimed).tip("На что смотрит камера: объект (за ним она следит и в игре) или точка")
+        .vector("Точка цели, м", -1000, 1000, 0.05, 3, c->targetPoint).shown([c] { return c->kind == CameraKind::Target && c->target == 0; })
+        .number("Угол обзора, °", 1, 170, 1, 1, c->fovDeg)
         .number("Ближе не видит, м", 0.001, 10, 0.01, 3, c->nearClip)
         .number("Дальше не видит, м", 1, 100000, 10, 0, c->farClip);
     cameraCard_->body()->addWidget(cameraFields_);
@@ -221,6 +244,8 @@ void SceneBuilder::refreshMarkers() {
         m.kind = SceneMarker::Camera;
         m.fovDeg = c.fovDeg;
         add(c, m);
+        if (c.kind == CameraKind::Target && !out.empty() && out.back().id == c.id)
+            out.back().aimed = true, out.back().aim = cameraTarget(graph_, c), out.back().rotation = lookTurn(out.back().position, out.back().aim);
     }
     emit sceneMarkers(std::move(out));
 }
@@ -233,6 +258,7 @@ std::vector<PickHit> SceneBuilder::pickMarkers(const Ray& ray) const {
         m.kind = kind;
         m.fovDeg = fovDeg;
         worldPose(graph_, o, m.position, m.rotation);
+        if (const Camera* c = findCamera(graph_, o.id); c && c->kind == CameraKind::Target) m.rotation = lookTurn(m.position, cameraTarget(graph_, *c));
         float t;
         if (markerHit(m, ray, t)) hits.push_back({o.id, t, ray.at(t), o.name});
     };
@@ -246,6 +272,8 @@ std::vector<PickHit> SceneBuilder::pickMarkers(const Ray& ray) const {
     return hits;
 }
 
+// The view through the camera: a target camera looks at its target where it is now - in play where the running world
+// has taken its object (the last frame's pose), so the view follows a gripper.
 void SceneBuilder::emitCameraView() {
     const Camera* c = findCamera(graph_, throughId_);
     if (!c) {
@@ -255,6 +283,11 @@ void SceneBuilder::emitCameraView() {
     }
     Vector3 eye, forward, up;
     cameraFrame(graph_, *c, eye, forward, up);
+    if (c->kind == CameraKind::Target && c->target && !editing())
+        if (const auto at = liveObjectPositions_.find(c->target); at != liveObjectPositions_.end()) {
+            const Quaternion turn = lookTurn(eye, at->second);
+            forward = turn.rotate(Vector3(0, 0, -1)), up = turn.rotate(Vector3(0, 1, 0));
+        }
     emit cameraView(true, eye, forward, up, c->fovDeg, c->nearClip, c->farClip);
 }
 
@@ -291,7 +324,9 @@ void SceneBuilder::onViewMovedThroughCamera(const Vector3& eye, const Vector3& f
     remember(true);
     const Vector3 right = normalize(cross(forward, up));
     const Matrix3x3 R = Matrix3x3::fromColumns(right, up, forward * -1.0f);
-    setWorldPose(graph_, *c, eye, Quaternion::fromMatrix3x3(R));
+    // A target camera moves with the view but keeps looking at its target: the view snaps back to it.
+    setWorldPose(graph_, *c, eye, c->kind == CameraKind::Target ? lookTurn(eye, cameraTarget(graph_, *c)) : Quaternion::fromMatrix3x3(R));
+    if (c->kind == CameraKind::Target) emitCameraView();
     if (isSelected(c->id)) showTransform(*c);
     if (editing()) {
         refreshLightsAndCameras();

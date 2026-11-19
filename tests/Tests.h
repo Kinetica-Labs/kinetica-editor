@@ -66,6 +66,7 @@ void testActionsGroupKeepsPoses();
 void testActionsDeleteAndDuplicate();
 void testActionsTransforms();
 void testSceneOpsRegistry();
+void testTargetCamera();
 // AssemblyTests.cpp
 void testSceneJointsRoundTrip();
 void testSnapToFace();

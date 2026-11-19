@@ -82,6 +82,7 @@ int main() {
     run("actions: delete takes the subtree, its joints and sensors; a copy carries its sensors", testActionsDeleteAndDuplicate);
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
+    run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("assembly: six-freedom joints in the scene file come back to the bit", testSceneJointsRoundTrip);
     run("assembly: a shape snapped to each face of a turned box touches it exactly", testSnapToFace);
     run("assembly: the core edits put, get, set, remove and their inverses", testSceneEditsCore);

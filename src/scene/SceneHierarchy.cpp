@@ -273,9 +273,33 @@ Vector3 lightDirection(const SceneGraph& g, const Light& l) {
     return normalize(rotation.rotate(Vector3(0, -1, 0)));
 }
 
+Quaternion lookTurn(const Vector3& eye, const Vector3& target) {
+    Vector3 forward = target - eye;
+    if (length(forward) < 1e-6_r) return Quaternion();
+    forward = normalize(forward);
+    const Vector3 world = std::fabs(forward.y) > 0.999_r ? Vector3(0, 0, -1) : Vector3(0, 1, 0);
+    const Vector3 right = normalize(cross(forward, world)), up = cross(right, forward);
+    return Quaternion::fromMatrix3x3(Matrix3x3::fromColumns(right, up, forward * -1.0_r)).normalized(); // its -z the forward
+}
+
+Vector3 cameraTarget(const SceneGraph& g, const Camera& c, const std::function<bool(uint32_t, Vector3&)>& objectAt) {
+    Vector3 eye;
+    Quaternion rotation;
+    worldPose(g, c, eye, rotation);
+    if (c.kind == CameraKind::Free) return eye + rotation.rotate(Vector3(0, 0, -2));
+    Vector3 at = c.targetPoint;
+    if (c.target && !(objectAt && objectAt(c.target, at)))
+        if (const SceneObject* o = findObject(g, c.target)) {
+            Quaternion turn;
+            worldPose(g, *o, at, turn);
+        }
+    return at;
+}
+
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up) {
     Quaternion rotation;
     worldPose(g, c, eye, rotation);
+    if (c.kind == CameraKind::Target) rotation = lookTurn(eye, cameraTarget(g, c));
     forward = normalize(rotation.rotate(Vector3(0, 0, -1)));
     up = normalize(rotation.rotate(Vector3(0, 1, 0)));
 }

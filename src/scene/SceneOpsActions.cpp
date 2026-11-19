@@ -99,7 +99,31 @@ bool addCameraOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     bool aimed = false;
     if (!optionalVector(a, "target", target, aimed, e)) return false;
     if (length(eye - target) < 0.05_r) eye = target + Vector3(0.0_r, 0.5_r, 2.0_r); // an eye at its target looks nowhere
-    return merge(r, answerOf({addCamera(g, eye, target)})), true;
+    const std::string kind = a["kind"].text("free");
+    if (kind != "free" && kind != "target") return e = "kind is free or target", false;
+    const uint32_t at = uint32_t(a["at"].integer(0));
+    if (at && !findObject(g, at)) return e = "no object " + std::to_string(at) + " to look at", false;
+    if (const SceneObject* o = at ? findObject(g, at) : nullptr) {
+        Quaternion turn;
+        worldPose(g, *o, target, turn);
+    }
+    const uint32_t id = addCamera(g, eye, target);
+    if (kind == "target" || at) aimCamera(g, id, at, &target);
+    return merge(r, answerOf({id})), true;
+}
+
+// camera_aim: a target camera at an object or a point, or a free camera again.
+bool aimCameraOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    const uint32_t camera = uint32_t(a["camera"].integer(0));
+    if (std::none_of(g.cameras.begin(), g.cameras.end(), [camera](const Camera& c) { return c.id == camera; }))
+        return e = "no camera " + std::to_string(camera), false;
+    if (a["free"].truth(false)) return freeCamera(g, camera), r.set("id", camera), true;
+    Vector3 point;
+    bool given = false;
+    if (!optionalVector(a, "point", point, given, e)) return false;
+    const uint32_t at = uint32_t(a["at"].integer(0));
+    if (!aimCamera(g, camera, at, given ? &point : nullptr)) return e = "no object " + std::to_string(at) + " to look at", false;
+    return r.set("id", camera), true;
 }
 
 // Delete, duplicate, group, ungroup, make an array: on the topmost of `ids` (a member goes with its group).
@@ -195,7 +219,12 @@ std::vector<SceneOp> actionSceneOps() {
         {"scene_add_light", "A light as the menu adds it: the sun high at a slant, a lamp or a spot over `at` (else the scene's centre); "
                             "with `position` it stands there shining at `target` (else at `at`)",
          "{kind: sun|point|spot, at?: [x,y,z], position?: [x,y,z], target?: [x,y,z]}", {}, addLightOp},
-        {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre)", "{eye?: [x,y,z], target?: [x,y,z]}", {}, addCameraOp},
+        {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre); kind target: a target camera that always "
+                             "looks there - at object `at` (wherever it goes) or the point", "{eye?: [x,y,z], target?: [x,y,z], kind?: 'free'|'target', at?: int}",
+         {}, addCameraOp},
+        {"camera_aim", "A target camera (3ds Max's Target camera): it always looks at object `at` (wherever the running world takes it) or "
+                       "at `point`, or (neither) at where it looks now; free: true - a free camera again, looking where it looked",
+         "{camera: int, at?: int, point?: [x,y,z], free?: bool}", {}, aimCameraOp},
         treeOp("scene_delete", "Objects deleted as Del does: with everything under them, the joints and sensors they hold"),
         treeOp("scene_duplicate", "Copies a little above the originals (Ctrl+D); the copies are the answer"),
         treeOp("scene_group", "A group at the centre of the objects, their poses kept in the world (Ctrl+G)"),

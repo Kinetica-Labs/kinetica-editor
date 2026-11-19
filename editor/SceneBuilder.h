@@ -60,6 +60,7 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <string>
 #include <vector>
@@ -603,6 +604,7 @@ private:
     // The "Свет" and "Камера" cards over every selected light or camera
     ComponentCard *lightCard_ = nullptr, *cameraCard_ = nullptr;
     class FieldForm *lightFields_ = nullptr, *cameraFields_ = nullptr;
+    std::unordered_map<uint32_t, ke::Vector3> liveObjectPositions_; // in play, for a target camera looked through: its target's pose
     ke::Light lightDraft_;
     ke::Camera cameraDraft_;
     QPushButton* throughButton_ = nullptr;

@@ -212,6 +212,36 @@ uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre) {
     return c.id;
 }
 
+static Camera* cameraIn(SceneGraph& g, uint32_t id) {
+    for (Camera& c : g.cameras)
+        if (c.id == id && id != 0) return &c;
+    return nullptr;
+}
+
+bool aimCamera(SceneGraph& g, uint32_t camera, uint32_t target, const Vector3* point) {
+    Camera* c = cameraIn(g, camera);
+    if (!c || (target && (target == camera || !findObject(g, target)))) return false;
+    const Vector3 now = cameraTarget(g, *c);
+    c->kind = CameraKind::Target;
+    c->target = target;
+    c->targetPoint = target ? c->targetPoint : point ? *point : now;
+    Vector3 eye;
+    Quaternion turn;
+    worldPose(g, *c, eye, turn);
+    setWorldPose(g, *c, eye, lookTurn(eye, cameraTarget(g, *c)));
+    return true;
+}
+
+bool freeCamera(SceneGraph& g, uint32_t camera) {
+    Camera* c = cameraIn(g, camera);
+    if (!c) return false;
+    Vector3 eye, forward, up;
+    cameraFrame(g, *c, eye, forward, up);
+    c->kind = CameraKind::Free;
+    setWorldPose(g, *c, eye, lookTurn(eye, eye + forward));
+    return true;
+}
+
 void showAll(SceneGraph& g) {
     for (Entity& e : g.entities) {
         const bool hiddenTemplate = !e.visible && std::any_of(g.arrays.begin(), g.arrays.end(), [&](const ArrayObject& a) { return a.templateId == e.id; });

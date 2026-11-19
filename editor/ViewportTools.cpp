@@ -343,7 +343,7 @@ bool isPlaced(const CreateWhat& w) { return w.kind != CreateWhat::Kind::Shape; }
 bool isCamera(const CreateWhat& w) { return w.kind == CreateWhat::Kind::Camera; }
 
 QString titleOf(const CreateWhat& w) {
-    if (isCamera(w)) return "Камера";
+    if (isCamera(w)) return w.target ? "Камера с целью" : "Камера";
     return w.kind == CreateWhat::Kind::Light ? QString(ke::lightTitle(w.light)) : QString(ke::shapeTitle(w.shape));
 }
 
@@ -574,7 +574,7 @@ QString CreateTool::hint(const CreateWhat& w) const {
         break;
     case Step::Base: doing = round ? "радиус" : "противоположный угол"; break;
     case Step::Height: doing = "высота — ведите мышь вверх"; break;
-    case Step::Aim: doing = isCamera(w) ? "куда смотрит — наведите на точку" : "куда светит — наведите на точку"; break;
+    case Step::Aim: doing = isCamera(w) ? (w.target ? "цель — наведите на объект или точку" : "куда смотрит — наведите на точку") : "куда светит — наведите на точку"; break;
     }
     if (step != Step::Place) doing += size_t(step_) + 1 == steps.size() ? ", щелчок — готово" : ", щелчок — дальше";
     QString dots;

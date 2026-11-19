@@ -11,6 +11,7 @@
 
 #include <QComboBox>
 #include <QImage>
+#include <QToolButton>
 
 #include <algorithm>
 #include <cmath>
@@ -273,12 +274,52 @@ void lightShots(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir
 
 } // namespace
 
+// A target camera from its card: «С целью» and the cube as its target, through the card's own buttons; it looks at the
+// cube. Played, the cube falls: the view through the camera turns after it, frame by frame (the running world's pose).
+void testTargetCameraCard(Checker& c, SceneBuilder& b, Viewport* v) {
+    b.newScene();
+    const uint32_t cube = made(b, b.createActions()[0]);
+    b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.6f, 1.5f, -0.4f), e.rigid.enabled = e.collider.enabled = true; });
+    const uint32_t cam = made(b, b.cameraAction());
+    b.select(cam);
+    pump(80);
+    QWidget* panel = b.inspectorPanel();
+    const QList<QToolButton*> kinds = panel->findChildren<QToolButton*>("cameraKind");
+    if (kinds.size() == 2) kinds[1]->click();
+    pump(60);
+    if (auto* target = panel->findChild<QComboBox*>("cameraTarget"))
+        for (int i = 0; i < target->count(); ++i)
+            if (target->itemText(i) == QString::fromStdString(findObject(b.graph(), cube)->name)) target->setCurrentIndex(i);
+    pump(60);
+    const Camera* k = cameraOf(b, cam);
+    Vector3 eye, f, up;
+    cameraFrame(b.graph(), *k, eye, f, up);
+    const bool aimed = k->kind == CameraKind::Target && k->target == cube && length(f - normalize(Vector3(0.6f, 1.5f, -0.4f) - eye)) < 1e-4f;
+    b.lookThrough(cam);
+    b.play();
+    pump(1200); // the cube falls 1.4 m
+    const QVector3D ve = v->camera().eye(), vf = v->camera().forward();
+    float lowest = 1e9f;
+    for (const Frame::Body& body : v->snapshot()->bodies)
+        if (body.object == cube) lowest = body.pos.y;
+    const Vector3 view(vf.x(), vf.y(), vf.z()), toCube = normalize(Vector3(0.6f, lowest, -0.4f) - Vector3(ve.x(), ve.y(), ve.z()));
+    const float miss = length(view - toCube);
+    b.stop();
+    b.lookThrough(0);
+    pump(80);
+    std::printf("  a target camera from its card: «С целью» on the cube %s; played, the cube fell to y = %.2f m and the view through the "
+                "camera points at it within %.3f\n", aimed ? "yes" : "no", double(lowest), double(miss));
+    c.check(aimed, "the card makes a target camera looking at the cube");
+    c.check(lowest < 1.0f && miss < 0.05f, "in play the view through a target camera turns after its falling target");
+}
+
 int runLightTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
     testCreateAndPick(c, w, b, v);
     testSpotTurnedByGizmo(c, b, v);
     testLookThrough(c, w, b, v);
     testPlayKeepsLights(c, b, v);
+    testTargetCameraCard(c, b, v);
     if (!shotsDir.isEmpty()) lightShots(w, b, v, shotsDir);
     return c.failures;
 }

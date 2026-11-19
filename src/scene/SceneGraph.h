@@ -15,6 +15,7 @@
 #include "scene/JointModel.h"
 
 #include <cstdint>
+#include <functional>
 #include <map>
 #include <string>
 #include <vector>
@@ -93,10 +94,17 @@ struct Light : SceneObject {
 
 // A camera of the scene: a viewpoint the viewer can look through, take screenshots and recordings
 // from. Looks along the object's -z axis turned by its rotation.
+// A camera is free - it looks where its turn points - or a target camera (3ds Max's Target camera, Maya's camera and
+// aim): it always looks at its target, an object (its origin, wherever the running world takes it) or a point, its up
+// the world's; its own turn is not used. Moved, it keeps looking at the target; the target moved, it turns after it.
+enum class CameraKind { Free, Target };
 struct Camera : SceneObject {
     Real fovDeg = 50.0_r;       // vertical field of view
     Real nearClip = 0.05_r, farClip = 200.0_r; // m
     bool active = false;        // the one the viewer looks through when "through the camera" is on
+    CameraKind kind = CameraKind::Free;
+    uint32_t target = 0;        // a target camera's object (0: its point)
+    Vector3 targetPoint{0.0_r}; // ... or the point of the world it looks at
 };
 
 // An array: one object standing for many copies of a template entity laid out in a pattern, as the
@@ -402,6 +410,11 @@ uint32_t nextId(const SceneGraph& g);
 // camera looks along its -z axis, both turned by the object's world rotation; up is the camera's +y.
 Vector3 lightDirection(const SceneGraph& g, const Light& l);
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up);
+// Where a target camera looks: its object's origin in the world, else its point (a free camera: a point 2 m ahead).
+// `objectAt`, when given, says where an object is now (the running world's pose; false: where the graph has it).
+Vector3 cameraTarget(const SceneGraph& g, const Camera& c, const std::function<bool(uint32_t, Vector3&)>& objectAt = {});
+// A camera's frame looking at `target` from `eye`, its up the world's (straight up or down: its z): its world turn.
+Quaternion lookTurn(const Vector3& eye, const Vector3& target);
 
 // ---------------------------------------------------------------------------
 // The shape of an entity as a mesh (EntityShapes.cpp) - the same mesh the physics engine gets, so a

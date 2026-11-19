@@ -448,6 +448,37 @@ class Controller(SceneObject):
         return [line.split()[1] for line in self.block().splitlines() if line.strip().startswith("action ")]
 
 
+class Camera(SceneObject):
+    """A camera: free (it looks where it is turned) or a target camera that always looks at its target - an object,
+    which it follows in play, or a point."""
+    kind = "camera"
+
+    @property
+    def target(self):
+        """What a target camera looks at: the object, or the point (x, y, z); None for a free camera."""
+        words = blocks.line(self.block(), "target")
+        if not words:
+            return None
+        return self.scene.objects[int(words[2])] if words[1] == "object" else tuple(float(w) for w in words[2:5])
+
+    def aim(self, at=None, point=None):
+        """A target camera: always looking at object `at` (wherever it goes) or at `point`; neither: where it looks now."""
+        args, shown = {"camera": self.id}, []
+        if at is not None:
+            args["at"] = at.id
+            shown.append(f"at={at.ref}")
+        if point is not None:
+            args["point"] = list(point)
+            shown.append(f"point={_t(point)}")
+        self.scene._call("camera_aim", f"{self.ref}.aim({', '.join(shown)})", **args)
+        return self
+
+    def free(self):
+        """A free camera again, looking where it looked."""
+        self.scene._call("camera_aim", f"{self.ref}.free()", camera=self.id, free=True)
+        return self
+
+
 class Group(SceneObject):
     """Objects held together: a click picks the whole group."""
     kind = "group"
