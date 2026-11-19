@@ -46,6 +46,17 @@ void EditorOps::addSync(const QString& name, const QString& help, const QString&
     add(name, help, args, [run](const QJsonObject& a, const Reply& reply) { reply(run(a)); });
 }
 
+void EditorOps::addPluginOp(const QString& name, const QString& help, const QString& args, Handler run, const QJsonObject& schema) {
+    add(name, help, args, std::move(run));
+    ops_[name].schema = schema;
+    pluginOps_.insert(name);
+}
+
+void EditorOps::removePluginOp(const QString& name) {
+    if (!pluginOps_.erase(name)) return;
+    ops_.erase(name);
+}
+
 void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& reply, const QString& source) {
     auto it = ops_.find(name);
     if (it == ops_.end()) return reply(error("no operation '" + name + "' (ops_list names them)"));
@@ -60,7 +71,7 @@ void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& r
     it->second.run(args, [this, source, name, args, reply, guarded, query](QJsonObject answer) {
         if (guarded) builder_->apiCallFinished();
         const QJsonObject used = answer.contains("_args") ? answer.take("_args").toObject() : args; // what the window filled in
-        if (!query) journal(source, name, used, answer);
+        if (!query && !pluginOps_.count(name)) journal(source, name, used, answer); // a plugin's command: its edits are the lines
         for (const Listener& l : listeners_) l(source, name, args, answer, query);
         reply(answer);
     });
@@ -81,7 +92,11 @@ QJsonObject EditorOps::runNow(const QString& name, const QJsonObject& args) {
 
 QJsonArray EditorOps::list() const {
     QJsonArray out;
-    for (const auto& [name, op] : ops_) out.append(QJsonObject{{"name", name}, {"help", op.help}, {"args", op.args}});
+    for (const auto& [name, op] : ops_) {
+        QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}};
+        if (!op.schema.isEmpty()) entry.insert("schema", op.schema); // a plugin's command: its fields as JSON Schema
+        out.append(entry);
+    }
     return out;
 }
 

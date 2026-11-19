@@ -123,7 +123,8 @@ if(Qt6_FOUND)
     editor/ApiConsole.h      editor/ApiConsole.cpp
     editor/SceneBuilder.h    editor/SceneBuilder.cpp editor/SceneBuilderPanels.cpp editor/SceneBuilderObjects.cpp
     editor/SceneBuilderClone.cpp editor/SceneBuilderMulti.cpp editor/SceneBuilderLights.cpp editor/SceneBuilderKeep.cpp
-    editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/ControllerKeys.h editor/ControllerKeys.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
+    editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/ControllerKeys.h editor/ControllerKeys.cpp
+    editor/PluginHost.h editor/PluginHost.cpp editor/PluginPanel.h editor/PluginPanel.cpp editor/MainWindowPlugins.cpp editor/PythonRuntime.h editor/SequencerPanel.h editor/SequencerPanel.cpp
     editor/SequencerViews.h editor/SequencerTimeline.cpp editor/SequencerCurves.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
     editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
@@ -175,7 +176,7 @@ if(Qt6_FOUND)
     editor/Gizmo.h           editor/Gizmo.cpp
     editor/SelfTest.h        editor/SelfTest.cpp editor/SelfTestSupport.h
     editor/SelfTestControls.cpp editor/SelfTestComponents.cpp editor/SelfTestMany.cpp editor/SelfTestLights.cpp
-    editor/SelfTestSequencer.cpp
+    editor/SelfTestSequencer.cpp editor/SelfTestPlugins.cpp
     editor/SelfTestShadows.cpp editor/SelfTestTextures.cpp editor/SelfTestBump.cpp editor/SelfTestPlay.cpp
     editor/SelfTestLayout.cpp editor/SelfTestLab.cpp editor/SelfTestPlots.cpp editor/SelfTestJournal.cpp
     editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp editor/SelfTestResearch.cpp

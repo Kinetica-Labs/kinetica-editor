@@ -50,8 +50,9 @@ void EditorServer::readLines(QTcpSocket* socket) {
         if (line.isEmpty()) continue;
         QJsonParseError parseError;
         const QJsonObject request = QJsonDocument::fromJson(line, &parseError).object();
-        const bool console = request.value("src").toString() == "console";
-        if (onActivity_ && !console) onActivity_(); // the editor's own console is the user, not an agent driving
+        const QString src = request.value("src").toString();
+        const bool console = src == "console", plugin = src.startsWith("plugin:");
+        if (onActivity_ && !console && !plugin) onActivity_(); // the editor's own console and its plugins are not an agent driving
         const QJsonValue id = request.value("id");
         QPointer<QTcpSocket> to(socket);
         auto reply = [to, id](const QJsonObject& answer) {
@@ -65,17 +66,19 @@ void EditorServer::readLines(QTcpSocket* socket) {
         };
         if (parseError.error != QJsonParseError::NoError) { reply(EditorOps::error("not JSON: " + parseError.errorString())); continue; }
         const bool stopping = request.value("op").toString() == "runtime_stop";
-        if ((stopping && stopPending_) || (!stopping && pendingRequests_ >= 8)) {
+        const bool waits = request.value("op").toString() == "plugin_wait"; // one per plugin, held until a call: no slot of the queue
+        if ((stopping && stopPending_) || (!stopping && !waits && pendingRequests_ >= 8)) {
             reply(EditorOps::error("API request queue is full; wait for pending answers"));
             continue;
         }
-        ++pendingRequests_;
+        if (!waits) ++pendingRequests_;
         if (stopping) stopPending_ = true; // a reserved ninth slot keeps stop available under load
         QPointer<EditorServer> owner(this);
-        ops_->run(request.value("op").toString(), request.value("args").toObject(), [owner, stopping, reply](const QJsonObject& answer) {
-            if (owner) { --owner->pendingRequests_; if (stopping) owner->stopPending_ = false; }
+        ops_->run(request.value("op").toString(), request.value("args").toObject(), [owner, stopping, waits, reply](const QJsonObject& answer) {
+            if (owner && !waits) --owner->pendingRequests_;
+            if (owner && stopping) owner->stopPending_ = false;
             reply(answer);
-        }, console ? "console" : "api");
+        }, console ? QString("console") : plugin ? src : QString("api"));
     }
     if (!alive) return;
     if (!alive->canReadLine() && alive->bytesAvailable() >= maxLine) {

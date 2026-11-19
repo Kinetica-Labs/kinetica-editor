@@ -317,11 +317,21 @@ void SceneBuilder::onListClicked(QTreeWidgetItem* item, int column) {
 // ---------------------------------------------------------------------------
 // Called before a change. Typing or dragging a number makes many small changes within a moment:
 // those merge into one step, so one Ctrl+Z undoes the whole drag.
+void SceneBuilder::beginUndoGroup() {
+    if (undoGroup_++ == 0) undoGroupTaken_ = false;
+}
+
+void SceneBuilder::endUndoGroup() { undoGroup_ = std::max(0, undoGroup_ - 1); }
+
 void SceneBuilder::remember(bool mergeWithLast) {
+    rememberedNow_ = false;
+    if (undoGroup_ > 0 && undoGroupTaken_) return; // a group's later edits: inside its one step
     const bool join = mergeWithLast && typing_ && lastRemember_.elapsed() < 700 && !undo_.empty();
     lastRemember_.restart();
     typing_ = mergeWithLast;
     if (join) return;
+    if (undoGroup_ > 0) undoGroupTaken_ = true;
+    rememberedNow_ = true;
     undo_.push_back({graph_});
     if (undo_.size() > 100) undo_.erase(undo_.begin());
     redo_.clear();

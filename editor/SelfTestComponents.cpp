@@ -159,6 +159,7 @@ void testStaticCollider(Checker& c, SceneBuilder& b, Viewport* v) {
     });
     b.play();
     float lowest = 1e9f, riseAfterLowest = 0.0f, cubeDrift = 0.0f;
+    waitUntil([v] { return v->snapshot() && v->snapshot()->frame < 30; }, 10000); // this run's frames, not the last run's last one
     QElapsedTimer t;
     t.start();
     while (t.elapsed() < 20000 && (!v->snapshot() || v->snapshot()->frame < 120)) {
@@ -293,7 +294,7 @@ void testFirstMinute(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, c
     QCoreApplication::sendEvent(to, &release);
     pump(200);
     trigger(w, "actionStop");
-    pump(800);
+    waitUntil([mw] { return mw->firstMinuteText().contains("бегунок"); }, 6000); // the take comes from the simulation's thread
     const QString third = mw->firstMinuteText();
     if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start-take.png");
     auto* ruler = w.findChild<QWidget*>("sequencerTimeline");
@@ -421,8 +422,7 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     number("sensorSeed", 7);
     const bool seed = sensor() && sensor()->seed == 7;
     b.play(); // the running world reads it: the robot's reading and the probe's truth beside it
-    pump(900);
-    const bool live = says("м/с²") && says("истина");
+    const bool live = waitUntil([&] { return says("м/с²") && says("истина"); }, 5000);
     b.stop();
     pump(60);
     std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, its model's datasheet %s, 200 Hz typed over it %s; "

@@ -50,7 +50,8 @@ def remote_tools():
         return []
     tools = []
     for op in editor().ops_list()["ops"]:
-        tools.append({"name": op["name"], "description": f"{op['help']}. Arguments: {op['args']}", "inputSchema": OPEN})
+        # A plugin's command brings its fields as JSON Schema: the agent sees each one's type, unit, range and default.
+        tools.append({"name": op["name"], "description": f"{op['help']}. Arguments: {op['args']}", "inputSchema": op.get("schema", OPEN)})
     return tools
 
 

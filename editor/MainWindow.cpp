@@ -63,6 +63,7 @@ MainWindow::MainWindow() {
     buildOperators();
     buildConsoleDock();
     buildSequencerDock();
+    buildPlugins();
     buildLayoutActions();
     buildLaboratory(); // before the top bar: its button «Лаборатория» sits there
     buildMainToolbar();

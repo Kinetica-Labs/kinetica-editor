@@ -9,6 +9,8 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+
+#include <functional>
 #include <QMainWindow>
 #include <QMouseEvent>
 #include <QPainter>
@@ -37,6 +39,15 @@ inline void pump(int ms) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
         QThread::msleep(2);
     } while (t.elapsed() < ms);
+}
+
+// Lets the window work until `done` holds, at most `ms`: a check waits for what it checks, not for a guessed time - a
+// busy machine (a build beside it) is slower, not wrong.
+inline bool waitUntil(const std::function<bool()>& done, int ms) {
+    QElapsedTimer t;
+    t.start();
+    while (!done() && t.elapsed() < ms) pump(20);
+    return done();
 }
 
 // Presses the role button with this label (the role bar's own button, as a mouse click would).
@@ -149,6 +160,7 @@ int runManyTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sh
 // Lights and cameras: made, picked, moved, lighting a cube, looked through (SelfTestLights.cpp).
 int runLightTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir); // SelfTestSequencer.cpp
+int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestPlugins.cpp
 // The play-mode pass: the top bar's widths, the same look in play, the banner, K, Ctrl+K, the
 // orbit pivot, the blank-window check (SelfTestPlay.cpp).
 int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);

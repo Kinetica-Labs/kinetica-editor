@@ -265,6 +265,9 @@ public:
     // The Sequencer's preview in edit mode (SceneBuilderSequence.cpp): the active sequence's poses at a time drawn while
     // the playhead is dragged or played, no edit yet; ending it puts the graph back - the panel then makes the one edit,
     // sequence_seek, an undo step and a line.
+    // One undo step for many edits: a plugin's command, whatever it changes through the API (PluginHost). Nested.
+    void beginUndoGroup();
+    void endUndoGroup();
     void beginSequencePreview();
     void previewSequence(double time);
     void endSequencePreview();
@@ -533,6 +536,9 @@ private:
     std::vector<HistoryEntry> undo_, redo_;
     QElapsedTimer lastRemember_;
     std::optional<ke::SceneGraph> previewFrom_; // the graph before a Sequencer preview
+    int undoGroup_ = 0;          // open groups (beginUndoGroup)
+    bool undoGroupTaken_ = false; // the group's one step is remembered
+    bool rememberedNow_ = false;  // the last remember() made a step (a failed edit takes back only its own)
     bool goalDragging_ = false; // the mouse drags a goal (dragGoal): one undo step, its code said as it ends
     bool typing_ = false; // the last step was a typed number's: another typed within 0.7 s joins it, nothing else does
 

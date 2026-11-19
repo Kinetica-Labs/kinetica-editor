@@ -173,11 +173,11 @@ void testFlyAndNavCube(Checker& c, Viewport* v) {
     sendMouse(v, QEvent::MouseButtonPress, mid, Qt::RightButton, Qt::RightButton);
     key(v, Qt::Key_W);
     const QString hint = v->mouseHint();
-    pump(400);
+    waitUntil([&] { return QVector3D::dotProduct(v->camera().eye() - eye0, forward) > 0.1f; }, 3000); // held until it has flown
     key(v, Qt::Key_W, Qt::NoModifier, QEvent::KeyRelease);
     sendMouse(v, QEvent::MouseButtonRelease, mid, Qt::RightButton, Qt::NoButton);
     const float flown = QVector3D::dotProduct(v->camera().eye() - eye0, forward);
-    std::printf("  right button + W for 0.4 s: the eye went %.2f m forward\n", double(flown));
+    std::printf("  right button + W held: the eye went %.2f m forward\n", double(flown));
     c.check(flown > 0.1f && hint.contains("Полёт"), "right button + W flies forward; the status line lists the flight keys");
     const QPointF ball = v->navCube().ballCentre(2, v->camera().view(), v->size());
     click(v, ball);

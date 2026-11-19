@@ -45,6 +45,7 @@ public:
     // The first-minute bubble even if it was seen before (the command line's --first-start).
     void setForceFirstStart(bool on) { forceFirstStart_ = on; }
     QString firstMinuteText() const; // what the bubble says now (empty: gone)
+    void startPlugins();             // a person's window: the editor's and the user's plugins (MainWindowPlugins.cpp)
     // "Примеры": the gallery of every ready-made scene; a click opens one.
     void openGallery();
     void runGalleryShot(const QString& file); // the gallery with all its pictures as a PNG, then quit
@@ -222,6 +223,8 @@ private:
     QAction* playAct_ = nullptr;
     QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
     class ControllerKeys* controllerKeys_ = nullptr; // a person's keys to the scene's panels while it plays
+    class PluginHost* plugins_ = nullptr;            // plugins as processes (MainWindowPlugins.cpp)
+    void buildPlugins();
     class QTimer* recordBlink_ = nullptr;
     QAction* bottomWideAct_ = nullptr; // the bottom panel the window's whole width (MainWindowLayout.cpp)
     qint64 recordSince_ = 0;       // when the take started: a second press within 0.5 s is a double click's, not a stop

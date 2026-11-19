@@ -299,7 +299,8 @@ static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, 
     } else if (cli.isSet(o.shot)) {
         w.runAutomation(cli.value(o.frames).toInt(), cli.value(o.shot));
     } else {
-        w.startBuilder(true); // a person: the first start opens the welcome scene
+        w.startBuilder(true); // a person: the first start opens the UR5e
+        w.startPlugins();     // and their plugins (an unattended run starts none)
     }
     if (auto* builder = w.findChild<SceneBuilder*>()) {
         for (const auto& group : builder->graph().groups) if (QString::fromStdString(group.name) == cli.value(o.focusObject)) {

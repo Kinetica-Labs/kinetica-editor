@@ -23,6 +23,7 @@
 #include <deque>
 #include <functional>
 #include <map>
+#include <set>
 #include <memory>
 #include <vector>
 
@@ -58,6 +59,13 @@ public:
     // and shown as every other call.
     void report(const QString& source, const QString& name, const QJsonObject& args);
     void addListener(Listener l) { listeners_.push_back(std::move(l)); }
+    // A plugin's commands (PluginHost): added while it runs, gone when it stops. A command's call is not a line of
+    // the journal - the edits it makes through the API are, and they make one undo step.
+    // `schema`: its arguments as JSON Schema (ops_list gives it; MCP makes it the tool's inputSchema).
+    void addPluginOp(const QString& name, const QString& help, const QString& args, Handler run, const QJsonObject& schema = {});
+    void addOp(const QString& name, const QString& help, const QString& args, Handler run) { add(name, help, args, std::move(run)); } // the plugins' own
+    void removePluginOp(const QString& name);
+    bool isPluginOp(const QString& name) const { return pluginOps_.count(name) > 0; }
     static bool isQuery(const QString& name); // EditorJournal.cpp
     static bool windowOnly(const QString& name); // the window's state or time, no change of the scene (EditorJournal.cpp)
 
@@ -81,7 +89,7 @@ public:
     static QJsonObject error(const QString& why);
 
 private:
-    struct Op { QString help, args; Handler run; };
+    struct Op { QString help, args; Handler run; QJsonObject schema; };
     // An edit of the graph: its answer, {"ok": false} to undo it (and the whole batch it is in).
     using GraphEdit = std::function<QJsonObject(ke::SceneGraph&, const QJsonObject& args)>;
     void add(const QString& name, const QString& help, const QString& args, Handler run);
@@ -121,6 +129,7 @@ private:
     SimController* ctrl_;
     QWidget* window_;
     std::map<QString, Op> ops_;
+    std::set<QString> pluginOps_;
     std::function<void()> refresh_;
     bool recording_ = false;
     std::vector<Listener> listeners_;

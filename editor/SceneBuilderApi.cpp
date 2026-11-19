@@ -12,7 +12,8 @@ bool SceneBuilder::transact(const std::function<bool(SceneGraph&, std::string&)>
     graph_.idFloor = nextId_; // the core's new ids never take one this session gave out before
     if (!change(graph_, error)) {
         graph_ = std::move(before);
-        if (!undo_.empty()) undo_.pop_back();
+        if (rememberedNow_ && !undo_.empty()) undo_.pop_back(); // only the step this edit made
+        if (rememberedNow_ && undoGroup_ > 0) undoGroupTaken_ = false; // a group's first edit failed: the next one takes the step
         updateHistoryActions();
         return false;
     }

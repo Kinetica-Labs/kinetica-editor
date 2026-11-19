@@ -3,6 +3,8 @@
 // with the source "console", and comes back into the log as every other call does.
 #include "ApiConsole.h"
 
+#include "PythonRuntime.h"
+
 #include "EditorOps.h"
 
 #include <QBoxLayout>
@@ -181,8 +183,9 @@ void ApiConsole::show(const QString& source, const QString& name, const QJsonObj
         return;
     }
     if (query && source != "console" && !queries_->isChecked()) return;
-    const QString who = source == "console" ? "вы" : source == "ui" ? "окно" : "агент";
-    const QString colour = source == "console" ? "#7fb8ff" : source == "ui" ? "#9aa0a8" : "#ffb454";
+    const bool plugin = source.startsWith("plugin:");
+    const QString who = source == "console" ? "вы" : source == "ui" ? "окно" : plugin ? "плагин " + source.mid(7) : "агент";
+    const QString colour = source == "console" ? "#7fb8ff" : source == "ui" ? "#9aa0a8" : plugin ? "#7cff9a" : "#ffb454";
     QJsonObject plain = args;
     const QString line = plain.take("_py").toString(); // the object model's own line (kinetica), when it sent one
     appendLog(log_, QString("<span style='color:%1'>[%2]</span> %3").arg(colour, who, (line.isEmpty() ? pythonCall(name, plain, 120) : line).toHtmlEscaped()));
@@ -232,26 +235,13 @@ bool ApiConsole::startPython() {
     const quint16 port = noPython_ || !apiPort_ ? 0 : apiPort_();
     if (port == 0) return false;
     python_ = new QProcess(this);
-    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    const QString installed = QCoreApplication::applicationDirPath() + "/python"; // the kinetica package: next to the program, else the sources
-    const QString package = QDir(installed).exists() ? installed : QString(KE_PYTHON);
-    env.insert("PYTHONPATH", package + (env.contains("PYTHONPATH") ? QDir::listSeparator() + env.value("PYTHONPATH") : QString()));
-    env.insert("KE_EDITOR_PORT", QString::number(port));
-    python_->setProcessEnvironment(env);
+    python_->setProcessEnvironment(pythonEnvironment(port)); // the kinetica package and the port (PythonRuntime.h)
     connect(python_, &QProcess::readyReadStandardOutput, this, &ApiConsole::readPython);
     connect(python_, &QProcess::readyReadStandardError, this, [this] {
         for (const QByteArray& l : python_->readAllStandardError().split('\n'))
             if (!l.trimmed().isEmpty()) appendLog(log_, QString("<span style='color:#ff7b72'>%1</span>").arg(QString::fromUtf8(l).toHtmlEscaped()));
     });
-    // python3, or python as Windows' installer names it - not the Microsoft Store's stub in WindowsApps, which only opens the Store.
-    QString interpreter = "python3";
-    for (const char* name : {"python3", "python"}) {
-        const QString path = QStandardPaths::findExecutable(name);
-        if (!path.isEmpty() && !path.contains("WindowsApps")) {
-            interpreter = path;
-            break;
-        }
-    }
+    const QString interpreter = pythonInterpreter();
     python_->start(interpreter, {"-u", "-m", "kinetica.console"});
     if (python_->waitForStarted(3000)) return true;
     appendLog(log_, "<span style='color:#ff7b72'>✗ Python 3 не запустился: поставьте его (python.org, «Add to PATH»); строка — один вызов, как ed.scene_list()</span>");
