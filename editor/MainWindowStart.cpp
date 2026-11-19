@@ -106,7 +106,8 @@ void MainWindow::showFirstMinuteStep() {
                        "Это рука UR5e. Нажмите «Запись»: сцена оживёт, и всё, что сделает рука, запишется");
     } else if (hintStep_ == 1) {
         hint_->pointAt(createBar_->widgetForAction(stopAct_),
-                       QString("Ведите руку клавишами: W S A D — по полу, R F — вверх-вниз, Z X — поворот, пробел — схват. %1")
+                       QString("Ведите руку клавишами: W S A D — по полу, R F — вверх-вниз, Z X — поворот, пробел — схват. "
+                               "Проще: щёлкните кубик и «Рука — к этому предмету» справа, потом F, пробел, R. %1")
                            .arg(ops_->recording() ? "Хватит — «Стоп»" : "Записать — «Запись» рядом с «Пуском»"));
     } else if (hintStep_ == 2) {
         if (auto* dock = findChild<QDockWidget*>("sequencerDock")) dock->show(), dock->raise();

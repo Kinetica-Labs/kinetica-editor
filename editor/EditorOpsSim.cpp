@@ -262,8 +262,22 @@ void EditorOps::addNoteOp() {
 // menus, then tooltips - painted where they stand (a dialog left out once hid that it held the keyboard). Drawn by the
 // application, not read from the screen: the user's other programs on top are not in it (they were, and they are the
 // user's), and a monitor gone to sleep does not blind it.
-static QImage seenWindow(QWidget* window) {
+// The 3D view is put in again from its own framebuffer: a grab of the window leaves out what the view paints over its
+// picture (the scene's name, the clock, «Схват: держит», the navigation cube, the HUD) - a newcomer's trial saw none of
+// it - and the view's own child widgets (a bubble, a banner) go back on top of it.
+static QImage wholeWindow(QWidget* window) {
     QImage image = window->grab().toImage();
+    QPainter painter(&image);
+    if (auto* view = window->findChild<Viewport*>(); view && view->isVisible()) {
+        painter.drawImage(QRectF(view->mapTo(window, QPoint(0, 0)), QSizeF(view->size())), view->grabFramebuffer());
+        for (QWidget* child : view->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly))
+            if (child->isVisible()) painter.drawPixmap(child->mapTo(window, QPoint(0, 0)), child->grab());
+    }
+    return image;
+}
+
+static QImage seenWindow(QWidget* window) {
+    QImage image = wholeWindow(window);
     QPainter painter(&image);
     const QPoint corner = window->mapToGlobal(QPoint(0, 0));
     for (QWidget* w : uiWindowLayers(window)) painter.drawPixmap(uiWindowOrigin(w) - corner, w->grab());
@@ -288,7 +302,7 @@ void EditorOps::addViewOps() {
         const bool bannerShown = banner && banner->isVisible();
         if (clean) view_->setOverlayVisible(false);
         if (bannerShown) banner->hide();
-        QImage image = a.value("screen").toBool() ? seenWindow(window_) : a.value("window").toBool() ? window_->grab().toImage() : view_->grabFramebuffer();
+        QImage image = a.value("screen").toBool() ? seenWindow(window_) : a.value("window").toBool() ? wholeWindow(window_) : view_->grabFramebuffer();
         if (clean) view_->setOverlayVisible(true);
         if (bannerShown) banner->show();
         if (const int width = a.value("width").toInt(); width > 0 && width < image.width())

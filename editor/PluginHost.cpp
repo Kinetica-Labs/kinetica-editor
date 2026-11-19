@@ -16,6 +16,8 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QFileSystemWatcher>
+#include <QUrl>
+#include <QDesktopServices>
 #include <QFormLayout>
 #include <QJsonArray>
 #include <QHBoxLayout>
@@ -274,6 +276,8 @@ void PluginHost::unregister(Plugin& p) {
         delete c.action;
     }
     p.commands.clear();
+    delete p.menu;
+    p.menu = nullptr;
 }
 
 void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args, const EditorOps::Reply& reply) {
@@ -370,6 +374,7 @@ void PluginHost::invoke(const QString& plugin, const Command& c) {
     }
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
     buttons->button(QDialogButtonBox::Ok)->setText("Выполнить");
+    buttons->button(QDialogButtonBox::Cancel)->setText("Отмена"); // Qt's own word is English: one language in one dialog
     rows->addRow(buttons);
     connect(buttons, &QDialogButtonBox::accepted, &form, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &form, &QDialog::reject);
@@ -411,7 +416,16 @@ void PluginHost::addOps() {
             cmd.action->setObjectName("plugin:" + cmd.op);
             cmd.action->setToolTip(cmd.help.isEmpty() ? cmd.op : cmd.help);
             if (!cmd.key.isEmpty()) cmd.action->setShortcut(QKeySequence(cmd.key));
-            menu_->insertAction(commandsEnd_, cmd.action);
+            if (!p->menu) { // its own submenu: whose command it is, and its file a click away
+                p->menu = new QMenu(p->name, window_);
+                p->menu->setObjectName("pluginMenu:" + p->name);
+                menu_->insertMenu(commandsEnd_, p->menu);
+                p->menu->addSeparator();
+                QAction* open = p->menu->addAction("Открыть plugin.py");
+                open->setToolTip(p->file);
+                connect(open, &QAction::triggered, this, [file = p->file] { QDesktopServices::openUrl(QUrl::fromLocalFile(file)); });
+            }
+            p->menu->insertAction(p->menu->actions().value(p->menu->actions().size() - 2), cmd.action); // before its separator
             connect(cmd.action, &QAction::triggered, this, [this, plugin, op = cmd.op] {
                 if (Plugin* q = find(plugin))
                     for (const Command& x : q->commands)

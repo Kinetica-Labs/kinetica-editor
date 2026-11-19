@@ -303,12 +303,10 @@ void SceneBuilder::buildGeometryCard(QVBoxLayout* col) {
     for (int k = 0; k < 6; ++k) shape_->addItem(shapeIcon(ShapeKind(k), 20), shapeName(ShapeKind(k)));
     connect(shape_, &QComboBox::currentIndexChanged, this, &SceneBuilder::onDetailsEdited);
     f->addRow("Форма", shape_);
-    auto* goal = new QPushButton("Цель IK — рука тянется сюда");
-    goal->setObjectName("addGoal");
-    goal->setToolTip("Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
-                     "инверсная кинематика ведёт сочленения (во время игры — сервоприводами)");
-    connect(goal, &QPushButton::clicked, this, [this] { addGoalToSelected(); });
-    f->addRow(goal);
+    goalButton_ = new QPushButton("Цель IK — рука тянется сюда");
+    goalButton_->setObjectName("addGoal");
+    connect(goalButton_, &QPushButton::clicked, this, [this] { addGoalToSelected(); });
+    f->addRow(goalButton_);
     grip_ = new QPushButton;
     grip_->setObjectName("gripToggle");
     grip_->setToolTip("Пальцы схвата этой цели: сжать — каждый палец едет до упора в предмет и жмёт с силой 2 Н, "

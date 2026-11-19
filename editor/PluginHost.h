@@ -56,6 +56,7 @@ private:
     struct Plugin {
         QString name, file, token, state, error;
         QProcess* process = nullptr;
+        class QMenu* menu = nullptr; // «Плагины → <name>»: its commands and «Открыть plugin.py», while it runs
         std::vector<Command> commands;
         QStringList stderrTail;
         std::vector<std::pair<int, std::pair<QString, QJsonObject>>> queued; // calls waiting for the plugin to ask

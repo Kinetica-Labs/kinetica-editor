@@ -365,6 +365,14 @@ static bool handClosed(const SceneGraph& g, uint32_t hand, bool& fingers) {
 }
 
 void SceneBuilder::refreshIkView() {
+    // On an arm's link the button makes its IK goal; on any other thing, with an arm in the scene, it sends the arm there
+    // - a newcomer asked it to "reach here" for a cube and was told to pick an arm's link.
+    const bool reach = entityById(selectedId_) && ke::ikChain(graph_, selectedId_).empty() && goalNear(selectedId_) != 0;
+    goalButton_->setText(reach ? "Рука — к этому предмету" : "Цель IK — рука тянется сюда");
+    goalButton_->setToolTip(reach ? "Цель руки встаёт на 10 см над предметом, рука идёт к ней. Дальше: опустить — F, сомкнуть схват — пробел "
+                                    "(во время игры; в правке — кнопка «Схват: сжать» у цели)"
+                                  : "Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
+                                    "инверсная кинематика ведёт сочленения (во время игры — сервоприводами)");
     const Entity* goal = nullptr;
     for (const Entity& e : graph_.entities)
         if (e.id == selectedId_ && e.goalOf != 0 && selection_.size() == 1) goal = &e;
@@ -441,9 +449,38 @@ bool SceneBuilder::goalSelected() const {
     return !selection_.empty() && std::all_of(selection_.begin(), selection_.end(), goal);
 }
 
-// «Цель IK»: a see-through cube at the selected link's pose; dragging it drives the arm (followGoals).
+uint32_t SceneBuilder::goalNear(uint32_t object) const {
+    const ke::AABB box = ke::objectBounds(graph_, object);
+    uint32_t best = 0;
+    float nearest = std::numeric_limits<float>::infinity();
+    for (const Entity& e : graph_.entities) {
+        if (!e.goalOf) continue;
+        const float d = box.valid() ? ke::length(e.position - box.center()) : 0.0f;
+        if (d < nearest) nearest = d, best = e.id;
+    }
+    return best;
+}
+
+// «Цель IK»: a see-through cube at the selected link's pose; dragging it drives the arm (followGoals). On a thing that is no
+// arm's link: «Рука — к этому предмету» - the nearest IK goal 10 cm over the thing's top, its turn kept (assembly_goal_pose).
 void SceneBuilder::addGoalToSelected() {
     const uint32_t effector = selectedId_;
+    if (const uint32_t goal = goalNear(effector); entityById(effector) && ke::ikChain(graph_, effector).empty() && goal) {
+        const ke::AABB box = ke::objectBounds(graph_, effector);
+        if (!box.valid()) return;
+        const Vector3 over(box.center().x, box.hi.y + 0.10f, box.center().z);
+        Value args = Value::map(), answer = Value::map(), at = Value::list();
+        for (int k = 0; k < 3; ++k) at.push(over[k]);
+        args.set("goal", goal), args.set("position", at);
+        std::string error;
+        flushCode();
+        if (!transact([&](SceneGraph& g, std::string& e) { return ke::findSceneOp("assembly_goal_pose")->edit(g, args, answer, e); }, error))
+            return emit statusMessage("Рука: " + QString::fromStdString(error));
+        codeAction("assembly_goal_pose", QString("ed.assembly_goal_pose(goal=%1, position=[%2, %3, %4])").arg(goal).arg(over.x).arg(over.y).arg(over.z),
+                   {{"goal", int(goal)}, {"position", QJsonArray{over.x, over.y, over.z}}}, false);
+        return emit statusMessage("Рука идёт к «" + QString::fromStdString(entityById(effector)->name) +
+                                  "»: цель на 10 см над ним. Опустить — F, сомкнуть схват — пробел, поднять — R");
+    }
     if (!entityById(effector) || ke::ikChain(graph_, effector).empty()) return emit statusMessage("Цель IK: выберите последнее звено руки — то, что висит на сочленении");
     flushCode();
     remember();

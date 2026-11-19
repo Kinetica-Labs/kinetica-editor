@@ -242,6 +242,8 @@ public:
     void noteGoalSolves(const ke::SceneGraph& before);
     IkSolverView* ikView_ = nullptr;
     QPushButton* grip_ = nullptr; // «Схват: сжать / разжать» under an IK goal whose hand has fingers
+    QPushButton* goalButton_ = nullptr; // «Цель IK» on an arm's link; «Рука — к этому предмету» on a thing, an arm in the scene
+    uint32_t goalNear(uint32_t object) const; // the IK goal nearest the object (0: none in the scene)
     ke::IkResult lastIk_;      // the last solve a goal's drag made, of goal lastIkGoal_
     uint32_t lastIkGoal_ = 0;
     void followGoals(const std::vector<uint32_t>& moved);
