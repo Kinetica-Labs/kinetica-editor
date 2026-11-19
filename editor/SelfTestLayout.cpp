@@ -33,15 +33,20 @@ void testAreas(Checker& c, QMainWindow& w) {
     right->trigger();
     pump(150);
     c.check(open(w, "inspectorDock") && right->isChecked(), "pressed again, the inspector comes back");
-    auto* console = w.findChild<QDockWidget*>("consoleDock"); // open from the start beside the graphs: put away for this check
-    if (console) console->hide(), pump(100);
+    auto* console = w.findChild<QDockWidget*>("consoleDock"); // tabs of the bottom panel beside the graphs: put away for this check
+    auto* sequencer = w.findChild<QDockWidget*>("sequencerDock");
+    if (console) console->hide();
+    if (sequencer) sequencer->hide();
+    pump(100);
     const bool graphsBefore = open(w, "resultsDock");
     if (graphsBefore) bottom->trigger(), pump(150);
     bottom->trigger();
     pump(150);
     QAction* graphs = action(w, "actionGraphs");
     c.check(open(w, "resultsDock") && graphs && graphs->isChecked(), "an empty bottom panel opens the graphs (and F9 shows them on)");
-    if (console) console->show(), console->raise(), pump(100);
+    if (console) console->show();
+    if (sequencer) sequencer->show(), sequencer->raise();
+    pump(100);
     bottom->trigger();
     pump(150);
     c.check(!open(w, "resultsDock") && !graphs->isChecked(), "closed again, the graphs close and F9 is off");

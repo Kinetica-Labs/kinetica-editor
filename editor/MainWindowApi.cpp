@@ -44,11 +44,7 @@ void MainWindow::buildConsoleDock() {
     console->setApiPort([this] { return apiPort(); });
     dock->setWidget(console);
     addDockWidget(Qt::BottomDockWidgetArea, dock);
-    if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock);
-    QTimer::singleShot(0, dock, [dock] { // after the first layout: the console's tab in front of the graphs
-        dock->show();
-        dock->raise();
-    });
+    if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock); // a tab behind the Sequencer's
     if (auto* view = menuBar()->findChild<QMenu*>("viewMenu")) {
         QAction* show = view->addAction("Консоль API");
         show->setObjectName("actionApiConsole");

@@ -24,6 +24,7 @@
 #include <QMenu>
 #include <QMenuBar>
 #include <QShortcut>
+#include <QTimer>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -274,8 +275,10 @@ void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
     plots_->showObject(object > 0 ? watchLabel(object) : QString());
 }
 
-// The Sequencer, a tab of the bottom panel beside the plots and the console: it follows every change of the scene (an
-// edit, an undo, a call of the API) and the mode; I keys the selection anywhere in the window (a text field keeps it).
+// The Sequencer, a tab of the bottom panel beside the plots and the console, and the one in front from the start - a
+// timeline under the view is what Blender, Cinema 4D and Unreal open with; the API console is a tab behind it. It
+// follows every change of the scene (an edit, an undo, a call of the API) and the mode; I keys the selection anywhere in
+// the window (a text field keeps it).
 void MainWindow::buildSequencerDock() {
     auto* dock = new QDockWidget("Секвенсор", this);
     dock->setObjectName("sequencerDock");
@@ -283,6 +286,11 @@ void MainWindow::buildSequencerDock() {
     dock->setWidget(sequencer_);
     addDockWidget(Qt::BottomDockWidgetArea, dock);
     if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock);
+    QTimer::singleShot(0, dock, [this, dock] { // after the first layout: in front, low - the view keeps the height
+        dock->show();
+        dock->raise();
+        resizeDocks({dock}, {170}, Qt::Vertical);
+    });
     connect(builder_, &SceneBuilder::editSnapshot, sequencer_, [this] { sequencer_->sync(); });
     connect(builder_, &SceneBuilder::modeChanged, sequencer_, &SequencerPanel::sync);
     connect(builder_, &SceneBuilder::selectionChanged, sequencer_, &SequencerPanel::sync);

@@ -269,7 +269,7 @@ QMenu* MainWindow::buildEditContextMenu() {
     for (QAction* a : toolGroup_->actions()) menu->addAction(a); // the toolbar's own actions: one state
     menu->addSection("Система координат");
     auto* space = new QActionGroup(menu);
-    const struct { const char* text; bool local; } spaces[] = {{"Мировая (World)", false}, {"Локальная (Local)", true}};
+    const struct { const char* text; bool local; } spaces[] = {{"Глобальная (World)", false}, {"Локальная (Local)", true}};
     for (const auto& s : spaces) {
         QAction* a = menu->addAction(s.text);
         a->setCheckable(true);
@@ -358,15 +358,15 @@ void MainWindow::buildToolShelf() {
         connect(a, &QAction::triggered, this, [this, m] { setTool(m); });
     }
     tb->addSeparator();
-    localAct_ = tb->addAction("Мир");
+    localAct_ = tb->addAction("Глоб.");
     localAct_->setObjectName("toolLocal");
     localAct_->setCheckable(true);
     localAct_->setShortcut(Qt::Key_L);
-    localAct_->setToolTip("Оси гизмо (L): «Мир» — оси сцены, «Свои» — оси самого объекта");
+    localAct_->setToolTip("Оси гизмо (L): «Глоб.» — оси сцены, «Лок.» — оси самого объекта");
     connect(localAct_, &QAction::toggled, this, [this](bool on) {
         builder_->sayAction("gizmo_set", QString("editor.gizmo.local = %1").arg(on ? "True" : "False"), {{"local", on}});
         view_->gizmo().setLocal(on);
-        localAct_->setText(on ? "Свои" : "Мир");
+        localAct_->setText(on ? "Лок." : "Глоб."); // not «Мир»: that is the inspector's tab of the world's physics
         view_->update();
     });
     setTool(GizmoMode::Translate);
