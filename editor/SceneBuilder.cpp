@@ -122,7 +122,7 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     if (devicesText(graph_) != devicesText(simGraph_)) return reloadNeeded("Датчики, колёса, батареи и пульты меняют только перезапуском сцены");
     SceneGraph goalsAside = graph_, before = simGraph_; // the goals are handles: no body of the world
     for (SceneGraph* g : {&goalsAside, &before})
-        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return e.goalOf != 0; }), g->entities.end());
+        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }), g->entities.end());
     if (entitiesText(goalsAside) != entitiesText(before)) return reloadNeeded("Тела и коллайдеры меняют только перезапуском сцены");
     refreshLightsAndCameras();
     if (lightsText(graph_) != lightsText(simGraph_)) {
@@ -133,10 +133,10 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
         }, "lights");
     }
     std::vector<Entity> goals, goalsBefore; // made, moved or removed: the running world's marks and goal channels follow
-    for (const Entity& e : graph_.entities)
-        if (e.goalOf != 0) goals.push_back(e);
+    for (const Entity& e : graph_.entities) // the handles: IK goals and cameras' targets
+        if (isHandle(e)) goals.push_back(e);
     for (const Entity& e : simGraph_.entities)
-        if (e.goalOf != 0) goalsBefore.push_back(e);
+        if (isHandle(e)) goalsBefore.push_back(e);
     SceneGraph a, z;
     a.entities = goals, z.entities = goalsBefore;
     if (a.save() != z.save())

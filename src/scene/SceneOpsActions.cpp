@@ -167,7 +167,7 @@ bool roleOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     // An IK goal is intent, not matter (the observability contract, CLAUDE.md): a body or a collider would fall and push the arm.
     for (uint32_t id : entities)
         for (const Entity& x : g.entities)
-            if (on && x.id == id && x.goalOf != 0) return e = "«" + x.name + "» - цель ИК: намерение, а не тело, ролей у неё нет", false;
+            if (on && x.id == id && isHandle(x)) return e = "«" + x.name + "» - цель: намерение, а не тело, ролей у неё нет", false;
     const std::string note = setRoles(g, entities, role, on);
     merge(r, answerOf(named));
     if (!note.empty()) r.set("note", note);

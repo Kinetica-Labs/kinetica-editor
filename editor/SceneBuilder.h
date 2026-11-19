@@ -352,6 +352,7 @@ private:
     void buildLightActions();
     void buildLightCards(QVBoxLayout* col);
     void fillLightCards(const ke::SceneObject& o);
+    void aimSelectedCameras(); // the card's kind and target onto every selected camera: camera_aim, one undo step
     void addObjectDone(uint32_t id);            // select it, list it, show it
     void refreshLightsAndCameras();             // the wireframes and the view through a camera
     void refreshMarkers();
@@ -603,7 +604,8 @@ private:
     ke::Entity shapeDraft_; // the active shape's master, the rigid and collider cards' edits written here first
     // The "Свет" and "Камера" cards over every selected light or camera
     ComponentCard *lightCard_ = nullptr, *cameraCard_ = nullptr;
-    class FieldForm *lightFields_ = nullptr, *cameraFields_ = nullptr;
+    class FieldForm *lightFields_ = nullptr, *cameraFields_ = nullptr, *cameraAimFields_ = nullptr;
+    std::pair<double, double> cameraAim_{0, 0}; // the card's kind (0 free, 1 target) and target (0: its own cube)
     std::unordered_map<uint32_t, ke::Vector3> liveObjectPositions_; // in play, for a target camera looked through: its target's pose
     ke::Light lightDraft_;
     ke::Camera cameraDraft_;

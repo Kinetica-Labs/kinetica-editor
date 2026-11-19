@@ -268,7 +268,7 @@ bool RobotWorld::setJoints(PhysicsWorld& physics, const std::vector<JointObject>
 
 void RobotWorld::setGoals(const std::vector<Entity>& goals) {
     for (SceneGraph* g : {&graph_, &live_}) {
-        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return e.goalOf != 0; }),
+        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }),
                           g->entities.end());
         g->entities.insert(g->entities.end(), goals.begin(), goals.end());
     }
@@ -476,9 +476,9 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
         for (std::string* file : {&b.texture.file, &b.texture.heightFile}) // a relative picture: from the scene file's folder
             if (!file->empty() && !std::filesystem::u8path(*file).is_absolute() && !graph_.baseDirectory.empty())
                 *file = (std::filesystem::u8path(graph_.baseDirectory) / std::filesystem::u8path(*file)).u8string();
-        b.marker = source.goalOf != 0;
+        b.marker = isHandle(source);
         b.robot = robotOf_.count(source.id) > 0;
-        b.opacity = b.marker ? 0.1_r : 1;
+        b.opacity = source.goalOf ? 0.1_r : source.targetOf ? 0.35_r : 1;
         b.smooth = source.shape == ShapeKind::Sphere;
         if (b.body >= 0 && physics.alive(b.body)) {
             const BodyState s = physics.state(b.body);

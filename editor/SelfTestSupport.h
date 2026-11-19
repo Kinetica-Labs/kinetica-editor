@@ -63,6 +63,20 @@ inline QPointF toPoint(const ke::Vector2& p) { return QPointF(p.x, p.y); }
 
 // The whole window as it is on the screen: a widget grab draws the 3D view without its painted
 // overlay (the caption, the navigation cube, the selection box), so the view's own frame is laid over it.
+// A drag of the gizmo's X arrow from 60 % of its length by `metres` along X, with these keys held
+// from the press to the release (Shift: a clone; Ctrl: steps of 0.1 m, so the distance is exact).
+inline void dragArrowX(Viewport* v, float metres, Qt::KeyboardModifiers keys) {
+    const GizmoView gv = v->gizmoView();
+    const Gizmo& g = v->gizmo();
+    const ke::Vector3 grab = g.position() + g.axis(0) * (0.6f * g.armLength(gv));
+    const QPointF from = toPoint(gv.project(grab)), to = toPoint(gv.project(grab + ke::Vector3(metres, 0, 0)));
+    sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton, keys);
+    for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton, keys);
+    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton, keys);
+    pump(60);
+}
+
 inline QImage windowShot(QMainWindow& w) {
     QImage shot = w.grab().toImage();
     if (auto* v = w.findChild<Viewport*>()) {

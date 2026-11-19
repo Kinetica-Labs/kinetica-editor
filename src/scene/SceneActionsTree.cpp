@@ -101,6 +101,8 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids) {
     for (const ArrayObject& a : g.arrays)
         if (gone(a.id) || dead.count(a.templateId)) dead.insert(a.id);
     collect(g.lights), collect(g.cameras);
+    for (const Entity& e : g.entities) // a camera's own target goes with it
+        if (e.targetOf && dead.count(e.targetOf)) dead.insert(e.id);
     for (Entity& e : g.entities)
         if (!dead.count(e.id) && e.instanceOf != 0 && dead.count(masterOf(g, e.id))) e = resolveInstance(g, e), e.instanceOf = 0;
     for (const WheelObject& w : g.wheels)

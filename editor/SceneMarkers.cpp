@@ -84,11 +84,7 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
     case SceneMarker::Spot: spotLines(m, solid, faint); break;
     case SceneMarker::Camera:
         cameraLines(m, aspect, solid);
-        if (m.aimed) { // the line of sight to its target, and the target's cross
-            segment(faint, m.position, m.aim);
-            const float r = 0.06f;
-            for (const Vector3& d : {Vector3(r, 0, 0), Vector3(0, r, 0), Vector3(0, 0, r)}) segment(solid, m.aim - d, m.aim + d);
-        }
+        if (m.aimed) segment(faint, m.position, m.aim); // the line of sight to its target (the target is an object: drawn itself)
         break;
     }
 }

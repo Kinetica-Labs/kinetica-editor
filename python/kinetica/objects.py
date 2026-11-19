@@ -455,14 +455,13 @@ class Camera(SceneObject):
 
     @property
     def target(self):
-        """What a target camera looks at: the object, or the point (x, y, z); None for a free camera."""
+        """What a target camera looks at: an object - its own target cube (move it to aim) or another; None: free."""
         words = blocks.line(self.block(), "target")
-        if not words:
-            return None
-        return self.scene.objects[int(words[2])] if words[1] == "object" else tuple(float(w) for w in words[2:5])
+        return self.scene.objects[int(words[2])] if words else None
 
     def aim(self, at=None, point=None):
-        """A target camera: always looking at object `at` (wherever it goes) or at `point`; neither: where it looks now."""
+        """A target camera: always looking at object `at` (wherever it goes), else at its own target cube - put at
+        `point`, or where it looks now."""
         args, shown = {"camera": self.id}, []
         if at is not None:
             args["at"] = at.id

@@ -161,31 +161,24 @@ void SceneBuilder::buildLightCards(QVBoxLayout* col) {
     cameraCard_ = new ComponentCard("Камера", sceneIcon(SceneIcon::Camera, 22));
     cameraCard_->setObjectName("cameraCard");
     Camera* c = &cameraDraft_;
-    const auto aimed = [c] { return c->kind == CameraKind::Target; };
     cameraFields_ = new FieldForm([this](bool click) { commitSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); }, click); });
-    // Free or target (3ds Max's Free and Target cameras): turned one way or the other, it keeps looking where it looked.
-    cameraFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), "Свободная", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё"},
-                          {sceneIcon(SceneIcon::Camera, 26), "С целью", "Всегда смотрит на цель — объект или точку: двигаете камеру или цель, "
-                                                                      "она поворачивается за ней; в игре следит за телом"}}, 26,
-                         [c] { return double(int(c->kind)); }, [this, c](double k) {
-        if (CameraKind(int(k)) == c->kind) return;
-        Vector3 eye, forward, up;
-        cameraFrame(graph_, *c, eye, forward, up);
-        if (CameraKind(int(k)) == CameraKind::Target) c->target = 0, c->targetPoint = cameraTarget(graph_, *c);
-        else setWorldPose(graph_, *c, eye, lookTurn(eye, eye + forward));
-        c->kind = CameraKind(int(k));
-    }).name("cameraKind")
-        .choice("Цель", [this, c] {
-            std::vector<FieldForm::Option> out{{"точка", 0}};
+    // Free or target (3ds Max's Free and Target cameras), and what it looks at: its own target (a cube the gizmo moves) or
+    // another object. Not the draft's to edit: a target is an object of its own, made or removed - camera_aim does it.
+    cameraAimFields_ = new FieldForm([this](bool) { aimSelectedCameras(); });
+    cameraAimFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), "Свободная", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё"},
+                             {sceneIcon(SceneIcon::Camera, 26), "С целью", "Всегда смотрит на цель — свой кубик (двигайте его гизмо) или другой "
+                                                                         "объект; двигаете камеру или цель, она поворачивается за ней; в игре следит за телом"}}, 26,
+                            [this] { return cameraAim_.first; }, [this](double k) { cameraAim_.first = k; }).name("cameraKind")
+        .choice("Цель", [this] {
+            std::vector<FieldForm::Option> out{{"свой кубик-цель", 0}};
             for (const Entity& e : graph_.entities)
-                if (e.id != c->id) out.push_back({QString::fromStdString(e.name), double(e.id)});
+                if (!e.targetOf) out.push_back({QString::fromStdString(e.name), double(e.id)});
             return out;
-        }, [c] { return double(c->target); }, [this, c](double id) {
-            if (id == 0 && c->target) c->targetPoint = cameraTarget(graph_, *c); // from an object to its point: the view stays
-            c->target = uint32_t(id);
-        }).name("cameraTarget").shown(aimed).tip("На что смотрит камера: объект (за ним она следит и в игре) или точка")
-        .vector("Точка цели, м", -1000, 1000, 0.05, 3, c->targetPoint).shown([c] { return c->kind == CameraKind::Target && c->target == 0; })
-        .number("Угол обзора, °", 1, 170, 1, 1, c->fovDeg)
+        }, [this] { return cameraAim_.second; }, [this](double id) { cameraAim_.second = id; })
+        .name("cameraTarget").shown([this] { return cameraAim_.first == 1; })
+        .tip("На что смотрит камера: свой кубик-цель (выберите его и двигайте гизмо) или объект — за ним она следит и в игре");
+    cameraCard_->body()->addWidget(cameraAimFields_);
+    cameraFields_->number("Угол обзора, °", 1, 170, 1, 1, c->fovDeg)
         .number("Ближе не видит, м", 0.001, 10, 0.01, 3, c->nearClip)
         .number("Дальше не видит, м", 1, 100000, 10, 0, c->farClip);
     cameraCard_->body()->addWidget(cameraFields_);
@@ -201,10 +194,33 @@ void SceneBuilder::buildLightCards(QVBoxLayout* col) {
     col->addWidget(cameraCard_);
 }
 
+void SceneBuilder::aimSelectedCameras() {
+    if (filling_ || !cameraById(selectedId_)) return;
+    flushCode();
+    remember();
+    const bool target = cameraAim_.first == 1;
+    const uint32_t at = uint32_t(cameraAim_.second);
+    for (uint32_t id : selection_) {
+        if (!cameraById(id)) continue;
+        if (target) aimCamera(graph_, id, at, nullptr);
+        else freeCamera(graph_, id);
+        codeAction("camera_aim", target ? (at ? QString("ed.camera_aim(camera=%1, at=%2)").arg(id).arg(at) : QString("ed.camera_aim(camera=%1)").arg(id))
+                                        : QString("ed.camera_aim(camera=%1, free=True)").arg(id),
+                   target ? (at ? QJsonObject{{"camera", int(id)}, {"at", int(at)}} : QJsonObject{{"camera", int(id)}})
+                          : QJsonObject{{"camera", int(id)}, {"free", true}}, false);
+    }
+    afterCardEdit(selectedId_, true);
+}
+
 // The active light's or camera's values, "—" where the selected ones differ; the rows a kind has no use for are hidden.
 void SceneBuilder::fillLightCards(const SceneObject& o) {
     lightCard_->setVisible(lightById(o.id));
     cameraCard_->setVisible(cameraById(o.id));
+    if (const Camera* k = cameraById(o.id)) {
+        const Entity* t = k->kind == CameraKind::Target ? entityById(k->target) : nullptr;
+        cameraAim_ = {double(int(k->kind)), t && t->targetOf == k->id ? 0.0 : double(k->target)};
+        cameraAimFields_->fill();
+    }
     fillSelected(lightFields_, lightDraft_, [this](uint32_t id) { return lightById(id); });
     fillSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); });
     throughButton_->setChecked(cameraById(o.id) && throughId_ == o.id);

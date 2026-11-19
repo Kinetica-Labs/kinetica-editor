@@ -221,8 +221,7 @@ static void saveCamera(std::ostringstream& o, const Camera& c) {
     saveObjectHead(o, "camera", c);
     o << "  lens fov " << num(c.fovDeg) << " near " << num(c.nearClip) << " far " << num(c.farClip) << " active "
       << (c.active ? 1 : 0) << "\n";
-    if (c.kind == CameraKind::Target) // a free camera has no target line: older files read the same
-        o << "  target " << (c.target ? "object " + std::to_string(c.target) : "point " + vec(c.targetPoint)) << "\n";
+    if (c.kind == CameraKind::Target) o << "  target object " << c.target << "\n"; // a free camera has none: older files read the same
     o << "end\n";
 }
 
@@ -254,6 +253,7 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     o << " size " << vec(e.size) << " position " << vec(e.position)
       << " rotation " << vec(e.rotationDeg) << " color " << vec(e.color) << "\n";
     if (e.goalOf != 0) o << "  goal effector " << e.goalOf << "\n";
+    if (e.targetOf != 0) o << "  target camera " << e.targetOf << "\n";
     if (!e.path.empty()) {
         o << "  path speed " << num(e.pathSpeed) << " loop " << (e.pathLoop ? 1 : 0) << " smooth " << (e.pathSmooth ? 1 : 0);
         if (e.pathTurnLength != 0) o << " turn " << num(e.pathTurnLength); // written only when set: older files stay as they were
@@ -531,6 +531,10 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
         LineReader r(w, 2); // "shape <kind> key values ..."
         return readShape(r, e, w[1], bad);
     }
+    if (what == "target") { // "target camera <id>": a camera's own target
+        LineReader r(w, 1);
+        return (!r.done() && r.key() == "camera" && r.integer(e.targetOf) && r.done() && e.targetOf != 0) || fail(bad, what);
+    }
     if (what == "goal") { // "goal effector <id>"
         LineReader r(w, 1);
         return (!r.done() && r.key() == "effector" && r.integer(e.goalOf) && r.done() && e.goalOf != 0) || fail(bad, what);
@@ -626,7 +630,7 @@ static bool readCameraLine(const std::vector<std::string>& w, Camera& c, std::st
         LineReader r(w, 1);
         c.kind = CameraKind::Target;
         const std::string k = r.done() ? std::string() : r.key();
-        const bool ok = k == "object" ? r.integer(c.target) && c.target != 0 : k == "point" ? r.vector(c.targetPoint) : false;
+        const bool ok = k == "object" && r.integer(c.target);
         return ok && r.done() ? true : fail(bad, k.empty() ? "target" : k);
     }
     if (w[0] != "lens") return fail(bad, w[0]);

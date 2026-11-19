@@ -175,13 +175,31 @@ void testTargetCamera() {
     CHECK(aimed && follows && keeps, "a target camera does not keep looking at its cube");
     CHECK(file && freed, "a target camera's file, or set free it jumped: %s", error.c_str());
 
+    // Its own target: a cube at the point, a handle (no roles); moved, the camera turns after it; set free, the cube goes;
+    // the camera deleted, its cube goes with it.
+    const Vector3 spot(0.5_r, 0.2_r, 0.5_r);
+    const bool own = aimCamera(g, cam, 0, &spot) && looksAt(spot);
+    const auto ownCube = std::find_if(g.entities.begin(), g.entities.end(), [&](const Entity& e) { return e.targetOf == cam; });
+    const bool handle = ownCube != g.entities.end() && isHandle(*ownCube) && !ownCube->rigid.enabled && !ownCube->collider.enabled;
+    if (handle) ownCube->position = Vector3(2, 0.1_r, -1);
+    const bool turned = handle && looksAt(Vector3(2, 0.1_r, -1));
+    const size_t before = g.entities.size();
+    freeCamera(g, cam);
+    const bool cubeGone = g.entities.size() + 1 == before;
+    aimCamera(g, cam, 0, &spot);
+    deleteObjects(g, {cam});
+    const bool withCamera = std::none_of(g.entities.begin(), g.entities.end(), [&](const Entity& e) { return e.targetOf == cam; });
+    std::printf("  its own target: a cube at the point %s, a handle %s, moved and followed %s; set free the cube goes %s; with the camera %s\n",
+                own ? "yes" : "no", handle ? "yes" : "no", turned ? "yes" : "no", cubeGone ? "yes" : "no", withCamera ? "yes" : "no");
+    CHECK(own && handle && turned && cubeGone && withCamera, "a camera's own target cube");
+
     Value add = Value::map(), answer = Value::map(), at = Value::list(), aim = Value::map();
     add.set("kind", "target"), add.set("at", int(cube));
     const bool made = findSceneOp("scene_add_camera")->edit(g, add, answer, error) && g.cameras.back().kind == CameraKind::Target &&
                       g.cameras.back().target == cube;
     aim.set("camera", 999), aim.set("at", int(cube));
     const bool noCamera = !findSceneOp("camera_aim")->edit(g, aim, answer, error) && error.find("999") != std::string::npos;
-    aim.set("camera", int(cam)), aim.set("at", 777);
+    aim.set("camera", int(g.cameras.back().id)), aim.set("at", 777);
     const bool noObject = !findSceneOp("camera_aim")->edit(g, aim, answer, error) && error.find("777") != std::string::npos;
     CHECK(made && noCamera && noObject, "scene_add_camera kind target, or camera_aim's refusals: %s", error.c_str());
 }

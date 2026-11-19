@@ -286,13 +286,12 @@ Vector3 cameraTarget(const SceneGraph& g, const Camera& c, const std::function<b
     Vector3 eye;
     Quaternion rotation;
     worldPose(g, c, eye, rotation);
-    if (c.kind == CameraKind::Free) return eye + rotation.rotate(Vector3(0, 0, -2));
-    Vector3 at = c.targetPoint;
-    if (c.target && !(objectAt && objectAt(c.target, at)))
-        if (const SceneObject* o = findObject(g, c.target)) {
-            Quaternion turn;
-            worldPose(g, *o, at, turn);
-        }
+    Vector3 at = eye + rotation.rotate(Vector3(0, 0, -2));
+    if (c.kind == CameraKind::Free || !c.target || (objectAt && objectAt(c.target, at))) return at;
+    if (const SceneObject* o = findObject(g, c.target)) {
+        Quaternion turn;
+        worldPose(g, *o, at, turn);
+    }
     return at;
 }
 
