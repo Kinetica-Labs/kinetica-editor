@@ -44,6 +44,7 @@ void testSimBoxRestsOnFloor();
 void testSimServoHoldsAndDroops();
 void testSimDcMotorSpinsUp();
 void testSimBatteryDrivesMotor();
+void testSimActuatorHolds();
 void testSimChannels();
 void testSimGrab();
 void testSimDebugLayers();

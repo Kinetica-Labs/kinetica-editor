@@ -16,6 +16,7 @@
 #include "scene/Assembly.h"
 #include "scene/SceneEdits.h"
 
+#include <QMap>
 #include <QAction>
 #include <QActionGroup>
 #include <QJsonArray>
@@ -267,7 +268,11 @@ void MagnetController::connectPress(const Place& p) {
     const QJsonObject done = ops_->runNow("assembly_joint", {{"a", int(p.target)}, {"b", int(connectFrom_.target)}, {"type", type},
                                                              {"anchor", json(connectFrom_.point)}, {"axis", json(axis)}});
     connectFrom_ = Place();
-    emit statusMessage(done.value("ok").toBool() ? QString("Соединено: %1").arg(type) : "Соединить: " + done.value("error").toString());
+    static const QMap<QString, QString> words{{"hinge", "шарнир"}, {"weld", "сварка"}, {"slider", "ползун"}, {"ball", "шаровое"},
+                                              {"cylinder", "цилиндрическое"}, {"universal", "карданное"}, {"planar", "плоское"}};
+    const QString note = done.value("note").toString();
+    emit statusMessage(done.value("ok").toBool() ? "Соединено: " + words.value(type, type) + (note.isEmpty() ? QString() : ". " + note)
+                                                 : "Соединить: " + done.value("error").toString());
 }
 
 void MagnetController::openPie() {

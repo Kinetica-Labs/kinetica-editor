@@ -111,7 +111,8 @@ void Viewport::drawHud(QPainter& p) {
                                      : QString();
     const QString row1 = playing ? QString("кадр %1 мс · ").arg(fps > 0 ? 1000.0 / fps : 0.0, 0, 'f', 1) + gpu +
                                        QString("процессор %1 мс · физика %2 мс").arg(double(paintMs_), 0, 'f', 1).arg(double(snap_->stepMs), 0, 'f', 1)
-                                 : gpu + QString("процессор %1 мс · физика стоит (правка)").arg(double(paintMs_), 0, 'f', 1);
+                                 : gpu + QString("процессор %1 мс · физика стоит (%2)").arg(double(paintMs_), 0, 'f', 1)
+                                             .arg(snap_->time > 0 ? "пауза" : "правка"); // a paused world's frame has its time
     const QString speed = playing && realtime_ > 0 ? QString("×%1 реального времени · ").arg(realtime_, 0, 'f', 2) : QString();
     const QString row2 = speed + rendererWords(renderer_);
     const QFontMetrics fm(small); // the plate as wide as its words

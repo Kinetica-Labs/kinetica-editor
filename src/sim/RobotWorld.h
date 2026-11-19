@@ -127,6 +127,8 @@ public:
         bool spent = false;
     };
     bool powerReading(uint32_t id, PowerReading& out) const; // false: no such battery or driver in the running world
+    // Each IK goal's gripper as it reports itself (Frame::GripInfo): open, closing, holding, closed on nothing.
+    std::vector<Frame::GripInfo> grips(const PhysicsWorld& physics) const;
     void setDuties(const std::vector<DriverObject>& drivers); // the duties set while the world runs (a slider dragged)
 
 private:
@@ -146,6 +148,7 @@ private:
         Real speed = 0; // rad/s or m/s, a against b
     };
     JointAxis axisOf(const PhysicsWorld& physics, const LiveJoint& j) const;
+
     struct LivePack {
         uint32_t id = 0;
         Battery battery;
@@ -168,6 +171,7 @@ private:
         Real applied = -1; // grip: the share sent to the fingers last
     };
     std::vector<ControlLive> controls_;
+    std::unordered_set<uint32_t> handed_; // joints whose drive the panel set (grip, jog): an edit that leaves them keeps it
     void driveControllers(PhysicsWorld& physics, Real dt);
     void moveGoal(PhysicsWorld& physics, const ControllerAction& a, const Vector3& v, Real dt);
     void driveGrip(PhysicsWorld& physics, const ControllerAction& a, Real part);

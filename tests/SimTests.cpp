@@ -179,6 +179,41 @@ void testSimBatteryDrivesMotor() {
     CHECK(std::fabs(faster / double(m.voltage / m.constant) - 1) < 0.01, "a duty of 1 set while running gives U / K, not %f", faster);
 }
 
+// assembly_actuator - "join these two with a motor" - on two shapes that are geometry only, as a newcomer draws them:
+// a post and a rod beside it. The post becomes fixed, the rod a body; the hinge goes where they meet; the servo, tuned
+// to the rod, holds it level under gravity within a degree and turns it to a target when told.
+void testSimActuatorHolds() {
+    SceneGraph g;
+    Entity post, rod;
+    post.id = 1, post.name = "Стойка", post.size = {0.1_r, 1, 0.1_r}, post.position = {0, 0.5_r, 0};
+    rod.id = 2, rod.name = "Стержень", rod.size = {0.6_r, 0.04_r, 0.04_r}, rod.position = {0.35_r, 0.9_r, 0};
+    g.entities = {post, rod};
+    Value args = Value::map(), answer = Value::map(), axis = Value::list();
+    for (Real v : {0.0_r, 0.0_r, 1.0_r}) axis.push(v);
+    args.set("a", 2), args.set("b", 1), args.set("axis", axis);
+    std::string error;
+    const bool made = findSceneOp("assembly_actuator")->edit(g, args, answer, error);
+    const uint32_t joint = uint32_t(answer["id"].number());
+    CHECK(made && joint && answer["note"].text("").find("закреплено") != std::string::npos && g.entities[0].rigid.fixed && g.entities[1].rigid.enabled,
+          "the actuator made the post fixed and the rod a body: %s", error.c_str());
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 120; ++k) s.stepFrame();
+    Real x[6] = {};
+    s.robot()->jointCoordinates(*s.physics(), joint, x);
+    const int dof = mainFreedom(*findJoint(g, joint));
+    const double droop = std::fabs(double(x[dof])) * 180 / 3.141592653589793;
+    for (JointObject& j : g.joints) j.dof[dof].drive.target = 0.5_r;
+    s.robot()->setJoints(*s.physics(), g.joints);
+    for (int k = 0; k < 180; ++k) s.stepFrame();
+    Real turned[6] = {};
+    s.robot()->jointCoordinates(*s.physics(), joint, turned);
+    std::printf("  a rod on its post, the servo tuned by the actuator (k %.1f, c %.2f): droop %.3f deg; target 0.5 rad -> %.4f rad\n",
+                answer["stiffness"].number(), answer["damping"].number(), droop, double(turned[dof]));
+    CHECK(droop < 1.2, "the tuned servo holds the rod within a degree: %f", droop);
+    CHECK(std::fabs(double(turned[dof]) - 0.5) < 0.03, "told 0.5 rad, it turns there: %f", double(turned[dof]));
+}
+
 // The channels the plots draw, against the engine's own numbers. A box falling free from rest keeps its
 // mechanical energy (the potential turns into motion, m g h = m v^2 / 2, within the integrator's error)
 // and reads its height and speed; resting, its contacts carry its weight. The servo's joint reads the
@@ -727,4 +762,15 @@ void testSimController() {
     CHECK(set && std::fabs(goal1.x - goal0.x - 0.15_r) < 1e-3_r, "the panel's move takes the goal 0.15 m in 1 s");
     CHECK(std::fabs(hand1.x - hand0.x - 0.15_r) < 0.01_r, "the hand follows its goal: %f m", double(hand1.x - hand0.x));
     CHECK(finger && std::fabs(closed[dof] - open[dof]) > 0.005_r && refused, "grip closes the fingers; an unknown action is refused");
+    // Closed in the air, the gripper says it holds nothing (its fingers reached their target); an edit of the scene made
+    // while it plays (the joints as authored, as the window sends them) leaves the panel's grip as it was.
+    const std::vector<Frame::GripInfo> said = s.robot()->grips(*s.physics());
+    CHECK(said.size() == 1 && said[0].goal == goalId && said[0].state == Frame::GripState::Empty,
+          "closed on nothing, the gripper reports empty (%d)", said.empty() ? -1 : int(said[0].state));
+    CHECK(s.robot()->setJoints(*s.physics(), g.joints), "the authored joints are taken while playing");
+    for (int k = 0; k < 30; ++k) s.stepFrame();
+    Real kept[6] = {};
+    s.robot()->jointCoordinates(*s.physics(), finger, kept);
+    CHECK(std::fabs(kept[dof] - closed[dof]) < 0.002_r, "an edit made while playing kept the panel's grip: the finger at %f, closed %f",
+          double(kept[dof]), double(closed[dof]));
 }

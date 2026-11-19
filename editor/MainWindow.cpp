@@ -29,6 +29,7 @@
 #include <QPainter>
 #include <QProcess>
 #include <QScrollArea>
+#include <QDir>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
@@ -468,7 +469,11 @@ void MainWindow::connectSceneBuilder() {
 
 void MainWindow::buildSceneMenu() {
     auto* menu = new QMenu("С&цена", this);
-    menu->addAction("Новая пустая сцена", QKeySequence::New, this, [this] { builder_->newScene(); });
+    menu->addAction("Новая пустая сцена", QKeySequence::New, this, [this] {
+        const size_t before = builder_->undoSteps();
+        builder_->newScene();
+        if (builder_->undoSteps() > before) statusBar()->showMessage("Новая сцена. Прежняя не потеряна: Ctrl+Z вернёт её", 10000);
+    });
     menu->addAction("Открыть…", QKeySequence::Open, this, [this] {
         const QString path = QFileDialog::getOpenFileName(this, "Открыть сцену", examplesDir(), "Сцена Kinetica (*.kscene)");
         if (path.isEmpty()) return;
@@ -479,7 +484,8 @@ void MainWindow::buildSceneMenu() {
         const QString path = QFileDialog::getSaveFileName(this, "Сохранить сцену", examplesDir(), "Сцена Kinetica (*.kscene)");
         if (path.isEmpty()) return;
         QString error;
-        if (!builder_->saveFile(path, error)) QMessageBox::warning(this, "Сохранить сцену", error);
+        if (!builder_->saveFile(path, error)) return void(QMessageBox::warning(this, "Сохранить сцену", error));
+        statusBar()->showMessage("Сохранено: " + QDir::toNativeSeparators(path), 8000);
     });
     auto* file = menuBar()->findChild<QMenu*>("fileMenu");
     const char* names[] = {"sceneNew", "sceneOpen", "sceneSave"};

@@ -56,7 +56,14 @@ void MainWindow::buildPlugins() {
     make->setToolTip("Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится");
     connect(make, &QAction::triggered, this, [this] {
         bool given = false;
-        const QString name = QInputDialog::getText(this, "Новый плагин", "Имя (латиница, цифры, _):", QLineEdit::Normal, "my_plugin", &given);
+        QInputDialog ask(this); // its buttons in the window's language: Qt's own say Cancel / OK
+        ask.setWindowTitle("Новый плагин");
+        ask.setLabelText("Имя плагина (латиница, цифры, _) — команды его будут называться так:");
+        ask.setTextValue("my_plugin");
+        ask.setOkButtonText("Создать");
+        ask.setCancelButtonText("Отмена");
+        given = ask.exec() == QDialog::Accepted;
+        const QString name = ask.textValue();
         if (!given) return;
         ops_->run("plugin_new", {{"name", name}}, [this](const QJsonObject& r) {
             if (!r.value("ok").toBool()) return statusBar()->showMessage(r.value("error").toString(), 10000);

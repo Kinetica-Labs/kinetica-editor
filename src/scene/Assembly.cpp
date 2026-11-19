@@ -158,20 +158,24 @@ uint32_t addJoint(SceneGraph& g, JointType type, uint32_t a, uint32_t b, const V
     setJointKind(j, type);
     j.a = a;
     j.b = b;
+    placeJoint(g, j, worldAnchor, worldAxis);
+    g.joints.push_back(j);
+    return j.id;
+}
+
+void placeJoint(const SceneGraph& g, JointObject& j, const Vector3& worldAnchor, const Vector3& worldAxis) {
     const Vector3 x = normalize(worldAxis), y = normalize(anyPerpendicular(x)), z = cross(x, y);
     Matrix3x3 basis;
     for (int r = 0; r < 3; ++r) basis.m[r][0] = x[r], basis.m[r][1] = y[r], basis.m[r][2] = z[r];
     const Quaternion Q = Quaternion::fromMatrix3x3(basis).normalized();
     Vector3 pa, pb;
     Quaternion qa, qb;
-    poseOf(g, a, pa, qa);
-    poseOf(g, b, pb, qb);
+    poseOf(g, j.a, pa, qa);
+    poseOf(g, j.b, pb, qb);
     j.anchorA = qa.conjugate().rotate(worldAnchor - pa);
     j.anchorB = qb.conjugate().rotate(worldAnchor - pb);
     j.frameA = eulerDegrees((qa.conjugate() * Q).normalized());
     j.frameB = eulerDegrees((qb.conjugate() * Q).normalized());
-    g.joints.push_back(j);
-    return j.id;
 }
 
 const JointObject* findJoint(const SceneGraph& g, uint32_t id) {

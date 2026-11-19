@@ -64,6 +64,16 @@ struct Frame {
     };
     std::vector<LightInfo> lights;
 
+    // A gripper on an IK goal's effector as the gripper itself reports it (Robotiq's gOBJ: from its fingers' own
+    // travel, not from the physics' contacts): open, closing, holding - its fingers stopped short of closed, so
+    // something is between them - or closed on nothing.
+    enum class GripState { Open, Closing, Holding, Empty };
+    struct GripInfo {
+        uint32_t goal = 0;
+        GripState state = GripState::Open;
+        Real gap = 0; // how far its fingers stand from closed [m]
+    };
+    std::vector<GripInfo> grips;
     std::vector<std::pair<std::string, std::string>> info; // name, value: what the scene says about itself
     Probe::Snapshot probe;
     std::vector<Measurement> measurements; // the channels the simulation was asked to measure (Channels.h)

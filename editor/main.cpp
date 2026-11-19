@@ -11,6 +11,8 @@
 #include "core/Probe.h"
 
 #include <QApplication>
+#include <QDoubleSpinBox>
+#include <QKeyEvent>
 #include <QIcon>
 #include <QDir>
 #include <QAction>
@@ -234,6 +236,25 @@ struct Options {
 //     soon as it moves onto one (a tooltip placed again, a popup that places itself);
 //   - an open popup (a menu, a combo box's list) holds no grab of the desktop's pointer and keyboard:
 //     see withoutDesktopGrab.
+// A number typed with either decimal mark. Qt's number fields take only the locale's - ',' on a Russian desktop - and a
+// '.' vanished without a word: "0.1" became 1 (a newcomer's trial). The other mark becomes the field's own on its way in.
+class DecimalMarks : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject* to, QEvent* e) override {
+        if (e->type() != QEvent::KeyPress) return false;
+        auto* box = qobject_cast<QDoubleSpinBox*>(to);
+        if (!box && to->parent()) box = qobject_cast<QDoubleSpinBox*>(to->parent()); // its line edit
+        if (!box) return false;
+        const auto* key = static_cast<QKeyEvent*>(e);
+        const QString mark = box->locale().decimalPoint(), other = mark == "," ? "." : ",";
+        if (key->text() != other) return false;
+        QKeyEvent own(QEvent::KeyPress, mark == "," ? Qt::Key_Comma : Qt::Key_Period, key->modifiers(), mark);
+        QCoreApplication::sendEvent(to, &own);
+        return true;
+    }
+};
+
 class OffscreenGuard : public QObject {
 public:
     using QObject::QObject;
@@ -329,6 +350,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", qPrintable(slotError));
         return 3;
     }
+    app.installEventFilter(new DecimalMarks(&app));
     MainWindow w;
     const QStringList wh = cli.value(o.size).split('x');
     w.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1600, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 950);

@@ -315,6 +315,7 @@ private:
     void drawLabMarker(class QPainter& p);     // ViewportLab.cpp
     void drawColliderGuides(const QMatrix4x4& vp);
     void drawPaths(const QMatrix4x4& vp);
+    void drawGoalDrops(const QMatrix4x4& vp); // a plumb line from each IK goal to what is under it
     static constexpr size_t kContactDotsMost = 3000; // more contacts than this: no dots
     void countFrame(qint64 paintNs);
     void recordFrameInterval();

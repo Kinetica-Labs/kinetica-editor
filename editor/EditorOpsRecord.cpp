@@ -42,18 +42,18 @@ void EditorOps::addRecordOp() {
         if (on == recording_) return reply(error(on ? "already recording" : "not recording"));
         if (on) {
             if (builder_->mode() != SceneBuilder::Mode::Playing) builder_->play();
-            recording_ = true;
+            setRecording(true);
             ctrl_->post([](ke::Simulation& s) { s.startRecording(); }, "record"); // after the load play posted
             if (refresh_) refresh_();
             return reply(ok({{"recording", true}}));
         }
-        recording_ = false;
+        setRecording(false);
         if (!builder_->editing()) builder_->stop(); // the load of Stop keeps the take (Simulation::takeRecording)
         finishTake(reply);
     });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { // ■ Stop pressed while recording
         if (!recording_ || !builder_->editing()) return;
-        recording_ = false;
+        setRecording(false);
         finishTake(nullptr);
     });
 }

@@ -44,6 +44,8 @@ Vector3 snapAxis(const FaceSnap& s, int axis);
 // A joint between two entities (b = 0: the world) at a world point along a world direction - written
 // into b's frame (JointObject). Returns its id.
 uint32_t addJoint(SceneGraph& g, JointType type, uint32_t a, uint32_t b, const Vector3& worldAnchor, const Vector3& worldAxis);
+// A joint put anew at a world point along a world axis, its links where they stand (the card's «Ось» and «Точка оси»).
+void placeJoint(const SceneGraph& g, JointObject& j, const Vector3& worldAnchor, const Vector3& worldAxis);
 const JointObject* findJoint(const SceneGraph& g, uint32_t id);
 // The joints that hold the entity (as a or b) go, as when the entity is deleted. Returns how many.
 int removeJointsOf(SceneGraph& g, uint32_t entity);

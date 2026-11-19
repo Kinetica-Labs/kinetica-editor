@@ -78,7 +78,7 @@ void MainWindow::buildEditMenu() {
         else if (!builder_->editing()) builder_->stop();
         else builder_->select(0);
     });
-    buildViewKeys(menu);
+    buildViewKeys(menuBar()->findChild<QMenu*>("viewMenu")); // where a person looks for "from above": the View menu
 }
 
 // What works on many objects at once: a group, an array, an instance's link. For the context menu.

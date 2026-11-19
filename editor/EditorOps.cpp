@@ -12,6 +12,7 @@
 #include "scene/Assembly.h"
 #include "scene/SceneEdits.h"
 
+#include <QFileInfo>
 #include <QJsonArray>
 #include <QRegularExpression>
 
@@ -130,7 +131,7 @@ void EditorOps::addSceneOps() {
     });
     addSync("scene_save", "The scene saved to a file", "{file: str}", [this](const QJsonObject& a) {
         QString err;
-        return builder_->saveFile(a.value("file").toString(), err) ? ok() : error(err);
+        return builder_->saveFile(a.value("file").toString(), err) ? ok({{"file", QFileInfo(a.value("file").toString()).absoluteFilePath()}}) : error(err);
     });
     addSync("scene_new", "A new scene: the floor and nothing else", "{}", [this](const QJsonObject&) {
         builder_->newScene();

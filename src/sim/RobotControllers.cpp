@@ -101,6 +101,7 @@ void RobotWorld::driveGrip(PhysicsWorld& physics, const ControllerAction& a, Rea
         d.enabled = true;
         d.target = j.dof[dof].lower + part * (j.dof[dof].upper - j.dof[dof].lower);
         d.maxForce = part > 0 ? a.speed : kOpenForce;
+        handed_.insert(j.id);
         for (LiveJoint& live : joints_)
             if (live.spec.id == j.id) setDrive(physics, live, j);
     }
@@ -115,6 +116,7 @@ void RobotWorld::jogJoint(PhysicsWorld& physics, const ControllerAction& a, Real
         Real& target = j.dof[a.dof].drive.target;
         target += v * perSecond * dt;
         if (j.dof[a.dof].motion == JointMotion::Limited) target = std::clamp(target, j.dof[a.dof].lower, j.dof[a.dof].upper);
+        handed_.insert(j.id);
         for (LiveJoint& live : joints_)
             if (live.spec.id == j.id) setDrive(physics, live, j);
     }

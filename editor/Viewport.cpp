@@ -646,6 +646,7 @@ void Viewport::drawOverlays3D(const QMatrix4x4& vp) {
     drawHighlight(vp);
     drawColliderGuides(vp);
     drawPaths(vp);
+    drawGoalDrops(vp);
     drawSceneMarkers(vp);
     drawGhosts(vp);
     drawGizmo(vp);
@@ -690,6 +691,20 @@ void Viewport::drawOverlay() {
     const double time = double(snap_->time);
     if (editMode_ && createMode_) p.drawText(14, 42, createTool_.hint(createWhat_)); // what the next click does
     else if (!editMode_) p.drawText(14, 42, QString("t = %1 с").arg(time, 0, 'f', 2));
+    if (!snap_->grips.empty()) { // the gripper as it reports itself, playing or paused (an edited scene's frame has none)
+        using S = ke::Frame::GripState;
+        const ke::Frame::GripInfo& g = snap_->grips.front();
+        const QString text = g.state == S::Holding ? "Схват: держит ✓" : g.state == S::Empty ? "Схват: сомкнут — пусто, промах"
+                           : g.state == S::Closing ? "Схват: смыкается…" : "Схват: открыт (пробел — сомкнуть)";
+        const QColor colour = g.state == S::Holding ? QColor(110, 220, 120) : g.state == S::Empty ? QColor(255, 160, 80) : QColor(170, 176, 188);
+        f.setBold(g.state == S::Holding || g.state == S::Empty);
+        p.setFont(f);
+        p.setPen(colour);
+        p.drawText(14, 60, text);
+        f.setBold(false);
+        p.setFont(f);
+        p.setPen(QColor(170, 176, 188));
+    }
     drawAxesAndHints(p);
     drawOrbitPivot(p);
     drawContactDots(p);
@@ -746,6 +761,38 @@ void Viewport::drawColliderGuides(const QMatrix4x4& vp) {
         glDepthFunc(GL_LEQUAL);
         drawLines(guidesByState_[state], GL_LINES, vp, colours[state]);
     }
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
+// Where a goal stands over the world - the depth a picture does not show: a plumb line from each IK goal down to what is
+// under it (a cube's top, the table, the floor; not the robot's own links) and a cross there, over everything, faint where
+// hidden. A newcomer moving the UR5e's goal with W A S D missed a cube five times running: on the screen the hand was
+// over it, in the world beside it.
+void Viewport::drawGoalDrops(const QMatrix4x4& vp) {
+    if (!snap_) return;
+    std::vector<float> lines;
+    for (const ke::Frame::Body& goal : snap_->bodies) {
+        if (!goal.marker) continue;
+        const Ray down{goal.pos, Vector3(0, -1, 0)};
+        float ground = goal.pos.y - snap_->domain.lo.y, t;
+        for (const ke::Frame::Body& b : snap_->bodies)
+            if (!b.marker && !b.robot && rayBody(b, down, t) && t > 0 && t < ground) ground = t;
+        const Vector3 at = down.at(ground);
+        const float r = 0.03f;
+        for (const Vector3& p : {goal.pos, at, at - Vector3(r, 0, 0), at + Vector3(r, 0, 0), at - Vector3(0, 0, r), at + Vector3(0, 0, r)})
+            lines.insert(lines.end(), {p.x, p.y, p.z, 0.0f}); // the line shader's vertex: x y z and a spare
+    }
+    if (lines.empty()) return;
+    const QVector4D colour(1.0f, 0.85f, 0.25f, 0.9f), faint(1.0f, 0.85f, 0.25f, 0.3f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    glDepthFunc(GL_GREATER);
+    drawLines(lines, GL_LINES, vp, faint);
+    glDepthFunc(GL_LEQUAL);
+    drawLines(lines, GL_LINES, vp, colour);
     glDepthFunc(GL_LESS);
     glDepthMask(GL_TRUE);
     glDisable(GL_BLEND);

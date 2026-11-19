@@ -100,6 +100,33 @@ void SceneBuilder::buildJointCard(QVBoxLayout* body) {
     };
     const auto when = [kind](std::vector<int> kinds) { return [=] { return std::count(kinds.begin(), kinds.end(), kind()) > 0; }; };
     jointFields_ = new FieldForm([this](bool click) { commitDraft(jointById(selectedId_), jointDraft_, click); });
+    // Where the joint is and which way its axis points, in the world: a click that set it in the wrong place is mended
+    // here (a newcomer's pendulum turned through its post, with nowhere to move the axis).
+    const auto frame = [this](Vector3& at, Vector3& axis) { jointWorldFrame(graph_, jointDraft_, at, axis); };
+    jointFields_->choice("Ось", {"X мира", "Y мира (вертикаль)", "Z мира", "своя"}, [=] {
+        Vector3 at, axis;
+        frame(at, axis);
+        for (int k = 0; k < 3; ++k)
+            if (std::fabs(std::fabs(axis[k]) - 1) < 1e-3f) return double(k);
+        return 3.0;
+    }, [=](double k) {
+        if (k > 2) return;
+        Vector3 at, axis, along(0.0f);
+        frame(at, axis);
+        along[int(k)] = 1;
+        placeJoint(graph_, jointDraft_, at, along);
+    }).name("jointAxis").shown(free).tip("Ось поворота шарнира или хода ползуна в мире; звенья остаются где стоят");
+    for (int k = 0; k < 3; ++k)
+        jointFields_->number(QString("Точка оси %1").arg(QChar('X' + k)), -1e4, 1e4, 0.01, 3, [=] {
+            Vector3 at, axis;
+            frame(at, axis);
+            return double(at[k]);
+        }, [=](double v) {
+            Vector3 at, axis;
+            frame(at, axis);
+            at[k] = Real(v);
+            placeJoint(graph_, jointDraft_, at, axis);
+        }).unit([] { return FieldForm::Unit{" м"}; }).name(QString("jointAnchor%1").arg(QChar('X' + k))).tip("Где на звеньях стоит ось сочленения, в мире");
     jointFields_->toggle("Предел", [=] { return f().motion == JointMotion::Limited; }, [=](double on) { f().motion = on ? JointMotion::Limited : JointMotion::Free; })
         .shown(free).tip("Ограничить ход: звено упирается, как у настоящего робота по паспорту");
     for (Real JointFreedom::*end : {&JointFreedom::lower, &JointFreedom::upper})

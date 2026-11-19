@@ -7,6 +7,7 @@
 
 #include "scene/Assembly.h"
 #include "scene/CameraHousing.h"
+#include "scene/SceneActions.h"
 #include "scene/SensorSpec.h"
 #include "core/Format.h"
 #include "core/Units.h"
@@ -218,6 +219,78 @@ bool driveOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     return true;
 }
 
+// A joint holds bodies: a shape that is geometry only becomes one - a, the moving link, rigid; b, what it hangs on,
+// rigid and fixed. The words for the answer's note (empty: both were bodies already).
+std::string bodiesForJoint(SceneGraph& g, uint32_t a, uint32_t b) {
+    std::string made;
+    for (Entity& x : g.entities) {
+        if ((x.id != a && x.id != b) || x.id == 0 || x.rigid.enabled) continue;
+        x.rigid.enabled = x.collider.enabled = true;
+        x.rigid.fixed = x.id == b;
+        made += std::string(made.empty() ? "" : ", ") + "«" + x.name + "» " + (x.rigid.fixed ? "твёрдое и закреплено" : "твёрдое");
+    }
+    return made.empty() ? made : "Сочленению нужны тела: " + made;
+}
+
+// assembly_actuator: a hinge or a slider with a servo tuned to what it carries, put where the two meet - what a person
+// means by "join these two with a motor". The anchor: given, else between the two boxes' nearest points (the link's
+// centre on the world). The servo holds the pose it is made in (target 0) and droops under gravity by a degree at most
+// (a turn: k = m g d / 0.0175 rad, d the link's centre off the axis; a travel: 2 mm, k = m g / 0.002), critically damped
+// (c = 2 sqrt(k I), I the link's inertia about the axis, m along a travel).
+bool actuatorOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    const std::string kind = a["kind"].text("rotary");
+    if (kind != "rotary" && kind != "linear") return e = "kind is rotary (a turn) or linear (a travel)", false;
+    const uint32_t ea = uint32_t(a["a"].integer()), eb = uint32_t(a["b"].integer(0));
+    const Entity* link = findEntity(g, ea);
+    if (!link || (eb != 0 && !findObject(g, eb))) return e = "a is the moving shape, b what it hangs on (0 or none: the world)", false;
+    Vector3 axis(1, 0, 0), anchor;
+    if (a.has("axis") && !vectorArg(a, "axis", axis)) return e = "axis is a direction [x, y, z]", false;
+    if (!(length(axis) > 0)) return e = "axis is a direction [x, y, z], not zero", false;
+    axis = normalize(axis);
+    const AABB boxA = objectBounds(g, ea);
+    if (a.has("anchor")) {
+        if (!vectorArg(a, "anchor", anchor)) return e = "anchor is a world point [x, y, z]", false;
+    } else if (eb != 0 && boxA.valid() && objectBounds(g, eb).valid()) {
+        const AABB boxB = objectBounds(g, eb);
+        auto nearest = [](const AABB& box, const Vector3& p) {
+            return Vector3(std::clamp(p.x, box.lo.x, box.hi.x), std::clamp(p.y, box.lo.y, box.hi.y), std::clamp(p.z, box.lo.z, box.hi.z));
+        };
+        anchor = (nearest(boxA, boxB.center()) + nearest(boxB, boxA.center())) * 0.5_r;
+    } else {
+        anchor = boxA.valid() ? boxA.center() : link->position;
+    }
+    const std::string note = bodiesForJoint(g, ea, eb);
+    const bool rotary = kind == "rotary";
+    const uint32_t id = addJoint(g, rotary ? JointType::Hinge : JointType::Slider, ea, eb, anchor, axis);
+    JointObject* j = nullptr;
+    for (JointObject& x : g.joints)
+        if (x.id == id) j = &x;
+    const int dof = j ? mainFreedom(*j) : -1;
+    if (dof < 0) return e = "the joint has no free motion to drive", false;
+    link = findEntity(g, ea);
+    static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 1.0_r}; // box, sphere, cylinder, cone, plane, mesh
+    const Real mass = std::max(link->rigid.density * share[int(link->shape)] * link->size.x * link->size.y * link->size.z, 0.01_r);
+    const Vector3 centre = boxA.valid() ? boxA.center() : link->position, off = centre - anchor;
+    const Real d = std::max(length(off - axis * dot(off, axis)), 0.05_r), reach = maxComp(link->size);
+    JointDrive& drive = j->dof[dof].drive;
+    drive.enabled = true, drive.target = 0, drive.targetVelocity = 0, drive.constant = 0;
+    const Real gravity = std::max(length(g.world.gravity), 1.0_r);
+    if (rotary) {
+        const Real inertia = mass * (d * d + reach * reach / 12);
+        drive.stiffness = std::max(mass * gravity * d / 0.0175_r, 10.0_r);
+        drive.damping = 2 * std::sqrt(drive.stiffness * inertia);
+    } else {
+        drive.stiffness = std::max(mass * gravity / 0.002_r, 100.0_r);
+        drive.damping = 2 * std::sqrt(drive.stiffness * mass);
+    }
+    r.set("id", id), r.set("joint", id), r.set("name", j->name);
+    Value at = Value::list();
+    for (int k = 0; k < 3; ++k) at.push(anchor[k]);
+    r.set("anchor", at), r.set("stiffness", drive.stiffness), r.set("damping", drive.damping);
+    if (!note.empty()) r.set("note", note);
+    return true;
+}
+
 SceneOp driveSceneOp() {
     return {"assembly_drive", "A drive on a joint's freedom (none: its main one - a hinge's turn, a slider's travel), its output a "
                    "generalised force the robot's own code puts on the joint: servo (stiffness > 0, damping, target, velocity, force), velocity motor "
@@ -413,7 +486,9 @@ std::vector<SceneOp> assemblySceneOps() {
         setKind(g, done.joint, a["joint"]);
         return r.set("entity", done.entity), r.set("joint", done.joint), true;
     }});
-    ops.push_back({"assembly_joint", "A joint between two shapes (b 0: the world) at a world point along a world direction",
+    ops.push_back({"assembly_joint", "A joint between two shapes (b 0: the world) at a world point along a world direction. A shape that "
+                                     "is geometry only becomes a body - a, the moving link, rigid; b, what it hangs on, rigid and fixed - "
+                                     "since a joint holds bodies; the answer's note says which",
                    "{a: int, b: int, type?: 'hinge'|'weld'|'slider'|'ball'|'cylinder'|'universal'|'planar', anchor: [x,y,z], axis?: [x,y,z]}",
                    {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         Vector3 anchor, axis(0, 1, 0);
@@ -423,8 +498,14 @@ std::vector<SceneOp> assemblySceneOps() {
         vectorArg(a, "axis", axis);
         const uint32_t joint = addJoint(g, JointType::Hinge, ea, eb, anchor, axis);
         setKind(g, joint, a["type"]);
+        if (const std::string note = bodiesForJoint(g, ea, eb); !note.empty()) r.set("note", note); // geometry alone is never built
         return r.set("joint", joint), true;
     }});
+    ops.push_back({"assembly_actuator", "Join two shapes with a motor in one step: a hinge (rotary) or a slider (linear) along a world "
+                                        "axis, put where they meet (anchor: else between their nearest points), with a servo tuned to "
+                                        "what it carries - it holds the pose it is made in, drooping a degree at most, critically damped. "
+                                        "Then assembly_drive target turns or slides it. Geometry alone becomes a body (the note says)",
+                   "{kind?: rotary|linear, a: int, b?: int, axis?: [x,y,z], anchor?: [x,y,z]}", {}, actuatorOp});
     ops.push_back({"assembly_sensor", "A sensor put on a thing, no shape of its own: on a face of a shape a sonar looks out of it (x along the "
                                       "normal), an IMU lies flat on it (z out), a touch pad reads the contacts' normal force through it, a stereo "
                                       "camera looks out of it (its two lenses across the face; sensor_capture takes its frame); on a joint "

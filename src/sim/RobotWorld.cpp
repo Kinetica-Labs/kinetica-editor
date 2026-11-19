@@ -262,8 +262,30 @@ bool sameBuild(const JointObject& x, const JointObject& y) {
 }
 } // namespace
 
-bool RobotWorld::setJoints(PhysicsWorld& physics, const std::vector<JointObject>& joints) {
-    if (joints.size() != joints_.size()) return false;
+bool RobotWorld::setJoints(PhysicsWorld& physics, const std::vector<JointObject>& given) {
+    if (given.size() != joints_.size()) return false;
+    // A joint the panel drives (a gripper's finger closed by «grip», a jogged servo) keeps the panel's drive when the
+    // edit left it as authored: an IK goal moved by the API while the gripper held a cube opened it and dropped the cube.
+    auto sameDrives = [](const JointObject& x, const JointObject& y) {
+        for (int k = 0; k < 6; ++k) {
+            const JointDrive &a = x.dof[k].drive, &b = y.dof[k].drive;
+            if (a.enabled != b.enabled || a.stiffness != b.stiffness || a.damping != b.damping || a.target != b.target ||
+                a.targetVelocity != b.targetVelocity || a.maxForce != b.maxForce || a.voltage != b.voltage || a.constant != b.constant)
+                return false;
+        }
+        return true;
+    };
+    std::vector<JointObject> joints = given;
+    for (JointObject& n : joints) {
+        if (!handed_.count(n.id)) continue;
+        const JointObject* authored = findJoint(graph_, n.id);
+        const JointObject* driven = findJoint(live_, n.id);
+        if (!authored || !driven || !sameDrives(*authored, n)) {
+            handed_.erase(n.id); // edited by hand: the edit wins
+            continue;
+        }
+        for (int k = 0; k < 6; ++k) n.dof[k].drive = driven->dof[k].drive;
+    }
     std::vector<std::pair<LiveJoint*, const JointObject*>> pairs;
     for (const JointObject& j : joints) {
         LiveJoint* live = nullptr;
@@ -274,9 +296,9 @@ bool RobotWorld::setJoints(PhysicsWorld& physics, const std::vector<JointObject>
     }
     for (auto& [live, j] : pairs) setDrive(physics, *live, *j);
     for (JointObject& j : graph_.joints)
-        for (const JointObject& n : joints)
+        for (const JointObject& n : given)
             if (n.id == j.id) j = n;
-    live_.joints = graph_.joints;
+    live_.joints = joints;
     return true;
 }
 
@@ -616,6 +638,37 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
         out.contacts.push_back({c.point, c.normal, c.depth, c.normalImpulse, c.a, c.b});
     describeLights(live_, out);
     for (const std::string& n : notes_) out.info.push_back({"Не построено", n});
+    out.grips = grips(physics);
+}
+
+// Each IK goal's gripper - the sliders on its effector driven as servos - as the gripper reports it: closing when its
+// fingers' targets lie past half their travel; holding when the fingers stand still more than 2 mm short of their
+// targets (they stopped on something); closed on nothing when they reached them.
+std::vector<Frame::GripInfo> RobotWorld::grips(const PhysicsWorld& physics) const {
+    std::vector<Frame::GripInfo> out;
+    for (const Entity& goal : live_.entities) {
+        if (!goal.goalOf) continue;
+        Frame::GripInfo grip{goal.id};
+        bool fingers = false, closing = false, moving = false, reached = true;
+        for (const LiveJoint& j : joints_) {
+            if (j.dof < 0 || j.dof > 2 || (j.spec.a != goal.goalOf && j.spec.b != goal.goalOf) || !physics.jointAlive(j.joint)) continue;
+            const JointFreedom& f = j.spec.dof[j.dof];
+            if (!f.drive.enabled || f.motion == JointMotion::Locked) continue;
+            Real x[6];
+            if (!coordinates(physics, j, x)) continue;
+            fingers = true;
+            closing = closing || f.drive.target > (f.lower + f.upper) / 2;
+            moving = moving || std::fabs(axisOf(physics, j).speed) > 0.005_r;
+            const Real gap = std::fabs(f.drive.target - x[j.dof]);
+            reached = reached && gap < 0.002_r;
+            grip.gap = std::max(grip.gap, gap);
+        }
+        if (!fingers) continue;
+        using S = Frame::GripState;
+        grip.state = !closing ? S::Open : moving ? S::Closing : reached ? S::Empty : S::Holding;
+        out.push_back(grip);
+    }
+    return out;
 }
 
 void RobotWorld::drawLayers(const PhysicsWorld& physics, Real substepDt) const {

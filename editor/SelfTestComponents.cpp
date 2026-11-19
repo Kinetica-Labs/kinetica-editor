@@ -332,8 +332,18 @@ void testJointCard(Checker& c, SceneBuilder& b) {
     b.select(7);
     pump(60);
     ComponentCard* card = cardTitled(b, "Сочленение");
-    const QList<QDoubleSpinBox*> spins = card ? card->findChildren<QDoubleSpinBox*>() : QList<QDoubleSpinBox*>();
-    auto* drive = card ? card->findChild<QComboBox*>() : nullptr;
+    const auto driveSpins = [card] { // the drive's numbers, without the axis' place
+        QList<QDoubleSpinBox*> out;
+        if (card)
+            for (QDoubleSpinBox* s : card->findChildren<QDoubleSpinBox*>())
+                if (!s->objectName().startsWith("jointAnchor")) out << s;
+        return out;
+    };
+    const QList<QDoubleSpinBox*> spins = driveSpins();
+    QComboBox* drive = nullptr;
+    if (card)
+        for (QComboBox* x : card->findChildren<QComboBox*>())
+            if (x->objectName() != "jointAxis") drive = x;
     auto* limit = card ? card->findChild<QCheckBox*>() : nullptr;
     const auto joint = [&b]() -> const JointObject& { return *findJoint(b.graph(), 7); };
     const auto shows = [card](QWidget* w) { return w && w->isVisibleTo(card); };
@@ -344,18 +354,18 @@ void testJointCard(Checker& c, SceneBuilder& b) {
     if (!shape) return c.check(false, "the joint's card shows its limit, its drive and ten numbers");
     drive->setCurrentIndex(3);
     pump(30);
-    const QList<QDoubleSpinBox*> after = card->findChildren<QDoubleSpinBox*>();
+    const QList<QDoubleSpinBox*> after = driveSpins();
     const JointDrive& dc = joint().dof[DofRx].drive;
     const bool motor = dc.enabled && dc.stiffness == 0 && std::fabs(dc.constant - 0.05_r) < 1e-6_r && shows(after[7]) && !shows(after[4]);
     b.undoAction()->trigger();
     pump(30);
     const bool undone = joint().dof[DofRx].drive.stiffness == 8000 && drive->currentIndex() == 1;
-    card->findChildren<QDoubleSpinBox*>()[2]->setValue(30);
+    driveSpins()[2]->setValue(30);
     pump(30);
     const Real target = joint().dof[DofRx].drive.target;
     limit->setChecked(true);
     pump(30);
-    const QList<QDoubleSpinBox*> limited = card->findChildren<QDoubleSpinBox*>();
+    const QList<QDoubleSpinBox*> limited = driveSpins();
     const bool ends = joint().dof[DofRx].motion == JointMotion::Limited && shows(limited[0]) && shows(limited[1]);
     b.undoAction()->trigger();
     pump(30);
@@ -367,6 +377,27 @@ void testJointCard(Checker& c, SceneBuilder& b) {
                 servo ? "yes" : "no", motor ? "yes" : "no", undone ? "yes" : "no", double(target), ends ? "shows its ends" : "no", back ? "yes" : "no");
     c.check(servo && motor && undone && std::fabs(target - 0.5236_r) < 1e-3_r && ends && back,
             "a joint's card edits its drive in degrees and its own units, a drive picked shows only its fields, each edit one undo");
+
+    // Its place: the axis turned onto the world's Z, the anchor moved 10 cm along X - each one undo step.
+    auto* axisBox = card->findChild<QComboBox*>("jointAxis");
+    auto* anchorX = card->findChild<QDoubleSpinBox*>("jointAnchorX");
+    Vector3 at0, axis0, at1, axis1, at2, axis2;
+    jointWorldFrame(b.graph(), joint(), at0, axis0);
+    if (axisBox) axisBox->setCurrentIndex(2);
+    pump(30);
+    jointWorldFrame(b.graph(), joint(), at1, axis1);
+    if (anchorX) anchorX->setValue(anchorX->value() + 0.1);
+    pump(30);
+    jointWorldFrame(b.graph(), joint(), at2, axis2);
+    b.undoAction()->trigger(), pump(30), b.undoAction()->trigger(), pump(30);
+    Vector3 at3, axis3;
+    jointWorldFrame(b.graph(), joint(), at3, axis3);
+    const bool turned = std::fabs(std::fabs(axis1.z) - 1) < 1e-3f && length(at1 - at0) < 1e-4f;
+    const bool moved = std::fabs(at2.x - at1.x - 0.1f) < 1e-3f && std::fabs(std::fabs(axis2.z) - 1) < 1e-3f;
+    const bool restored = length(at3 - at0) < 1e-4f && length(axis3 - axis0) < 1e-3f;
+    std::printf("  its place: the axis onto Z %s; the anchor 10 cm along X %s; two undos back %s\n", turned ? "yes" : "no", moved ? "yes" : "no",
+                restored ? "yes" : "no");
+    c.check(axisBox && anchorX && turned && moved && restored, "a joint's card turns its axis onto a world axis and moves its anchor, each one undo");
 }
 
 // The card «Датчик»: an encoder put on the UR5e's shoulder (on its joint: nothing to pick it «относительно») shows

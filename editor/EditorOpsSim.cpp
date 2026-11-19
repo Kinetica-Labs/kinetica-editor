@@ -164,6 +164,12 @@ QJsonObject liveState(const Simulation& s) {
     for (const std::string& n : robot->notes()) notes.append(QString::fromStdString(n));
     out.insert("shapes", shapes);
     out.insert("joints", joints);
+    QJsonArray grips; // did the hand take it: each goal's gripper as the gripper reports it
+    for (const Frame::GripInfo& g : robot->grips(*physics)) {
+        static const char* words[] = {"open", "closing", "holding", "empty"};
+        grips.append(QJsonObject{{"goal", int(g.goal)}, {"state", words[int(g.state)]}, {"gap", double(g.gap)}});
+    }
+    if (!grips.isEmpty()) out.insert("grips", grips);
     QJsonArray sensors;
     for (const auto& x : robot->sensors()) sensors.append(sensorState(*x));
     out.insert("sensors", sensors);

@@ -52,6 +52,7 @@ public:
     // What brings the window up to the simulation's newest frame (MainWindow sets it).
     void setRefresh(std::function<void()> refresh) { refresh_ = std::move(refresh); }
     bool recording() const { return recording_; } // a take runs (sim_record)
+    void onRecordingChanged(std::function<void()> f) { recordingChanged_ = std::move(f); } // the window's ● follows it
     // Who sees every call as it is answered - the console: who called, the operation, its arguments, its
     // answer, and whether it was a query (it changed nothing).
     using Listener = std::function<void(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer, bool query)>;
@@ -134,6 +135,11 @@ private:
     QString unknown(const QString& name) const;
     std::function<void()> refresh_;
     bool recording_ = false;
+    std::function<void()> recordingChanged_;
+    void setRecording(bool on) {
+        recording_ = on;
+        if (recordingChanged_) recordingChanged_();
+    }
     std::vector<Listener> listeners_;
     std::deque<QJsonObject> recent_; // the journal's last lines (the file keeps them all)
     QString journalFile_;

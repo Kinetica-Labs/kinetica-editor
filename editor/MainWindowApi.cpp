@@ -19,6 +19,7 @@
 
 void MainWindow::buildOperators() {
     ops_ = new EditorOps(builder_, view_, ctrl_.get(), this);
+    ops_->onRecordingChanged([this] { syncRecord(); }); // ■ Stop ends a take too: the record button goes out with it
     builder_->setCodeReporter([this](const QString& op, const QJsonObject& args) { ops_->report("ui", op, args); });
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] { ops_->endSession(); }); // a clean end: no crash offered next time
     magnet_ = new MagnetController(ops_, builder_, view_, this);
@@ -58,9 +59,15 @@ void MainWindow::buildConsoleDock() {
 
 // While requests come in, a plate over the 3D view and the window's title say that an agent or a
 // script drives the editor - a hand on the mouse then fights it; 4 s after the last request it goes. The
-// API console opens too: what the agent types is there, line by line (the window is a client like it).
+// API console opens too, once a session: what the agent types is there, line by line. It never takes the
+// person's tab or comes back after they closed it - a person scrubbing the Sequencer while an agent works
+// had the console thrown over it at every call.
 void MainWindow::showDrivenByApi() {
-    if (auto* console = findChild<QDockWidget*>("consoleDock"); console && !console->isVisible()) console->show();
+    static bool opened = false;
+    if (auto* console = findChild<QDockWidget*>("consoleDock"); console && !opened) {
+        opened = true;
+        if (!console->isVisible()) console->show();
+    }
     if (!apiBanner_) {
         apiBanner_ = new QLabel("АГЕНТ управляет редактором через API — не трогайте мышь и клавиши", view_);
         apiBanner_->setObjectName("apiBanner"); // view_screenshot's clean picture leaves it out
@@ -83,7 +90,6 @@ void MainWindow::showDrivenByApi() {
         apiBanner_->show();
         apiBanner_->raise();
         if (!windowTitle().startsWith("[АГЕНТ] ")) setWindowTitle("[АГЕНТ] " + windowTitle());
-        if (auto* console = findChild<QDockWidget*>("consoleDock")) console->raise(); // its tab in front of the graphs: what the agent types
     }
     apiIdle_->start();
 }
