@@ -35,9 +35,8 @@ CameraPicker::CameraPicker(QWidget* view) : QObject(view) {
         if (!filling_) emit chosen(list_->itemData(index).toUInt());
     });
 
-    showCameras({}, 0);
     frame_->move(kLeft, kTop);
-    frame_->show();
+    showCameras({}, 0);
 }
 
 void CameraPicker::showCameras(const std::vector<Choice>& cameras, uint32_t current) {
@@ -47,15 +46,12 @@ void CameraPicker::showCameras(const std::vector<Choice>& cameras, uint32_t curr
         list_->clear();
         list_->addItem("Вид редактора", 0u);
         for (const Choice& c : cameras) list_->addItem(sceneIcon(SceneIcon::Camera, 16), c.name, c.cameraId);
-        if (cameras.empty()) { // say where cameras come from, instead of an empty list
-            list_->addItem("Камер нет — кнопка «Камера» сверху", 0u);
-            list_->setItemData(1, 0, Qt::UserRole - 1); // shown, but not selectable
-        }
         shown_ = cameras;
     }
     // 2. Point at the camera the view looks through now.
     const int at = list_->findData(current);
     list_->setCurrentIndex(at >= 0 ? at : 0);
+    frame_->setVisible(!cameras.empty() || current != 0); // nothing to look through: not in the way
     frame_->adjustSize();
     filling_ = false;
 }

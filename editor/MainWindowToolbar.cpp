@@ -78,8 +78,9 @@ void MainWindow::buildMainToolbar() {
     addCompactButtons(tb);
 }
 
-// Compact text buttons at the right end: the examples, the world's physics, the colliders, the
-// Laboratory, the graphs, the expert's numbers. They keep their words at every width.
+// Compact text buttons at the right end: the examples, the Laboratory, the graphs. They keep their words at every width.
+// The world's physics is the inspector's «Мир» tab (Симуляция → Физика мира… opens it); the colliders' wireframes and
+// the expert's numbers are switches of «Вид» (MainWindow.cpp, buildMenus) - the bar showed them twice.
 void MainWindow::addCompactButtons(QToolBar* tb) {
     auto compact = [tb](QToolButton* b) {
         b->setObjectName("compactButton");
@@ -91,18 +92,14 @@ void MainWindow::addCompactButtons(QToolBar* tb) {
     samplesButton->setToolTip("Все готовые сцены картинками: рука-манипулятор, горка, колыбель, текстуры… Нажмите — откроется");
     connect(samplesButton, &QToolButton::clicked, this, &MainWindow::openGallery);
     compact(samplesButton);
-    auto* physics = new QToolButton;
-    physics->setText("Физика"); physics->setObjectName("physicsButton");
-    physics->setToolTip("Физика мира: гравитация, шаг и подшаги, контакты, жёсткость суставов");
     auto* physicsAction = new QAction("Физика мира…", this); physicsAction->setObjectName("worldPhysics");
     connect(physicsAction, &QAction::triggered, this, [this] {
         auto* dock = findChild<QDockWidget*>("inspectorDock"); dock->show(); dock->raise();
         inspectorTabs_->setCurrentIndex(2);
     });
+    physicsAction->setToolTip("Физика мира: гравитация, шаг и подшаги, контакты, жёсткость суставов — вкладка «Мир» инспектора");
     menuBar()->findChild<QMenu*>("simulationMenu")->addAction(physicsAction);
-    connect(physics, &QToolButton::clicked, physicsAction, &QAction::trigger);
-    compact(physics);
-    for (QAction* a : {collidersAct_, labAct_, graphsAct_, expertAct_}) {
+    for (QAction* a : {labAct_, graphsAct_}) {
         auto* b = new QToolButton;
         b->setDefaultAction(a);
         compact(b);
