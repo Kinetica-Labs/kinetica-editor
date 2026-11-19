@@ -42,9 +42,8 @@ void fitBox(const TriMesh& mesh, const Quaternion& turn, Vector3& centre, Vector
 }
 
 // The robots of a graph: the entities its joints tie together (a joint marked `collide` does not tie), a group
-// number for each robot. Its links never touch one another - their colliders overlap at the joints, and
-// self-collision is the planner's business (ArmSelfCollision.h), not the solver's - as URDF simulators
-// leave a robot's own links out of its contacts.
+// number for each robot. Its links never touch one another - their colliders overlap at the joints - as
+// URDF simulators leave a robot's own links out of its contacts.
 std::unordered_map<uint32_t, int> robotGroups(const SceneGraph& g) {
     std::unordered_map<uint32_t, uint32_t> parent;
     const std::function<uint32_t(uint32_t)> root = [&](uint32_t x) {

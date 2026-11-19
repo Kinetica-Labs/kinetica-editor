@@ -69,7 +69,6 @@ public:
     // what a robot reads, and the truth beside it for the privileged loop. Null: none (a stereo camera's is on request).
     const LiveSensor* sensor(uint32_t id) const;
     const std::vector<std::unique_ptr<LiveSensor>>& sensors() const { return sensors_; }
-    int64_t clockNs() const { return clockNs_; } // the world's clock, whole nanoseconds
     // The joints edited while the world runs (an IK goal dragged, a servo's target typed): a joint built as
     // before takes its new drive - target, gains, motor - at once. False, and nothing changed, when the
     // joints are no longer the same (one added or removed, its kind, links, frames, limits or motion

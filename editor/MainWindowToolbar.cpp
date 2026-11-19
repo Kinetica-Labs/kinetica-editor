@@ -1,6 +1,6 @@
 // The big bar on top of the window (see MainWindow.h): what you can create (shapes, a model, the
-// lights, a camera), then run / pause / stop / step, then undo / redo, and at the right end the text
-// buttons Примеры, Физика, Коллайдеры, Лаборатория, Графики, Эксперт. A shape of «Фигура ▾» is drawn
+// lights, a camera), then run+record / pause / stop, then undo / redo, and at the right end the text
+// buttons Примеры, Лаборатория, Графики. A shape of «Фигура ▾» is drawn
 // with the mouse in the view (CreateTool, ViewportTools.h) and made by one call of scene_add.
 //
 // A narrow window never cuts a word ("Кол...еры"): the bar gives up room step by step instead, as
@@ -79,8 +79,8 @@ void MainWindow::buildMainToolbar() {
 }
 
 // Compact text buttons at the right end: the examples, the Laboratory, the graphs. They keep their words at every width.
-// The world's physics is the inspector's «Мир» tab (Симуляция → Физика мира… opens it); the colliders' wireframes and
-// the expert's numbers are switches of «Вид» (MainWindow.cpp, buildMenus) - the bar showed them twice.
+// The world's physics is the inspector's «Мир» tab (Симуляция → Физика мира… opens it); the colliders' wireframes
+// are a switch of «Вид» (MainWindow.cpp, buildMenus).
 void MainWindow::addCompactButtons(QToolBar* tb) {
     auto compact = [tb](QToolButton* b) {
         b->setObjectName("compactButton");
@@ -89,7 +89,7 @@ void MainWindow::addCompactButtons(QToolBar* tb) {
     };
     auto* samplesButton = new QToolButton;
     samplesButton->setText("Примеры");
-    samplesButton->setToolTip("Все готовые сцены картинками: рука-манипулятор, горка, колыбель, текстуры… Нажмите — откроется");
+    samplesButton->setToolTip("Все готовые сцены картинками: UR5e, рука-манипулятор, текстуры… Нажмите — откроется");
     connect(samplesButton, &QToolButton::clicked, this, &MainWindow::openGallery);
     compact(samplesButton);
     auto* physicsAction = new QAction("Физика мира…", this); physicsAction->setObjectName("worldPhysics");
@@ -125,7 +125,6 @@ void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shape
     }
     button->setMenu(menu);
     tb->addWidget(button);
-    shapesButton_ = button;
     createButtons_.push_back(button);
 }
 
@@ -287,7 +286,6 @@ void MainWindow::setToolbarLevel(int level) {
                                                 .arg(level >= 4 ? 6 : 8) : QString();
         if (b->styleSheet() != sheet) b->setStyleSheet(sheet);
     }
-    toolbarLevel_ = level;
 }
 
 // The first step at which the whole bar fits the window's width.

@@ -10,7 +10,7 @@
 //   2. ke::describeChannel(id) - the catalogue of scene channels;
 //   3. otherwise it is an engine internal (a timer, a counter): group «Движок», the unit read off
 //      the end of the id, the part in words and the rest in the engine's own words ("physics/step ms"
-//      -> «Кадр: шаг физики», мс; "arm/plans" -> «Рука: plans»).
+//      -> «Кадр: шаг физики», мс).
 // A channel without a part ("Высота, м") is the scene's own: «Сцена», its unit read after the last comma.
 //
 // Colours: the eight dark-surface slots of the validated categorical palette (the dataviz skill's
@@ -62,7 +62,6 @@ public:
     // while the channel is on screen (releaseAllBut lets the others go).
     QColor color(const std::string& id);
     Qt::PenStyle lineStyle(const std::string& id);
-    bool hasColor(const std::string& id) const { return slot_.count(id) > 0; }
     void pin(const std::string& id); // this channel's slot for good (the scene's energy: always the same three colours)
     void releaseAllBut(const std::vector<std::string>& onScreen);
 

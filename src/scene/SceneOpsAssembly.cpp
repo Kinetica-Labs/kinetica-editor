@@ -29,12 +29,7 @@ bool face(const Value& v, BoxFace& out) {
     return false;
 }
 
-const Entity* entityOf(const SceneGraph& g, const Value& a, const char* key = "target") {
-    const uint32_t id = uint32_t(a[key].integer());
-    for (const Entity& e : g.entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
+const Entity* entityOf(const SceneGraph& g, const Value& a, const char* key = "target") { return findEntity(g, uint32_t(a[key].integer())); }
 
 // The place the arguments name: a face by name, or the polygon hit (point and normal), or the face
 // nearest a point.

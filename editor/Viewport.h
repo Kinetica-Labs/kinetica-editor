@@ -51,7 +51,6 @@ public:
 
     void setSnapshot(std::shared_ptr<const ke::Frame> s);
     const std::shared_ptr<const ke::Frame>& snapshot() const { return snap_; }
-    void setShowFloor(bool on) { showFloor_ = on; update(); }
     void frameScene();
     // What "Показать всё" (F) and a new scene frame: the scene builder's objects instead of the whole
     // world box (an invalid box: the world box again).
@@ -135,7 +134,6 @@ public:
     // The assembly magnet: its tool takes the left button in edit mode; the ghost of the link about to
     // be put and its joint's glyph, line pairs x y z 0 (empty: nothing under the mouse).
     void setMagnetMode(bool on);
-    bool magnetMode() const { return magnetMode_; }
     void setMagnetPreview(std::vector<float> ghost, std::vector<float> joint);
     // Making things with the mouse (CreateTool, ViewportTools.h): on, its tool takes the left button in edit
     // mode and makes `what` after `what`, step by step, until Esc or a right click with nothing begun,
@@ -145,7 +143,6 @@ public:
     const CreateWhat& createWhat() const { return createWhat_; }
     // Joints drawn with both their frames and the gap between them (the solver's error).
     void setJointDebug(bool on) { jointDebug_ = on; update(); }
-    bool jointDebug() const { return jointDebug_; }
     std::vector<PickHit> pickAll(const Ray& ray) const { return picker_ ? picker_(ray) : std::vector<PickHit>(); }
     uint32_t pickEntity(const Ray& ray, ke::Vector3* hit = nullptr) const;
     // A click: the nearest object under the cursor; a second click on the same spot (or Alt+click)
@@ -180,7 +177,6 @@ public:
     const std::vector<int>& lightsWithoutShadow() const { return shadowLess_; }
 
 signals:
-    void followBodyChanged(uint32_t object);
     void grabStarted(int body, ke::Vector3 point);    // play: the left button took a body (its engine index)
     void grabMoved(ke::Vector3 target);
     void grabReleased();
@@ -363,7 +359,7 @@ private:
     ke::AABB focusBox_;            // what to frame when valid (the builder's objects)
     std::vector<int> highlight_;   // bodies outlined as selected
     std::vector<int> hoverBodies_, ghostBodies_;
-    bool showFloor_ = true, overlayVisible_ = true, agentDriving_ = false;
+    bool overlayVisible_ = true, agentDriving_ = false;
     std::vector<char> unpickable_;          // per body: the mouse passes through
     std::vector<float> colliderGuides_;     // x y z state per point, two points a segment
     std::vector<float> guidesByState_[3];   // the same lines sorted by state: one colour per draw

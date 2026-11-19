@@ -16,11 +16,7 @@ Testing/
 *.d
 *.o
 *.obj
-*.lo
-*.slo
 *.a
-*.la
-*.lai
 *.lib
 *.so
 *.so.*
@@ -34,10 +30,9 @@ Testing/
 *.dwo
 *.gch
 *.pch
-*.mod
-*.smod
 
-# Models: only the example robots' meshes are kept (with their licence)
+# Models: only the examples' meshes are kept (the robots' with their licence)
+!examples/models/*.obj
 !examples/models/ur5e/*.obj
 
 # IDEs and editors

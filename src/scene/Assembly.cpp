@@ -4,7 +4,6 @@
 
 #include "scene/SensorSpec.h"
 
-#include "math/ElementaryFunctions.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -13,11 +12,6 @@ namespace ke {
 
 namespace {
 
-const Entity* findEntity(const SceneGraph& g, uint32_t id) {
-    for (const Entity& e : g.entities)
-        if (e.id == id && id != 0) return &e;
-    return nullptr;
-}
 
 // The entity's box in its own frame: centre and half edges. A model's box is its mesh's bounds (its
 // size only says how large its largest extent is); every other shape is centred on its origin.

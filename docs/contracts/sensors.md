@@ -2,7 +2,7 @@
 
 Заголовки:
 - сигнальная цепочка `src/devices/Signal.h`;
-- устройства `Imu`, `Sonar`, `ForceTorque`, `Encoder`, `EncoderMeasurement` в `src/devices/`;
+- устройства `Imu`, `Sonar`, `ForceTorque`, `Encoder` в `src/devices/`;
 - паспорт и таблицы моделей `src/scene/SensorSpec.h`;
 - датчик в сцене `SensorObject` в `src/scene/SceneGraph.h`; его виды: Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo;
 - датчик в работающем мире — `LiveSensor` в `src/sim/LiveSensors.h`, его зонды и устройства.

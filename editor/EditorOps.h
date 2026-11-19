@@ -65,7 +65,6 @@ public:
     void addPluginOp(const QString& name, const QString& help, const QString& args, Handler run, const QJsonObject& schema = {});
     void addOp(const QString& name, const QString& help, const QString& args, Handler run) { add(name, help, args, std::move(run)); } // the plugins' own
     void removePluginOp(const QString& name);
-    bool isPluginOp(const QString& name) const { return pluginOps_.count(name) > 0; }
     static bool isQuery(const QString& name); // EditorJournal.cpp
     static bool windowOnly(const QString& name); // the window's state or time, no change of the scene (EditorJournal.cpp)
 
@@ -95,7 +94,6 @@ private:
     void add(const QString& name, const QString& help, const QString& args, Handler run);
     void addSync(const QString& name, const QString& help, const QString& args, std::function<QJsonObject(const QJsonObject&)> run);
     // An edit is an operation of its own (one undo step) and a step of scene_batch.
-    void addEdit(const QString& name, const QString& help, const QString& args, GraphEdit run);
     QJsonObject transact(const std::function<QJsonObject(ke::SceneGraph&)>& change);
     void addSceneOps();     // EditorOps.cpp: the list, a block, a new scene, undo and redo
     void addSimOps();       // EditorOpsSim.cpp: play, pause, stop, step, the live state, the channels

@@ -18,7 +18,6 @@
 #include "scene/Assembly.h"
 #include "scene/SceneOps.h"
 
-#include "math/ElementaryFunctions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -30,11 +29,6 @@ namespace {
 const char* kNames[kLinkPresets] = {"Шарнир", "Колено", "Колесо", "Мотор-колесо", "Амортизатор", "Машина", "Сварка", "Шаровое", "Поворот", "Ход"};
 const char* kWords[kLinkPresets] = {"hinge", "elbow", "wheel", "motor_wheel", "shock", "car", "weld", "ball", "rotary", "linear"};
 
-const Entity* findEntity(const SceneGraph& g, uint32_t id) {
-    for (const Entity& e : g.entities)
-        if (e.id == id && id != 0) return &e;
-    return nullptr;
-}
 
 std::string numbered(const SceneGraph& g, const std::string& word) {
     int n = 0;

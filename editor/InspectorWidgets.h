@@ -90,7 +90,7 @@ private:
 };
 
 // One sentence saying why something does not work (yet) and, where possible, a button that fixes
-// it: "Дыму нужен воздух — [Включить газ]". No dialog to click away: the banner sits in the panel
+// it: "Прошлая сессия закрылась сбоем — [Вернуть сцену]". No dialog to click away: the banner sits in the panel
 // until the cause is gone.
 class InlineBanner : public QFrame {
     Q_OBJECT

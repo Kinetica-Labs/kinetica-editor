@@ -91,7 +91,6 @@ public:
     QWidget* moreButton() const;       // «Ещё величины…»
     QWidget* arrangementSwitch() const { return switch_; }
     void setArrangement(Arrangement a);
-    Arrangement arrangement() const { return arrangement_; }
     void setWholeRun(bool on);         // the whole run on the charts instead of the last minute
     void showChannel(const std::string& id);              // a line on the chart of its unit, or a new chart
     void setChannelShown(const std::string& id, bool on); // the checklist's checkbox
@@ -116,7 +115,6 @@ public:
     int chartOf(const TrackChart* view) const; // -1: the normalised chart of everything
     QString objectTitle() const;               // the object section's header ("" none)
     const QString& objectKey() const { return object_; } // the section's key ("" none)
-    ChannelList* checklist() const { return checklist_; }
     ChannelList* chartList() const { return chartList_; }
     QLabel* placeholder() const { return placeholder_; }
     const PlotSeries* series(const std::string& id) const;
@@ -187,7 +185,6 @@ private:
     std::map<std::string, PlotSeries> series_;
     std::set<std::string> reported_;      // the channels of the frame being recorded
     bool fresh_ = false;                  // a channel appeared in this frame
-    bool keepAll_ = false;
     double start_ = 0, now_ = 0;
     long frames_ = 0;
 };

@@ -21,9 +21,6 @@ struct AABB {
         Vector3 e = extent();
         return 2.0_r * (e.x * e.y + e.y * e.z + e.z * e.x);
     }
-    bool overlaps(const AABB& b) const {
-        return lo.x <= b.hi.x && hi.x >= b.lo.x && lo.y <= b.hi.y && hi.y >= b.lo.y && lo.z <= b.hi.z && hi.z >= b.lo.z;
-    }
     bool contains(const Vector3& p) const {
         return p.x >= lo.x && p.x <= hi.x && p.y >= lo.y && p.y <= hi.y && p.z >= lo.z && p.z <= hi.z;
     }

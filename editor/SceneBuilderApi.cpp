@@ -22,7 +22,6 @@ bool SceneBuilder::transact(const std::function<bool(SceneGraph&, std::string&)>
     refreshList();
     fillInspector();
     applyEdit(0);
-    emit firstAction();
     return true;
 }
 

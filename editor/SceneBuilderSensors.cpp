@@ -12,6 +12,7 @@
 #include "SceneBuilder.h"
 
 #include "InspectorWidgets.h"
+#include "Resources.h"
 #include "scene/Assembly.h"
 #include "core/Units.h"
 #include "scene/SensorSpec.h"
@@ -87,12 +88,7 @@ QString sensorLiveText(const Simulation& s, uint32_t id) {
 // The tables of sensor models: the program's (data/sensors next to it when installed, else the source tree's) and
 // the person's own (<app data>/sensors, its rows over the program's), read at start and again when one changes.
 void SceneBuilder::loadSensorCatalog() {
-    const QString nextToExe = QCoreApplication::applicationDirPath() + "/data";
-#ifdef KE_DATA
-    const QString data = QDir(nextToExe).exists() ? nextToExe : QStringLiteral(KE_DATA);
-#else
-    const QString data = nextToExe;
-#endif
+    const QString data = resourceDir("data");
     const QStringList dirs{data + "/sensors", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/sensors"};
     std::string problems;
     sensorCatalog().clear();

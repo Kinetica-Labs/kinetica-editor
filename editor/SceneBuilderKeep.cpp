@@ -68,5 +68,4 @@ void SceneBuilder::applyKeptPoses(const std::vector<KeptPose>& poses) {
     if (const SceneObject* o = selectedObject()) showTransform(*o);
     emit statusMessage(QString("Сохранено из симуляции: %1 — после ■ Стоп останутся здесь (Ctrl+Z после Стоп вернёт)")
                            .arg(ruPlural(static_cast<long long>(poses.size()), "объект", "объекта", "объектов")));
-    emit simulationKept(int(poses.size()));
 }

@@ -1,6 +1,5 @@
 // The main window (see MainWindow.h): the 3D view in the middle, the scene builder on the right,
-// the readings and plots at the bottom under "Графики" (the frame's numbers and the probe's raw
-// channels beside them under "Эксперт"). This file builds the actions, the menus and the docks, and
+// the Sequencer, the readings and plots and the API console at the bottom. This file builds the actions, the menus and the docks, and
 // runs the automation of the command line (a scene, frames, a screenshot).
 // Other parts of the window live in MainWindowStart.cpp (the first minute), MainWindowControls.cpp
 // (keys, mouse schemes, many objects), MainWindowToolbar.cpp (the top bar) and MainWindowPlay.cpp
@@ -133,7 +132,7 @@ void MainWindow::buildActions() {
     buildMenus();
 }
 
-// Пуск, Пауза, Стоп, Шаг: shared toolbar and menu actions.
+// Пуск, Пауза, Стоп (and Шаг in the menu): shared toolbar and menu actions.
 void MainWindow::buildRunActions() {
     // Edit -> play -> stop, as in a game engine: the builder's scene is only simulated while it plays.
     playAct_ = new QAction(controlIcon(ControlIcon::Play, 48), "Пуск", this);
@@ -229,7 +228,7 @@ void MainWindow::setGraphsVisible(bool on) {
     settingGraphs_ = true;
     if (auto* dock = findChild<QDockWidget*>("resultsDock")) {
         dock->setVisible(on);
-        if (on) dock->raise(); // shares its place with the console: asked for, it comes in front
+        if (on) dock->raise(); // shares its place with the Sequencer and the console: asked for, it comes in front
     }
     graphsAct_->setChecked(on);
     settingGraphs_ = false;
@@ -383,10 +382,10 @@ void MainWindow::buildToolShelf() {
 // ---------------------------------------------------------------------------
 // Scene builder ("Конструктор"): shapes with roles, saved as *.kscene
 // ---------------------------------------------------------------------------
-// One panel on the right with two tabs, like Unity's Hierarchy and Inspector: "Сцена" (the list of
-// objects and the world) and "Объект" (the selected object: its card, its geometry, its components).
-// Selecting an object turns to "Объект". The visualisation settings share the place as a tab.
-static QScrollArea* scrolled(QWidget* content) {
+// One panel on the right with tabs, like Unity's Hierarchy and Inspector: "Сцена" (the list of objects),
+// "Объект" (the selected object: its card, its geometry, its components) and "Мир" (gravity, the
+// solver); plugins add their panels as further tabs. Selecting an object turns to "Объект".
+QScrollArea* MainWindow::scrolled(QWidget* content) {
     auto* scroll = new QScrollArea;
     scroll->setWidgetResizable(true);
     scroll->setFrameShape(QFrame::NoFrame);
@@ -529,8 +528,6 @@ void MainWindow::onSnapshot(const std::shared_ptr<const Snap>& s) {
     builder_->onSimulationSnapshot(*s);
     if (labOnSnapshot()) view_->setSnapshot(s); // the Laboratory's timeline may be showing a kept frame
     updatePlotObjects(*s);
-    lastSceneName_ = s->sceneName;
-    lastFrame_ = s->frame;
 
     if (auto_.active && int(s->frame) >= auto_.frames && ++auto_.settle == 1) {
         ctrl_->setRunning(false);
@@ -569,7 +566,7 @@ void MainWindow::runAutomation(int frames, const QString& shot) {
         return;
     }
     if (auto_.wholeWindow) // the whole window in play as a person sees it a moment after ▶: the plots opened by themselves
-        QTimer::singleShot(0, this, [this] { // after the first layout, which puts the console's tab in front
+        QTimer::singleShot(0, this, [this] { // after the first layout, which puts the Sequencer's tab in front
             setGraphsVisible(true);
             if (auto* dock = findChild<QDockWidget*>("resultsDock")) resizeDocks({dock}, {210}, Qt::Vertical);
         });

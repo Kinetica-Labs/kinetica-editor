@@ -21,14 +21,6 @@ const char* kRoleWords[] = {"rigid", "collider"};
 
 bool contains(const std::vector<uint32_t>& v, uint32_t id) { return std::find(v.begin(), v.end(), id) != v.end(); }
 
-// The object an array's copy is drawn for: its array (an ordinary id is its own).
-uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId) {
-    if (!isArrayCopyId(drawnId)) return drawnId;
-    for (const ArrayObject& a : g.arrays)
-        if ((a.id & 0x7FFFu) == arrayOfCopyId(drawnId)) return a.id;
-    return 0;
-}
-
 AABB entityBounds(const SceneGraph& g, const Entity& e) {
     const AABB local = entityLocalMesh(e, g.baseDirectory).bounds();
     const Matrix3x3 R = entityRotation(e).toMatrix3x3();
@@ -117,10 +109,17 @@ uint32_t masterOf(const SceneGraph& g, uint32_t entity) {
     }
 }
 
-AABB objectBounds(const SceneGraph& g, uint32_t id) {
+uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId) {
+    if (!isArrayCopyId(drawnId)) return drawnId;
+    for (const ArrayObject& a : g.arrays)
+        if ((a.id & 0x7FFFu) == arrayOfCopyId(drawnId)) return a.id;
+    return 0;
+}
+
+AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(const Entity&)>& entityBox) {
     AABB box;
     for (const Entity& w : worldEntities(g))
-        if (w.visible && isInside(g, ownerOf(g, w.id), id)) box.expand(entityBounds(g, w));
+        if (w.visible && isInside(g, ownerOf(g, w.id), id)) box.expand(entityBox ? entityBox(w) : entityBounds(g, w));
     auto mark = [&](const SceneObject& o) { // a light or a camera: about the size of its wireframe
         Vector3 p;
         Quaternion q;

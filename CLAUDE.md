@@ -14,7 +14,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOM
 cmake --build build -j
 build/ke_tests                                   # ядро; KE_TEST=<подстрока> — выборочно
 build/kinetica --self-test                       # окно: жмёт кнопки, тащит гизмо; KE_EDITOR_TEST=<группа>
-cd tools && python3 -m unittest test_agent_eval
+cd tools && python3 -m unittest test_agent_eval test_plugin_sdk   # стенд испытателей и SDK плагинов, без окна
 build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; клиент tools/ke_editor.py
 ```
 
@@ -25,7 +25,7 @@ CI (`.github/workflows/ci.yml`) ещё проверяет абляцию: сло
 
 ## Устройство
 
-- **`src/` — `kecore`**, C++17 без Qt: `math`, `core`, `spatial`, `devices`, `electro`, `robot`, `scene`
+- **`src/` — `kecore`**, C++17 без Qt: `math`, `core`, `spatial`, `devices`, `electro`, `scene`
   (модель сцены, файл `*.kscene` строка-на-факт, правки с обратными `SceneEdits`, реестр операций `SceneOps`,
   IK `Kinematics`), `physics` (контракт движка), `sim` (`RobotWorld` — живой мир робота, `Simulation`, `Frame`).
 - **`plugins/physics/box3d/`** — единственное место с `box3d.h`.
@@ -58,8 +58,6 @@ CI (`.github/workflows/ci.yml`) ещё проверяет абляцию: сло
 - Числа в файлы — через `core/Format.h`: Qt на Linux включает локаль, и `printf` пишет `0,120`.
 - Запуски без человека (`--self-test`, `--agent-eval`, снимки) окон не показывают; новый такой ключ — в
   `unattended()` и `withoutDesktopGrab()` в `editor/main.cpp`.
-- Перенос из `phys_realflow_editor@ca3684e` / `phys_realflow@fd0214c`: `rf`→`ke`, `.rfscene`→`.kscene`,
-  имена операций API не меняются. Решатели SDK не переносятся.
 
 ## Конституция и путь
 

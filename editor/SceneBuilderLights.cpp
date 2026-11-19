@@ -94,7 +94,6 @@ void SceneBuilder::addObjectDone(uint32_t id) {
     setSelected(id);
     refreshList();
     applyEdit(id);
-    emit firstAction();
 }
 
 void SceneBuilder::addLight(LightKind kind, const Vector3* over) {

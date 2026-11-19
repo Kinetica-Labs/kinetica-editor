@@ -10,6 +10,7 @@
 // given out. Each function is one edit; undo is the client's (it keeps the graph from before).
 #include "scene/SceneGraph.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -34,9 +35,12 @@ bool isInside(const SceneGraph& g, uint32_t id, uint32_t ancestor);
 std::vector<uint32_t> childrenOf(const SceneGraph& g, uint32_t id);
 std::vector<uint32_t> topmost(const SceneGraph& g, const std::vector<uint32_t>& ids);
 uint32_t masterOf(const SceneGraph& g, uint32_t entity);
+// The object an array's copy is drawn for: its array (an ordinary id is its own; 0: no such array).
+uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId);
 // The world box of what the object shows (its shapes, an array's copies; a light or a camera: 0.3 m
-// around it). Invalid when it shows nothing.
-AABB objectBounds(const SceneGraph& g, uint32_t id);
+// around it). Invalid when it shows nothing. entityBox: a shape's box as a viewer knows it (a model's
+// mesh it has loaded); empty, the core's own estimate.
+AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(const Entity&)>& entityBox = {});
 AABB sceneBounds(const SceneGraph& g); // the visible shapes one can edit (not a locked floor)
 
 // New objects: their id.

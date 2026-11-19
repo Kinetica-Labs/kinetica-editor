@@ -4,7 +4,7 @@
 // on a leash: a move that would put it farther than kLeash from the hand does not happen, so a goal pushed into the
 // table or out of reach waits for the hand instead of running off. The gripper's fingers close by the value's share
 // (grip), a joint's servo target walks (jog), a driver's duty is set (duty). Deterministic: the same values in the same
-// steps give the same bits, in a window or without one. A port of PhysRealFlow's GraphControllers onto Box3D's world.
+// steps give the same bits, in a window or without one.
 #include "sim/RobotWorld.h"
 
 #include "scene/Assembly.h"

@@ -179,7 +179,6 @@ void SceneBuilder::addEntity(ShapeKind shape, const std::function<void(Entity&)>
     refreshList();
     applyEdit(id);
     frameObjects();
-    emit firstAction();
     codeAction("scene_add", QString("scene.add(\"%1\")").arg(shapeWord(shape)), {{"shape", shapeWord(shape)}}, false);
 }
 
@@ -276,7 +275,6 @@ void SceneBuilder::setRoleOfSelected(RoleIcon role, bool on) {
     fillInspector();
     refreshList();
     applyEdit(selectedId_);
-    emit firstAction();
     codeAction("scene_role", lines.join("; "), {{"ids", jsonIds(ids)}, {"role", roleWord(role)}, {"on", on}}, false);
 }
 
@@ -406,7 +404,6 @@ void SceneBuilder::play() {
     if (mode_ == Mode::Playing) return;
     stickyBanner_ = false;
     refreshBanner();
-    emit firstAction();
     if (editing() && !loadIntoSimulation()) return;
     ctrl_->setRunning(true);
     setMode(Mode::Playing);

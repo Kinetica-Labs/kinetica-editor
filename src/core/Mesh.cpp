@@ -38,17 +38,6 @@ Real TriMesh::signedVolume() const {
     return Real(v);
 }
 
-void TriMesh::append(const TriMesh& o) {
-    uint32_t base = uint32_t(positions.size());
-    if (coloured() || o.coloured()) { // one of the two coloured: the other in a neutral grey
-        triangleColors.resize(triangles.size(), Vector3(0.7_r));
-        if (o.coloured()) triangleColors.insert(triangleColors.end(), o.triangleColors.begin(), o.triangleColors.end());
-        else triangleColors.resize(triangles.size() + o.triangles.size(), Vector3(0.7_r));
-    }
-    positions.insert(positions.end(), o.positions.begin(), o.positions.end());
-    for (auto t : o.triangles) triangles.push_back({t[0] + base, t[1] + base, t[2] + base});
-}
-
 void TriMesh::transform(const Matrix3x3& R, const Vector3& scale, const Vector3& t) {
     for (Vector3& p : positions) p = R * (p * scale) + t;
     // A mirroring scale flips orientation.

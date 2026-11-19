@@ -39,7 +39,7 @@ public:
     // setEditScreenshot), a screenshot saved, quit.
     void runAutomation(int frames, const QString& screenshotPath);
     // The builder's first scene (MainWindowStart.cpp): the --scene file; on the very first start of
-    // an interactive session the welcome scene with the first-minute bubble; else an empty floor.
+    // an interactive session the UR5e arm with the first-minute bubble; else an empty floor.
     void startBuilder(bool interactive = false);
     void startJournal(); // this window's session of the journal; a crashed one before it offered back
     // The first-minute bubble even if it was seen before (the command line's --first-start).
@@ -81,6 +81,7 @@ private:
     void buildActions();
     void buildResultsDock();
     void buildSceneBuilderDock(); // the "Конструктор": shapes with roles, no code (SceneBuilder)
+    static class QScrollArea* scrolled(QWidget* content); // an inspector tab: grows down, never sideways
     void connectSceneBuilder();
     // The big "Создать" bar (MainWindowToolbar.cpp): shapes, lights, camera, run / pause / stop / step,
     // undo / redo, the examples; on a narrow window it drops captions and shrinks icons, never cuts words.
@@ -94,7 +95,6 @@ private:
     void addDrawn(const CreateWhat& what, const ke::Vector3& position, const ke::Vector3& size, const ke::Vector3& target);
     void addLightButtons(class QToolBar* tb); // "Свет ▾" (Солнце, Лампа, Прожектор) and "Камера"
     void addSensorButton(class QToolBar* tb); // "Датчик ▾": the six kinds on the selected shape or its joint
-    class QToolButton* shapesButton_ = nullptr;
     void addCompactButtons(class QToolBar* tb);
     void setToolbarLevel(int level);
     void fitMainToolbar();
@@ -109,8 +109,7 @@ private:
     void addManyActions(class QMenu* menu);
     void addSelectHelpers(class QMenu* menu);
     void showClonePopover(const QPointF& pos);
-    // A beginner sees the builder and the 3D view; "Эксперт" brings back the frame's numbers and the
-    // probe's raw channels, "Графики" the readings and plots at the bottom.
+    // A beginner sees the builder and the 3D view; "Графики" brings the readings and plots at the bottom.
     void buildLayoutActions();
     void setGraphsVisible(bool on);
     // The layout buttons at the right end of the menu line, as in VS Code's title bar
@@ -214,8 +213,6 @@ private:
     std::unique_ptr<SimController> ctrl_;
     Viewport* view_ = nullptr;
     QTimer* timer_ = nullptr;
-    uint64_t lastFrame_ = 0;
-    std::string lastSceneName_;
 
     QAction* graphsAct_ = nullptr;
     QAction* collidersAct_ = nullptr; // every object's collider as a green wireframe, not only the selected one's
@@ -252,7 +249,6 @@ private:
     class QToolBar* createBar_ = nullptr;
     std::vector<class QToolButton*> createButtons_; // shapes, model, lights, camera: first to lose captions
     std::vector<class QToolButton*> runButtons_;    // run / pause / stop / step, undo / redo
-    int toolbarLevel_ = 0;                          // how much room the bar gave up (setToolbarLevel)
     class FirstStartHint* hint_ = nullptr;
     QAction* deleteAct_ = nullptr;
     QAction* duplicateAct_ = nullptr;

@@ -2,7 +2,6 @@
 #include "ManyPanels.h"
 #include "RuPlural.h"
 
-#include "Icons.h"
 #include "InspectorWidgets.h"
 
 #include <QBoxLayout>

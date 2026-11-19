@@ -30,12 +30,10 @@ const FixedCard kEngine[] = {
     {"physics/step ms", "Кадр: шаг физики", "мс"},
     {"physics/contacts", "Физика: точек контакта", ""},
     {"physics/time s", "Время сцены", "с"},
-    {"memory/allocations per frame", "Память: выделений за кадр", ""},
 };
 
-// The parts of the engine an internal's id starts with ("arm/plans" -> «Рука: plans»).
-const FixedCard kParts[] = {{"rigid", "Твёрдые тела", ""}, {"physics", "Физика", ""}, {"scene", "Сцена", ""},
-                             {"arm", "Рука", ""},           {"vision", "Зрение", ""},  {"memory", "Память", ""}};
+// The parts of the engine an internal's id starts with ("physics/drives ms" -> «Физика: drives»).
+const FixedCard kParts[] = {{"rigid", "Твёрдые тела", ""}, {"physics", "Физика", ""}, {"scene", "Сцена", ""}};
 
 // The unit an engine id ends with ("rigid/solve ms"), and the id without it.
 struct UnitSuffix {

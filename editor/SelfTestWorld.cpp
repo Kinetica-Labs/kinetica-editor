@@ -18,7 +18,7 @@ int runWorldTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& d
     Checker c; b.newScene(); trigger(w, "worldPhysics"); pump(100);
     auto* panel = w.findChild<WorldPanel*>(); auto* tabs = w.findChild<QTabWidget*>("inspectorTabs");
     c.check(panel && panel->isVisible() && tabs && tabs->currentIndex() == 2 && tabs->tabText(2) == "Мир",
-            "Physics opens the world tab without Expert or a selected object");
+            "Simulation → World physics opens the world tab without a selected object");
     if (!panel) return c.failures;
     auto* g = panel->findChild<QDoubleSpinBox*>("gravityStrength");
     auto* steps = panel->findChild<QSpinBox*>("substeps");

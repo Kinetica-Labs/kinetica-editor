@@ -28,12 +28,6 @@ using namespace selftest;
 
 namespace {
 
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
-
 void act(QMainWindow& w, const char* name) {
     trigger(w, name);
     pump(40);

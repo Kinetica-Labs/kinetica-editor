@@ -2,6 +2,7 @@
 // bubble that leads to the first falling cube, the "Примеры" gallery, and the window without panels
 // that makes the gallery's pictures.
 #include "MainWindow.h"
+#include "Resources.h"
 
 #include "EditorOps.h"
 #include "ExamplesGallery.h"
@@ -33,17 +34,7 @@ namespace {
 const char* kFirstMinuteDone = "hints/firstMinuteDone";
 } // namespace
 
-// Where the editor's own scenes are: examples/ next to the program when installed, else the source
-// tree the build came from.
-QString MainWindow::examplesDir() {
-    const QString nextToExe = QCoreApplication::applicationDirPath() + "/examples";
-    if (QDir(nextToExe).exists()) return nextToExe;
-#ifdef KE_EXAMPLES
-    return QStringLiteral(KE_EXAMPLES);
-#else
-    return QDir::currentPath();
-#endif
-}
+QString MainWindow::examplesDir() { return resourceDir("examples"); }
 
 // The builder's first scene: the file given on the command line; on the very first start (or with
 // --first-start) the UR5e with the first-minutes bubble; else an empty floor.

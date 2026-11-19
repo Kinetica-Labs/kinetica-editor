@@ -1,7 +1,7 @@
 // The editor's entry point: the dark palette, the text size and the style sheet of the whole window,
 // the software OpenGL switch (it has to be chosen before the application exists), the command line
 // (automation, tests, pictures, the API), and the counting operator new behind the probe's
-// "allocations per frame". The window itself is MainWindow.h.
+// The window itself is MainWindow.h.
 #include "Icons.h"
 #include "MainWindow.h"
 #include "AgentInstanceGuard.h"
@@ -23,31 +23,8 @@
 #include <QSettings>
 #include <QSurfaceFormat>
 
-#include <cstdlib>
 #include <cstring>
-#include <new>
 #include <vector>
-
-// Counting allocations for the probe's "memory/allocations per frame": the core never touches the
-// allocator, so the program replaces the global operator new (every variant the standard pairs
-// together) and forwards to malloc. Aligned variants keep the library's own, self-consistent pair.
-void* operator new(std::size_t n) {
-    ke::Probe::allocations.fetch_add(1, std::memory_order_relaxed);
-    if (void* p = std::malloc(n ? n : 1)) return p;
-    throw std::bad_alloc();
-}
-void* operator new[](std::size_t n) { return operator new(n); }
-void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
-    ke::Probe::allocations.fetch_add(1, std::memory_order_relaxed);
-    return std::malloc(n ? n : 1);
-}
-void* operator new[](std::size_t n, const std::nothrow_t& t) noexcept { return operator new(n, t); }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
-void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
-void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
-void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
 
 static void applyDarkPalette(QApplication& app) {
     app.setStyle(QStyleFactory::create("Fusion"));
@@ -232,7 +209,7 @@ struct Options {
     QCommandLineOption edit{"edit", "The builder's screenshot in edit mode: the scene as authored, nothing simulated."};
     QCommandLineOption physics{"physics", "Open the world physics settings tab."};
     QCommandLineOption camera{"camera", "The builder's screenshot looks through the scene's active camera (else its first)."};
-    QCommandLineOption firstStart{"first-start", "Start as on the very first run: the welcome scene and the first-minute hint."};
+    QCommandLineOption firstStart{"first-start", "Start as on the very first run: the UR5e arm and the first-minute hint."};
     QCommandLineOption thumbnail{"thumbnail", "Only the 3D view, no window on the screen (the gallery's pictures)."};
     QCommandLineOption galleryShot{"gallery-shot", "Make every picture of the examples gallery, save the gallery as a PNG, quit.", "file"};
     QCommandLineOption agentEval{"agent-eval", "Serve an isolated agent evaluation without showing windows or taking desktop input; use with --api."};
@@ -323,9 +300,9 @@ int main(int argc, char** argv) {
     QApplication app(count, args.data());
     QApplication::setApplicationName("Kinetica");
     QApplication::setOrganizationName("Kinetica");
-    QApplication::setDesktopFileName("org.kinetica.Editor");
+    QApplication::setDesktopFileName("kinetica"); // packaging/kinetica.desktop: Wayland ties the window to its icon by this name
     QIcon applicationIcon;
-    for (int size : {16, 24, 32, 48, 64, 128, 256}) // the K of the logo (data/logo), every size drawn, not scaled by the desktop
+    for (int size : {16, 24, 32, 48, 64, 128, 256}) // the K of the logo (resources/logo/kinetica-k.png), every size drawn, not scaled by the desktop
         applicationIcon.addFile(QString(":/app/icons/kinetica-%1.png").arg(size), QSize(size, size));
     app.setWindowIcon(applicationIcon);
     applyDarkPalette(app);

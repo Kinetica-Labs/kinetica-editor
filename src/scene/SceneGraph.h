@@ -198,7 +198,7 @@ struct BatteryObject {
     Real soc = 1.0_r;                   // the state of charge the scene starts with
 };
 
-// A motor driver (an H-bridge, electro/PowerBus.h) between a battery and a joint's DC motor: it
+// A motor driver (an H-bridge) between a battery and a joint's DC motor: it
 // switches the battery's bus onto the motor with the duty `duty` (-1..1, the sign the direction). The
 // motor's constant and winding resistance are the joint's dcmotor line; the driver gives its voltage
 // (with no driver, the motor runs on its line's own voltage, an ideal supply). At a duty of 0 the
@@ -316,7 +316,6 @@ struct SensorObject : SceneObject {
     Real fovDeg = 65;                   // ... its horizontal field of view
     Real baseline = 0.10_r;             // ... the distance between its two cameras, m (a ZED-like rig: 65 degrees, 10 cm)
     bool projector = true;              // ... its pattern of dots on
-    std::string matcher = "sgm";        // ... how the robot matches its pair (vision/StereoMatching.h): "sgm", "onnx:<engine>:<model>"
 };
 
 // A wheel as a point of its body - the fast model of a wheel module (Assembly.h), as Unity's
@@ -417,6 +416,7 @@ std::string worldText(const WorldSettings& w);
 // ---------------------------------------------------------------------------
 // The object with this id - an entity, a group, an array, a light, a camera or a sensor (null: none).
 const SceneObject* findObject(const SceneGraph& g, uint32_t id);
+const Entity* findEntity(const SceneGraph& g, uint32_t id); // only an entity (null: none, or another kind)
 // Any object's orientation from its rotationDeg (Ry Rx Rz), and back: Euler degrees of a rotation.
 Quaternion objectRotation(const SceneObject& o);
 Vector3 eulerDegrees(const Quaternion& q);

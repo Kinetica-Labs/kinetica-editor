@@ -60,12 +60,7 @@ ArrayObject* SceneBuilder::arrayById(uint32_t id) {
 
 SceneObject* SceneBuilder::selectedObject() { return objectById(selectedId_); }
 
-uint32_t SceneBuilder::ownerOf(uint32_t drawnId) const {
-    if (!isArrayCopyId(drawnId)) return drawnId;
-    for (const ArrayObject& a : graph_.arrays)
-        if ((a.id & 0x7FFFu) == arrayOfCopyId(drawnId)) return a.id;
-    return 0;
-}
+uint32_t SceneBuilder::ownerOf(uint32_t drawnId) const { return ke::ownerOf(graph_, drawnId); }
 
 // The hierarchy as the core sees it (ke::SceneActions): one rule for the window and every client.
 std::vector<uint32_t> SceneBuilder::chainOf(uint32_t id) const { return ke::ancestry(graph_, id); }
@@ -109,16 +104,7 @@ QString SceneBuilder::objectTitle(uint32_t id) const {
 // Where things are
 // ---------------------------------------------------------------------------
 AABB SceneBuilder::boundsOf(uint32_t id) {
-    AABB box;
-    for (const Entity& w : worldEntities(graph_))
-        if (w.visible && isInside(ownerOf(w.id), id)) box.expand(editView_.worldBounds(graph_, w));
-    auto mark = [&](const SceneObject& o) { // a light or a camera: about the size of its wireframe
-        const Vector3 p = worldPositionOf(o.id);
-        if (effectivelyVisible(graph_, o) && isInside(o.id, id)) box.expand(AABB(p - Vector3(0.3f), p + Vector3(0.3f)));
-    };
-    for (const Light& l : graph_.lights) mark(l);
-    for (const Camera& c : graph_.cameras) mark(c);
-    return box;
+    return objectBounds(graph_, id, [this](const Entity& w) { return editView_.worldBounds(graph_, w); });
 }
 
 Vector3 SceneBuilder::worldPositionOf(uint32_t id) const {

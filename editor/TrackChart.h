@@ -65,9 +65,7 @@ public:
     QString title() const { return title_; }
     bool normalized() const { return normalized_; }
     double cursorTime() const { return cursor_; }
-    double hoverTime() const { return hover_; }
     std::pair<double, double> timeRange() const { return {t0_, t1_}; }
-    std::pair<double, double> valueRange() const { return {y0_, y1_}; } // what the y-axis shows
     // The value the chart draws for line k at time t (normalised when it is), NaN when there is none.
     double shownValueAt(size_t k, double t) const;
     double timeAtX(double x) const;

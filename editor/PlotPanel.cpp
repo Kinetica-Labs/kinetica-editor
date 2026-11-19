@@ -227,9 +227,9 @@ void PlotPanel::addEnergyParts(double t, const std::vector<ke::Measurement>& mea
 }
 
 // Which channels keep the whole run: the lines on the charts (the selected object's among them), the
-// scene's energy, and everything when the whole run is kept (setKeepEverything).
+// scene's energy.
 bool PlotPanel::kept(const std::string& id) const {
-    if (keepAll_ || contains(defaultChannels(), id)) return true;
+    if (contains(defaultChannels(), id)) return true;
     return std::any_of(charts_.begin(), charts_.end(), [&](const Chart& c) { return contains(c.ids, id); });
 }
 

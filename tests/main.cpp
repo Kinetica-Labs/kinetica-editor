@@ -2,31 +2,6 @@
 #include "TestRunner.h"
 #include "Tests.h"
 
-#include "core/Probe.h"
-
-#include <new>
-
-// The allocation census: the test program replaces the global operator new so that every heap
-// allocation counts into Probe::allocations. The core itself never touches the allocator; only the
-// program that wants the number counts.
-void* operator new(std::size_t n) {
-    ke::Probe::allocations.fetch_add(1, std::memory_order_relaxed);
-    if (void* p = std::malloc(n ? n : 1)) return p;
-    throw std::bad_alloc();
-}
-void* operator new[](std::size_t n) { return operator new(n); }
-void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
-    ke::Probe::allocations.fetch_add(1, std::memory_order_relaxed);
-    return std::malloc(n ? n : 1);
-}
-void* operator new[](std::size_t n, const std::nothrow_t& t) noexcept { return operator new(n, t); }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
-void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
-void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
-void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
-
 int main() {
     run("math: vectors, matrices, quaternions, N x N solvers", testMath);
     run("math: mesh primitives are closed and have their volumes", testPrimitives);

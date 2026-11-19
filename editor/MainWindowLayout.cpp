@@ -5,7 +5,7 @@
 // menu - the three areas, every panel on its own, the status line, the tool shelf and "only the 3D
 // view" (F11, the editor's Zen mode). An area opened with nothing remembered shows its main panel:
 // the Laboratory on the left, the graphs at the bottom, the inspector on the right. The buttons follow
-// the panels however they open and close (their ✕, F8, F9, "Эксперт").
+// the panels however they open and close (their ✕, F8, F9).
 #include "MainWindow.h"
 
 #include "SequencerPanel.h"

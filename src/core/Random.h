@@ -32,14 +32,6 @@ public:
     // [-1, 1).
     Real symmetric() { return uniform() * 2.0_r - 1.0_r; }
 
-    Vector3 uniform3() {
-        const Real x = uniform(), y = uniform(), z = uniform();
-        return {x, y, z};
-    }
-    Vector3 uniform3(const Vector3& lo, const Vector3& hi) {
-        const Real x = uniform(lo.x, hi.x), y = uniform(lo.y, hi.y), z = uniform(lo.z, hi.z);
-        return {x, y, z};
-    }
     Vector3 symmetric3() {
         const Real x = symmetric(), y = symmetric(), z = symmetric();
         return {x, y, z};

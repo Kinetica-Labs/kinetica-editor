@@ -619,7 +619,7 @@ void Viewport::drawFloor(const QMatrix4x4& vp) {
     const ke::AABB& d = snap_->domain;
     const Vector3 c = d.center(), e = d.extent();
     const float y = d.lo.y, half = std::max(e.x, e.z);
-    if (!showFloor_ || !d.valid() || !(half > 0)) return;
+    if (!d.valid() || !(half > 0)) return;
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     std::vector<float> g;

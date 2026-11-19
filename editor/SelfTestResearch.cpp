@@ -118,21 +118,11 @@ void live(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     b.stop();
 }
 
-QString examples() {
-    const QString nextToExe = QCoreApplication::applicationDirPath() + "/examples";
-    if (QDir(nextToExe).exists()) return nextToExe;
-#ifdef KE_EXAMPLES
-    return QStringLiteral(KE_EXAMPLES);
-#else
-    return QDir::currentPath();
-#endif
-}
-
 // The robot arm of the examples, playing: a mouse click on one of its links makes that link the research
 // target and the builder's selection; its measured quantities come with the next frames.
 void armMouse(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
     QString error;
-    if (!b.openFile(examples() + "/robot-arm.kscene", error)) return c.check(false, "the robot arm example opens");
+    if (!b.openFile(MainWindow::examplesDir() + "/robot-arm.kscene", error)) return c.check(false, "the robot arm example opens");
     b.play();
     waitFrames(v, 30, 10000);
     b.pause();

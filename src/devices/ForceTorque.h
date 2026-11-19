@@ -40,8 +40,6 @@ public:
     long long samples() const { return samples_; }
     bool saturated() const { return forceCh_.saturated() || torqueCh_.saturated(); }
     const ForceTorqueSpec& spec() const { return spec_; }
-    const Vector3& forceOffset() const { return forceCh_.offset; } // the unit's offsets, N, N m
-    const Vector3& torqueOffset() const { return torqueCh_.offset; }
 
 private:
     ForceTorqueSpec spec_;

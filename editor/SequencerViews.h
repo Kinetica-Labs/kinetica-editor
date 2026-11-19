@@ -45,7 +45,6 @@ public:
     QPointF pointOf(uint32_t object, double time) const; // where a key is drawn; (-1, -1): not in sight
     QPointF foldOf(int row) const;     // where a row's fold arrow is
     uint32_t pickedObject() const { return keyObject_; }
-    double pickedTime() const { return keyTime_; }
 
 protected:
     void paintEvent(QPaintEvent*) override;

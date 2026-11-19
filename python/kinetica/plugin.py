@@ -12,7 +12,7 @@
 
     run()
 
-Put it as ``plugin.py`` in a folder of the editor's plugins (Плагины → Папка плагинов, or Плагины → Новый плагин…):
+Put it as ``plugin.py`` in a folder of the editor's plugins (Плагины → Папка моих плагинов, or Плагины → Новый плагин…):
 the editor starts it, and ``cube_row`` is then a command of the editor like any - a button in «Плагины» with its key,
 a line in Ctrl+K, ``ed.cubes_cube_row(count=3)`` in the console, an operation a script calls, a tool an AI agent gets
 over MCP. Its fields make the form the button opens. What it changes in the scene is one undo step (Ctrl+Z), and every

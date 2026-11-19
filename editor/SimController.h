@@ -31,12 +31,10 @@ public:
     // The scene's name every published frame carries (Frame::sceneName): the window names its file.
     void setSceneName(std::string name);
     void setRunning(bool on);
-    bool isRunning() const { return running_; }
     void requestStep();
     void setRealtimeLimit(bool on) { realtime_ = on; }
 
     std::shared_ptr<const ke::Frame> snapshot() const;
-    uint64_t serial() const { return serial_; }
     // Every snapshot published since the last call, oldest first (at most kPublishedKept: a window that
     // does not ask for a long while loses the oldest, never grows without bound).
     std::vector<std::shared_ptr<const ke::Frame>> takePublished();

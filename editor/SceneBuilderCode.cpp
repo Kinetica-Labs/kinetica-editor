@@ -98,13 +98,6 @@ QJsonObject callOf(const GraphEdit& e, const SceneGraph& before, const SceneGrap
 const char* kShapeWords[] = {"box", "sphere", "cylinder", "cone", "plane", "mesh"};
 const char* kLightWords[] = {"sun", "point", "spot"};
 
-template <class Kind, size_t N>
-bool ofWord(const QString& word, const char* (&words)[N], size_t count, Kind& out) {
-    for (size_t k = 0; k < count; ++k)
-        if (word == words[k]) return out = Kind(k), true;
-    return false;
-}
-
 } // namespace
 
 const char* shapeWord(ShapeKind k) { return kShapeWords[int(k)]; }

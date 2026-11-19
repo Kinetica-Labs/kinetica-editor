@@ -10,7 +10,7 @@
 | [physics](physics.md) — мир твёрдых тел | `src/physics/PhysicsWorld.h` | `plugins/physics/box3d` | `tests/PhysicsTests.cpp`, `tests/SimTests.cpp` |
 | [drives](drives.md) — приводы суставов | `src/scene/JointModel.h` (`JointDrive`) | считаются ядром (`src/sim/RobotWorld.cpp`) поверх physics | `tests/SimTests.cpp` |
 | [sensors](sensors.md) — датчики робота | `src/devices/*.h`, `SensorObject` в `src/scene/SceneGraph.h` | модели устройств ядра | `tests/DeviceTests.cpp` |
-| [editor-plugin](editor-plugin.md) — плагин окна: каждая кнопка есть команда, видна строкой Python | `EditorPlugin` (вводится после возврата окна) | все части окна и сторонние плагины | самотест «каждая кнопка — операция» |
+| [editor-plugin](editor-plugin.md) — плагин окна: каждая кнопка есть команда, видна строкой Python | `python/kinetica/plugin.py`, операции `plugin_*` (`editor/PluginHost.h`) | все части окна и сторонние плагины | самотест «каждая кнопка — операция» |
 | [operations](operations.md) — API редактора | `src/scene/SceneOps.h` | реестр операций ядра; окно и сервер — клиенты | `tests/SceneActionTests.cpp`, `tests/AssemblyTests.cpp` |
 
 ## Плагины: кто угодно может написать свой
@@ -32,12 +32,12 @@ C++-классы между библиотеками разных компиля
 `plugins/`, выбор — по имени в настройках.
 
 Общее для обоих:
-- манифест `plugin.json`: имя, версия, контракт и его версия;
+- объявление: плагин-процесс — вызовом `plugin_register`, встраиваемый — манифестом `plugin.json` (имя, версия, контракт и его версия);
 - контракт — этот документ и заголовок; несовместимое изменение — только с новой версией контракта;
 - тесты соответствия: тесты контракта собраны в программу, которую автор запускает на своём плагине
   (`ke_conformance --plugin his.so`) и до отправки видит, выполнен ли контракт.
 
-Порядок, чтобы не строить лишнего: регистрация чужих операций — вместе с сервером API (этап 5);
+Порядок, чтобы не строить лишнего: регистрация чужих операций сделана (`plugin_register`);
 интерфейс на C для физики — когда появится второй движок (kinetica-physics). До тех пор Box3D
 собирается внутрь редактора, а часть с одной реализацией остаётся кодом ядра.
 

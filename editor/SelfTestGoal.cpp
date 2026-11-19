@@ -63,12 +63,6 @@ SceneGraph standingArm() {
     return g;
 }
 
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
-
 // The hand's live position: its body in the newest snapshot.
 Vector3 handNow(SceneBuilder& b, Viewport* v, uint32_t id = 4) {
     const int body = b.bodyOfEntity(id);
@@ -164,7 +158,7 @@ void testGoalInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
 // the whole robot selected shows its collider guides at once.
 void testGripButton(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     QString error;
-    const bool opened = b.openFile(QString(KE_EXAMPLES) + "/ur5e.kscene", error);
+    const bool opened = b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error);
     c.check(opened, "examples/ur5e.kscene opens");
     if (!opened) return;
     // The whole UR5e selected: its links' collider guides drawn at once - from the points the engine gets (HullPoints.h),

@@ -113,7 +113,6 @@ struct Quaternion {
 
 inline Real dot(const Quaternion& a, const Quaternion& b) { return a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z; }
 // |q|^2 in double (exact products), for the unit-norm checks of the solvers.
-inline double normSquaredDouble(const Quaternion& q) { return double(q.w) * q.w + double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z; }
 
 // Spherical linear interpolation along the shortest arc (t = 0 -> a, t = 1 -> b).
 inline Quaternion slerp(const Quaternion& a, Quaternion b, Real t) {

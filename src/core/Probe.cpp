@@ -13,9 +13,7 @@
 
 namespace ke {
 
-std::atomic<long long> Probe::allocations{0};
 std::atomic<uint32_t> Probe::layers_{0};
-std::atomic<uint64_t> Probe::frames_{1};
 
 namespace {
 
@@ -138,13 +136,6 @@ void Probe::box(DrawLayer l, const AABB& b, const Vector3& color) {
     for (const auto& k : e) s.lines.push_back({c[k[0]], c[k[1]], color, l});
 }
 
-void Probe::label(DrawLayer l, const Vector3& at, const std::string& text) {
-    if (!layerOn(l)) return;
-    Store& s = store();
-    std::lock_guard<std::mutex> lock(s.mutex);
-    if (reserve(s, l, 1, at)) s.labels.push_back({at, text, l});
-}
-
 void Probe::beginFrame() {
     Store& s = store();
     std::lock_guard<std::mutex> lock(s.mutex);
@@ -155,7 +146,6 @@ void Probe::beginFrame() {
     s.labels.clear();
     s.used.fill(0);
     s.capped.fill(false);
-    ++frames_;
 }
 
 Probe::Snapshot Probe::snapshot() {
@@ -187,7 +177,6 @@ void Probe::clear() {
     s.labels.clear();
     s.used.fill(0);
     s.capped.fill(false);
-    ++frames_;
 }
 
 double Probe::Snapshot::value(const std::string& name, double fallback) const {

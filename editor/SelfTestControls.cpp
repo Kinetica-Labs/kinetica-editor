@@ -46,12 +46,6 @@ void act(QMainWindow& w, const char* name) {
 
 QPointF onScreen(Viewport* v, const Vector3& p) { return toPoint(v->gizmoView().project(p)); }
 
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
-
 // Three cubes in a row on the floor, framed; returns their ids.
 std::vector<uint32_t> threeCubes(SceneBuilder& b) {
     b.newScene();

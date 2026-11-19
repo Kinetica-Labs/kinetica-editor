@@ -63,12 +63,6 @@ void raiseAndClick(Viewport* v, const Vector3& corner, float height, Qt::Keyboar
     clickAt(v, onScreen(v, top), Qt::LeftButton, m);
 }
 
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
-
 bool near(const Vector3& a, const Vector3& b) { return length(a - b) < 1e-4f; }
 
 // The console's lines that make a shape.

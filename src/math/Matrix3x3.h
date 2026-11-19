@@ -83,7 +83,6 @@ struct Matrix3x3 {
     }
     Vector3 col(int j) const { return {m[0][j], m[1][j], m[2][j]}; }
     Vector3 row(int i) const { return {m[i][0], m[i][1], m[i][2]}; }
-    Real trace() const { return m[0][0] + m[1][1] + m[2][2]; }
     Real determinant() const {
         const auto& a = m;
         return a[0][0] * (a[1][1] * a[2][2] - a[1][2] * a[2][1]) - a[0][1] * (a[1][0] * a[2][2] - a[1][2] * a[2][0]) +

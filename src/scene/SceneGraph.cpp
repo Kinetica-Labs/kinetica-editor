@@ -391,7 +391,6 @@ static void saveSensor(std::ostringstream& o, const SensorObject& s) {
     if (s.kind == SensorKind::Stereo) {
         o << "  stereo width " << s.width << " height " << s.height << " fov " << num(s.fovDeg) << " baseline " << num(s.baseline) << " projector "
           << (s.projector ? 1 : 0) << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed;
-        if (s.matcher != "sgm") o << " matcher \"" << s.matcher << "\""; // the default left out: older files read and write the same
         o << "\nend\n";
         return;
     }
@@ -752,7 +751,7 @@ static bool readSensorLine(const std::vector<std::string>& w, SensorObject& s, s
         const bool ok = stereo ? (k == "width" ? r.count(s.width, 16, 4096) : k == "height" ? r.count(s.height, 16, 4096)
                                   : k == "fov" ? r.number(s.fovDeg) && s.fovDeg > 1 && s.fovDeg < 170 : k == "baseline" ? r.number(s.baseline) && s.baseline > 0
                                   : k == "projector" ? r.flag(s.projector) : k == "noise" ? r.flag(s.noise) : k == "seed" ? r.integer(s.seed)
-                                  : k == "matcher" ? r.text(s.matcher) && !s.matcher.empty() : false)
+                                  : false)
                       : noisy ? (k == "noise" ? r.flag(s.noise) : k == "seed" ? r.integer(s.seed) : false)
                       : s.kind == SensorKind::Effort ? (k == "dof" && readDof(r, s.dof))
                       : s.kind != SensorKind::Encoder ? false

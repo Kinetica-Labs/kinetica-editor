@@ -6,8 +6,8 @@
 // without anybody having wired it up in advance.
 //
 //   Probe::set("physics/contacts", n);            a value: the latest number of the channel
-//   Probe::add("arm/plans", 1);                   a counter: summed over the frame, zero at beginFrame
-//   { Probe::Timer t("vision/match"); ... }       a timer: milliseconds summed over the frame
+//   Probe::set("physics/contacts", n);            a value: the frame's last
+//   { Probe::Timer t("physics/engine ms"); ... }  a timer: milliseconds summed over the frame
 //   if (Probe::layerOn(DrawLayer::ContactNormals))  debug drawing by LAYER (as PhysX's
 //       Probe::arrow(DrawLayer::ContactNormals, p, n, colour);   visualization parameters)
 //
@@ -81,10 +81,6 @@ public:
     static void setLayers(uint32_t mask) { layers_.store(mask, std::memory_order_relaxed); }
     static uint32_t layers() { return layers_.load(std::memory_order_relaxed); }
     static bool layerOn(DrawLayer l) { return (layers() & bit(l)) != 0; }
-    // The bits of the layers first..last (in the order of DrawLayer), e.g. every rigid layer.
-    static constexpr uint32_t bits(DrawLayer first, DrawLayer last) {
-        return (bit(last) - bit(first)) | bit(last); // first .. last-1, and last
-    }
     // Removes this frame's drawing of the layers in mask. A solver stepped several times a frame
     // (substeps) calls it before it draws, so the picture is that of its last step.
     static const char* layerName(DrawLayer l); // "ContactPoints" ... (ASCII, for panels and files)
@@ -100,7 +96,6 @@ public:
     static void arrow(DrawLayer l, const Vector3& p, const Vector3& v, const Vector3& color); // a line with a head
     static void point(DrawLayer l, const Vector3& p, const Vector3& color, Real size = 0.01_r);
     static void box(DrawLayer l, const AABB& b, const Vector3& color); // its 12 edges
-    static void label(DrawLayer l, const Vector3& at, const std::string& text);
     // Without a layer: DrawLayer::Misc.
     static void line(const Vector3& a, const Vector3& b, const Vector3& color) { line(DrawLayer::Misc, a, b, color); }
     static void arrow(const Vector3& p, const Vector3& v, const Vector3& color) { arrow(DrawLayer::Misc, p, v, color); }
@@ -109,20 +104,12 @@ public:
 
     // The frame: counters and timers back to zero, drawings cleared; values stay.
     static void beginFrame();
-    // How many times beginFrame() and clear() ran: whoever draws once a frame from outside the
-    // step remembers it and draws again only when it changed.
-    static uint64_t frameIndex() { return frames_.load(std::memory_order_relaxed); }
     static Snapshot snapshot();
     static std::vector<std::string> channels();
     static void clear(); // everything, including the values (tests)
 
-    // Memory: whoever replaces the global operator new (the tests, the app) adds to this; the
-    // engine itself never touches the allocator. stepFrame reports the difference per frame.
-    static std::atomic<long long> allocations;
-
 private:
     static std::atomic<uint32_t> layers_;
-    static std::atomic<uint64_t> frames_;
 };
 
 

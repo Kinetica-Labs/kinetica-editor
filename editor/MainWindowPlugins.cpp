@@ -49,11 +49,7 @@ void MainWindow::buildPlugins() {
                 scroll->deleteLater();
             }
         if (!add) return;
-        auto* scroll = new QScrollArea;
-        scroll->setWidgetResizable(true);
-        scroll->setFrameShape(QFrame::NoFrame);
-        scroll->setWidget(panel);
-        inspectorTabs_->addTab(scroll, panel->title());
+        inspectorTabs_->addTab(scrolled(panel), panel->title());
     });
     QAction* make = menu->addAction("Новый плагин…");
     make->setObjectName("actionNewPlugin");

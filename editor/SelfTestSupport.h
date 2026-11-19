@@ -22,6 +22,8 @@
 
 namespace selftest {
 
+inline const ke::Entity* entity(const SceneBuilder& b, uint32_t id) { return ke::findEntity(b.graph(), id); }
+
 struct Checker {
     int failures = 0;
     void check(bool ok, const char* what) {

@@ -58,7 +58,6 @@ bool Viewport::followBody(uint32_t object) {
         if (followedBody_) { bodyOrbit_=camera_; bodyOrbitSaved_=true; camera_=sceneOrbit_; }
         followedBody_=0;
         stopFlying();
-        emit followBodyChanged(0);
         update(); return true;
     }
     const ke::Frame::Body* body=nullptr;
@@ -71,7 +70,6 @@ bool Viewport::followBody(uint32_t object) {
     else camera_.lookAt(centre+QVector3D(1.8f,1.0f,1.8f),centre);
     followedBody_=object;
     updateBodyOrbit();
-    emit followBodyChanged(object);
     update(); return true;
 }
 void Viewport::updateBodyOrbit() {

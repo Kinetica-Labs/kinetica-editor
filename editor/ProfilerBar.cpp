@@ -23,11 +23,9 @@ const QColor kText(223, 227, 232), kMuted(139, 147, 162), kTrack(44, 48, 56), kG
 // apart - sky blue, orange, bluish green, reddish purple; and a neutral grey for the part of the step
 // no timer covers (the frame's own work between the stages).
 struct Part { const char* prefix; QString name; QColor color; };
-constexpr size_t kOther = 3, kUntimed = 4; // indices into parts()
+constexpr size_t kOther = 1, kUntimed = 2; // indices into parts()
 const std::vector<Part>& parts() {
     static const std::vector<Part> p = {{"physics", "Физика", QColor(86, 180, 233)},
-                                        {"arm", "Рука", QColor(230, 159, 0)},
-                                        {"vision", "Зрение", QColor(0, 158, 115)},
                                         {"", "Прочее", QColor(204, 121, 167)},
                                         {"", "Вне замеров", QColor(96, 104, 116)}};
     return p;
@@ -38,10 +36,7 @@ const std::vector<Part>& parts() {
 // under their words here.
 QString stageName(const std::string& channel) {
     static const std::map<std::string, QString> names = {
-        {"engine", "движок физики"},  {"drives", "приводы"},       {"sensors", "датчики"},
-        {"grab", "рука мыши"},        {"measure", "измерения"},   {"debug draw", "отладочная графика"},
-        {"plan", "планировщик"},      {"ik", "обратная кинематика"}, {"match", "сопоставление"},
-        {"controllers", "управление сценой"}};
+        {"engine", "движок физики"}, {"drives", "приводы"}, {"sensors", "датчики"}, {"step", "шаг"}};
     std::string word = channel.substr(channel.find('/') + 1);
     if (word.size() > 3 && word.compare(word.size() - 3, 3, " ms") == 0) word.resize(word.size() - 3);
     const auto it = names.find(word);

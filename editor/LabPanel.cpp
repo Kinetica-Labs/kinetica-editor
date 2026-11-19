@@ -162,7 +162,6 @@ QCheckBox* LabPanel::layerBox(ke::DrawLayer l) const {
 void LabPanel::setMask(uint32_t mask) {
     ke::Probe::setLayers(mask);
     showMask(mask);
-    emit layersChanged(mask);
 }
 
 // Someone else changed the layers (a scene, a test, «Следить за парой»): the boxes follow.

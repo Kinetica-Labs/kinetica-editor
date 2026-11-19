@@ -100,16 +100,12 @@ public:
     // (moving only), as if that handle had been grabbed at the press (Blender's axis locking).
     void switchHandle(GizmoHandle h, const GizmoView& v);
     bool dragging() const { return active_ != GizmoHandle::None; }
-    GizmoHandle activeHandle() const { return active_; }
     float dragAngleDeg() const { return angleDeg_; } // the turn so far
-    const GizmoPose& lastPose() const { return last_; }
-    const ke::Vector3& dragStart() const { return startPosition_; }
 
     // Keyboard transforms (see the top of the file)
     void beginModal(GizmoMode m, const GizmoView& v, const ke::Vector2& mouse);
     void constrainModal(int axis, const GizmoView& v); // X / Y / Z pressed: world, local, free in turn
     bool modal() const { return modal_; }
-    int modalAxis() const { return modalAxis_; }
     void setTyped(bool typed, float value) { typed_ = typed, typedValue_ = value; }
     // The live amount next to the cursor: "X +0.350 м", "Z +45.0°", "×1.20".
     std::string dragLabel() const;

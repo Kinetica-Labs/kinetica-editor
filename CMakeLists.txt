@@ -3,7 +3,7 @@ project(KineticaEditor VERSION 0.1.0 LANGUAGES C CXX)
 
 # Kinetica Editor: a robotics editor - a robot arm, a drone, a wheeled robot, their joints, motors and
 # imperfect sensors - on top of a world-class rigid-body engine (Box3D). The parts:
-#   src/     kecore: the robot's world without Qt - math, devices, sensors, scene, arm, vision, and the
+#   src/     kecore: the robot's world without Qt - math, devices, sensors, scene, the running world, and the
 #            contracts plugins implement (docs/contracts), the physics engine's among them (src/physics);
 #   plugins/ the implementations of contracts: plugins/physics/box3d, the only place that includes Box3D;
 #   editor/  kinetica, the Qt 6 window;
@@ -35,9 +35,8 @@ add_subdirectory(extern/box3d)
 add_library(kecore STATIC
   src/math/Math.h src/math/Real.h src/math/AABB.h
   src/math/ElementaryFunctions.h src/math/ElementaryFunctions.cpp
-  src/math/Vector2.h src/math/Vector3.h src/math/Vector4.h src/math/Quaternion.h
-  src/math/Matrix3x3.h src/math/Matrix4x4.h
-  src/math/MatrixNxN.h src/math/MatrixNxN.cpp
+  src/math/Vector2.h src/math/Vector3.h src/math/Quaternion.h
+  src/math/Matrix3x3.h
   src/core/Format.h        src/core/Format.cpp
   src/core/Value.h         src/core/Value.cpp
   src/core/Units.h         src/core/Units.cpp
@@ -119,7 +118,7 @@ if(Qt6_FOUND)
     editor/SceneBuilder.h    editor/SceneBuilder.cpp editor/SceneBuilderPanels.cpp editor/SceneBuilderObjects.cpp
     editor/SceneBuilderClone.cpp editor/SceneBuilderMulti.cpp editor/SceneBuilderLights.cpp editor/SceneBuilderKeep.cpp
     editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/ControllerKeys.h editor/ControllerKeys.cpp
-    editor/PluginHost.h editor/PluginHost.cpp editor/PluginPanel.h editor/PluginPanel.cpp editor/MainWindowPlugins.cpp editor/PythonRuntime.h editor/SequencerPanel.h editor/SequencerPanel.cpp
+    editor/PluginHost.h editor/PluginHost.cpp editor/PluginPanel.h editor/PluginPanel.cpp editor/MainWindowPlugins.cpp editor/PythonRuntime.h editor/Resources.h editor/SequencerPanel.h editor/SequencerPanel.cpp
     editor/SequencerViews.h editor/SequencerTimeline.cpp editor/SequencerCurves.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
     editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
@@ -188,10 +187,8 @@ if(Qt6_FOUND)
     target_sources(kinetica PRIVATE resources/kinetica.rc)
   endif()
   target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
-  # "Открыть…" starts in examples/; the console's Python finds the kinetica package in python/.
-  target_compile_definitions(kinetica PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
-                                              KE_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/python"
-                                              KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
+  # examples/, data/ and python/ of the source tree when the program runs from the build (MainWindow::resourceDir).
+  target_compile_definitions(kinetica PRIVATE KE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   if(MSVC)
     target_compile_options(kinetica PRIVATE /W4 /utf-8)
   else()

@@ -22,11 +22,6 @@ const SceneObject* findIn(const std::vector<T>& list, uint32_t id) {
     return nullptr;
 }
 
-const Entity* findEntity(const SceneGraph& g, uint32_t id) {
-    for (const Entity& e : g.entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
 
 // The parents of an object, nearest first; stops at a missing parent or a repeated one (a cycle).
 std::vector<const SceneObject*> ancestors(const SceneGraph& g, const SceneObject& o) {
@@ -67,6 +62,10 @@ int copyCount(const ArrayObject& a) {
 }
 
 } // namespace
+
+const Entity* findEntity(const SceneGraph& g, uint32_t id) {
+    return id ? static_cast<const Entity*>(findIn(g.entities, id)) : nullptr;
+}
 
 const SceneObject* findObject(const SceneGraph& g, uint32_t id) {
     if (id == 0) return nullptr;

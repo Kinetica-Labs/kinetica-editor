@@ -26,24 +26,6 @@ public:
     const std::vector<uint32_t>& prims() const { return prims_; }
     AABB bounds() const { return nodes_.empty() ? AABB() : nodes_[0].box; }
 
-    // Calls fn(primIndex) for every primitive whose box overlaps q.
-    template <class F> void queryAABB(const AABB& q, F&& fn) const {
-        if (nodes_.empty()) return;
-        int stack[64];
-        int sp = 0;
-        stack[sp++] = 0;
-        while (sp) {
-            const BVHNode& n = nodes_[stack[--sp]];
-            if (!n.box.overlaps(q)) continue;
-            if (n.isLeaf()) {
-                for (int i = 0; i < n.count; ++i) fn(prims_[n.first + i]);
-            } else {
-                stack[sp++] = n.first;
-                stack[sp++] = n.first + 1;
-            }
-        }
-    }
-
 private:
     void subdivide(int nodeIdx, const std::vector<AABB>& boxes, const std::vector<Vector3>& centroids, int maxLeaf, int depth);
 
@@ -72,7 +54,6 @@ public:
     bool empty() const { return tris_.empty(); }
     AABB bounds() const { return bvh_.bounds(); }
     const BVH& bvh() const { return bvh_; }
-    size_t triangleCount() const { return tris_.size(); }
 
     void triangle(size_t t, Vector3& a, Vector3& b, Vector3& c) const {
         a = pos_[tris_[t][0]]; b = pos_[tris_[t][1]]; c = pos_[tris_[t][2]];

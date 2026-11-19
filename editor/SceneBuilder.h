@@ -109,7 +109,6 @@ public:
     const std::vector<QAction*>& createActions() const { return createActions_; } // Куб, Сфера ...
     QAction* undoAction() const { return undoAct_; }
     QAction* redoAction() const { return redoAct_; }
-    QAction* deselectAction() const { return deselectAct_; }
 
     // The window's actions as code (SceneBuilderCode.cpp), as Blender's Info shows the operator a button
     // ran: an action as the one call of the object model that does it (scene.add("box"), a gizmo drag as
@@ -133,7 +132,6 @@ public:
     uint32_t nextIdToGive() const { return nextId_; }
     bool restoreSnapshot(const QString& text, const QString& baseDirectory, uint32_t nextId, QString& error);
     const ke::SceneGraph& graph() const { return graph_; }
-    static std::string sceneName() { return "Конструктор"; } // the simulation's name of the builder's scene
 
     // Play / pause / stop / one step.
     Mode mode() const { return mode_; }
@@ -290,7 +288,6 @@ public:
 
 signals:
     void statusMessage(const QString& text);               // "Коллайдер добавлен: без него тело провалится"
-    void simulationKept(int objects);                      // K took the live poses of this many objects
     void modeChanged();                                    // edit / playing / paused
     void editSnapshot(std::shared_ptr<const ke::Frame> s); // edit mode: what to draw
     void highlightBodies(const std::vector<int>& bodies);  // the bodies of the selected thing
@@ -302,7 +299,6 @@ signals:
     void selectionChanged(uint32_t id);                    // the "Объект" tab shows it (0: nothing selected)
     void colliderGuides(std::vector<float> lines);         // green wireframes: pairs of points, x y z 0 each
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
-    void firstAction();                                    // the user did something: the first-start hint goes
     void sceneMarkers(std::vector<SceneMarker> markers);   // the lights and cameras to draw
     // The view through a camera (on) or the editor's own view (off).
     void cameraView(bool on, ke::Vector3 eye, ke::Vector3 forward, ke::Vector3 up, float fovDeg, float nearClip, float farClip);

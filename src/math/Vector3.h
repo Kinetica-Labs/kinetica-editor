@@ -34,8 +34,6 @@ constexpr Vector3 cross(const Vector3& a, const Vector3& b) {
     return {a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x};
 }
 // In double: the products of two floats are exact, only the two additions round.
-inline double dotDouble(const Vector3& a, const Vector3& b) { return double(a.x) * b.x + double(a.y) * b.y + double(a.z) * b.z; }
-inline bool isFinite(const Vector3& v) { return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z); }
 inline Real length2(const Vector3& a) { return dot(a, a); }
 inline Real length(const Vector3& a) { return std::sqrt(dot(a, a)); }
 inline Vector3 normalize(const Vector3& a) {
@@ -44,7 +42,6 @@ inline Vector3 normalize(const Vector3& a) {
 }
 inline Vector3 vmin(const Vector3& a, const Vector3& b) { return {std::min(a.x, b.x), std::min(a.y, b.y), std::min(a.z, b.z)}; }
 inline Vector3 vmax(const Vector3& a, const Vector3& b) { return {std::max(a.x, b.x), std::max(a.y, b.y), std::max(a.z, b.z)}; }
-inline Vector3 vabs(const Vector3& a) { return {std::fabs(a.x), std::fabs(a.y), std::fabs(a.z)}; }
 inline Vector3 lerp(const Vector3& a, const Vector3& b, Real t) { return a + (b - a) * t; }
 inline Real maxComp(const Vector3& a) { return std::max(a.x, std::max(a.y, a.z)); }
 inline Real minComp(const Vector3& a) { return std::min(a.x, std::min(a.y, a.z)); }

@@ -2,7 +2,8 @@
 // The Python a plugin or the console runs on: python3, or python as Windows' installer names it - not the Microsoft
 // Store's stub in WindowsApps, which only opens the Store - and the kinetica package (python/: next to the program,
 // else the sources), put on PYTHONPATH with the editor's port. ApiConsole and PluginHost start theirs alike.
-#include <QCoreApplication>
+#include "Resources.h"
+
 #include <QDir>
 #include <QProcessEnvironment>
 #include <QStandardPaths>
@@ -15,17 +16,13 @@ inline QString pythonInterpreter() {
     return "python3";
 }
 
+inline QString pythonPackage() { return resourceDir("python"); }
+
 inline QProcessEnvironment pythonEnvironment(quint16 port) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-    const QString installed = QCoreApplication::applicationDirPath() + "/python";
-    const QString package = QDir(installed).exists() ? installed : QString(KE_PYTHON);
+    const QString package = pythonPackage();
     env.insert("PYTHONPATH", package + (env.contains("PYTHONPATH") ? QDir::listSeparator() + env.value("PYTHONPATH") : QString()));
     env.insert("KE_EDITOR_PORT", QString::number(port));
     env.insert("PYTHONUNBUFFERED", "1");
     return env;
-}
-
-inline QString pythonPackage() {
-    const QString installed = QCoreApplication::applicationDirPath() + "/python";
-    return QDir(installed).exists() ? installed : QString(KE_PYTHON);
 }

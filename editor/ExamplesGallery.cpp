@@ -21,10 +21,8 @@ const char* kEditorCategory = "Сцены редактора";
 
 // The names of the editor's own scenes; another file is shown by its file name.
 QString sceneTitle(const QString& baseName) {
-    if (baseName == "welcome") return "Горка и башня";
     if (baseName == "robot-arm") return "Рука-манипулятор";
     if (baseName == "ur5e") return "UR5e: цель ИК, схват, кубики";
-    if (baseName == "cradle-and-cubes") return "Колыбель и кубики";
     if (baseName == "textures") return "Текстуры";
     return baseName;
 }
@@ -85,11 +83,11 @@ QString ExamplesGallery::thumbnailDir() {
     return QStandardPaths::writableLocation(QStandardPaths::CacheLocation) + "/thumbnails";
 }
 
-// The scenes by name, the welcome scene at the very front.
+// The scenes by name, the first start's scene at the very front.
 void ExamplesGallery::collect(const QString& examplesDir) {
     QStringList files = QDir(examplesDir).entryList({"*.kscene"}, QDir::Files, QDir::Name);
     files.sort();
-    if (files.removeOne("welcome.kscene")) files.prepend("welcome.kscene");
+    if (files.removeOne("ur5e.kscene")) files.prepend("ur5e.kscene");
     categories_ << "Все" << kEditorCategory;
     for (const QString& f : files) examples_.push_back({sceneTitle(QFileInfo(f).completeBaseName()), kEditorCategory, examplesDir + "/" + f});
 }

@@ -39,7 +39,6 @@ public:
     QCheckBox* layerBox(ke::DrawLayer l) const;
 
 signals:
-    void layersChanged(uint32_t mask); // the set of layers drawn changed (from a checkbox or a preset)
 
 private:
     void buildPresets(QVBoxLayout* col);

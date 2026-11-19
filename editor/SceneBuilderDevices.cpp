@@ -1,8 +1,8 @@
 // The electrics in the scene builder (see SceneBuilder.h): batteries and motor drivers as rows of the
 // scene list - a battery, its drivers under it - and their cards. They are no SceneObjects (no pose: a
 // driver is the wiring between a battery and a joint's motor), so the inspector shows their card in
-// place of the object's. A driver's duty is a slider. They are the scene's data (electro/Battery.h,
-// electro/PowerBus.h model them); the running world (src/sim) does not feed a motor from them yet, so
+// place of the object's. A driver's duty is a slider. They are the scene's data (electro/Battery.h
+// models the battery); the running world (src/sim) does not feed a motor from them yet, so
 // their cards say they have no readings instead of showing any. The joint's and the controller's cards
 // share this place (SceneBuilderJoints.cpp, SceneBuilderControllers.cpp).
 #include "SceneBuilder.h"
