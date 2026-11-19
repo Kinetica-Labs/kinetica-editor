@@ -141,7 +141,7 @@ private:
     // The first minute (MainWindowStart.cpp)
     void startFirstMinute();
     void showFirstMinuteStep();
-    void onFirstMinuteAction();
+    void onFirstMinuteOp(const QString& name, const QJsonObject& args, const QJsonObject& answer);
     void finishFirstMinute();
 
     // Keys and mouse schemes (MainWindowControls.cpp)
@@ -221,6 +221,7 @@ private:
     class QTabWidget* inspectorTabs_ = nullptr; // "Сцена" | "Объект"
     QAction* playAct_ = nullptr;
     QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
+    class ControllerKeys* controllerKeys_ = nullptr; // a person's keys to the scene's panels while it plays
     class QTimer* recordBlink_ = nullptr;
     QAction* bottomWideAct_ = nullptr; // the bottom panel the window's whole width (MainWindowLayout.cpp)
     qint64 recordSince_ = 0;       // when the take started: a second press within 0.5 s is a double click's, not a stop
@@ -254,7 +255,8 @@ private:
     QAction* duplicateAct_ = nullptr;
     class QActionGroup* schemeGroup_ = nullptr;
     QLabel* hintLabel_ = nullptr; // the status bar: what the mouse buttons and keys do now
-    int hintStep_ = 0; // 0: press Куб, 1: the tile Твёрдое, 2: ▶
+    int hintStep_ = 0; // 0: «Запись», 1: the arm by its keys and ■, 2: the playhead, 3: what is next
+    bool firstMinuteHeard_ = false; // the listener of the operations is there (once per window)
     bool forceFirstStart_ = false;
     class SimulationBar* simulationBar_ = nullptr;
     class CameraPicker* cameraPicker_ = nullptr;

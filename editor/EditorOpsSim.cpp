@@ -21,6 +21,7 @@
 #include <QApplication>
 #include <QCoreApplication>
 #include <QImage>
+#include <QJsonArray>
 #include <QMetaObject>
 #include <QPainter>
 #include <QPointer>
@@ -213,6 +214,31 @@ void EditorOps::addSimOps() {
     // thread; the answer is the state after them.
     addStepOp();
     addRecordOp();
+    // A panel's actions set while the scene runs (RobotWorld::setControllerInput): what its keys, a pad, a script or a
+    // policy do - each value held until set again.
+    add("controller_input", "The values of a controller's actions while the scene runs, held until set again: a vector2 [x, y] (move: x "
+                            "along the floor's x, y away), an axis or a button a number, -1..1 (lift, turn, grip 0..1); the scene's first "
+                            "controller when no id - the UR5e's panel moves its IK goal and the arm follows",
+        "{id?: int, values: {action: number | [x, y]}}", [this](const QJsonObject& a, const Reply& reply) {
+        if (builder_->editing()) return reply(error("the scene is not running: ▶ or sim_step first"));
+        const ke::SceneGraph& g = builder_->graph();
+        const uint32_t id = a.contains("id") ? uint32_t(a.value("id").toInt()) : g.controllers.empty() ? 0 : g.controllers.front().id;
+        std::vector<std::pair<std::string, ke::Vector3>> values;
+        const QJsonObject given = a.value("values").toObject();
+        for (auto it = given.begin(); it != given.end(); ++it) {
+            const QJsonArray xy = it.value().toArray();
+            values.push_back({it.key().toStdString(), it.value().isArray() ? ke::Vector3(ke::Real(xy.at(0).toDouble()), ke::Real(xy.at(1).toDouble()), 0)
+                                                                          : ke::Vector3(ke::Real(it.value().toDouble()), 0, 0)});
+        }
+        if (values.empty()) return reply(error("values: {action: value}, e.g. {\"move\": [0, 1]}"));
+        ctrl_->post([this, reply, id, values](ke::Simulation& s) {
+            std::string why = s.robot() ? std::string() : "the scene is not built";
+            for (const auto& [name, v] : values)
+                if (why.empty() && !s.robot()->setControllerInput(id, name, v, why)) break;
+            QMetaObject::invokeMethod(this, [this, reply, why, id] { reply(why.empty() ? ok({{"id", int(id)}}) : error(QString::fromStdString(why))); },
+                                      Qt::QueuedConnection);
+        }, "controller");
+    });
     addStateOp();
     addImpulseOp();
     addChannelsOp();

@@ -28,12 +28,17 @@ void SimulationBar::setState(bool playing, bool paused, bool canKeep) {
     const bool running = playing || paused;
     mode_->setText(paused ? "Пауза" : playing ? "Игра" : "Правка");
     mode_->setStyleSheet(running ? "color: #ffd58a; font-weight: 600;" : "color: #b8c4d0; font-weight: 600;");
-    hint_->setText(!running ? "Пуск запустит симуляцию." : canKeep ? "Стоп вернёт исходную сцену." : "Готовая сцена.");
+    hint_->setText(!running ? "Пуск запустит симуляцию." : !note_.isEmpty() ? note_ : canKeep ? "Стоп вернёт исходную сцену." : "Готовая сцена.");
+    hint_->setStyleSheet(running && !note_.isEmpty() ? "color: #7cff9a;" : QString());
     setToolTip(running && canKeep ? "Правки в игре не сохранятся после Стоп. Сохранить положения тел: K." : hint_->text());
     mode_->setToolTip(toolTip()); hint_->setToolTip(toolTip());
     keep_->setVisible(canKeep);
     fitText();
 }
+void SimulationBar::setNote(const QString& note) {
+    note_ = note;
+}
+
 void SimulationBar::fitText() {
     hint_->setVisible(width() >= 520);
     keep_->setText(width() < 340 ? "Сохранить · K" : "Сохранить положения · K");

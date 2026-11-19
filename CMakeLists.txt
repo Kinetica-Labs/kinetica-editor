@@ -74,7 +74,7 @@ add_library(kecore STATIC
   src/robot/ArmSurfaceCover.h src/robot/ArmSurfaceCover.cpp
   src/physics/HullPoints.h src/physics/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/box3d/Box3dWorld.cpp
-  src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp
+  src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp src/sim/RobotControllers.cpp
   src/sim/LiveSensors.h    src/sim/LiveSensors.cpp
   src/sim/Channels.h       src/sim/Channels.cpp
   src/sim/Simulation.h     src/sim/Simulation.cpp
@@ -123,7 +123,7 @@ if(Qt6_FOUND)
     editor/ApiConsole.h      editor/ApiConsole.cpp
     editor/SceneBuilder.h    editor/SceneBuilder.cpp editor/SceneBuilderPanels.cpp editor/SceneBuilderObjects.cpp
     editor/SceneBuilderClone.cpp editor/SceneBuilderMulti.cpp editor/SceneBuilderLights.cpp editor/SceneBuilderKeep.cpp
-    editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
+    editor/SceneBuilderSequence.cpp editor/EditorOpsRecord.cpp editor/ControllerKeys.h editor/ControllerKeys.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
     editor/SequencerViews.h editor/SequencerTimeline.cpp editor/SequencerCurves.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
     editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp

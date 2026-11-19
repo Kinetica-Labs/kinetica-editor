@@ -3,6 +3,12 @@
 // changes the geometry, three clicks make a cube fall, and the cards of a joint, a sensor, a battery and a driver edit
 // them. Each check prints one line.
 #include "SelfTestSupport.h"
+#include <QMouseEvent>
+#include <QKeyEvent>
+#include <QApplication>
+#include "scene/Animation.h"
+#include "SequencerViews.h"
+#include "FirstStartHint.h"
 #include "scene/Assembly.h"
 #include "scene/SensorSpec.h"
 #include "sim/RobotWorld.h"
@@ -262,35 +268,51 @@ void testThreeClicks(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     pump(200);
 }
 
-// The very first start: the welcome scene and the bubble that leads through Куб, Твёрдое, ▶. The
-// user's own "seen it" flag is put back afterwards.
+// The very first start: the UR5e and the bubble that leads through «Запись», the arm by its keys and ■ Стоп, the
+// Sequencer's playhead and what is next - each step by the hand that does it. The user's own "seen it" flag is put back
+// afterwards.
 void testFirstMinute(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
     auto* mw = dynamic_cast<MainWindow*>(&w);
     if (!mw) return c.check(false, "the window is the editor's MainWindow");
     const QVariant seen = QSettings().value("hints/firstMinuteDone");
     mw->setForceFirstStart(true);
     mw->startBuilder(true);
-    pump(600);
-    const bool welcome = std::any_of(b.graph().entities.begin(), b.graph().entities.end(), [](const Entity& e) { return e.name == "Горка"; });
+    pump(800);
+    const bool robot = !b.graph().controllers.empty() && b.graph().joints.size() >= 6;
     const QString first = mw->firstMinuteText();
-    std::printf("  first start: %zu objects; the bubble says: %s\n", b.graph().entities.size(), qPrintable(first));
-    c.check(welcome && first.contains("Куб"), "first start: the welcome scene and a bubble pointing at «Куб»");
+    std::printf("  first start: %zu objects, %zu joints; the bubble says: %s\n", b.graph().entities.size(), b.graph().joints.size(), qPrintable(first));
+    c.check(robot && first.contains("Запись"), "first start: the UR5e and a bubble pointing at «Запись»");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start.png");
-    b.createActions()[0]->trigger();
-    pump(150);
+    trigger(w, "actionRecord");
+    waitFrames(v, 20, 15000);
     const QString second = mw->firstMinuteText();
-    clickRole(w, RoleIcon::Rigid);
-    pump(150);
-    const QString third = mw->firstMinuteText();
-    if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start-step3.png");
-    if (auto* play = w.findChild<QAction*>("actionPlay")) play->trigger();
-    pump(150);
-    c.check(second.contains("Твёрдое") && third.contains("Пуск") && mw->firstMinuteText().isEmpty() &&
-                QSettings().value("hints/firstMinuteDone").toBool(),
-            "the bubble moves to «Твёрдое», then to ▶, and is gone after ▶ for good");
-    waitFrames(v, 60, 15000);
-    b.stop();
+    QWidget* to = QApplication::focusWidget() ? QApplication::focusWidget() : &w;
+    QKeyEvent press(QEvent::KeyPress, Qt::Key_W, Qt::NoModifier, "w"), release(QEvent::KeyRelease, Qt::Key_W, Qt::NoModifier, "w");
+    QCoreApplication::sendEvent(to, &press);
+    pump(600);
+    QCoreApplication::sendEvent(to, &release);
     pump(200);
+    trigger(w, "actionStop");
+    pump(800);
+    const QString third = mw->firstMinuteText();
+    if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start-take.png");
+    auto* ruler = w.findChild<QWidget*>("sequencerTimeline");
+    const ke::SequenceObject* take = activeSequence(b.graph());
+    if (ruler && take) {
+        const QPointF at(sequencer::axisOf(take, ruler->width()).x(double(take->length()) / 2), 11);
+        QMouseEvent down(QEvent::MouseButtonPress, at, ruler->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QMouseEvent up(QEvent::MouseButtonRelease, at, ruler->mapToGlobal(at), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(ruler, &down), QCoreApplication::sendEvent(ruler, &up);
+    }
+    pump(200);
+    const QString fourth = mw->firstMinuteText();
+    std::printf("  then: «%s…» / «%s…» / «%s…»\n", qPrintable(second.left(40)), qPrintable(third.left(40)), qPrintable(fourth.left(40)));
+    c.check(second.contains("W S A D") && third.contains("бегунок") && fourth.contains("Датчик") &&
+                QSettings().value("hints/firstMinuteDone").toBool(),
+            "the bubble leads: the arm's keys and ■, the playhead over the take, what is next");
+    if (auto* close = w.findChild<FirstStartHint*>()) emit close->closeClicked();
+    pump(100);
+    c.check(mw->firstMinuteText().isEmpty(), "✕ closes the bubble");
     mw->setForceFirstStart(false);
     if (seen.isValid()) QSettings().setValue("hints/firstMinuteDone", seen);
     else QSettings().remove("hints/firstMinuteDone");

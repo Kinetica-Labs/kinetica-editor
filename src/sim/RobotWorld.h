@@ -95,6 +95,12 @@ public:
     // spring: let go, the joint comes back along the profile. Without it a servo whose damper alone eats its whole
     // force at a fifth of a rad/s ran full force one way, then the other - the arm bounced at 4.6 Hz, the wrists whipped.
     static constexpr Real kServoTurnSpeed = kPi, kServoTravelSpeed = 0.15_r, kServoSettle = 0.2_r; // rad/s, m/s, s
+    // The scene's controllers (SceneGraph::controllers - a ready arm panel from controller_add, RobotControllers.cpp):
+    // an action's value from keys, a pad, a script or a policy, -1..1 a component (a vector2: x y), held until set
+    // again; every step it moves an IK goal along the floor, up and down or about the vertical (the arm follows,
+    // leadGoals), closes the gripper by its share, walks a joint's servo or sets a driver's duty. False: no such action.
+    bool setControllerInput(uint32_t controller, const std::string& action, const Vector3& value, std::string& error);
+
     // The mouse's hand (an editor's grab): body `body` held at `point` (world, on the body) by the engine's mouse
     // joint (PhysicsWorld::addHand, Box3D samples' tuning: 7.5 Hz, critically damped, at most 100 weights, its
     // spin braked) solved with the contacts; its weight carried at the held point, so it hangs at the cursor, not
@@ -118,6 +124,17 @@ private:
         mutable Real setpoint = std::numeric_limits<Real>::quiet_NaN(); // a servo's, on its way to the target (kServoSettle)
     };
     void setDrive(PhysicsWorld& physics, LiveJoint& live, const JointObject& j);
+    struct ControlLive {
+        uint32_t controller = 0;
+        std::string action;
+        Vector3 value{0.0_r};
+        Real applied = -1; // grip: the share sent to the fingers last
+    };
+    std::vector<ControlLive> controls_;
+    void driveControllers(PhysicsWorld& physics, Real dt);
+    void moveGoal(PhysicsWorld& physics, const ControllerAction& a, const Vector3& v, Real dt);
+    void driveGrip(PhysicsWorld& physics, const ControllerAction& a, Real part);
+    void jogJoint(PhysicsWorld& physics, const ControllerAction& a, Real v, Real dt);
     bool coordinates(const PhysicsWorld& physics, const LiveJoint& j, Real c[6]) const;
     void buildJoint(PhysicsWorld& physics, const JointObject& j);
     void drive(PhysicsWorld& physics, const LiveJoint& j, Real h) const; // h: the substep

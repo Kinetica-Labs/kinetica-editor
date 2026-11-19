@@ -39,7 +39,7 @@ constexpr size_t kRecent = 500;
 bool EditorOps::windowOnly(const QString& name) {
     for (const char* prefix : {"selection_", "gizmo_", "view_", "ui_", "ops_", "journal_", "runtime_"})
         if (name.startsWith(prefix)) return true;
-    return name == "sim_play" || name == "sim_record" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "scene_save" || name == "session_start" ||
+    return name == "sim_play" || name == "sim_record" || name == "controller_input" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "scene_save" || name == "session_start" ||
            name == "session_end";
 }
 

@@ -468,6 +468,7 @@ void RobotWorld::leadAnimation(PhysicsWorld& physics, Real time, Real h) {
 }
 
 void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
+    if (!controls_.empty()) driveControllers(physics, dt);
     leadGoals(physics, dt);
     physics.moveHand(grabJoint_, grabTarget_, dt);
     const int n = std::max(substeps, 1);

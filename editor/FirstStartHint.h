@@ -15,7 +15,7 @@ class FirstStartHint : public QFrame {
 public:
     explicit FirstStartHint(QWidget* window);
     // Shows `text` next to `target` with the arrow pointing at it: below a target at the top of the
-    // window, to the left of a target in the right-hand panel.
+    // window, to the left of a target in the right-hand panel, above a target low in the window (the timeline).
     void pointAt(QWidget* target, const QString& text);
     QString text() const;
     QWidget* target() const { return target_; }
@@ -28,7 +28,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
-    enum class Side { Above, Right }; // where the target is, seen from the bubble
+    enum class Side { Above, Right, Below }; // where the target is, seen from the bubble
     void place();
 
     QLabel* text_ = nullptr;

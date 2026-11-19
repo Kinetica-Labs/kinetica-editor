@@ -3,6 +3,8 @@
 //   - K keeps what the simulation did (SceneBuilder::keepSimulationPoses, Unreal's "Keep Simulation
 //     Changes");
 //   - Ctrl+K finds any command by name (CommandSearch);
+//   - the scene's panel takes the keys while it plays (ControllerKeys: W A S D, R F, Z X, Space; T gives them back),
+//     its words on the simulation bar;
 //   - ● Запись beside ▶ (Ctrl+R): play and record the physics (sim_record) - again, or ■ Стоп, and the take is a new
 //     sequence on the Sequencer's tab (Unreal's Take Recorder: one button, the run kept as an animation);
 //   - a white window: if the GPU's first frames come back all one colour, the editor offers to start
@@ -10,6 +12,7 @@
 #include "MainWindow.h"
 
 #include "CommandSearch.h"
+#include "ControllerKeys.h"
 #include "Icons.h"
 #include "EditorOps.h"
 #include "SimulationBar.h"
@@ -66,6 +69,11 @@ void MainWindow::buildPlayExtras() {
 // The frame, status row and available actions follow every mode change.
 void MainWindow::updateSimulationBar() {
     if (!simulationBar_) return;
+    if (!controllerKeys_ && ops_) { // the keys of the scene's panels while it plays: their words on this bar
+        controllerKeys_ = new ControllerKeys(ops_, builder_, this);
+        connect(controllerKeys_, &ControllerKeys::changed, this, &MainWindow::updateSimulationBar);
+    }
+    if (controllerKeys_) controllerKeys_->sync(), simulationBar_->setNote(controllerKeys_->note());
     const SceneBuilder::Mode m = builder_->mode();
     const bool builderPlay = m != SceneBuilder::Mode::Edit;
     view_->setPlayFrame(builderPlay);

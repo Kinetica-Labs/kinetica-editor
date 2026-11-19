@@ -75,6 +75,7 @@ int main() {
     run("sim: the active sequence - a kinematic pusher on its track pushes a box ahead of it", testSimSequence);
     run("sim: a take - a run recorded, thinned to keys within 0.5 mm, replayed as the active sequence", testSimRecording);
     run("sim: a take records a robot's link its joint moves, and replays it kinematic", testSimRecordingArm);
+    run("sim: the UR5e's panel - move takes the goal and the hand after it, grip closes the fingers", testSimController);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);

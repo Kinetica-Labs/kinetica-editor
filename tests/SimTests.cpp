@@ -619,3 +619,56 @@ void testSimRecordingArm() {
     CHECK(taken && armOnly, "a take records a robot's link a joint moves");
     CHECK(led && worst < 0.2_r * kPi / 180, "the arm replayed off its run by %f deg", double(worst) * 180 / double(kPi));
 }
+
+// The UR5e's panel (its scene's controller «Пульт «Схват»») in the running world: «move» held at (1, 0) for 1 s takes
+// the IK goal 0.15 m along x (the action's speed, 0.15 m/s) and the hand after it - it rests within a centimetre of
+// that once let go; «grip» at 1 closes the fingers (their slider walks toward its closed end); an action the panel
+// does not have is refused.
+void testSimController() {
+    SceneGraph g = ur5e();
+    CHECK(!g.controllers.empty(), "the UR5e scene has its panel");
+    if (g.controllers.empty()) return;
+    const ControllerObject& panel = g.controllers[0];
+    uint32_t goalId = 0;
+    for (const ControllerAction& a : panel.actions)
+        if (a.name == "move") goalId = a.target;
+    const Entity* goal = nullptr;
+    for (const Entity& e : g.entities)
+        if (e.id == goalId) goal = &e;
+    CHECK(goal && goal->goalOf, "the panel's move drives an IK goal");
+    if (!goal) return;
+    const uint32_t effector = goal->goalOf;
+    uint32_t finger = 0;
+    for (const JointObject& j : g.joints)
+        if ((j.a == effector || j.b == effector) && mainFreedom(j) >= 0 && mainFreedom(j) <= 2) finger = j.id;
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    const auto hand = [&] { return s.physics()->state(s.robot()->bodyOf(effector)).position; };
+    const auto goalAt = [&] {
+        Vector3 p;
+        Quaternion q;
+        worldPose(s.robot()->live(), *findObject(s.robot()->live(), goalId), p, q);
+        return p;
+    };
+    const Vector3 hand0 = hand(), goal0 = goalAt();
+    std::string error;
+    const bool set = s.robot()->setControllerInput(panel.id, "move", {1, 0, 0}, error);
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    s.robot()->setControllerInput(panel.id, "move", Vector3(0.0_r), error);
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    const Vector3 hand1 = hand(), goal1 = goalAt();
+    Real open[6] = {}, closed[6] = {};
+    s.robot()->jointCoordinates(*s.physics(), finger, open);
+    s.robot()->setControllerInput(panel.id, "grip", {1, 0, 0}, error);
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    s.robot()->jointCoordinates(*s.physics(), finger, closed);
+    const int dof = finger ? mainFreedom(*std::find_if(g.joints.begin(), g.joints.end(), [&](const JointObject& j) { return j.id == finger; })) : 0;
+    const bool refused = !s.robot()->setControllerInput(panel.id, "fly", Vector3(1.0_r), error) && error.find("fly") != std::string::npos;
+    std::printf("  the UR5e's panel: «move» (1, 0) for 1 s - the goal %.4f m along x, the hand %.4f m (off it by %.4f m); «grip» 1 - the "
+                "finger's slider %.4f -> %.4f m; «fly» refused %s\n", double(goal1.x - goal0.x), double(hand1.x - hand0.x),
+                double(length(hand1 - goal1 - (hand0 - goal0))), double(open[dof]), double(closed[dof]), refused ? "yes" : "no");
+    CHECK(set && std::fabs(goal1.x - goal0.x - 0.15_r) < 1e-3_r, "the panel's move takes the goal 0.15 m in 1 s");
+    CHECK(std::fabs(hand1.x - hand0.x - 0.15_r) < 0.01_r, "the hand follows its goal: %f m", double(hand1.x - hand0.x));
+    CHECK(finger && std::fabs(closed[dof] - open[dof]) > 0.005_r && refused, "grip closes the fingers; an unknown action is refused");
+}
