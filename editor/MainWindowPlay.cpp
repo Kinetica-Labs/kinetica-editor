@@ -28,6 +28,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QSettings>
+#include <QStatusBar>
 #include <QTimer>
 #include <QVBoxLayout>
 
@@ -123,10 +124,10 @@ void MainWindow::buildRecordAction() {
         if (on) recordSince_ = now;
         ops_->run("sim_record", QJsonObject{{"on", on}}, [this](const QJsonObject& r) {
             syncRecord();
-            if (!r["ok"].toBool()) return status_->setText(r["error"].toString());
+            if (!r["ok"].toBool()) return statusBar()->showMessage(r["error"].toString(), 8000);
             if (!r.contains("tracks")) return;
-            status_->setText(QString("Записано: тел %1, ключей %2, %3 с — во вкладке «Секвенсор»: бегунок, ▶ Просмотр; «▶ в Пуске» повторит как анимацию")
-                                 .arg(r["tracks"].toInt()).arg(r["keys"].toInt()).arg(r["length"].toDouble(), 0, 'f', 2));
+            statusBar()->showMessage(QString("Записано: тел %1, ключей %2, %3 с — во вкладке «Секвенсор»: бегунок, ▶ Просмотр; «▶ в Пуске» повторит как анимацию")
+                                         .arg(r["tracks"].toInt()).arg(r["keys"].toInt()).arg(r["length"].toDouble(), 0, 'f', 2), 12000);
             if (auto* dock = findChild<QDockWidget*>("sequencerDock")) dock->show(), dock->raise(); // the take to look at
         }, "ui");
         syncRecord();

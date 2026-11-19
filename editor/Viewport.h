@@ -87,8 +87,6 @@ public:
     const NavCube& navCube() const { return navCube_; }
     // What the mouse buttons and keys do right now, for the status bar (hintChanged when it changes).
     QString mouseHint() const;
-    // The time step and frame rate line under the title: for the expert mode only.
-    void setShowStats(bool on) { showStats_ = on; update(); }
     // Play: the nearest body of the physics engine the mouse may grab hit by the ray (its mesh's
     // triangles; a body only a few pixels wide is taken when the ray passes near it).
     bool pickBody(const Ray& ray, int& body, ke::Vector3& hit) const;
@@ -125,7 +123,6 @@ public:
     void setEditMode(bool on);
     bool editMode() const { return editMode_; }
     // The line under the title in edit mode.
-    void setEditCaption(const QString& text);
     // While the scene plays: a coloured frame round the view (ViewportPlay.cpp).
     void setPlayFrame(bool on);
     bool playFrame() const { return playFrame_; }
@@ -366,7 +363,7 @@ private:
     ke::AABB focusBox_;            // what to frame when valid (the builder's objects)
     std::vector<int> highlight_;   // bodies outlined as selected
     std::vector<int> hoverBodies_, ghostBodies_;
-    bool showStats_ = false, showFloor_ = true, overlayVisible_ = true, agentDriving_ = false;
+    bool showFloor_ = true, overlayVisible_ = true, agentDriving_ = false;
     std::vector<char> unpickable_;          // per body: the mouse passes through
     std::vector<float> colliderGuides_;     // x y z state per point, two points a segment
     std::vector<float> guidesByState_[3];   // the same lines sorted by state: one colour per draw
@@ -397,7 +394,6 @@ private:
     bool playFrame_ = false;   // the play mode's frame round the view
     bool orbiting_ = false;    // the camera orbits: the pivot is marked
     QVector3D orbitPivot_;
-    QString editCaption_ = "Правка: физика стоит. Двигайте, вращайте, масштабируйте; ▶ Пуск оживит сцену.";
     std::vector<SceneMarker> markers_;
     std::vector<float> markerSolid_, markerFaint_; // reused every frame
     bool lookThrough_ = false;

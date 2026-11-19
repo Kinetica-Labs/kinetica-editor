@@ -672,8 +672,8 @@ void Viewport::countFrame(qint64 paintNs) {
 // ---------------------------------------------------------------------------
 // 2D overlay
 // ---------------------------------------------------------------------------
-// The scene's name and under it the edit caption, or in play the clock (with the expert's statistics:
-// the step's cost and the frame rate); then the navigation cube and the marks over the picture.
+// The scene's name and under it a creating tool's next step, or in play the clock (the mode itself is said once, by the
+// simulation bar under the view; the frame's numbers by the HUD, F3); then the navigation cube and the marks.
 void Viewport::drawOverlay() {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
@@ -688,16 +688,8 @@ void Viewport::drawOverlay() {
     p.setFont(f);
     p.setPen(QColor(170, 176, 188));
     const double time = double(snap_->time);
-    if (editMode_)
-        p.drawText(14, 42, createMode_ ? createTool_.hint(createWhat_) : editCaption_);
-    else if (!showStats_)
-        p.drawText(14, 42, QString("t = %1 с").arg(time, 0, 'f', 2));
-    else
-        p.drawText(14, 42, QString("t = %1 с   ·   расчёт %2 мс/кадр   ·   рендер %3 fps (%4)")
-                               .arg(time, 0, 'f', 3)
-                               .arg(double(snap_->stepMs), 0, 'f', 1)
-                               .arg(double(fps_), 0, 'f', 0)
-                               .arg(softwareRenderer() ? QString("процессор, llvmpipe") : QString("GPU")));
+    if (editMode_ && createMode_) p.drawText(14, 42, createTool_.hint(createWhat_)); // what the next click does
+    else if (!editMode_) p.drawText(14, 42, QString("t = %1 с").arg(time, 0, 'f', 2));
     drawAxesAndHints(p);
     drawOrbitPivot(p);
     drawContactDots(p);

@@ -25,7 +25,6 @@ class QAction;
 class QComboBox;
 class QGroupBox;
 class QLabel;
-class QTableWidget;
 class QTimer;
 
 class MainWindow : public QMainWindow {
@@ -109,11 +108,9 @@ private:
     void addManyActions(class QMenu* menu);
     void addSelectHelpers(class QMenu* menu);
     void showClonePopover(const QPointF& pos);
-    QString modeText() const;
     // A beginner sees the builder and the 3D view; "Эксперт" brings back the frame's numbers and the
     // probe's raw channels, "Графики" the readings and plots at the bottom.
     void buildLayoutActions();
-    void setExpertMode(bool on);
     void setGraphsVisible(bool on);
     // The layout buttons at the right end of the menu line, as in VS Code's title bar
     // (MainWindowLayout.cpp): the left, bottom and right dock areas close and open with what was
@@ -131,8 +128,6 @@ private:
     // Runtime
     void poll();
     void onSnapshot(const std::shared_ptr<const ke::Frame>& s);
-    void updateInfo(const ke::Frame& s);
-    void updateSensors(const ke::Frame& s); // the probe's channels
     void togglePlay();
 
     // File operations
@@ -221,9 +216,7 @@ private:
     QTimer* timer_ = nullptr;
     uint64_t lastFrame_ = 0;
     std::string lastSceneName_;
-    qint64 lastInfoUpdate_ = 0;
 
-    QAction* expertAct_ = nullptr;
     QAction* graphsAct_ = nullptr;
     QAction* collidersAct_ = nullptr; // every object's collider as a green wireframe, not only the selected one's
     class QTabWidget* inspectorTabs_ = nullptr; // "Сцена" | "Объект"
@@ -238,8 +231,6 @@ private:
     QAction* stepAct_ = nullptr;
     QAction* localAct_ = nullptr;
     class QActionGroup* toolGroup_ = nullptr;
-    QTableWidget* info_ = nullptr;
-    QTableWidget* sensors_ = nullptr; // every probe channel, by name
     PlotPanel* plots_ = nullptr;
     SceneBuilder* builder_ = nullptr;
     void buildOperators(); // the API's operations and the magnet, before the top bar
@@ -264,7 +255,6 @@ private:
     QLabel* hintLabel_ = nullptr; // the status bar: what the mouse buttons and keys do now
     int hintStep_ = 0; // 0: press Куб, 1: the tile Твёрдое, 2: ▶
     bool forceFirstStart_ = false;
-    QLabel* status_ = nullptr;
     class SimulationBar* simulationBar_ = nullptr;
     class CameraPicker* cameraPicker_ = nullptr;
     class CommandSearch* search_ = nullptr;

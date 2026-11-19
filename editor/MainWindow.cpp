@@ -22,7 +22,6 @@
 #include <QDateTime>
 #include <QDockWidget>
 #include <QFileDialog>
-#include <QHeaderView>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -30,11 +29,9 @@
 #include <QPainter>
 #include <QProcess>
 #include <QScrollArea>
-#include <QSplitter>
 #include <QStatusBar>
 #include <QStyle>
 #include <QTabWidget>
-#include <QTableWidget>
 #include <QTimer>
 #include <QToolBar>
 #include <QVBoxLayout>
@@ -78,11 +75,8 @@ MainWindow::MainWindow() {
     buildPlayExtras();
     connectViewportControls();
     connectPlots();         // the plots with the Laboratory's timeline and the selected object
-    setExpertMode(false);   // a beginner's screen: the builder and a big 3D view
     setGraphsVisible(false);
 
-    status_ = new QLabel;
-    statusBar()->addPermanentWidget(status_);
     onModeChanged();
 
     timer_ = new QTimer(this);
@@ -203,15 +197,11 @@ void MainWindow::buildMenus() {
 }
 
 void MainWindow::buildLayoutActions() {
-    expertAct_ = new QAction("Эксперт", this);
-    expertAct_->setCheckable(true);
-    expertAct_->setToolTip("Числа кадра и сырые каналы отладчика под графиками, шаг и частота кадров над видом");
-    connect(expertAct_, &QAction::toggled, this, &MainWindow::setExpertMode);
     graphsAct_ = new QAction("Графики", this);
     graphsAct_->setObjectName("actionGraphs");
     graphsAct_->setCheckable(true);
     graphsAct_->setShortcut(QKeySequence("F9")); // Ctrl+G is Group, as in Maya
-    graphsAct_->setToolTip("Показания и графики внизу (F9); без них главные числа — в строке состояния");
+    graphsAct_->setToolTip("Графики внизу (F9): любая величина сцены во времени");
     connect(graphsAct_, &QAction::toggled, this, &MainWindow::setGraphsVisible);
     collidersAct_ = new QAction(roleIcon(RoleIcon::Collider, 20), "Коллайдеры", this);
     collidersAct_->setCheckable(true);
@@ -231,13 +221,6 @@ void MainWindow::buildLayoutActions() {
     viewMenu->addAction(hud);
     viewMenu->addAction(collidersAct_);
     viewMenu->addAction(graphsAct_);
-    viewMenu->addAction(expertAct_);
-}
-
-void MainWindow::setExpertMode(bool on) {
-    view_->setShowStats(on); // the time step and frame rate: numbers for the curious
-    if (auto* tables = findChild<QWidget*>("resultsTables")) tables->setVisible(on); // the probe's raw channels
-    expertAct_->setChecked(on);
 }
 
 void MainWindow::setGraphsVisible(bool on) {
@@ -256,25 +239,17 @@ void MainWindow::togglePlay() {
     else builder_->play();
 }
 
-QString MainWindow::modeText() const {
-    if (builder_->editing()) return "Правка — физика стоит. ▶ Пуск (пробел) оживит сцену";
-    return builder_->mode() == SceneBuilder::Mode::Playing ? "Симуляция идёт — приводы и свет меняются на лету" : "Пауза";
-}
-
 // Edit mode and pause share the viewport's edit tools (select, gizmo); on pause they work on the
 // simulation as it stands, and a drag reaches it on release.
 void MainWindow::onModeChanged() {
     const bool edit = builder_->editing(), gizmo = builder_->gizmoAllowed();
     const SceneBuilder::Mode m = builder_->mode();
     view_->setEditMode(gizmo);
-    view_->setEditCaption(edit ? "Правка: физика стоит. Двигайте, вращайте, масштабируйте; ▶ Пуск оживит сцену."
-                               : "Пауза: гизмо двигает объект там, где он сейчас. ■ Стоп — к исходной сцене.");
     playAct_->setEnabled(m != SceneBuilder::Mode::Playing);
     pauseAct_->setEnabled(m == SceneBuilder::Mode::Playing);
     stopAct_->setEnabled(!edit);
     syncRecord();
     updateToolShelf();
-    status_->setText(modeText());
     updateSimulationBar();
     updateLabTimeline(); // the Laboratory's strip: not while the scene is edited
 }
@@ -520,44 +495,9 @@ void MainWindow::buildResultsDock() {
     auto* dock = new QDockWidget("Графики", this);
     dock->setObjectName("resultsDock");
 
-    info_ = new QTableWidget(0, 2);
-    info_->setHorizontalHeaderLabels({"Величина", "Значение"});
-    info_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    info_->horizontalHeader()->setStretchLastSection(true);
-    info_->verticalHeader()->setVisible(false);
-    info_->verticalHeader()->setDefaultSectionSize(22);
-    info_->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    info_->setSelectionMode(QAbstractItemView::NoSelection);
-    info_->setShowGrid(false);
-    info_->setAlternatingRowColors(true);
-
     QWidget* plotHost = buildPlots(); // the charts and the quiet bar under them (MainWindowPlots.cpp)
 
-    // The probe's channels: every quantity the engine reported this frame, by name.
-    sensors_ = new QTableWidget(0, 2);
-    sensors_->setHorizontalHeaderLabels({"Датчик (Probe)", "Значение"});
-    sensors_->horizontalHeader()->setSectionResizeMode(0, QHeaderView::ResizeToContents);
-    sensors_->horizontalHeader()->setStretchLastSection(true);
-    sensors_->verticalHeader()->setVisible(false);
-    sensors_->verticalHeader()->setDefaultSectionSize(20);
-    sensors_->setEditTriggers(QAbstractItemView::NoEditTriggers);
-    sensors_->setSelectionMode(QAbstractItemView::NoSelection);
-    sensors_->setShowGrid(false);
-    sensors_->setAlternatingRowColors(true);
-    sensors_->setToolTip("Всё, что мир робота сообщил отладчику ke::Probe: значения, счётчики за кадр, таймеры (мс)");
-    auto* left = new QSplitter(Qt::Vertical); // the tables: an expert's, hidden for everyone else (setExpertMode)
-    left->setObjectName("resultsTables");
-    left->addWidget(info_);
-    left->addWidget(sensors_);
-    left->setSizes({260, 200});
-
-    auto* split = new QSplitter(Qt::Horizontal);
-    split->addWidget(left);
-    split->addWidget(plotHost);
-    split->setStretchFactor(0, 0);
-    split->setStretchFactor(1, 1);
-    split->setSizes({340, 1000});
-    dock->setWidget(split);
+    dock->setWidget(plotHost);
     addDockWidget(Qt::BottomDockWidgetArea, dock); // shown and hidden by «Графики» (F9), and by the first ▶
 }
 
@@ -576,46 +516,6 @@ void MainWindow::poll() {
     onSnapshot(frames.back());
 }
 
-void MainWindow::updateInfo(const Snap& s) {
-    info_->setRowCount(int(s.info.size()));
-    for (int r = 0; r < int(s.info.size()); ++r)
-        for (int c = 0; c < 2; ++c) {
-            QTableWidgetItem* it = info_->item(r, c);
-            if (!it) info_->setItem(r, c, it = new QTableWidgetItem);
-            it->setText(QString::fromStdString(c == 0 ? s.info[r].first : s.info[r].second));
-        }
-    // With the graphs folded away, the status bar carries the three main readings of the scene.
-    QString readings;
-    int shown = 0;
-    for (const auto& [name, value] : s.info) {
-        if (!expertAct_->isChecked() || graphsAct_->isChecked() || shown == 3 || name == "Время") continue;
-        readings += QString("  ·  %1 %2").arg(QString::fromStdString(name), QString::fromStdString(value));
-        ++shown;
-    }
-    status_->setText(QString("%1  ·  кадр %2  ·  t = %3 с  ·  %4%5")
-                         .arg(QString::fromStdString(s.sceneName))
-                         .arg(s.frame)
-                         .arg(s.time, 0, 'f', 3)
-                         .arg(modeText(), readings));
-    updateSensors(s);
-}
-
-void MainWindow::updateSensors(const Snap& s) {
-    const auto& ch = s.probe.channels;
-    sensors_->setRowCount(int(ch.size()));
-    for (int r = 0; r < int(ch.size()); ++r) {
-        const Probe::Channel& c = ch[r];
-        QString value = QString::number(c.value, 'g', 4);
-        if (c.kind == Probe::Kind::TimerMs) value += " мс";
-        else if (c.kind == Probe::Kind::Counter && c.value == std::floor(c.value)) value = QString::number(qint64(c.value));
-        for (int col = 0; col < 2; ++col) {
-            QTableWidgetItem* it = sensors_->item(r, col);
-            if (!it) sensors_->setItem(r, col, it = new QTableWidgetItem);
-            it->setText(col == 0 ? QString::fromStdString(c.name) : value);
-        }
-    }
-}
-
 void MainWindow::onSnapshot(const std::shared_ptr<const Snap>& s) {
     if (builder_->editing()) return; // edit mode shows the authored scene (SceneBuilder::editSnapshot), not the simulation
     builder_->onSimulationSnapshot(*s);
@@ -623,12 +523,6 @@ void MainWindow::onSnapshot(const std::shared_ptr<const Snap>& s) {
     updatePlotObjects(*s);
     lastSceneName_ = s->sceneName;
     lastFrame_ = s->frame;
-
-    qint64 now = QDateTime::currentMSecsSinceEpoch();
-    if (now - lastInfoUpdate_ > 120) {
-        lastInfoUpdate_ = now;
-        updateInfo(*s);
-    }
 
     if (auto_.active && int(s->frame) >= auto_.frames && ++auto_.settle == 1) {
         ctrl_->setRunning(false);

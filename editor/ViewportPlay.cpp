@@ -8,12 +8,6 @@
 
 #include <QPainter>
 
-// The caption under the title in edit mode (drawOverlay: at x = 14 in a 9-point font).
-void Viewport::setEditCaption(const QString& text) {
-    editCaption_ = text;
-    update();
-}
-
 void Viewport::setPlayFrame(bool on) {
     if (playFrame_ == on) return;
     playFrame_ = on;
