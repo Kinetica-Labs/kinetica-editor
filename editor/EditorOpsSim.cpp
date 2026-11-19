@@ -267,6 +267,15 @@ void EditorOps::addViewOps() {
         view_->viewAlong(std::clamp(a.value("axis").toInt(), 0, 5));
         return ok();
     });
+    addSync("view_hud", "The performance plate in the view's lower left corner: the frames a second in large figures coloured by "
+            "smoothness, the last two seconds of frame times, one frame's paint and the physics' step, the scene's speed against the "
+            "wall clock, the renderer (a GPU or the processor). on: show or hide it; answers whether it shows and its numbers",
+            "{on?: bool}", [this](const QJsonObject& a) {
+        if (a.contains("on")) view_->setShowHud(a.value("on").toBool());
+        if (auto* act = window_->findChild<QAction*>("actionHud")) act->setChecked(view_->showHud()); // the menu says what the view shows
+        return ok({{"on", view_->showHud()}, {"fps", view_->liveFps()}, {"paint_ms", double(view_->paintMs())},
+                   {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
+    });
     addSync("ui_actions", "Every button and menu item of the window: text, name, on/off", "{}", [this](const QJsonObject&) {
         QJsonArray out;
         for (const QAction* act : window_->findChildren<QAction*>())

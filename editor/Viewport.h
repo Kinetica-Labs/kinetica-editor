@@ -24,6 +24,8 @@
 #include "sim/Frame.h"
 
 #include <QElapsedTimer>
+
+#include <array>
 #include <QMatrix4x4>
 #include <QOpenGLBuffer>
 #include <QOpenGLExtraFunctions>
@@ -56,6 +58,11 @@ public:
     void setFocusBox(const ke::AABB& box) { focusBox_ = box; }
     float renderFps() const { return fps_; }
     const QString& renderer() const { return renderer_; } // GL_RENDERER: the GPU, or llvmpipe
+    // The performance plate (ViewportHud.cpp): frames a second, frame times, paint and step, speed, renderer.
+    void setShowHud(bool on);
+    bool showHud() const { return showHud_; }
+    double liveFps() const;                     // over the last 30 painted frames
+    double realtime() const { return realtime_; } // scene seconds a wall second, over the last second (0: editing)
     float paintMs() const { return paintMs_; } // one frame's painting on the window's thread, the last second's mean
 
     // Interaction (used by the ViewportTool strategies; ViewportInput.cpp)
@@ -313,6 +320,8 @@ private:
     void drawPaths(const QMatrix4x4& vp);
     static constexpr size_t kContactDotsMost = 3000; // more contacts than this: no dots
     void countFrame(qint64 paintNs);
+    void recordFrameInterval();
+    void drawHud(QPainter& p);
     void updateBodyOrbit();
     static QMatrix4x4 modelMatrix(const ke::Frame::Body& b); // the body's pose: its mesh into the world
     QMatrix4x4 viewMatrix() const { return camera_.view(); }
@@ -420,4 +429,9 @@ private:
     int fpsFrames_ = 0;
     float fps_ = 0, paintMs_ = 0;
     qint64 paintNs_ = 0;
+    QElapsedTimer frameClock_;                  // since the last painted frame
+    std::array<float, 120> frameMs_{};          // the last 120 frames' intervals, a ring
+    size_t frameAt_ = 0, frameCount_ = 0;
+    bool showHud_ = true;
+    double realtime_ = 0, sceneAtSecond_ = -1;  // the scene's time when the last second began
 };

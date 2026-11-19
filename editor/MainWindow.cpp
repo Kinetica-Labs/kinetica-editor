@@ -6,6 +6,7 @@
 // (keys, mouse schemes, many objects), MainWindowToolbar.cpp (the top bar) and MainWindowPlay.cpp
 // (the simulation status row, K, Ctrl+K, the white-window check).
 #include "MainWindow.h"
+#include "EditorOps.h"
 #include "RuPlural.h"
 
 #include "RoleBar.h"
@@ -214,8 +215,17 @@ void MainWindow::buildLayoutActions() {
     collidersAct_->setToolTip("Показать, чем сталкивается каждый объект: тонкий зелёный каркас. "
                               "Выбранный объект показывает свой всегда");
     connect(collidersAct_, &QAction::toggled, builder_, &SceneBuilder::setShowAllColliders);
+    auto* hud = new QAction("Счётчик кадров", this);
+    hud->setObjectName("actionHud");
+    hud->setCheckable(true);
+    hud->setChecked(view_->showHud());
+    hud->setShortcut(QKeySequence(Qt::Key_F3));
+    hud->setToolTip("Табличка в углу вида (F3): кадров в секунду крупно, график последних кадров, время рисования и шага физики, "
+                    "скорость против реального времени, кто рисует — видеокарта или процессор");
+    connect(hud, &QAction::triggered, this, [this](bool on) { ops_->run("view_hud", {{"on", on}}, [](const QJsonObject&) {}, "ui"); });
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     viewMenu->addSeparator();
+    viewMenu->addAction(hud);
     viewMenu->addAction(collidersAct_);
     viewMenu->addAction(graphsAct_);
     viewMenu->addAction(expertAct_);

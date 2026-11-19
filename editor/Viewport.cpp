@@ -650,10 +650,14 @@ void Viewport::drawOverlays3D(const QMatrix4x4& vp) {
 void Viewport::countFrame(qint64 paintNs) {
     ++fpsFrames_;
     paintNs_ += paintNs;
+    recordFrameInterval();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (now - fpsLast_ > 1000) {
         fps_ = float(fpsFrames_) * 1000.0f / float(now - fpsLast_);
         paintMs_ = float(double(paintNs_) * 1e-6 / std::max(fpsFrames_, 1));
+        const double scene = snap_ && !editMode_ ? double(snap_->time) : -1;
+        realtime_ = scene >= 0 && sceneAtSecond_ >= 0 && fpsLast_ > 0 ? (scene - sceneAtSecond_) * 1000.0 / double(now - fpsLast_) : 0;
+        sceneAtSecond_ = scene;
         fpsFrames_ = 0, paintNs_ = 0;
         fpsLast_ = now;
     }
@@ -693,6 +697,7 @@ void Viewport::drawOverlay() {
     drawContactDots(p);
     drawProbeLabels(p);
     drawLabMarker(p);
+    drawHud(p);
     drawPlayFrame(p);
     p.end();
 }
