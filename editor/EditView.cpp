@@ -78,9 +78,9 @@ std::shared_ptr<Frame> EditView::snapshot(const SceneGraph& g, const std::string
         if (!e.texture.heightFile.empty())
             b.texture.heightFile = QDir(QString::fromStdString(g.baseDirectory)).filePath(QString::fromStdString(e.texture.heightFile)).toStdString();
         b.movable = false;
-        b.opacity = e.goalOf ? 0.1f : 1.0f; // an IK goal: see-through, the hand it drives shows inside (0.3: drawn on both
-                                            // faces it hid what the fingers did to a cube)
-        b.marker = e.goalOf != 0;           // intent, not matter: the robot's cameras never draw it
+        b.opacity = e.goalOf ? 0.1f : e.targetOf ? 0.35f : 1.0f; // an IK goal: see-through, the hand it drives shows inside (0.3:
+                                            // drawn on both faces it hid what the fingers did to a cube); a camera's target: a ghost cube
+        b.marker = isHandle(e);             // intent, not matter: the robot's cameras never draw it
         snap->bodies.push_back(b);
         bodyEntity.push_back(e.id);
     }

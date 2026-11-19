@@ -7,6 +7,7 @@
 
 #include <QDoubleSpinBox>
 #include <QFrame>
+#include <QIcon>
 #include <QWidget>
 
 #include <functional>
@@ -110,19 +111,38 @@ private:
 // it shows. The form builds the rows, fills them (fill), and on a person's edit writes the field and calls `edited` -
 // `click` for a toggle or a choice (other fields may show now), not for a typed number (the next one joins its undo);
 // its notes and labels follow every edit. A card is a list of fields, not hand-made widgets and their wiring.
-// Modifiers apply to the row added last.
+// Several things selected: fill shows "—" where they differ, and repeat() writes the one field just edited into the
+// next of them - the rest of each stays its own. Modifiers apply to the row added last.
 class FieldForm : public QWidget {
 public:
     struct Unit { QString suffix; double scale = 1, step = 0; }; // shown = stored * scale; step 0: the field's own
     struct Option { QString text; double value; };
+    struct Tile { QIcon icon; QString text, tip; };
     using Get = std::function<double()>;
     using Set = std::function<void(double)>;
+    using GetVector = std::function<ke::Vector3()>;
+    using SetVector = std::function<void(const ke::Vector3&)>;
     using Text = std::function<QString()>;
     explicit FieldForm(std::function<void(bool click)> edited, QWidget* parent = nullptr);
     FieldForm& number(const QString& label, double min, double max, double step, int decimals, Get get, Set set);
+    FieldForm& vector(const QString& label, double min, double max, double step, int decimals, GetVector get, SetVector set);
     FieldForm& toggle(const QString& label, Get get, Set set); // get and set: 0 or 1
     FieldForm& choice(const QString& label, const QStringList& items, Get get, Set set); // the item's index
     FieldForm& choice(const QString& label, std::function<std::vector<Option>()> options, Get get, Set set); // its value
+    FieldForm& tiles(const std::vector<Tile>& tiles, int iconSize, Get get, Set set); // icon buttons, one pressed: its index
+    // The same over a number, flag, vector or kind the fields read and write in place (a card's draft).
+    template <class N> FieldForm& number(const QString& label, double min, double max, double step, int decimals, N& value) {
+        return number(label, min, max, step, decimals, [p = &value] { return double(*p); }, [p = &value](double v) { *p = N(v); });
+    }
+    FieldForm& vector(const QString& label, double min, double max, double step, int decimals, ke::Vector3& value) {
+        return vector(label, min, max, step, decimals, [p = &value] { return *p; }, [p = &value](const ke::Vector3& v) { *p = v; });
+    }
+    FieldForm& toggle(const QString& label, bool& value) {
+        return toggle(label, [p = &value] { return *p ? 1.0 : 0.0; }, [p = &value](double v) { *p = v != 0; });
+    }
+    template <class E> FieldForm& tiles(const std::vector<Tile>& tiles, int iconSize, E& kind) {
+        return this->tiles(tiles, iconSize, [p = &kind] { return double(int(*p)); }, [p = &kind](double v) { *p = E(int(v)); });
+    }
     // A slider of whole steps, its value in words beside it; let go within `detent` of 0, it is 0.
     FieldForm& slider(const QString& label, int min, int max, Get get, Set set, int detent = 0);
     FieldForm& note(Text text); // a line of words, word-wrapped
@@ -130,9 +150,12 @@ public:
     FieldForm& unit(const QString& suffix, double scale = 1); // the same for every thing
     FieldForm& shown(std::function<bool()> shown);
     FieldForm& label(Text text); // a toggle's own text, else the row's
-    FieldForm& name(const QString& objectName);
+    FieldForm& name(const QString& objectName); // a row of tiles: every tile's
     FieldForm& tip(const QString& text);
-    void fill(); // the values, units, texts and rows shown from the thing; reports nothing
+    // The values, units, texts and rows shown from the thing; reports nothing. `load(i)` puts the i-th of `count`
+    // things into what the fields read (0, the active one, last); a field where they differ shows "—".
+    void fill(int count = 1, const std::function<void(int)>& load = {});
+    void repeat() const; // the last edit once more, into what the fields read now
 
 private:
     struct Row {
@@ -142,17 +165,24 @@ private:
         double step;
         Get get;
         Set set;
+        GetVector getVector;
+        SetVector setVector;
         std::function<Unit()> unit;
         std::function<bool()> shown;
         Text text;
         std::function<std::vector<Option>()> options;
         std::vector<double> values; // a choice's items' values as filled
+        std::vector<double> read() const; // what the thing holds: none, one number or three
     };
+    struct Edit { size_t row = size_t(-1); int axis = 0; double value = 0; };
     FieldForm& add(const QString& label, Row row);
-    void report(size_t row, double value, bool click);
-    void texts(); // the notes and labels from the thing
+    void report(size_t row, double value, bool click, int axis = 0);
+    void show(Row& r);
+    void showMixed(Row& r, const std::vector<bool>& mixed);
+    void texts(); // the notes, labels and choices' words from the thing
     QFormLayout* layout_;
     std::vector<Row> rows_;
     std::function<void(bool)> edited_;
+    Edit last_;
     bool filling_ = false;
 };

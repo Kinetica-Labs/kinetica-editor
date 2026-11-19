@@ -3,7 +3,7 @@
 // modes and what the viewport shows in each. The panels are built in SceneBuilderPanels.cpp.
 #include "SceneBuilder.h"
 #include "core/Probe.h"
-#include "devices/Hcsr04.h"
+#include "scene/SensorSpec.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
 #include "WorldPanel.h"
@@ -43,6 +43,7 @@ SceneBuilder::SceneBuilder(SimController* ctrl, QObject* parent) : QObject(paren
     buildWorldPanel();
     connect(this, &SceneBuilder::modeChanged, this, [this] { worldPanel_->setEditable(editing()); });
     buildInspector();
+    loadSensorCatalog();
     fillWorld();
     refreshList();
     fillInspector();
@@ -121,7 +122,7 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     if (devicesText(graph_) != devicesText(simGraph_)) return reloadNeeded("Датчики, колёса, батареи и пульты меняют только перезапуском сцены");
     SceneGraph goalsAside = graph_, before = simGraph_; // the goals are handles: no body of the world
     for (SceneGraph* g : {&goalsAside, &before})
-        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return e.goalOf != 0; }), g->entities.end());
+        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }), g->entities.end());
     if (entitiesText(goalsAside) != entitiesText(before)) return reloadNeeded("Тела и коллайдеры меняют только перезапуском сцены");
     refreshLightsAndCameras();
     if (lightsText(graph_) != lightsText(simGraph_)) {
@@ -132,10 +133,10 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
         }, "lights");
     }
     std::vector<Entity> goals, goalsBefore; // made, moved or removed: the running world's marks and goal channels follow
-    for (const Entity& e : graph_.entities)
-        if (e.goalOf != 0) goals.push_back(e);
+    for (const Entity& e : graph_.entities) // the handles: IK goals and cameras' targets
+        if (isHandle(e)) goals.push_back(e);
     for (const Entity& e : simGraph_.entities)
-        if (e.goalOf != 0) goalsBefore.push_back(e);
+        if (isHandle(e)) goalsBefore.push_back(e);
     SceneGraph a, z;
     a.entities = goals, z.entities = goalsBefore;
     if (a.save() != z.save())
@@ -477,10 +478,11 @@ void SceneBuilder::refreshView() {
     for (SensorVis& v : snap->sensors) {
         const SensorObject* s = sensorById(v.id);
         if (v.kind != int(SensorKind::Sonar) || !s) continue;
-        float nearest = float(Hcsr04::kMax);
+        const SonarSpec spec = sonarSpec(*s);
+        float nearest = float(spec.maxM);
         for (const PickHit& h : editView_.pickAll(graph_, Ray{v.position, v.rotation.rotate(Vector3(1.0f, 0.0f, 0.0f))}))
-            if (h.id != s->parent && h.t >= float(Hcsr04::kMin) && h.t < nearest) nearest = h.t;
-        v.reading = nearest < float(Hcsr04::kMax) ? nearest : -1.0f;
+            if (h.id != s->parent && h.t >= float(spec.minM) && h.t < nearest) nearest = h.t;
+        v.reading = nearest < float(spec.maxM) ? nearest : -1.0f;
     }
     emit editSnapshot(snap);
     sendViewportFlags();
@@ -564,6 +566,11 @@ void SceneBuilder::updateGizmoTarget() {
 // where the selected object's body is now, not where it was put.
 void SceneBuilder::onSimulationSnapshot(const Frame& s) {
     if (editing()) return;
+    if (const Camera* c = cameraById(throughId_); c && c->kind == CameraKind::Target && c->target) {
+        for (const Frame::Body& b : s.bodies) liveObjectPositions_[b.object] = b.pos; // where the running world has its target
+        for (const GoalVis& g : s.goals) liveObjectPositions_[g.id] = g.position;
+        emitCameraView();
+    }
     std::vector<uint32_t> bodyEntity(s.bodies.size());
     for (size_t b = 0; b < s.bodies.size(); ++b) { // an array's copy plays as the array (RobotWorld::objectIdOfBody)
         const uint32_t id = s.bodies[b].object;

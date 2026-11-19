@@ -44,6 +44,11 @@ uint32_t addShape(SceneGraph& g, ShapeKind shape);  // "Куб 2": 0.8 m over a 
 uint32_t addLight(SceneGraph& g, LightKind kind, const Vector3& at); // the sun high at a slant over `at`
 uint32_t placeLight(SceneGraph& g, LightKind kind, const Vector3& position, const Vector3& target); // at `position`, shining at `target`
 uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre); // at `eye`, looking at `centre`
+// A camera made a target camera (SceneGraph.h): it looks at object `target` always, or (0) at `point`, or (neither) at
+// the point it looks at now; its stored turn follows, so set free again it keeps looking there. False: no such camera,
+// or the target is no object (or the camera itself).
+bool aimCamera(SceneGraph& g, uint32_t camera, uint32_t target, const Vector3* point);
+bool freeCamera(SceneGraph& g, uint32_t camera); // a free camera again, looking where it looked
 
 // The objects with everything under them, the joints that lose a link, the sensors on them; an
 // array whose template goes; batteries and drivers named in `ids`.

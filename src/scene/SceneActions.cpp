@@ -212,6 +212,67 @@ uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre) {
     return c.id;
 }
 
+static Camera* cameraIn(SceneGraph& g, uint32_t id) {
+    for (Camera& c : g.cameras)
+        if (c.id == id && id != 0) return &c;
+    return nullptr;
+}
+
+// The camera's own target, made if it has none: a see-through cube 8 cm across in the camera's colour.
+static Entity& ownTarget(SceneGraph& g, Camera& c, const Vector3& at) {
+    for (Entity& e : g.entities)
+        if (e.targetOf == c.id) return e;
+    Entity e;
+    e.id = nextId(g);
+    e.name = "Цель «" + c.name + "»";
+    e.shape = ShapeKind::Box;
+    e.size = Vector3(0.08_r);
+    e.position = at;
+    e.color = c.color;
+    e.targetOf = c.id;
+    e.rigid.enabled = e.collider.enabled = false;
+    g.entities.push_back(e);
+    return g.entities.back();
+}
+
+bool aimCamera(SceneGraph& g, uint32_t camera, uint32_t target, const Vector3* point) {
+    Camera* c = cameraIn(g, camera);
+    if (!c || (target && (target == camera || !findObject(g, target)))) return false;
+    if (!target) { // its own target: where it is told, else where it looks now
+        const Vector3 at = point ? *point : cameraTarget(g, *c);
+        Entity& own = ownTarget(g, *c, at);
+        setWorldPose(g, own, at, Quaternion());
+        target = own.id;
+    }
+    std::vector<uint32_t> stale; // another object aimed at: its own target goes
+    for (const Entity& e : g.entities)
+        if (e.targetOf == camera && e.id != target) stale.push_back(e.id);
+    deleteObjects(g, stale);
+    c = cameraIn(g, camera);
+    c->kind = CameraKind::Target;
+    c->target = target;
+    Vector3 eye;
+    Quaternion turn;
+    worldPose(g, *c, eye, turn);
+    setWorldPose(g, *c, eye, lookTurn(eye, cameraTarget(g, *c)));
+    return true;
+}
+
+bool freeCamera(SceneGraph& g, uint32_t camera) {
+    Camera* c = cameraIn(g, camera);
+    if (!c) return false;
+    Vector3 eye, forward, up;
+    cameraFrame(g, *c, eye, forward, up);
+    c->kind = CameraKind::Free;
+    c->target = 0;
+    setWorldPose(g, *c, eye, lookTurn(eye, eye + forward));
+    std::vector<uint32_t> own; // its own target goes with it (3ds Max: a Target camera made Free loses its target)
+    for (const Entity& e : g.entities)
+        if (e.targetOf == camera) own.push_back(e.id);
+    deleteObjects(g, own);
+    return true;
+}
+
 void showAll(SceneGraph& g) {
     for (Entity& e : g.entities) {
         const bool hiddenTemplate = !e.visible && std::any_of(g.arrays.begin(), g.arrays.end(), [&](const ArrayObject& a) { return a.templateId == e.id; });

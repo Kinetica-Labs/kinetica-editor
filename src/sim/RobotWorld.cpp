@@ -6,12 +6,14 @@
 #include "physics/HullPoints.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
+#include "sim/LiveSensors.h"
 
 #include <algorithm>
 #include <filesystem>
 #include <functional>
 #include <unordered_map>
 #include <limits>
+#include <cmath>
 
 namespace ke {
 
@@ -164,6 +166,28 @@ void RobotWorld::build(PhysicsWorld& physics) {
         entityOfBody_[size_t(b)] = e.id;
     }
     for (const JointObject& j : graph_.joints) buildJoint(physics, j);
+    for (const SensorObject& x : graph_.sensors) { // each composed of its probe of the physics and its datasheet's device
+        std::string why;
+        if (auto live = makeSensor(x, graph_, *this, why)) sensors_.push_back(std::move(live));
+        else if (!why.empty()) notes_.push_back(why);
+    }
+}
+
+bool RobotWorld::jointWrench(const PhysicsWorld& physics, uint32_t joint, Vector3& force, Vector3& torque) const {
+    for (const LiveJoint& j : joints_) {
+        if (j.spec.id != joint || !physics.jointAlive(j.joint)) continue;
+        physics.reaction(j.joint, force, torque); // world, at frame a's origin
+        const Quaternion frame = (physics.state(j.a).rotation * eulerTurn(j.spec.frameA)).conjugate();
+        force = frame.rotate(force), torque = frame.rotate(torque);
+        return true;
+    }
+    return false;
+}
+
+const LiveSensor* RobotWorld::sensor(uint32_t id) const {
+    for (const auto& s : sensors_)
+        if (s->spec().id == id) return s.get();
+    return nullptr;
 }
 
 void RobotWorld::buildJoint(PhysicsWorld& physics, const JointObject& j) {
@@ -244,7 +268,7 @@ bool RobotWorld::setJoints(PhysicsWorld& physics, const std::vector<JointObject>
 
 void RobotWorld::setGoals(const std::vector<Entity>& goals) {
     for (SceneGraph* g : {&graph_, &live_}) {
-        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return e.goalOf != 0; }),
+        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }),
                           g->entities.end());
         g->entities.insert(g->entities.end(), goals.begin(), goals.end());
     }
@@ -405,8 +429,13 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
             for (const LiveJoint& j : joints_) drive(physics, j, dt / Real(n));
             carryGrab(physics);
         }
-        Probe::Timer timer("physics/engine ms");
-        physics.step(dt / Real(n), 1);
+        {
+            Probe::Timer timer("physics/engine ms");
+            physics.step(dt / Real(n), 1);
+        }
+        clockNs_ += std::llround(double(dt) / n * 1e9);
+        Probe::Timer timer("physics/sensors ms");
+        for (const auto& x : sensors_) x->step(physics, *this, dt / Real(n), clockNs_);
     }
     readPoses(physics);
 }
@@ -447,9 +476,9 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
         for (std::string* file : {&b.texture.file, &b.texture.heightFile}) // a relative picture: from the scene file's folder
             if (!file->empty() && !std::filesystem::u8path(*file).is_absolute() && !graph_.baseDirectory.empty())
                 *file = (std::filesystem::u8path(graph_.baseDirectory) / std::filesystem::u8path(*file)).u8string();
-        b.marker = source.goalOf != 0;
+        b.marker = isHandle(source);
         b.robot = robotOf_.count(source.id) > 0;
-        b.opacity = b.marker ? 0.1_r : 1;
+        b.opacity = source.goalOf ? 0.1_r : source.targetOf ? 0.35_r : 1;
         b.smooth = source.shape == ShapeKind::Sphere;
         if (b.body >= 0 && physics.alive(b.body)) {
             const BodyState s = physics.state(b.body);
@@ -464,6 +493,9 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
     }
     out.joints = jointVisuals(live_);
     out.sensors = sensorVisuals(live_);
+    for (SensorVis& v : out.sensors) // the glyph shows what the robot reads: a sonar's distance, an encoder's coordinate
+        if (const LiveSensor* x = sensor(v.id); x && (v.kind == int(SensorKind::Sonar) || v.kind == int(SensorKind::Encoder)))
+            v.reading = x->reading().value;
     for (const ContactPoint& c : physics.contacts())
         out.contacts.push_back({c.point, c.normal, c.depth, c.normalImpulse, c.a, c.b});
     describeLights(live_, out);

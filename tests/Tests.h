@@ -7,6 +7,7 @@ void testPrimitives();
 void testBVH();
 // CoreTests.cpp
 void testProbe();
+void testUnitsAndFields();
 // RuntimePolicyTests.cpp
 void testRuntimePolicyBounds();
 void testRuntimePolicyTransactional();
@@ -18,8 +19,9 @@ void testBatteryEnergyBooks();
 void testBatteryPack();
 // DeviceTests.cpp
 void testEncoderQuadrature();
-void testMpu6050Registers();
-void testMpu6050Noise();
+void testImuSpec();
+void testImuNoise();
+void testSensorDatasheet();
 void testSonarNoise();
 // PhysicsTests.cpp
 void testPhysicsFreeFall();
@@ -36,6 +38,7 @@ void testPhysicsPyramid();
 void testPhysicsGroups();
 void testPhysicsHand();
 void testPhysicsRepeatable();
+void testPhysicsThreadsDeterministic();
 // SimTests.cpp
 void testSimBoxRestsOnFloor();
 void testSimServoHoldsAndDroops();
@@ -48,6 +51,7 @@ void testSimUr5eHolds();
 void testSimTugUr5e();
 void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
+void testSimSensors();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testScenePhysicsLine();
@@ -62,6 +66,7 @@ void testActionsGroupKeepsPoses();
 void testActionsDeleteAndDuplicate();
 void testActionsTransforms();
 void testSceneOpsRegistry();
+void testTargetCamera();
 // AssemblyTests.cpp
 void testSceneJointsRoundTrip();
 void testSnapToFace();

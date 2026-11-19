@@ -40,6 +40,8 @@ add_library(kecore STATIC
   src/math/MatrixNxN.h src/math/MatrixNxN.cpp
   src/core/Format.h        src/core/Format.cpp
   src/core/Value.h         src/core/Value.cpp
+  src/core/Units.h         src/core/Units.cpp
+  src/core/Field.h         src/core/Field.cpp
   src/core/Probe.h         src/core/Probe.cpp
   src/core/Parallel.h      src/core/Parallel.cpp
   src/core/Random.h
@@ -49,8 +51,9 @@ add_library(kecore STATIC
   src/spatial/BVH.h        src/spatial/BVH.cpp
   src/devices/PinEdge.h
   src/devices/Encoder.h    src/devices/Encoder.cpp src/devices/EncoderMeasurement.h
-  src/devices/Mpu6050.h    src/devices/Mpu6050.cpp
-  src/devices/Hcsr04.h     src/devices/Hcsr04.cpp
+  src/devices/Signal.h     src/devices/Signal.cpp
+  src/devices/Imu.h        src/devices/Imu.cpp
+  src/devices/Sonar.h      src/devices/Sonar.cpp
   src/devices/ForceTorque.h src/devices/ForceTorque.cpp
   src/electro/Battery.h    src/electro/Battery.cpp
   src/electro/PowerBus.h   src/electro/PowerBus.cpp
@@ -62,6 +65,7 @@ add_library(kecore STATIC
   src/scene/CameraHousing.h src/scene/CameraHousing.cpp
   src/scene/Kinematics.h   src/scene/Kinematics.cpp src/scene/ArmModelOf.cpp
   src/scene/Describe.h     src/scene/Describe.cpp
+  src/scene/SensorSpec.h   src/scene/SensorSpec.cpp
   src/scene/SceneOps.h     src/scene/SceneOps.cpp src/scene/SceneOpsActions.cpp src/scene/SceneOpsAssembly.cpp
   src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp
   src/robot/ArmPlanner.h   src/robot/ArmPlanner.cpp
@@ -70,6 +74,7 @@ add_library(kecore STATIC
   src/physics/HullPoints.h src/physics/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/box3d/Box3dWorld.cpp
   src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp
+  src/sim/LiveSensors.h    src/sim/LiveSensors.cpp
   src/sim/Channels.h       src/sim/Channels.cpp
   src/sim/Simulation.h     src/sim/Simulation.cpp
 )
@@ -127,7 +132,6 @@ if(Qt6_FOUND)
     editor/Icons.h           editor/Icons.cpp
     editor/ManyPanels.h      editor/ManyPanels.cpp
     editor/ClonePopover.h    editor/ClonePopover.cpp
-    editor/ColliderPanel.h   editor/ColliderPanel.cpp
     editor/ColliderGuides.h  editor/ColliderGuides.cpp
     editor/WorldPanel.h      editor/WorldPanel.cpp
     editor/TexturePanel.h    editor/TexturePanel.cpp editor/TextureBumpPanel.cpp
@@ -155,7 +159,7 @@ if(Qt6_FOUND)
     editor/SimController.h   editor/SimController.cpp
     editor/EditView.h        editor/EditView.cpp
     editor/Viewport.h        editor/Viewport.cpp editor/ViewportInput.cpp editor/ViewportLights.cpp editor/ViewportShadows.cpp
-    editor/ViewportPlay.cpp  editor/ViewportLab.cpp editor/ViewportTextures.cpp editor/ViewportTextureDrop.cpp
+    editor/ViewportPlay.cpp  editor/ViewportHud.cpp editor/ViewportLab.cpp editor/ViewportTextures.cpp editor/ViewportTextureDrop.cpp
     editor/ViewportTools.h   editor/ViewportTools.cpp
     editor/OrbitCamera.h     editor/OrbitCamera.cpp
     editor/ControlScheme.h   editor/ControlScheme.cpp
@@ -182,7 +186,8 @@ if(Qt6_FOUND)
   target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
   # "Открыть…" starts in examples/; the console's Python finds the kinetica package in python/.
   target_compile_definitions(kinetica PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
-                                              KE_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/python")
+                                              KE_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/python"
+                                              KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
   if(MSVC)
     target_compile_options(kinetica PRIVATE /W4 /utf-8)
   else()
@@ -209,7 +214,8 @@ if(KE_TESTS)
     tests/AssemblyTests.cpp
   )
   target_link_libraries(ke_tests PRIVATE kecore)
-  target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples")
+  target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
+                                               KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
   if(MSVC)
     target_compile_options(ke_tests PRIVATE /W4 /wd4100 /utf-8)
   else()

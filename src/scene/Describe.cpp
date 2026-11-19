@@ -6,6 +6,7 @@
 
 #include "core/Format.h"
 #include "scene/Assembly.h"
+#include "scene/SensorSpec.h"
 
 #include <algorithm>
 #include <cmath>
@@ -119,7 +120,7 @@ void tree(const SceneGraph& g, uint32_t id, int depth, std::string& out) {
 std::string sensors(const SceneGraph& g) {
     std::string out;
     for (const SensorObject& s : g.sensors) {
-        out += "  - " + quoted(s.name) + ": ";
+        out += "  - " + quoted(s.name) + (s.model.empty() ? std::string() : " (" + s.model + ")") + ": ";
         if (s.kind == SensorKind::Encoder) {
             const JointObject* j = findJoint(g, s.parent);
             const SceneObject* on = findObject(g, s.parent);
@@ -147,7 +148,7 @@ std::string sensors(const SceneGraph& g) {
             continue;
         }
         const SceneObject* on = findObject(g, s.parent);
-        out += std::string(s.kind == SensorKind::Imu ? "IMU MPU-6050" : "сонар HC-SR04") + (on ? " на " + quoted(on->name) : " в мире");
+        out += std::string(s.kind == SensorKind::Imu ? "IMU" : "сонар") + (on ? " на " + quoted(on->name) : " в мире");
         if (s.kind == SensorKind::Sonar) out += ", смотрит " + direction(objectRotation(s).rotate(Vector3(1, 0, 0)));
         out += "\n";
     }
@@ -160,6 +161,7 @@ std::string describeScene(const SceneGraph& g) {
     Real mass = 0;
     for (const Entity& e : g.entities) mass += massOf(e);
     for (const WheelObject& w : g.wheels) mass += w.mass + w.unsprung; // a point wheel's body carries them
+    for (const SensorObject& s : g.sensors) mass += sensorMass(s);   // and a body its sensors
     std::string out = "Сцена. Тел: " + std::to_string(g.entities.size()) + ", сочленений: " + std::to_string(g.joints.size()) + ", точечных колёс: " +
                       std::to_string(g.wheels.size()) + ", датчиков: " +
                       std::to_string(g.sensors.size()) + ", батарей: " + std::to_string(g.batteries.size()) + ", драйверов: " +

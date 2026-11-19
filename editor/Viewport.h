@@ -24,6 +24,8 @@
 #include "sim/Frame.h"
 
 #include <QElapsedTimer>
+
+#include <array>
 #include <QMatrix4x4>
 #include <QOpenGLBuffer>
 #include <QOpenGLExtraFunctions>
@@ -55,6 +57,17 @@ public:
     // world box (an invalid box: the world box again).
     void setFocusBox(const ke::AABB& box) { focusBox_ = box; }
     float renderFps() const { return fps_; }
+    const QString& renderer() const { return renderer_; } // GL_RENDERER: the GPU, or llvmpipe
+    // The performance plate (ViewportHud.cpp): frames a second, frame times, paint and step, speed, renderer.
+    void setShowHud(bool on);
+    bool showHud() const { return showHud_; }
+    double liveFps() const;                     // over the last 30 painted frames
+    double realtime() const { return realtime_; } // scene seconds a wall second, over the last second (0: editing)
+    // The GPU's time for a frame and for its shadow pass, from timer queries two frames old (-1: none, a GL without
+    // timer queries). A view bound by the GPU shows here, not in paintMs: the CPU only hands the frame over.
+    float gpuMs() const { return gpuMs_; }
+    float gpuShadowMs() const { return gpuShadowMs_; }
+    float paintMs() const { return paintMs_; } // one frame's painting on the window's thread, the last second's mean
 
     // Interaction (used by the ViewportTool strategies; ViewportInput.cpp)
     OrbitCamera& camera() { return camera_; }
@@ -310,7 +323,12 @@ private:
     void drawColliderGuides(const QMatrix4x4& vp);
     void drawPaths(const QMatrix4x4& vp);
     static constexpr size_t kContactDotsMost = 3000; // more contacts than this: no dots
-    void countFrame();
+    void countFrame(qint64 paintNs);
+    void recordFrameInterval();
+    void beginGpuFrame();  // ViewportHud.cpp: the finished frames' GPU times read, this frame's first mark
+    void markGpuShadows(); // after the shadow pass
+    void endGpuFrame();
+    void drawHud(QPainter& p);
     void updateBodyOrbit();
     static QMatrix4x4 modelMatrix(const ke::Frame::Body& b); // the body's pose: its mesh into the world
     QMatrix4x4 viewMatrix() const { return camera_.view(); }
@@ -416,5 +434,16 @@ private:
     // fps
     qint64 fpsLast_ = 0;
     int fpsFrames_ = 0;
-    float fps_ = 0;
+    float fps_ = 0, paintMs_ = 0;
+    qint64 paintNs_ = 0;
+    QElapsedTimer frameClock_;                  // since the last painted frame
+    std::array<float, 120> frameMs_{};          // the last 120 frames' intervals, a ring
+    size_t frameAt_ = 0, frameCount_ = 0;
+    bool showHud_ = true;
+    double realtime_ = 0, sceneAtSecond_ = -1;  // the scene's time when the last second began
+    class QOpenGLTimeMonitor* gpuClock_[2] = {}; // two frames' marks in turn: one read while the other records
+    bool gpuPending_[2] = {};
+    int gpuAt_ = 0;
+    bool gpuTimed_ = false;                      // this frame records marks
+    float gpuMs_ = -1, gpuShadowMs_ = -1;
 };

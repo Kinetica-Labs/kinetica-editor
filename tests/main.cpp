@@ -32,6 +32,7 @@ int main() {
     run("math: mesh primitives are closed and have their volumes", testPrimitives);
     run("math: BVH queries against brute force", testBVH);
     run("probe: channels, counters, timers, debug drawing", testProbe);
+    run("core: units as data (UCUM) and fields as data - their schema, their check, a key's suffix against its unit", testUnitsAndFields);
     run("runtime: bounded pipeline admission", testRuntimePolicyBounds);
     run("runtime: configuration is transactional", testRuntimePolicyTransactional);
     run("runtime: monotonic idle lease and explicit stop", testRuntimePolicyLease);
@@ -40,9 +41,10 @@ int main() {
     run("electro: a battery's energy books balance, charging and discharging", testBatteryEnergyBooks);
     run("electro: a pack of cells scales in series and in parallel", testBatteryPack);
     run("devices: a quadrature encoder counts floor(theta 4N / 2 pi), its edges timed to the nanosecond", testEncoderQuadrature);
-    run("devices: an MPU-6050's registers as its datasheet has them", testMpu6050Registers);
-    run("devices: an MPU-6050's noise and offsets against the statistics they are drawn from", testMpu6050Noise);
+    run("devices: an IMU's rate, full scale, counts and filter from its datasheet", testImuSpec);
+    run("devices: an IMU's noise and offsets against the statistics they are drawn from", testImuNoise);
     run("devices: a sonar's jitter against the normal it is drawn from", testSonarNoise);
+    run("devices: a sensor's datasheet from its model's table row, kept in the scene file, set by the API", testSensorDatasheet);
     run("physics: a falling ball's speed is g t, its height on the parabola within the integrator's error", testPhysicsFreeFall);
     run("physics: a torque spins a box at tau t / I - computed from its volume, and given", testPhysicsTorque);
     run("physics: a pendulum's period is the compound pendulum's", testPhysicsPendulum);
@@ -57,6 +59,7 @@ int main() {
     run("physics: the bodies of one group never touch each other", testPhysicsGroups);
     run("physics: the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may", testPhysicsHand);
     run("physics: two worlds built alike stay equal to the bit", testPhysicsRepeatable);
+    run("physics: the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit", testPhysicsThreadsDeterministic);
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
     run("world: a DC motor spins up to U / K with the time constant I R / K^2", testSimDcMotorSpinsUp);
@@ -68,6 +71,7 @@ int main() {
     run("world: the mouse tugs the UR5e by a finger - the arm follows; let go, it comes back along its servos' profile, no bounce", testSimTugUr5e);
     run("world: a mesh's own collider takes its extremes along 120 directions, not its every point", testSimMeshColliderThinned);
     run("world: assembly_goal_pose puts the UR5e's goal at a pose at once - the arm gets there and settles", testSimGoalPoseSettles);
+    run("world: the sensors read the physics through their probes and datasheets - 1 g at rest, none falling, a weight, a wall, a turn past pi", testSimSensors);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);
@@ -78,6 +82,7 @@ int main() {
     run("actions: delete takes the subtree, its joints and sensors; a copy carries its sensors", testActionsDeleteAndDuplicate);
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
+    run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("assembly: six-freedom joints in the scene file come back to the bit", testSceneJointsRoundTrip);
     run("assembly: a shape snapped to each face of a turned box touches it exactly", testSnapToFace);
     run("assembly: the core edits put, get, set, remove and their inverses", testSceneEditsCore);

@@ -139,6 +139,7 @@ struct CreateWhat {
     Kind kind = Kind::Shape;
     ke::ShapeKind shape = ke::ShapeKind::Box;
     ke::LightKind light = ke::LightKind::Point;
+    bool target = false; // a camera that always looks at its target: the object (or point) its third click aims at
 };
 
 // Making things one after another with the mouse (edit mode), step by step as 3ds Max's Create panel,

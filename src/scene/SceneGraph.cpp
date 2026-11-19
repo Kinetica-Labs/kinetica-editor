@@ -60,6 +60,7 @@
 #include "scene/SceneGraph.h"
 
 #include "core/Format.h"
+#include "scene/SensorSpec.h"
 
 #include <cstdlib>
 #include <sstream>
@@ -220,6 +221,7 @@ static void saveCamera(std::ostringstream& o, const Camera& c) {
     saveObjectHead(o, "camera", c);
     o << "  lens fov " << num(c.fovDeg) << " near " << num(c.nearClip) << " far " << num(c.farClip) << " active "
       << (c.active ? 1 : 0) << "\n";
+    if (c.kind == CameraKind::Target) o << "  target object " << c.target << "\n"; // a free camera has none: older files read the same
     o << "end\n";
 }
 
@@ -251,6 +253,7 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     o << " size " << vec(e.size) << " position " << vec(e.position)
       << " rotation " << vec(e.rotationDeg) << " color " << vec(e.color) << "\n";
     if (e.goalOf != 0) o << "  goal effector " << e.goalOf << "\n";
+    if (e.targetOf != 0) o << "  target camera " << e.targetOf << "\n";
     if (!e.path.empty()) {
         o << "  path speed " << num(e.pathSpeed) << " loop " << (e.pathLoop ? 1 : 0) << " smooth " << (e.pathSmooth ? 1 : 0);
         if (e.pathTurnLength != 0) o << " turn " << num(e.pathTurnLength); // written only when set: older files stay as they were
@@ -343,19 +346,26 @@ static void saveController(std::ostringstream& o, const ControllerObject& c) {
     o << "end\n";
 }
 
-// A sensor: the object head (its parent and its pose on it), then what it is and reads.
+// A kind's datasheet, every field written: the model it came from, and each number by its key.
+static void saveSpec(std::ostringstream& o, const SensorObject& s) {
+    if (specFields(s.kind).empty()) return;
+    if (!s.model.empty()) o << "  model " << quoted(s.model) << "\n";
+    o << "  spec";
+    for (const Field& f : specFields(s.kind)) o << " " << f.key << " " << num(specValue(s, f.key));
+    o << "\n";
+}
+
+// A sensor: the object head (its parent and its pose on it), then what it is and reads, then its datasheet.
 static void saveSensor(std::ostringstream& o, const SensorObject& s) {
     saveObjectHead(o, "sensor", s);
-    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar) {
-        o << (s.kind == SensorKind::Imu ? "  imu" : "  sonar") << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\nend\n";
+    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar || s.kind == SensorKind::Wrench) {
+        o << "  " << sensorKindKey(s.kind) << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\n";
+        saveSpec(o, s);
+        o << "end\n";
         return;
     }
     if (s.kind == SensorKind::Touch) {
         o << "  touch\nend\n";
-        return;
-    }
-    if (s.kind == SensorKind::Wrench) {
-        o << "  wrench noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\nend\n";
         return;
     }
     if (s.kind == SensorKind::Effort) {
@@ -521,6 +531,10 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
         LineReader r(w, 2); // "shape <kind> key values ..."
         return readShape(r, e, w[1], bad);
     }
+    if (what == "target") { // "target camera <id>": a camera's own target
+        LineReader r(w, 1);
+        return (!r.done() && r.key() == "camera" && r.integer(e.targetOf) && r.done() && e.targetOf != 0) || fail(bad, what);
+    }
     if (what == "goal") { // "goal effector <id>"
         LineReader r(w, 1);
         return (!r.done() && r.key() == "effector" && r.integer(e.goalOf) && r.done() && e.goalOf != 0) || fail(bad, what);
@@ -612,6 +626,13 @@ static bool readLightLine(const std::vector<std::string>& w, Light& l, std::stri
 
 static bool readCameraLine(const std::vector<std::string>& w, Camera& c, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, c, bad);
+    if (w[0] == "target") { // "target object <id>" | "target point x y z": a target camera
+        LineReader r(w, 1);
+        c.kind = CameraKind::Target;
+        const std::string k = r.done() ? std::string() : r.key();
+        const bool ok = k == "object" && r.integer(c.target);
+        return ok && r.done() ? true : fail(bad, k.empty() ? "target" : k);
+    }
     if (w[0] != "lens") return fail(bad, w[0]);
     LineReader r(w, 1);
     while (!r.done()) {
@@ -689,6 +710,16 @@ static bool readDof(LineReader& r, int& dof) {
 
 static bool readSensorLine(const std::vector<std::string>& w, SensorObject& s, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, s, bad);
+    if (w[0] == "model") return w.size() == 2 ? (s.model = w[1], true) : fail(bad, "model");
+    if (w[0] == "spec") { // after the kind's line: its fields' keys
+        LineReader r(w, 1);
+        while (!r.done()) {
+            const std::string k = r.key();
+            const bool known = std::any_of(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const Field& f) { return k == f.key; });
+            if (!known || !r.number(s.spec[k])) return fail(bad, k);
+        }
+        return true;
+    }
     const char* words[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo"}; // in the order of SensorKind
     int kind = -1;
     for (int n = 0; n < 7; ++n)

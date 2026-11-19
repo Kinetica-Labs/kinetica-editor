@@ -132,13 +132,19 @@ public:
     // The nearest body a ray from `from` to `to` meets, but `ignore`; false: none.
     virtual bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore = -1) const = 0;
     virtual std::vector<ContactPoint> contacts() const = 0;
+    virtual std::vector<ContactPoint> contactsOf(int body) const = 0; // one body's, at the cost of its own contacts only
 
     virtual void setGravity(const Vector3& gravity) = 0;
     // One step of dt seconds in `substeps` substeps (the settings' when 0).
     virtual void step(Real dt, int substeps = 0) = 0;
 };
 
-// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>).
-std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity);
+// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>). `threads`: how many
+// threads step it - 0 the machine's (physicsThreads). The bits of a world do not depend on them: an engine that ran
+// otherwise on another machine could not be reproduced there (docs/constitution.md, article 3; tested).
+std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads = 0);
+// The machine's: KE_PHYSICS_THREADS when set, else one a physical core - half the hardware threads, as hyper-threads
+// add little to a solver - at most 8.
+int physicsThreads();
 
 } // namespace ke

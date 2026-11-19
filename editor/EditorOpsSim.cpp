@@ -10,8 +10,10 @@
 #include "SimController.h"
 #include "UiWindowSpace.h"
 #include "Viewport.h"
+#include "core/Probe.h"
 #include "scene/Assembly.h"
 #include "scene/SceneGraph.h"
+#include "scene/SensorSpec.h"
 #include "sim/Simulation.h"
 
 #include <QAbstractButton>
@@ -87,8 +89,44 @@ QJsonObject jointState(const Simulation& s, const JointObject& j) {
     return r;
 }
 
+// A sensor's quantities by its kind's words (what Python's kinetica.Sensor reads): an IMU's accel and gyro, a wrench's
+// force and torque, a sonar's distance, a touch pad's force and points, an effort's effort, an encoder's count and the
+// coordinate it means (`reading`: with a known zero only).
+QJsonObject sensorValues(SensorKind kind, const SensorValues& v, bool referenced) {
+    const auto vec = [](const Vector3& x) { return QJsonArray{double(x.x), double(x.y), double(x.z)}; };
+    switch (kind) {
+    case SensorKind::Imu: return {{"accel", vec(v.a)}, {"gyro", vec(v.b)}};
+    case SensorKind::Wrench: return {{"force", vec(v.a)}, {"torque", vec(v.b)}};
+    case SensorKind::Sonar: return {{"distance", double(v.value)}};
+    case SensorKind::Touch: return {{"force", double(v.value)}, {"points", double(v.count)}};
+    case SensorKind::Effort: return {{"effort", double(v.value)}};
+    case SensorKind::Encoder:
+        return {{"count", double(v.count)}, {"relative", double(v.value)}, {"reading", referenced ? QJsonValue(double(v.value)) : QJsonValue()}};
+    case SensorKind::Stereo: break;
+    }
+    return {};
+}
+
+// One sensor now: what the robot reads (its datasheet's device), and beside it the truth of its probe - the
+// privileged loop's, for checks.
+QJsonObject sensorState(const LiveSensor& x) {
+    const SensorReading& r = x.reading();
+    QJsonObject out = sensorValues(x.spec().kind, r, r.referenced);
+    out.insert("id", int(x.spec().id));
+    out.insert("kind", sensorKindKey(x.spec().kind));
+    if (!x.spec().model.empty()) out.insert("model", QString::fromStdString(x.spec().model));
+    out.insert("sample_ns", double(r.sampleNs));
+    if (r.saturated) out.insert("saturated", true);
+    out.insert("problem", QString::fromStdString(r.problem));
+    QJsonObject truth = sensorValues(x.spec().kind, x.truth(), true);
+    truth.remove("count"), truth.remove("relative"), truth.remove("points");
+    out.insert("truth", truth);
+    return out;
+}
+
 // The live state on the simulation's thread: the time, every body's pose and velocity, every joint's
-// coordinates and drive, which entities touch, and what the world could not build.
+// coordinates and drive, every sensor's reading (and its truth), which entities touch, and what the world could
+// not build.
 QJsonObject liveState(const Simulation& s) {
     QJsonObject out{{"ok", true}, {"time", double(s.time())}, {"frame", double(s.frame())}};
     const RobotWorld* robot = s.robot();
@@ -124,6 +162,14 @@ QJsonObject liveState(const Simulation& s) {
     for (const std::string& n : robot->notes()) notes.append(QString::fromStdString(n));
     out.insert("shapes", shapes);
     out.insert("joints", joints);
+    QJsonArray sensors;
+    for (const auto& x : robot->sensors()) sensors.append(sensorState(*x));
+    out.insert("sensors", sensors);
+    QJsonObject timers; // where the last frame's step went: the drives, the engine, the sensors (core/Probe.h)
+    for (const Probe::Channel& c : Probe::snapshot().channels)
+        if (c.name.rfind("physics/", 0) == 0 && c.name.size() > 3 && c.name.compare(c.name.size() - 3, 3, " ms") == 0)
+            timers.insert(QString::fromStdString(c.name.substr(8, c.name.size() - 11)), c.value);
+    out.insert("step_ms", timers);
     out.insert("contacts", contacts);
     if (!notes.isEmpty()) out.insert("notes", notes);
     return out;
@@ -227,6 +273,16 @@ void EditorOps::addViewOps() {
         view_->viewAlong(std::clamp(a.value("axis").toInt(), 0, 5));
         return ok();
     });
+    addSync("view_hud", "The performance plate in the view's lower left corner: the frames a second in large figures coloured by "
+            "smoothness, the last two seconds of frame times, one frame's paint and the physics' step, the scene's speed against the "
+            "wall clock, the renderer (a GPU or the processor). on: show or hide it; answers whether it shows and its numbers",
+            "{on?: bool}", [this](const QJsonObject& a) {
+        if (a.contains("on")) view_->setShowHud(a.value("on").toBool());
+        if (auto* act = window_->findChild<QAction*>("actionHud")) act->setChecked(view_->showHud()); // the menu says what the view shows
+        return ok({{"on", view_->showHud()}, {"fps", view_->liveFps()}, {"paint_ms", double(view_->paintMs())},
+                   {"gpu_ms", double(view_->gpuMs())}, {"gpu_shadow_ms", double(view_->gpuShadowMs())},
+                   {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
+    });
     addSync("ui_actions", "Every button and menu item of the window: text, name, on/off", "{}", [this](const QJsonObject&) {
         QJsonArray out;
         for (const QAction* act : window_->findChildren<QAction*>())
@@ -277,9 +333,12 @@ void EditorOps::addStepOp() {
 void EditorOps::addStateOp() {
     add("sim_state", "The live state: time and frame, every body's pose (position of its frame, rotation: Euler degrees [x, y, z], the "
         "turn R = Ry Rx Rz - as the scene file), velocity and spin (asleep: at rest, put to sleep; fixed: a static body), every "
-        "joint's coordinates, main angle or travel, its drive's effort (N m or N) and a DC motor's current and power, which entities "
+        "joint's coordinates, main angle or travel, its drive's effort (N m or N) and a DC motor's current and power, every sensor's reading "
+        "as the robot reads it (its datasheet's device: an IMU's accel and gyro, a sonar's distance, an encoder's count, a wrench's force and "
+        "torque, a pad's force) with its probe's truth beside it, which entities "
         "touch (contacts: a, b - 0 the floor -, points, normal force N, deepest overlap m), what the world could not build (notes); "
-        "frame_timing: the last 120 frames' mean wall ms in posted commands, the step and the snapshot (the scene runs slower than "
+        "frame_timing: the last 120 frames' mean wall ms in posted commands, the step and the snapshot, and the window's painting - its "
+        "frames a second, one frame's ms and the renderer, a GPU or llvmpipe (the scene runs slower than "
         "the wall clock when they pass frame_dt_ms). The physics engine's truth, for checks - not a robot's sensors", "{}",
         [this](const QJsonObject&, const Reply& reply) {
         if (builder_->mode() == SceneBuilder::Mode::Edit) return reply(ok({{"mode", "edit"}}));
@@ -291,7 +350,9 @@ void EditorOps::addStateOp() {
                 state.insert("frame_timing", QJsonObject{{"frames", t.frames}, {"frame_dt_ms", t.frameDtMs}, {"commands_ms", t.commandsMs},
                                                           {"step_ms", t.stepMs}, {"step_max_ms", t.stepMaxMs}, {"publish_ms", t.publishMs},
                                                           {"commands_per_frame", t.commandsPerFrame}, {"slowest_command_ms", t.slowestCommandMs},
-                                                          {"slowest_command", QString::fromStdString(t.slowestCommand)}});
+                                                          {"slowest_command", QString::fromStdString(t.slowestCommand)},
+                                                          {"render_fps", double(view_->renderFps())}, {"paint_ms", double(view_->paintMs())},
+                                                          {"renderer", view_->renderer()}});
                 reply(state);
             }, Qt::QueuedConnection);
         }, "sim_state");

@@ -182,7 +182,16 @@ void MainWindow::addDrawn(const CreateWhat& what, const ke::Vector3& position, c
     } else {
         op = "scene_add_camera";
         args = {{"eye", array(position)}, {"target", array(target)}};
-        py = QString("scene.add_camera(eye=%1, target=%2)").arg(tuple(position), tuple(target));
+        py = QString("scene.add_camera(eye=%1, target=%2").arg(tuple(position), tuple(target));
+        if (what.target) { // the object the aim lies on, seen from the camera: its target; else the point
+            args["kind"] = "target", py += ", kind=\"target\"";
+            const ke::Vector3 along = target - position;
+            const float far = ke::length(along);
+            const std::vector<PickHit> hits = far > 0 ? view_->pickAll(Ray{position, along / far}) : std::vector<PickHit>();
+            const auto first = std::min_element(hits.begin(), hits.end(), [](const PickHit& a, const PickHit& b) { return a.t < b.t; });
+            if (first != hits.end() && std::fabs(first->t - far) < 0.02f) args["at"] = int(first->id), py += QString(", at=%1").arg(first->id);
+        }
+        py += ")";
     }
     args["_py"] = py;
     const QJsonObject done = ops_->runNow(op, args);
@@ -213,12 +222,28 @@ void MainWindow::addLightButtons(QToolBar* tb) {
     lights->setMenu(menu);
     tb->addWidget(lights);
     createButtons_.push_back(lights);
-    CreateWhat camera;
-    camera.kind = CreateWhat::Kind::Camera;
-    QAction* cameraAct = createAction(camera, sceneIcon(SceneIcon::Camera, 48), "Камера",
-                                      "Камера: место, высота, куда смотрит. Через неё — вид и скриншоты", "camera");
-    tb->addAction(cameraAct);
-    createButtons_.push_back(qobject_cast<QToolButton*>(tb->widgetForAction(cameraAct)));
+    // Two kinds, as in 3ds Max and Maya: a free camera looks where it is turned; a target camera always looks at its
+    // target - the object its third click aims at (a robot's gripper: the camera follows it in play), or a point.
+    auto* cameras = new QToolButton;
+    cameras->setObjectName("camerasButton");
+    cameras->setText("Камера ▾");
+    cameras->setIcon(sceneIcon(SceneIcon::Camera, 48));
+    cameras->setIconSize(tb->iconSize());
+    cameras->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    cameras->setPopupMode(QToolButton::InstantPopup);
+    cameras->setToolTip("Камера: свободная или с целью. Место, высота, куда смотрит. Через неё — вид и скриншоты");
+    auto* cameraMenu = new QMenu(cameras);
+    CreateWhat camera, aimed;
+    camera.kind = aimed.kind = CreateWhat::Kind::Camera;
+    aimed.target = true;
+    cameraMenu->addAction(createAction(camera, sceneIcon(SceneIcon::Camera, 48), "Свободная камера",
+                                       "Свободная: смотрит туда, куда повёрнута. Место, высота, куда смотрит", "camera"));
+    cameraMenu->addAction(createAction(aimed, sceneIcon(SceneIcon::Camera, 48), "Камера с целью",
+                                       "С целью: всегда смотрит на цель — объект под третьим щелчком (схват робота: камера следит за ним в игре) "
+                                       "или точку. Двигаете камеру — она продолжает смотреть на цель", "camera_target"));
+    cameras->setMenu(cameraMenu);
+    tb->addWidget(cameras);
+    createButtons_.push_back(cameras);
 }
 
 // "Датчик ▾": a sensor has no shape of its own - it is put on the selected shape (a face toward the view) or on the

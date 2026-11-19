@@ -10,7 +10,6 @@
 #include "WorldPanel.h"
 #include "RuPlural.h"
 
-#include "ColliderPanel.h"
 #include "InspectorWidgets.h"
 #include "ManyPanels.h"
 #include "ObjectInspector.h"
@@ -62,6 +61,30 @@ QLabel* hintLabel(const QString& text) {
     l->setObjectName("roleRowLabel");
     l->setWordWrap(true);
     return l;
+}
+
+const char* kColliderTips[] = {
+    "Авто: сталкивается самой формой — коробка для куба, шар для сферы, оболочка для остального",
+    "Коробка: самый быстрый коллайдер; ящики, стены, всё прямоугольное",
+    "Сфера: катится; мячи, камни, всё круглое",
+    "Капсула: цилиндр с полусферами на концах; персонажи, бочки, бутылки, звенья руки",
+    "Выпуклая оболочка: форма, натянутая как плёнка на геометрию, без вмятин",
+    "Цилиндр: круглый цилиндр по оси y (многогранник из 24 граней) — колёса, валы, стаканы"};
+static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::Cylinder) + 1, "a tip for every collider kind");
+
+QString colliderName(ColliderKind k) {
+    static const char* names[] = {"Авто", "Коробка", "Сфера", "Капсула", "Выпуклая оболочка", "Цилиндр"};
+    return names[int(k)];
+}
+
+QString collisionShapeName(ShapeDesc::Kind k) {
+    switch (k) {
+    case ShapeDesc::Kind::Box: return "коробка";
+    case ShapeDesc::Kind::Sphere: return "сфера";
+    case ShapeDesc::Kind::Capsule: return "капсула";
+    case ShapeDesc::Kind::Hull: return "выпуклая оболочка";
+    }
+    return "?";
 }
 
 } // namespace
@@ -227,17 +250,42 @@ void SceneBuilder::buildManyCards(QVBoxLayout* col) {
     col->addWidget(groupCard_);
     arrayCard_ = new ComponentCard("Массив", objectIcon(ObjectIcon::ArrayLine, 22));
     arrayCard_->setObjectName("arrayCard");
-    arrayPanel_ = new ArrayPanel;
-    arrayCard_->body()->addWidget(arrayPanel_);
+    arrayCard_->body()->addWidget(arrayFields());
+    auto* explode = new QPushButton("Разобрать на объекты");
+    explode->setObjectName("explodeArray");
+    explode->setToolTip("Каждая копия станет отдельным объектом на своём месте");
+    connect(explode, &QPushButton::clicked, this, [this] { explodeArray(selectedId_); });
+    arrayCard_->body()->addWidget(explode);
     connect(arrayCard_, &ComponentCard::removeClicked, this, [this] { explodeArray(selectedId_); });
-    connect(arrayPanel_, &ArrayPanel::explodeClicked, this, [this] { explodeArray(selectedId_); });
-    connect(arrayPanel_, &ArrayPanel::edited, this, &SceneBuilder::onArrayEdited);
     col->addWidget(arrayCard_);
 }
 
-void SceneBuilder::onArrayEdited() {
-    if (filling_ || !arrayById(selectedId_)) return;
-    editArray(selectedId_, [this](ArrayObject& a) { arrayPanel_->writeTo(a); });
+// The pattern as three icon buttons, and only its own fields: Ряд - how many and the step between two copies;
+// Сетка - how many along x, y, z and the spacing; Круг - how many and the radius.
+FieldForm* SceneBuilder::arrayFields() {
+    ArrayObject* a = &arrayDraft_;
+    const auto grid = [a] { return a->pattern == ArrayPattern::Grid; };
+    const auto circle = [a] { return a->pattern == ArrayPattern::Circle; };
+    arrayFields_ = new FieldForm([this](bool click) { commitDraft(arrayById(selectedId_), arrayDraft_, click); });
+    arrayFields_->tiles({{objectIcon(ObjectIcon::ArrayLine, 32), "Ряд"}, {objectIcon(ObjectIcon::ArrayGrid, 32), "Сетка"},
+                         {objectIcon(ObjectIcon::ArrayCircle, 32), "Круг"}}, 32,
+                        [a] { return double(int(a->pattern)); }, [a](double p) {
+                            a->pattern = ArrayPattern(int(p));
+                            if (a->pattern != ArrayPattern::Grid) a->count[1] = a->count[2] = 1;
+                        }).name("arrayPattern")
+        .number("Сколько", 1, 1000, 1, 0, a->count[0]).shown([=] { return !grid(); })
+        .vector("Сколько", 1, 1000, 1, 0, [a] { return Vector3(Real(a->count[0]), Real(a->count[1]), Real(a->count[2])); },
+                [a](const Vector3& n) { for (int k = 0; k < 3; ++k) a->count[k] = std::max(1, int(std::lround(n[k]))); }).shown(grid)
+        .vector("Шаг, м", -50, 50, 0.05, 3, a->step).label([=] { return QString(grid() ? "Расстояние, м" : "Шаг, м"); })
+        .shown([=] { return !circle(); })
+        .number("Радиус, м", 0.01, 50, 0.1, 2, a->radius).shown(circle)
+        .vector("Поворот каждой, °", -360, 360, 5, 1, a->rotationStepDeg)
+        .number("Разброс, м", 0, 5, 0.01, 3, a->jitter).tip("Каждая копия сдвинута на случайное расстояние до этого (одно и то же при каждом запуске)")
+        .note([this, a] {
+            const SceneObject* t = findObject(graph_, a->templateId);
+            return "Копии формы «" + (t ? QString::fromStdString(t->name) : QString("?")) + "» (она скрыта: правьте её в списке — изменятся все копии)";
+        }).name("roleRowLabel");
+    return arrayFields_;
 }
 
 // What the object is shaped like: physics never changes it, but takes from it the mass and the Auto collider.
@@ -283,30 +331,21 @@ void SceneBuilder::buildTextureCard(QVBoxLayout* col) {
     connect(texture_, &TexturePanel::edited, this, &SceneBuilder::onDetailsEdited);
 }
 
-ComponentCard* SceneBuilder::componentCard(QVBoxLayout* col, RoleIcon role, QFormLayout*& form) {
+ComponentCard* SceneBuilder::componentCard(QVBoxLayout* col, RoleIcon role) {
     auto* card = new ComponentCard(roleTitle(role), roleIcon(role, 22));
     card->setToolTip(roleTip(role));
-    form = new QFormLayout;
-    form->setSpacing(6);
-    card->body()->addLayout(form);
     connect(card, &ComponentCard::removeClicked, this, [this, role] { toggleRole(role); });
     cards_[int(role)] = card;
     col->addWidget(card);
     return card;
 }
 
-QDoubleSpinBox* SceneBuilder::numberField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals) {
-    QDoubleSpinBox* s = makeSpin(min, max, step, decimals);
-    connect(s, &QDoubleSpinBox::valueChanged, this, &SceneBuilder::onDetailsEdited);
-    f->addRow(label, s);
-    return s;
-}
+Entity* SceneBuilder::masterById(uint32_t id) { return entityById(id) ? entityById(masterOf(id)) : nullptr; }
 
-QCheckBox* SceneBuilder::checkField(QFormLayout* f, const QString& text) {
-    auto* c = new QCheckBox(text);
-    connect(c, &QCheckBox::toggled, this, &SceneBuilder::onDetailsEdited);
-    f->addRow(c);
-    return c;
+FieldForm* SceneBuilder::shapeFields(ComponentCard* card, FieldForm* SceneBuilder::*slot) {
+    this->*slot = new FieldForm([this, slot](bool click) { commitSelected(this->*slot, shapeDraft_, [this](uint32_t id) { return masterById(id); }, click); });
+    card->body()->addWidget(this->*slot);
+    return this->*slot;
 }
 
 Vec3Row* SceneBuilder::vectorField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals) {
@@ -317,25 +356,40 @@ Vec3Row* SceneBuilder::vectorField(QFormLayout* f, const QString& label, double 
 }
 
 void SceneBuilder::buildMaterialCards(QVBoxLayout* col) {
-    QFormLayout* f = nullptr;
-    ComponentCard* rigid = componentCard(col, RoleIcon::Rigid, f);
+    ComponentCard* rigid = componentCard(col, RoleIcon::Rigid);
     noCollider_ = new InlineBanner;
-    rigid->body()->insertWidget(0, noCollider_);
-    rigidDensity_ = numberField(f, "Плотность, кг/м³", 1, 30000, 50, 0);
-    rigidDensity_->setObjectName("rigidDensity");
-    friction_ = numberField(f, "Трение", 0, 2, 0.05, 2);
-    restitution_ = numberField(f, "Упругость удара", 0, 1, 0.05, 2);
-    fixed_ = checkField(f, "неподвижное (стена, стол)");
-    velocity_ = vectorField(f, "Скорость, м/с", -100, 100, 0.5, 2);
-    spin_ = vectorField(f, "Вращение, рад/с", -200, 200, 0.5, 2);
+    rigid->body()->addWidget(noCollider_);
+    RigidRole* r = &shapeDraft_.rigid;
+    shapeFields(rigid, &SceneBuilder::rigidFields_)->number("Плотность, кг/м³", 1, 30000, 50, 0, r->density).name("rigidDensity")
+        .number("Трение", 0, 2, 0.05, 2, r->friction)
+        .number("Упругость удара", 0, 1, 0.05, 2, r->restitution)
+        .toggle("неподвижное (стена, стол)", r->fixed)
+        .vector("Скорость, м/с", -100, 100, 0.5, 2, r->velocity)
+        .vector("Вращение, рад/с", -200, 200, 0.5, 2, r->angularVelocity);
 }
 
+// What the body collides with, apart from what it looks like (Houdini's collision guide, Unity's Collider beside its
+// MeshRenderer): Авто - the geometry itself - or a kind fitted to the geometry or sized by hand. Choosing it never
+// changes the geometry; what the physics engine gets of it is ke::colliderShapes (sim/RobotWorld.h).
 void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
-    QFormLayout* f = nullptr;
-    ComponentCard* card = componentCard(col, RoleIcon::Collider, f);
-    collider_ = new ColliderPanel;
-    connect(collider_, &ColliderPanel::edited, this, &SceneBuilder::onDetailsEdited);
-    card->body()->addWidget(collider_);
+    ColliderRole* c = &shapeDraft_.collider;
+    const auto manual = [c] { return c->kind != ColliderKind::Auto && !c->fitToGeometry; };
+    std::vector<FieldForm::Tile> kinds;
+    for (int k = 0; k <= int(ColliderKind::Cylinder); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, kColliderTips[k]});
+    shapeFields(componentCard(col, RoleIcon::Collider), &SceneBuilder::colliderFields_)->note([] { return QString("чем тело сталкивается; виден зелёным каркасом"); }).name("roleRowLabel")
+        .tip("Как в Houdini: геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"
+             "Физика двигает и поворачивает геометрию вместе с коллайдером, но саму геометрию не меняет.")
+        .tiles(kinds, 28, c->kind).name("colliderButton")
+        .note([this, c] {
+            if (c->kind != ColliderKind::Auto) return colliderName(c->kind);
+            const std::vector<ShapeDesc>& made = colliderOf(shapeDraft_);
+            return made.empty() ? QString("Авто — по форме геометрии") : "Авто → " + collisionShapeName(made.front().kind);
+        }).name("colliderKindName")
+        .toggle("Подогнать под геометрию", c->fitToGeometry).shown([c] { return c->kind != ColliderKind::Auto; })
+        .tip("Размер коллайдера берётся из размеров формы; снимите, чтобы задать его руками")
+        .vector("Размер, м", 0.005, 50, 0.05, 3, c->size).shown([=] { return manual() && c->kind != ColliderKind::ConvexHull; })
+        .vector("Сдвиг, м", -50, 50, 0.05, 3, c->offset).shown(manual)
+        .vector("Поворот, °", -360, 360, 5, 1, c->rotationDeg).shown(manual);
 }
 
 // "+ Добавить компонент": the components the object does not have yet, with their icons.
@@ -399,7 +453,7 @@ void SceneBuilder::fillInspector() {
         modelFile_->setText("Файл: " + QFileInfo(QString::fromStdString(shown.meshFile)).fileName());
         texture_->setTexture(shown.texture, QString::fromStdString(graph_.baseDirectory), shown.size);
         size_->setValue(shown.size);
-        fillDetails(shown);
+        fillDetails();
         roleBar_->setRoles(shown);
     }
     fillManyCards(*o);
@@ -421,10 +475,7 @@ void SceneBuilder::fillManyCards(const SceneObject& o) {
     groupCard_->setVisible(one && g);
     arrayCard_->setVisible(one && a);
     if (one && g) groupPanel_->setGroup(*g, int(childrenOf(g->id).size()));
-    if (one && a) {
-        const SceneObject* t = findObject(graph_, a->templateId);
-        arrayPanel_->setArray(*a, t ? QString::fromStdString(t->name) : QString("?"));
-    }
+    if (one && a) arrayDraft_ = *a, arrayFields_->fill();
     const Entity* e = entityById(o.id);
     int instances = 0;
     for (const Entity& x : graph_.entities) instances += x.id != o.id && masterOf(x.id) == o.id;
@@ -440,32 +491,16 @@ void SceneBuilder::fillManyCards(const SceneObject& o) {
     }
 }
 
-void SceneBuilder::fillDetails(const Entity& e) {
-    rigidDensity_->setValue(e.rigid.density);
-    friction_->setValue(e.rigid.friction);
-    restitution_->setValue(e.rigid.restitution);
-    fixed_->setChecked(e.rigid.fixed);
-    velocity_->setValue(e.rigid.velocity);
-    spin_->setValue(e.rigid.angularVelocity);
-    collider_->setCollider(e.collider);
-    if (e.collider.enabled && e.collider.kind == ColliderKind::Auto) { // what "Авто" makes of this geometry
-        const std::vector<ShapeDesc>& made = colliderOf(e);
-        collider_->setAutoResult(made.empty() ? QString() : collisionShapeName(made.front().kind));
-    }
+void SceneBuilder::fillDetails() {
+    const auto master = [this](uint32_t id) { return masterById(id); };
+    fillSelected(rigidFields_, shapeDraft_, master);
+    fillSelected(colliderFields_, shapeDraft_, master);
 }
 
-// The widgets into the entity. The geometry and the collider are read apart: choosing one never
-// changes the other.
+// The geometry's widgets into the entity; its components' numbers are their cards' (shapeFields).
 void SceneBuilder::readDetails(Entity& e) const {
     e.shape = ShapeKind(shape_->currentIndex());
     e.size = size_->value();
-    e.rigid.density = Real(rigidDensity_->value());
-    e.rigid.friction = Real(friction_->value());
-    e.rigid.restitution = Real(restitution_->value());
-    e.rigid.fixed = fixed_->isChecked();
-    e.rigid.velocity = velocity_->value();
-    e.rigid.angularVelocity = spin_->value();
-    collider_->writeTo(e.collider);
 }
 
 void SceneBuilder::showTransform(const SceneObject& o) {

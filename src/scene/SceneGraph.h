@@ -15,6 +15,8 @@
 #include "scene/JointModel.h"
 
 #include <cstdint>
+#include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -92,10 +94,18 @@ struct Light : SceneObject {
 
 // A camera of the scene: a viewpoint the viewer can look through, take screenshots and recordings
 // from. Looks along the object's -z axis turned by its rotation.
+// A camera is free - it looks where its turn points - or a target camera (3ds Max's Target camera, Maya's camera and
+// aim): it always looks at its target, an object (its origin, wherever the running world takes it), its up the world's;
+// its own turn is not used. Moved, it keeps looking at the target; the target moved, it turns after it. A target that
+// is no other object is the camera's own (Entity::targetOf): a small see-through cube the gizmo moves, a handle like
+// an IK goal; it goes with its camera, or when the camera is set free.
+enum class CameraKind { Free, Target };
 struct Camera : SceneObject {
     Real fovDeg = 50.0_r;       // vertical field of view
     Real nearClip = 0.05_r, farClip = 200.0_r; // m
     bool active = false;        // the one the viewer looks through when "through the camera" is on
+    CameraKind kind = CameraKind::Free;
+    uint32_t target = 0;        // a target camera's object (0, or gone: it looks 2 m ahead)
 };
 
 // An array: one object standing for many copies of a template entity laid out in a pattern, as the
@@ -130,6 +140,7 @@ struct Entity : SceneObject {
     Vector3 size{0.2_r};
     std::string meshFile;       // ShapeKind::Mesh: the OBJ/STL file as written in the scene file
     uint32_t goalOf = 0;        // an inverse kinematics goal: this effector's frame is driven to this entity's (Kinematics.h)
+    uint32_t targetOf = 0;      // a target camera's own target (3ds Max's Camera.Target): this camera looks at it
     // A goal's trajectory (Kinematics.h, pathPoint): from the goal's own place through these points, world metres,
     // walked at `pathSpeed` along its length while the scene plays - from the start, or from when the path was
     // set - then held at the last point (or back to the start and round again: `pathLoop`). Its turn stays its own.
@@ -259,12 +270,18 @@ struct ControllerObject {
 // on the joint's two links counts the same. A parent removed takes its sensors with it; `against`
 // removed leaves the sensor reading nothing and saying why.
 //
-// An IMU (an MPU-6050, devices/Mpu6050.h) rides on an entity and reads against the world only - an
-// accelerometer and a gyroscope measure against an inertial frame: the specific force at its point
-// and the angular rate, in its axes (its pose on the parent is the chip's axes). A sonar (an HC-SR04,
-// devices/Hcsr04.h) sends its beam along its x axis and hears the nearest echo off the rigid bodies
-// and the walls and floor of the scene's box - its carrier left out, as the beam starts on its face.
-// An IMU or a sonar with parent 0 is fixed in the world, at its own pose.
+// An IMU (devices/Imu.h) rides on an entity and reads against the world only - an accelerometer and a
+// gyroscope measure against an inertial frame: the specific force at its point and the angular rate, in
+// its axes (its pose on the parent is the chip's axes). A sonar (devices/Sonar.h) sends its beam along
+// its x axis and hears the nearest echo off the rigid bodies and the walls and floor of the scene's box -
+// its carrier left out, as the beam starts on its face. An IMU or a sonar with parent 0 is fixed in the
+// world, at its own pose.
+//
+// The kind says what a sensor measures, not which unit it is: the unit is its datasheet, `spec` - the
+// numbers a kind's model needs (rate, range, noise, offsets, mass...; their keys, units and the values of
+// a sensor no model was given: scene/SensorSpec.h) - and `model`, the name of the table's row they were
+// copied from (data/sensors/<kind>.csv). The numbers are the sensor's own: a scene reads the same with
+// no table at hand, and a number typed over the model's makes the unit what was typed.
 //
 // The force sensors read what crosses a boundary - MuJoCo's touch, force, torque and actuatorfrc sensors.
 // A touch pad lies on a face of an entity (its x out of the face, as a sonar's beam) and reads the
@@ -274,7 +291,8 @@ struct ControllerObject {
 // the joint's frame on a about its anchor - a six-axis force-torque sensor at a robot's wrist (ATI's
 // and Robotiq's), a load cell inline. An effort sensor reads a joint's drive along one freedom: the
 // force or torque its motor puts out (positive pushes the coordinate up) - a servo's current sense.
-// They read the physics engine's forces of each substep: ideal readings, no datasheet's noise yet.
+// A touch pad and an effort sensor read the physics engine's forces of each substep: ideal readings, no
+// datasheet's noise yet; a wrench sensor has a datasheet (devices/ForceTorque.h).
 //
 // A stereo camera is one frame with two pinhole cameras on it (src/sim): its x the optical axis, the
 // left camera b/2 along its +y, the right b/2 along -y, both looking along x, width x height pixels over a
@@ -285,13 +303,15 @@ struct ControllerObject {
 enum class SensorKind { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo };
 struct SensorObject : SceneObject {
     SensorKind kind = SensorKind::Encoder;
+    std::string model;                  // the catalog's model the datasheet was copied from ("": its own numbers)
+    std::map<std::string, Real> spec;   // the datasheet by key (scene/SensorSpec.h); a key not here: the field's value
     int lines = 500;                    // an encoder: per turn for a turn (rx, ry, rz), per metre for a travel (tx...)
     bool hasEncoderReference = false;   // explicit calibrated coordinate when count=0; never inferred from physics
     Real encoderReference = 0;          // rad for rotational DOFs, m for translational DOFs
     int dof = DofRx;
     uint32_t against = 0;               // an encoder on an entity: what it is measured against (0: the world)
-    bool noise = true;                  // an IMU, a sonar, a stereo camera: the unit's noise as its datasheet has them
-    uint32_t seed = 0;                  // an IMU, a sonar, a stereo camera: of its noise and offsets (0: its id)
+    bool noise = true;                  // the unit's noise and offsets as its datasheet has them (off: an ideal reference)
+    uint32_t seed = 0;                  // of its noise and offsets: the same seed, the same unit (0: its id)
     int width = 320, height = 240;      // a stereo camera: its images, pixels
     Real fovDeg = 65;                   // ... its horizontal field of view
     Real baseline = 0.10_r;             // ... the distance between its two cameras, m (a ZED-like rig: 65 degrees, 10 cm)
@@ -392,6 +412,14 @@ uint32_t nextId(const SceneGraph& g);
 // camera looks along its -z axis, both turned by the object's world rotation; up is the camera's +y.
 Vector3 lightDirection(const SceneGraph& g, const Light& l);
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up);
+// A handle: an IK goal or a camera's own target - intent, not matter: no body, no roles, drawn see-through, moved by
+// the gizmo while the world runs, never seen by a robot's sensors.
+inline bool isHandle(const Entity& e) { return e.goalOf != 0 || e.targetOf != 0; }
+// Where a target camera looks: its object's origin in the world (a free camera, or its target gone: 2 m ahead).
+// `objectAt`, when given, says where an object is now (the running world's pose; false: where the graph has it).
+Vector3 cameraTarget(const SceneGraph& g, const Camera& c, const std::function<bool(uint32_t, Vector3&)>& objectAt = {});
+// A camera's frame looking at `target` from `eye`, its up the world's (straight up or down: its z): its world turn.
+Quaternion lookTurn(const Vector3& eye, const Vector3& target);
 
 // ---------------------------------------------------------------------------
 // The shape of an entity as a mesh (EntityShapes.cpp) - the same mesh the physics engine gets, so a

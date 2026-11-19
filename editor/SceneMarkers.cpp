@@ -82,7 +82,10 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
     case SceneMarker::Sun: sunLines(m, solid); break;
     case SceneMarker::Point: pointLines(m, solid, faint); break;
     case SceneMarker::Spot: spotLines(m, solid, faint); break;
-    case SceneMarker::Camera: cameraLines(m, aspect, solid); break;
+    case SceneMarker::Camera:
+        cameraLines(m, aspect, solid);
+        if (m.aimed) segment(faint, m.position, m.aim); // the line of sight to its target (the target is an object: drawn itself)
+        break;
     }
 }
 
@@ -117,6 +120,8 @@ std::vector<SceneMarker> markersOf(const SceneGraph& g) {
         m.kind = SceneMarker::Camera;
         m.fovDeg = float(c.fovDeg);
         add(c, m);
+        if (c.kind == CameraKind::Target && !out.empty() && out.back().id == c.id)
+            out.back().aimed = true, out.back().aim = cameraTarget(g, c), out.back().rotation = lookTurn(out.back().position, out.back().aim);
     }
     return out;
 }

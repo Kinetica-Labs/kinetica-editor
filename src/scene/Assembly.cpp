@@ -2,7 +2,7 @@
 // put flat against that face, and joints written into the frame of the entity they hang on.
 #include "scene/Assembly.h"
 
-#include "devices/Hcsr04.h"
+#include "scene/SensorSpec.h"
 
 #include "math/ElementaryFunctions.h"
 #include <algorithm>
@@ -410,6 +410,7 @@ uint32_t attachSensor(SceneGraph& g, uint32_t target, const FaceSnap& at, Sensor
     s.id = nextId(g);
     s.name = sensorName(g, kind);
     s.kind = kind;
+    applyDefaultModel(s); // the first model of its table, else a generic unit
     s.parent = target;
     s.position = q.conjugate().rotate(at.anchor - p);
     s.rotationDeg = eulerDegrees((q.conjugate() * Quaternion::fromMatrix3x3(frame)).normalized());
@@ -424,6 +425,7 @@ uint32_t attachJointSensor(SceneGraph& g, uint32_t joint, SensorKind kind, int d
     s.id = nextId(g);
     s.name = sensorName(g, kind);
     s.kind = kind;
+    applyDefaultModel(s);
     s.parent = joint;
     s.dof = dof >= 0 && dof < 6 ? dof : std::max(mainFreedom(*j), 0);
     g.sensors.push_back(s);
@@ -451,7 +453,7 @@ std::vector<SensorVis> sensorVisuals(const SceneGraph& g) {
         SensorVis v;
         v.id = s.id;
         v.kind = int(s.kind);
-        v.reading = s.kind == SensorKind::Sonar ? Real(Hcsr04::kMax) : 0.0_r;
+        v.reading = s.kind == SensorKind::Sonar ? Real(sonarSpec(s).maxM) : 0.0_r;
         if (s.kind == SensorKind::Stereo) v.fovDeg = s.fovDeg, v.baseline = s.baseline, v.aspect = Real(s.height) / Real(s.width);
         if (const JointObject* j = findJoint(g, s.parent)) {
             Vector3 oa, ob;

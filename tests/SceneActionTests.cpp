@@ -8,6 +8,7 @@
 #include "scene/SceneActions.h"
 #include "scene/SceneOps.h"
 
+#include <algorithm>
 #include <cmath>
 
 using namespace ke;
@@ -142,4 +143,63 @@ void testSceneOpsRegistry() {
     CHECK(placed && length(g.lights.back().position - Vector3(1.0_r, 2.0_r, 0.0_r)) < 1e-5_r && dot(shine, normalize(Vector3(0.0_r, -1.0_r, 1.0_r))) > 0.9999_r &&
               length(g.cameras.back().position - Vector3(0.0_r, 1.0_r, 3.0_r)) < 1e-5_r && dot(look, Vector3(0.0_r, 0.0_r, -1.0_r)) > 0.9999_r,
           "scene_add_light with position and target shines there; scene_add_camera with eye and target looks there");
+}
+
+// A target camera (3ds Max's Target camera) always looks at its target. Aimed at a cube, it looks at the cube; the cube
+// moved, it turns after it; the camera moved, it still looks at it. Set free, it keeps looking where it looked. Its
+// target comes back from the file to the bit, a free camera's file has no target line. scene_add_camera makes one aimed
+// at an object; camera_aim refuses a camera or an object that is not there.
+void testTargetCamera() {
+    SceneGraph g;
+    const uint32_t cube = addShape(g, ShapeKind::Box);
+    g.entities.back().position = Vector3(1, 0.5_r, -2);
+    const uint32_t cam = addCamera(g, Vector3(3, 2, 3), Vector3(0.0_r));
+    const auto looksAt = [&](const Vector3& point) {
+        const Camera& c = *std::find_if(g.cameras.begin(), g.cameras.end(), [&](const Camera& x) { return x.id == cam; });
+        Vector3 eye, forward, up;
+        cameraFrame(g, c, eye, forward, up);
+        return length(forward - normalize(point - eye)) < 1e-5_r && std::fabs(dot(forward, up)) < 1e-5_r && up.y > 0;
+    };
+    const bool aimed = aimCamera(g, cam, cube, nullptr) && looksAt(Vector3(1, 0.5_r, -2));
+    g.entities.back().position = Vector3(-1, 0.2_r, 1);
+    const bool follows = looksAt(Vector3(-1, 0.2_r, 1));
+    std::find_if(g.cameras.begin(), g.cameras.end(), [&](const Camera& x) { return x.id == cam; })->position = Vector3(-3, 1, -2);
+    const bool keeps = looksAt(Vector3(-1, 0.2_r, 1));
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    const bool file = back.load(text, error) && back.save() == text && back.cameras[0].kind == CameraKind::Target && back.cameras[0].target == cube;
+    const bool freed = freeCamera(g, cam) && looksAt(Vector3(-1, 0.2_r, 1)) && g.save().find("  target ") == std::string::npos;
+    std::printf("  a target camera on the cube: looks at it %s, after it moved %s, from where the camera moved %s; its file to the bit %s; "
+                "free again, still looking there %s\n", aimed ? "yes" : "no", follows ? "yes" : "no", keeps ? "yes" : "no", file ? "yes" : "no", freed ? "yes" : "no");
+    CHECK(aimed && follows && keeps, "a target camera does not keep looking at its cube");
+    CHECK(file && freed, "a target camera's file, or set free it jumped: %s", error.c_str());
+
+    // Its own target: a cube at the point, a handle (no roles); moved, the camera turns after it; set free, the cube goes;
+    // the camera deleted, its cube goes with it.
+    const Vector3 spot(0.5_r, 0.2_r, 0.5_r);
+    const bool own = aimCamera(g, cam, 0, &spot) && looksAt(spot);
+    const auto ownCube = std::find_if(g.entities.begin(), g.entities.end(), [&](const Entity& e) { return e.targetOf == cam; });
+    const bool handle = ownCube != g.entities.end() && isHandle(*ownCube) && !ownCube->rigid.enabled && !ownCube->collider.enabled;
+    if (handle) ownCube->position = Vector3(2, 0.1_r, -1);
+    const bool turned = handle && looksAt(Vector3(2, 0.1_r, -1));
+    const size_t before = g.entities.size();
+    freeCamera(g, cam);
+    const bool cubeGone = g.entities.size() + 1 == before;
+    aimCamera(g, cam, 0, &spot);
+    deleteObjects(g, {cam});
+    const bool withCamera = std::none_of(g.entities.begin(), g.entities.end(), [&](const Entity& e) { return e.targetOf == cam; });
+    std::printf("  its own target: a cube at the point %s, a handle %s, moved and followed %s; set free the cube goes %s; with the camera %s\n",
+                own ? "yes" : "no", handle ? "yes" : "no", turned ? "yes" : "no", cubeGone ? "yes" : "no", withCamera ? "yes" : "no");
+    CHECK(own && handle && turned && cubeGone && withCamera, "a camera's own target cube");
+
+    Value add = Value::map(), answer = Value::map(), at = Value::list(), aim = Value::map();
+    add.set("kind", "target"), add.set("at", int(cube));
+    const bool made = findSceneOp("scene_add_camera")->edit(g, add, answer, error) && g.cameras.back().kind == CameraKind::Target &&
+                      g.cameras.back().target == cube;
+    aim.set("camera", 999), aim.set("at", int(cube));
+    const bool noCamera = !findSceneOp("camera_aim")->edit(g, aim, answer, error) && error.find("999") != std::string::npos;
+    aim.set("camera", int(g.cameras.back().id)), aim.set("at", 777);
+    const bool noObject = !findSceneOp("camera_aim")->edit(g, aim, answer, error) && error.find("777") != std::string::npos;
+    CHECK(made && noCamera && noObject, "scene_add_camera kind target, or camera_aim's refusals: %s", error.c_str());
 }

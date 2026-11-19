@@ -6,6 +6,8 @@
 // ViewportShadows.cpp, the play frame, the orbit pivot and following a body in ViewportPlay.cpp.
 #include "Viewport.h"
 
+#include <QOpenGLTimeMonitor>
+
 #include "JointGlyphs.h"
 #include "MeshNormals.h"
 #include "SensorGlyphs.h"
@@ -75,6 +77,7 @@ Viewport::~Viewport() {
     releaseImageTextures();
     releaseShadowMaps();
     meshCache_.clear(); // GL objects must die while the context is current
+    for (QOpenGLTimeMonitor*& m : gpuClock_) delete m, m = nullptr; // its queries too: a child QObject would outlive the context
     doneCurrent();
 }
 
@@ -568,10 +571,14 @@ void Viewport::paintGL() {
                    QString("OpenGL 3.0 недоступен (%1).\nЗапустите с ключом --software-gl — рендер на процессоре.").arg(renderer_));
         return;
     }
+    QElapsedTimer painting;
+    painting.start();
     syncLookThrough();
+    beginGpuFrame();
     if (snap_) {
         pruneMeshCache();
         renderShadows();
+        markGpuShadows();
         QString slotKinds; // what each shadow slot holds this frame: the mesh shader compiles only those in
         for (const ShadowMap& m : shadowMaps_) slotKinds += m.light < 0 ? '-' : m.cube ? 'C' : 'M';
         if (slotKinds != meshSlots_) buildMeshShader(slotKinds);
@@ -587,7 +594,8 @@ void Viewport::paintGL() {
     glBindVertexArray(0);
     glUseProgram(0);
     if (overlayVisible_) drawOverlay();
-    countFrame();
+    endGpuFrame();
+    countFrame(painting.nsecsElapsed());
 }
 
 // QPainter (the 2D overlay) may have changed the GL state during the previous frame: set it again.
@@ -643,12 +651,20 @@ void Viewport::drawOverlays3D(const QMatrix4x4& vp) {
     drawGizmo(vp);
 }
 
-void Viewport::countFrame() {
+// The frames painted over the last second and what one took on the window's thread, on average (with a software
+// renderer the drawing itself; with a GPU what it took to hand the frame over).
+void Viewport::countFrame(qint64 paintNs) {
     ++fpsFrames_;
+    paintNs_ += paintNs;
+    recordFrameInterval();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (now - fpsLast_ > 1000) {
         fps_ = float(fpsFrames_) * 1000.0f / float(now - fpsLast_);
-        fpsFrames_ = 0;
+        paintMs_ = float(double(paintNs_) * 1e-6 / std::max(fpsFrames_, 1));
+        const double scene = snap_ && !editMode_ ? double(snap_->time) : -1;
+        realtime_ = scene >= 0 && sceneAtSecond_ >= 0 && fpsLast_ > 0 ? (scene - sceneAtSecond_) * 1000.0 / double(now - fpsLast_) : 0;
+        sceneAtSecond_ = scene;
+        fpsFrames_ = 0, paintNs_ = 0;
         fpsLast_ = now;
     }
 }
@@ -687,6 +703,7 @@ void Viewport::drawOverlay() {
     drawContactDots(p);
     drawProbeLabels(p);
     drawLabMarker(p);
+    drawHud(p);
     drawPlayFrame(p);
     p.end();
 }

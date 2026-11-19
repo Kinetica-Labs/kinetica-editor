@@ -9,10 +9,10 @@ import json
 
 from . import blocks
 from .client import Client
-from .objects import (Battery, Body, Controller, Driver, Effort, Encoder, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
+from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
                       _q, _t)
 
-_KINDS = {"entity": Body, "group": Group, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller}
+_KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller}
 _SENSORS = {"encoder": Encoder, "imu": Imu, "sonar": Sonar, "touch": Touch, "wrench": Wrench, "effort": Effort, "stereo": Sensor}
 
 
@@ -240,10 +240,17 @@ class Scene:
         shown = "".join(f", {k}={_t(v)}" for k, v in args.items())
         return self.objects[self._call("scene_add_light", f"scene.add_light({_q(kind)}{shown})", kind=kind, **args)["id"]]
 
-    def add_camera(self, eye=None, target=None):
-        """A camera at `eye` (else the editor's eye), looking at `target` (else the scene's centre)."""
+    def add_camera(self, eye=None, target=None, kind=None, at=None):
+        """A camera at `eye` (else the editor's eye), looking at `target` (else the scene's centre). kind="target": a
+        target camera that always looks there - or at object `at`, which it follows in play."""
         args = {k: list(v) for k, v in (("eye", eye), ("target", target)) if v is not None}
         shown = ", ".join(f"{k}={_t(v)}" for k, v in args.items())
+        if kind is not None:
+            args["kind"] = kind
+            shown += (", " if shown else "") + f'kind="{kind}"'
+        if at is not None:
+            args["at"] = at.id
+            shown += (", " if shown else "") + f"at={at.ref}"
         return self.objects[self._call("scene_add_camera", f"scene.add_camera({shown})", **args)["id"]]
 
     def _act(self, op, method, objects):

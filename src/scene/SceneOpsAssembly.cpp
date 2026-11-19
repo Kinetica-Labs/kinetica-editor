@@ -7,6 +7,9 @@
 
 #include "scene/Assembly.h"
 #include "scene/CameraHousing.h"
+#include "scene/SensorSpec.h"
+#include "core/Format.h"
+#include "core/Units.h"
 
 #include <algorithm>
 #include <cmath>
@@ -256,8 +259,63 @@ SceneOp gripSceneOp() {
                    "{goal: int, close?: bool, force?: number, open_force?: number, travel?: number}", {}, gripOp};
 }
 
-// assembly_sensor: a face's kinds on a shape, a joint's kinds on a joint.
+// The datasheet of a sensor as an answer: the model it came from, whether its numbers are still that model's, the
+// numbers by key.
+static Value specAnswer(const SensorObject& s) {
+    Value out = Value::map(), spec = Value::map();
+    for (const Field& f : specFields(s.kind)) spec.set(f.key, double(specValue(s, f.key)));
+    const SensorModel* m = sensorCatalog().find(s.kind, s.model);
+    out.set("model", s.model);
+    out.set("as_model", m != nullptr && specMatches(s, *m));
+    out.set("spec", spec);
+    return out;
+}
+
+// A model's numbers from the tables, then the numbers given over them, each checked against its field.
+static bool setSpec(SensorObject& s, const Value& a, std::string& e) {
+    const std::string kind = sensorKindKey(s.kind);
+    if (specFields(s.kind).empty()) return e = "a " + kind + " sensor has no datasheet", false;
+    if (a.has("model")) {
+        const SensorModel* m = sensorCatalog().find(s.kind, a["model"].text(""));
+        if (!m) {
+            e = "no model «" + a["model"].text("") + "» in the " + kind + " table; it has:";
+            for (const SensorModel* x : sensorCatalog().models(s.kind)) e += " «" + x->name + "»";
+            return false;
+        }
+        applyModel(s, *m);
+    }
+    const Value& spec = a["spec"];
+    for (size_t k = 0; k < spec.keys().size(); ++k) {
+        const std::string& key = spec.keys()[k];
+        const auto f = std::find_if(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const Field& x) { return key == x.key; });
+        if (f == specFields(s.kind).end()) {
+            e = "a " + kind + "'s datasheet has no " + key + "; its fields:";
+            for (const Field& x : specFields(s.kind)) e += std::string(" ") + x.key;
+            return false;
+        }
+        if (!checkField(*f, spec.at(k), e)) return false;
+        s.spec[key] = Real(spec.at(k).number());
+    }
+    return true;
+}
+
+static SensorObject* sensorOf(SceneGraph& g, uint32_t id) {
+    for (SensorObject& s : g.sensors)
+        if (s.id == id && id != 0) return &s;
+    return nullptr;
+}
+
+// assembly_sensor: a face's kinds on a shape, a joint's kinds on a joint; then its model's datasheet.
+static bool placeSensor(SceneGraph& g, const Value& a, Value& r, std::string& e);
 static bool sensorOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    if (!placeSensor(g, a, r, e)) return false;
+    if (!a.has("model") && !a.has("spec")) return true;
+    SensorObject* s = sensorOf(g, uint32_t(r["id"].integer()));
+    if (!s || !setSpec(*s, a, e)) return false;
+    return r.set("datasheet", specAnswer(*s)), true;
+}
+
+static bool placeSensor(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     const std::string kind = a["kind"].text("");
     if (kind == "wrench" || kind == "effort") {
         const char* names[] = {"tx", "ty", "tz", "rx", "ry", "rz"}; // JointDof
@@ -358,7 +416,44 @@ std::vector<SceneOp> assemblySceneOps() {
                                       "camera looks out of it (its two lenses across the face; sensor_capture takes its frame); on a joint "
                                       "a wrench reads the force and torque it passes to its link, an effort its drive's force along a freedom",
                    "{target: int, kind: 'imu'|'sonar'|'touch'|'stereo', face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z]} | "
-                   "{joint: int, kind: 'wrench'|'effort', dof?: 'tx'..'rz'}", {}, sensorOp});
+                   "{joint: int, kind: 'wrench'|'effort', dof?: 'tx'..'rz'}, and for an imu, a sonar or a wrench model?: str (a row of "
+                   "its table, sensor_models; none: the table's first), spec?: {key: number} over it", {}, sensorOp});
+    ops.push_back({"sensor_models", "The tables of sensor models (data/sensors/<kind>.csv, a row per model as its datasheet states it) "
+                                    "and the fields of each kind's datasheet: key, words, unit, range, the value of a sensor no model gave one",
+                   "{kind?: 'imu'|'sonar'|'wrench'}", [](const SceneGraph&, const Value& a, Value& r, std::string& e) {
+        Value kinds = Value::list();
+        for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}) {
+            if (a.has("kind") && a["kind"].text("") != sensorKindKey(k)) continue;
+            Value kind = Value::map(), fields = Value::list(), models = Value::list();
+            for (const Field& f : specFields(k)) {
+                Value x = Value::map();
+                x.set("key", f.key), x.set("label", f.label), x.set("unit", f.unit), x.set("unit_text", unitText(f.unit)), x.set("min", f.min),
+                    x.set("max", f.max), x.set("value", f.value);
+                fields.push(x);
+            }
+            for (const SensorModel* m : sensorCatalog().models(k)) {
+                Value x = Value::map(), values = Value::map();
+                for (const auto& [key, v] : m->values) values.set(key, double(v));
+                x.set("model", m->name), x.set("source", m->source), x.set("spec", values);
+                models.push(x);
+            }
+            kind.set("kind", sensorKindKey(k)), kind.set("fields", fields), kind.set("models", models);
+            kinds.push(kind);
+        }
+        if (kinds.size() == 0) return e = "kind is imu, sonar or wrench", false;
+        Value files = Value::list();
+        for (const std::string& f : sensorCatalog().files()) files.push(f);
+        return r.set("kinds", kinds), r.set("files", files), true;
+    }, {}});
+    ops.push_back({"sensor_spec", "A sensor's datasheet: a model's numbers from its table, and numbers given over them (the model's name stays as "
+                                  "where they came from; as_model says whether they still are its). Answers the datasheet",
+                   "{sensor: int, model?: str, spec?: {key: number}}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
+        SensorObject* s = sensorOf(g, uint32_t(a["sensor"].integer()));
+        if (!s) return e = "no sensor " + std::to_string(a["sensor"].integer()), false;
+        if (!setSpec(*s, a, e)) return false;
+        r.set("id", s->id);
+        return r.set("datasheet", specAnswer(*s)), true;
+    }});
     ops.push_back({"assembly_camera", "A stereo camera with a body of its own, as one is bought: the housing (model: an OBJ or STL made in "
                                       "the mount's frame - +x out of the lenses, +y along the baseline, lenses on its mid-line, metres; none: a "
                                       "box about the lenses) and the stereo sensor its child on the lenses' axis, 1 mm before its front. On a "

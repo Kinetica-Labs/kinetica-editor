@@ -15,6 +15,8 @@
 #include "physics/HullPoints.h"
 #include "physics/PhysicsWorld.h"
 
+#include <cstdlib>
+#include <thread>
 #include <box3d/box3d.h>
 
 #include <algorithm>
@@ -70,14 +72,14 @@ float closestNotIgnored(b3ShapeId shape, b3Pos point, b3Vec3 normal, float fract
 
 class Box3dWorld final : public PhysicsWorld {
 public:
-    Box3dWorld(const PhysicsSettings& s, const Vector3& gravity) : settings_(s) {
+    Box3dWorld(const PhysicsSettings& s, const Vector3& gravity, int threads) : settings_(s) {
         b3WorldDef def = b3DefaultWorldDef();
         def.gravity = b3v(gravity);
         def.contactHertz = float(s.contactHertz);
         def.contactDampingRatio = float(s.contactDamping);
         def.enableSleep = s.sleeping;
         def.enableContinuous = s.continuous;
-        def.workerCount = 1; // one thread: the same bits every run
+        def.workerCount = uint32_t(std::max(threads, 1)); // Box3D's own scheduler; the same bits on any count (tested)
         world_ = b3CreateWorld(&def);
         b3BodyDef ground = b3DefaultBodyDef();
         ground_ = b3CreateBody(world_, &ground);
@@ -313,29 +315,39 @@ public:
     std::vector<ContactPoint> contacts() const override {
         std::vector<ContactPoint> out;
         std::vector<b3ContactData> data;
-        for (size_t i = 0; i < bodies_.size(); ++i) {
-            const b3BodyId id = bodies_[i];
-            if (!b3Body_IsValid(id) || b3Body_GetType(id) == b3_staticBody) continue;
-            data.resize(size_t(b3Body_GetContactCapacity(id)));
-            const int n = data.empty() ? 0 : b3Body_GetContactData(id, data.data(), int(data.size()));
-            for (int k = 0; k < n; ++k) {
-                const b3BodyId a = b3Shape_GetBody(data[size_t(k)].shapeIdA), b = b3Shape_GetBody(data[size_t(k)].shapeIdB);
-                const bool mine = B3_ID_EQUALS(a, id);
-                const b3BodyId other = mine ? b : a;
-                if (!mine && b3Body_GetType(other) != b3_staticBody) continue; // the pair is listed from its body a
-                const Vector3 centreA = kev(b3Body_GetWorldCenter(a));
-                for (int m = 0; m < data[size_t(k)].manifoldCount; ++m) {
-                    const b3Manifold& manifold = data[size_t(k)].manifolds[m];
-                    for (int p = 0; p < manifold.pointCount; ++p) {
-                        const b3ManifoldPoint& q = manifold.points[p];
-                        if (q.separation > 0 && q.totalNormalImpulse <= 0) continue; // speculative, not touching
-                        out.push_back({indexOf(b3Body_GetUserData(a)), indexOf(b3Body_GetUserData(b)), centreA + kev(q.anchorA),
-                                       kev(manifold.normal), Real(-q.separation), Real(q.totalNormalImpulse)});
-                    }
+        for (size_t i = 0; i < bodies_.size(); ++i) bodyContacts(bodies_[i], false, data, out);
+        return out;
+    }
+
+    std::vector<ContactPoint> contactsOf(int body) const override {
+        std::vector<ContactPoint> out;
+        std::vector<b3ContactData> data;
+        if (body >= 0 && size_t(body) < bodies_.size()) bodyContacts(bodies_[size_t(body)], true, data, out);
+        return out;
+    }
+
+    // The touching points of a body's contacts. Listing the world, a pair of two moving bodies comes from its body a
+    // only; asked for one body, all of its own.
+    void bodyContacts(b3BodyId id, bool all, std::vector<b3ContactData>& data, std::vector<ContactPoint>& out) const {
+        if (!b3Body_IsValid(id) || (!all && b3Body_GetType(id) == b3_staticBody)) return;
+        data.resize(size_t(b3Body_GetContactCapacity(id)));
+        const int n = data.empty() ? 0 : b3Body_GetContactData(id, data.data(), int(data.size()));
+        for (int k = 0; k < n; ++k) {
+            const b3BodyId a = b3Shape_GetBody(data[size_t(k)].shapeIdA), b = b3Shape_GetBody(data[size_t(k)].shapeIdB);
+            const bool mine = B3_ID_EQUALS(a, id);
+            const b3BodyId other = mine ? b : a;
+            if (!all && !mine && b3Body_GetType(other) != b3_staticBody) continue;
+            const Vector3 centreA = kev(b3Body_GetWorldCenter(a));
+            for (int m = 0; m < data[size_t(k)].manifoldCount; ++m) {
+                const b3Manifold& manifold = data[size_t(k)].manifolds[m];
+                for (int p = 0; p < manifold.pointCount; ++p) {
+                    const b3ManifoldPoint& q = manifold.points[p];
+                    if (q.separation > 0 && q.totalNormalImpulse <= 0) continue; // speculative, not touching
+                    out.push_back({indexOf(b3Body_GetUserData(a)), indexOf(b3Body_GetUserData(b)), centreA + kev(q.anchorA),
+                                   kev(manifold.normal), Real(-q.separation), Real(q.totalNormalImpulse)});
                 }
             }
         }
-        return out;
     }
 
     void setGravity(const Vector3& g) override { b3World_SetGravity(world_, b3v(g)); }
@@ -408,8 +420,13 @@ private:
 
 } // namespace
 
-std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity) {
-    return std::make_unique<Box3dWorld>(settings, gravity);
+int physicsThreads() {
+    if (const char* given = std::getenv("KE_PHYSICS_THREADS"); given && std::atoi(given) > 0) return std::min(std::atoi(given), 64);
+    return std::clamp(int(std::thread::hardware_concurrency()) / 2, 1, 8);
+}
+
+std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads) {
+    return std::make_unique<Box3dWorld>(settings, gravity, threads > 0 ? threads : physicsThreads());
 }
 
 } // namespace ke

@@ -63,7 +63,7 @@ jobs:
           New-Item -ItemType Directory dist | Out-Null
           Copy-Item build/Release/kinetica.exe dist/
           windeployqt --release --no-translations dist/kinetica.exe
-          Copy-Item -Recurse examples, python dist/
+          Copy-Item -Recurse examples, python, data dist/
           New-Item -ItemType Directory dist/tools | Out-Null
           Copy-Item tools/ke_editor.py, tools/ke_editor_mcp.py dist/tools/
           Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md dist/
