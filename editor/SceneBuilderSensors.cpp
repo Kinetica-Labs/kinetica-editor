@@ -32,6 +32,7 @@
 using namespace ke;
 
 QString jointLiveText(const Simulation& sim, uint32_t id); // SceneBuilderJoints.cpp
+QString powerLiveText(const Simulation& sim, uint32_t id); // SceneBuilderDevices.cpp
 
 namespace {
 
@@ -310,16 +311,19 @@ void SceneBuilder::fillSensorCard(const SceneObject& o) {
     sensorLive_->setText(editing() ? "Показания — при пуске сцены: что читает робот и истина физики рядом" : "…");
 }
 
-// Four times a second while the scene plays: the selected joint's coordinate, target and effort, or the selected
-// sensor's reading, read on the simulation's thread.
+// Four times a second while the scene plays: the selected joint's coordinate, target and effort, the selected
+// battery's or driver's voltage and current, or the selected sensor's reading, read on the simulation's thread.
 void SceneBuilder::pollLive() {
     const uint32_t id = selectedId_;
     const bool joint = findJoint(graph_, id) != nullptr;
-    if ((!joint && !sensorById(id)) || editing() || selection_.size() != 1) return;
+    const bool battery = std::any_of(graph_.batteries.begin(), graph_.batteries.end(), [id](const BatteryObject& b) { return b.id == id; });
+    const bool driver = std::any_of(graph_.drivers.begin(), graph_.drivers.end(), [id](const DriverObject& d) { return d.id == id; });
+    if ((!joint && !battery && !driver && !sensorById(id)) || editing() || selection_.size() != 1) return;
     QPointer<SceneBuilder> self(this);
-    QPointer<QLabel> shown(joint ? jointLive_ : sensorLive_);
-    ctrl_->post([self, shown, id, joint](Simulation& s) {
-        const QString text = joint ? jointLiveText(s, id) : sensorLiveText(s, id);
+    QPointer<QLabel> shown(joint ? jointLive_ : battery ? batteryLive_ : driver ? driverLive_ : sensorLive_);
+    const bool power = battery || driver;
+    ctrl_->post([self, shown, id, joint, power](Simulation& s) {
+        const QString text = joint ? jointLiveText(s, id) : power ? powerLiveText(s, id) : sensorLiveText(s, id);
         QMetaObject::invokeMethod(self, [self, shown, id, text] {
             if (self && shown && self->selectedId_ == id && !text.isEmpty()) shown->setText(text);
         }, Qt::QueuedConnection);

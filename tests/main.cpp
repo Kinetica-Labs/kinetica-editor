@@ -38,6 +38,7 @@ int main() {
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
     run("world: a DC motor spins up to U / K with the time constant I R / K^2", testSimDcMotorSpinsUp);
+    run("world: a battery drives a motor through its driver - charge d J w / K, speed d E / K, a spent pack opens", testSimBatteryDrivesMotor);
     run("world: the channels - energy, height, speed, contacts, a joint's coordinate, target and effort", testSimChannels);
     run("world: the mouse's hand holds a body at its target, its weight carried, and lets it fall", testSimGrab);
     run("world: the probe's debug layers - contacts and centres of mass drawn when on, nothing when off", testSimDebugLayers);

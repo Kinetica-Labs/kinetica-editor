@@ -43,6 +43,7 @@ void testPhysicsThreadsDeterministic();
 void testSimBoxRestsOnFloor();
 void testSimServoHoldsAndDroops();
 void testSimDcMotorSpinsUp();
+void testSimBatteryDrivesMotor();
 void testSimChannels();
 void testSimGrab();
 void testSimDebugLayers();

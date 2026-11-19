@@ -164,6 +164,13 @@ std::vector<Measurement> measureScene(const Simulation& sim) {
     put(out, "rigid/angular momentum", L.length());
     put(out, "rigid/deepest penetration", deepest);
     put(out, "scene/mechanical energy", mechanical);
+    for (const BatteryObject& b : sim.robot()->graph().batteries) { // the packs: what their motors draw (RobotPower.cpp)
+        RobotWorld::PowerReading r;
+        if (!sim.robot()->powerReading(b.id, r)) continue;
+        out.push_back(measured("power/" + b.name + " voltage", "В", b.name + ": напряжение", ChannelGroup::Scene, double(r.voltage)));
+        out.push_back(measured("power/" + b.name + " current", "А", b.name + ": ток", ChannelGroup::Scene, double(r.current)));
+        out.push_back(measured("power/" + b.name + " charge", "%", b.name + ": заряд", ChannelGroup::Scene, 100.0 * double(r.soc)));
+    }
     return out;
 }
 

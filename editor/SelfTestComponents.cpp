@@ -435,7 +435,8 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
 
 // The cards «Батарея» and «Драйвер мотора»: the UR5e's elbow made a DC motor and fed (assembly_power: a driver and a
 // 3S pack); the pack's cells and charge typed, the driver's duty slid, its stop and its pack picked - each into the
-// scene, a pick undone comes back.
+// scene, a pick undone comes back. Playing, the cards read the pack's voltage, current and charge and the motor's
+// voltage; the duty slid while it plays goes to the running world - no restart.
 void testPowerCards(Checker& c, QMainWindow& w, SceneBuilder& b) {
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
     const auto driverIn = [](const SceneGraph& g, uint32_t id) -> const DriverObject* {
@@ -477,9 +478,27 @@ void testPowerCards(Checker& c, QMainWindow& w, SceneBuilder& b) {
     b.undoAction()->trigger();
     pump(30);
     const bool fed = driverIn(b.graph(), driver) && driverIn(b.graph(), driver)->battery == pack;
-    std::printf("  the power cards: 4S at 50 %% %s; the driver at 50 %% braking %s, unfed %s, its pack back on undo %s\n", cells ? "yes" : "no",
-                duty ? "yes" : "no", unfed ? "yes" : "no", fed ? "yes" : "no");
+    const auto cardSays = [panel](const char* card, const char* text) {
+        if (auto* box = panel->findChild<QWidget*>(card))
+            for (QLabel* l : box->findChildren<QLabel*>())
+                if (l->text().contains(text)) return true;
+        return false;
+    };
+    b.play();
+    b.select(pack);
+    const bool packLive = waitUntil([&] { return cardSays("batteryCard", " В · ток") && cardSays("batteryCard", "заряд"); }, 5000);
+    b.select(driver);
+    const bool motorLive = waitUntil([&] { return cardSays("driverCard", "на моторе"); }, 5000);
+    number("driverDuty", 100);
+    pump(300);
+    const bool kept = !b.editing() && motorLive;
+    b.stop();
+    pump(60);
+    std::printf("  the power cards: 4S at 50 %% %s; the driver at 50 %% braking %s, unfed %s, its pack back on undo %s; playing - the pack "
+                "reads %s, the motor %s, the duty slid with no restart %s\n", cells ? "yes" : "no", duty ? "yes" : "no", unfed ? "yes" : "no",
+                fed ? "yes" : "no", packLive ? "yes" : "no", motorLive ? "yes" : "no", kept ? "yes" : "no");
     c.check(cells && duty && unfed && fed, "a battery's and a driver's cards write their numbers, slider and picks into the scene");
+    c.check(packLive && motorLive && kept, "playing, the power cards read the pack and the motor; a duty slid goes to the running world");
 }
 
 } // namespace

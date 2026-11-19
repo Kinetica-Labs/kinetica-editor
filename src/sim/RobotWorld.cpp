@@ -179,6 +179,7 @@ void RobotWorld::build(PhysicsWorld& physics) {
         entityOfBody_[size_t(b)] = e.id;
     }
     for (const JointObject& j : graph_.joints) buildJoint(physics, j);
+    buildPower();
     for (const SensorObject& x : graph_.sensors) { // each composed of its probe of the physics and its datasheet's device
         std::string why;
         if (auto live = makeSensor(x, graph_, *this, why)) sensors_.push_back(std::move(live));
@@ -322,21 +323,29 @@ const JointObject* RobotWorld::jointSpec(uint32_t joint) const {
 // is implicit (backward Euler): c (v_t - v) / (1 + c h / I), with I the links' inertia about the axis
 // against each other - an explicit damper with c h / I > 2 (a stiff servo on a light forearm) reverses
 // the speed every substep and saturates the motor in a buzz that holds the joint off its target.
+RobotWorld::JointAxis RobotWorld::axisOf(const PhysicsWorld& physics, const LiveJoint& j) const {
+    JointAxis x;
+    x.A = physics.state(j.a);
+    x.B = j.b >= 0 ? physics.state(j.b) : BodyState();
+    x.at = x.A.position + x.A.rotation.rotate(j.spec.anchorA);
+    x.axis[j.dof % 3] = 1;
+    x.axis = (x.B.rotation * eulerTurn(j.spec.frameB)).rotate(x.axis);
+    x.turn = j.dof >= DofRx;
+    auto pointVelocity = [](const BodyState& s, const Vector3& p) { return s.velocity + cross(s.angularVelocity, p - s.centre); };
+    x.speed = x.turn ? dot(x.A.angularVelocity - x.B.angularVelocity, x.axis) : dot(pointVelocity(x.A, x.at) - pointVelocity(x.B, x.at), x.axis);
+    return x;
+}
+
 void RobotWorld::drive(PhysicsWorld& physics, const LiveJoint& j, Real h) const {
     if (!j.ownDrive || !physics.jointAlive(j.joint)) return;
-    const BodyState A = physics.state(j.a);
-    const BodyState B = j.b >= 0 ? physics.state(j.b) : BodyState();
-    const Vector3 oA = A.position + A.rotation.rotate(j.spec.anchorA);
-    const Quaternion QB = B.rotation * eulerTurn(j.spec.frameB);
+    const JointAxis x = axisOf(physics, j);
+    const BodyState &A = x.A, &B = x.B;
+    const Vector3 oA = x.at, axis = x.axis;
+    const bool turn = x.turn;
+    const Real v = x.speed;
     Real c[6];
     coordinates(physics, j, c);
     const int k = j.dof;
-    Vector3 axis(0.0_r);
-    axis[k % 3] = 1;
-    axis = QB.rotate(axis);
-    const bool turn = k >= DofRx;
-    auto pointVelocity = [](const BodyState& s, const Vector3& p) { return s.velocity + cross(s.angularVelocity, p - s.centre); };
-    const Real v = turn ? dot(A.angularVelocity - B.angularVelocity, axis) : dot(pointVelocity(A, oA) - pointVelocity(B, oA), axis);
     const JointDrive& d = j.spec.dof[k].drive;
     // How readily the two links turn (or slide) against each other along the axis: 1 / I = a's + b's.
     auto mobility = [&](const BodyState& s) {
@@ -346,7 +355,8 @@ void RobotWorld::drive(PhysicsWorld& physics, const LiveJoint& j, Real h) const 
     const Real m = mobility(A) + mobility(B);
     const Real damping = m > 0 ? d.damping / (1 + d.damping * h * m) : d.damping;
     Real f;
-    if (d.constant > 0) f = d.constant * (d.voltage - d.constant * v) / std::max(d.resistance, Real(1e-6));
+    if (d.constant > 0 && j.driver >= 0) f = d.constant * drivers_[size_t(j.driver)].current; // through its driver (RobotPower.cpp)
+    else if (d.constant > 0) f = d.constant * (d.voltage - d.constant * v) / std::max(d.resistance, Real(1e-6));
     else {
         Real& at = j.setpoint;
         if (!std::isfinite(at)) at = c[k];
@@ -474,6 +484,7 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     for (int s = 0; s < n; ++s) {
         {
             Probe::Timer timer("physics/drives ms");
+            if (!drivers_.empty()) power(physics, dt / Real(n));
             for (const LiveJoint& j : joints_) drive(physics, j, dt / Real(n));
             carryGrab(physics);
             if (!animated_.empty()) leadAnimation(physics, Real(double(clockNs_) * 1e-9) + dt / Real(n), dt / Real(n)); // the clock moves on per substep

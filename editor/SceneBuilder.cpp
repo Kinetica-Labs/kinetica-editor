@@ -92,10 +92,12 @@ std::string jointsText(const SceneGraph& g) {
     joints.joints = g.joints;
     return joints.save();
 }
-std::string devicesText(const SceneGraph& g) {
+std::string devicesText(const SceneGraph& g, bool duties = true) {
     SceneGraph devices;
     devices.batteries = g.batteries;
     devices.drivers = g.drivers;
+    if (!duties)
+        for (DriverObject& d : devices.drivers) d.duty = 0;
     devices.controllers = g.controllers;
     devices.sensors = g.sensors;
     devices.wheels = g.wheels;
@@ -109,8 +111,8 @@ std::string groupsText(const SceneGraph& g) {
 } // namespace
 
 // An edit while the robot's world runs. What the world can take in place goes to it between frames:
-// the lights and cameras (the physics never sees them, the next frame shows them) and the joints' drives
-// - a servo's target typed, an IK goal dragged (RobotWorld::setJoints). What the world is built of - the
+// the lights and cameras (the physics never sees them, the next frame shows them), the joints' drives
+// - a servo's target typed, an IK goal dragged (RobotWorld::setJoints) - and the drivers' duties (setDuties). What the world is built of - the
 // bodies and their colliders, the arrays and groups, the world itself, the devices - needs it built
 // again: the builder stops with the edit kept and says why. An IK goal is no body: dragging it while
 // the scene plays moves the goal's mark in the running world (RobotWorld::setGoals) and its arm's targets.
@@ -119,7 +121,13 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     if (worldText(graph_) != worldText(simGraph_)) return reloadNeeded("Тяжесть, размер мира и настройки физики меняют только перезапуском сцены");
     if (groupsText(graph_) != groupsText(simGraph_)) return reloadNeeded("Группы меняют только перезапуском сцены");
     if (arrayText(graph_) != arrayText(simGraph_)) return reloadNeeded("Массивы меняют только перезапуском сцены");
-    if (devicesText(graph_) != devicesText(simGraph_)) return reloadNeeded("Датчики, колёса, батареи и пульты меняют только перезапуском сцены");
+    if (devicesText(graph_, false) != devicesText(simGraph_, false)) return reloadNeeded("Датчики, колёса, батареи и пульты меняют только перезапуском сцены");
+    if (devicesText(graph_) != devicesText(simGraph_)) { // a driver's duty: the bridge takes it at the next substep
+        const std::vector<DriverObject> drivers = graph_.drivers;
+        ctrl_->post([drivers](Simulation& s) {
+            if (s.robot()) s.robot()->setDuties(drivers);
+        }, "duties");
+    }
     SceneGraph goalsAside = graph_, before = simGraph_; // the goals are handles: no body of the world
     for (SceneGraph* g : {&goalsAside, &before})
         g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }), g->entities.end());

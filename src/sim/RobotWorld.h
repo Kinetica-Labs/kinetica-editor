@@ -9,6 +9,7 @@
 // Three layers, as in the scene: the source (the entity's shape), the object (its pose and roles), and
 // what the engine made of it (a body, a joint). The graph as authored stays as it was; `live()` is the
 // same graph with every body's pose now - what the joints' and sensors' glyphs are drawn from.
+#include "electro/Battery.h"
 #include "physics/PhysicsWorld.h"
 #include "scene/SceneGraph.h"
 #include "sim/Frame.h"
@@ -113,6 +114,21 @@ public:
     int grabbed() const { return grabBody_; }
     const std::vector<std::string>& notes() const { return notes_; }
 
+    // The scene's power (SceneGraph::batteries, drivers; RobotPower.cpp). A driver's H-bridge puts its duty of the bus
+    // voltage on its joint's DC motor; every substep a pack's terminal voltage and its motors' currents are solved
+    // together, exactly - the motors in parallel on the pack's R0 - and the pack is drained by their sum
+    // (electro/Battery.h). Optional both: a driver with no battery runs on an ideal bus at its motor line's voltage, a
+    // DC motor with no driver on its line's voltage. A spent pack's protection opens the bus: its motors coast (or
+    // brake, as their drivers say at duty 0).
+    struct PowerReading {
+        Real voltage = 0; // a battery: at its terminals; a driver: on its motor [V]
+        Real current = 0; // a battery: out of it (< 0: charged back); a driver: through its motor [A]
+        Real soc = 0;     // a battery's charge, 0..1
+        bool spent = false;
+    };
+    bool powerReading(uint32_t id, PowerReading& out) const; // false: no such battery or driver in the running world
+    void setDuties(const std::vector<DriverObject>& drivers); // the duties set while the world runs (a slider dragged)
+
 private:
     struct LiveJoint {
         JointObject spec;
@@ -121,7 +137,29 @@ private:
         bool ownDrive = false;          // a servo or a DC motor: our code drives it
         mutable Real effort = 0;        // what our drive put out at the last substep
         mutable Real setpoint = std::numeric_limits<Real>::quiet_NaN(); // a servo's, on its way to the target (kServoSettle)
+        int driver = -1;                // drivers_: the H-bridge its DC motor runs through (-1: its own line's voltage)
     };
+    struct JointAxis { // a joint's main freedom now: its axis in the world, frame a's origin, the links' speed along it
+        BodyState A, B;
+        Vector3 axis{0.0_r}, at{0.0_r};
+        bool turn = false;
+        Real speed = 0; // rad/s or m/s, a against b
+    };
+    JointAxis axisOf(const PhysicsWorld& physics, const LiveJoint& j) const;
+    struct LivePack {
+        uint32_t id = 0;
+        Battery battery;
+        Real voltage = 0, current = 0;
+    };
+    struct LiveDriver {
+        size_t spec = 0, joint = 0; // graph_.drivers, joints_
+        int pack = -1;              // packs_ (-1: an ideal bus)
+        Real voltage = 0, current = 0;
+    };
+    std::vector<LivePack> packs_;
+    std::vector<LiveDriver> drivers_;
+    void buildPower();
+    void power(const PhysicsWorld& physics, Real h);
     void setDrive(PhysicsWorld& physics, LiveJoint& live, const JointObject& j);
     struct ControlLive {
         uint32_t controller = 0;

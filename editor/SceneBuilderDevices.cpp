@@ -1,14 +1,16 @@
 // The electrics in the scene builder (see SceneBuilder.h): batteries and motor drivers as rows of the
 // scene list - a battery, its drivers under it - and their cards. They are no SceneObjects (no pose: a
 // driver is the wiring between a battery and a joint's motor), so the inspector shows their card in
-// place of the object's. A driver's duty is a slider. They are the scene's data (electro/Battery.h
-// models the battery); the running world (src/sim) does not feed a motor from them yet, so
-// their cards say they have no readings instead of showing any. The joint's and the controller's cards
+// place of the object's. A driver's duty is a slider, taken by the running world at once. While the scene plays the
+// cards read what the world's power does (RobotWorld::powerReading, src/sim/RobotPower.cpp): a pack's voltage,
+// current and charge, a motor's voltage and current. Both are optional: a DC motor with no driver runs on its own
+// line's voltage, a driver with no battery on an ideal bus. The joint's and the controller's cards
 // share this place (SceneBuilderJoints.cpp, SceneBuilderControllers.cpp).
 #include "SceneBuilder.h"
 
 #include "InspectorWidgets.h"
 #include "scene/Assembly.h"
+#include "sim/Simulation.h"
 
 #include <QBoxLayout>
 #include <QFontDatabase>
@@ -132,7 +134,7 @@ void SceneBuilder::fillDeviceCards() {
     filling_ = true;
     fillJointCard();
     fillControllerCard();
-    const QString waiting = "Показаний пока нет: мир робота ещё не питает моторы от батарей и драйверов";
+    const QString waiting = editing() ? "Напряжение, ток и заряд — при пуске сцены" : "…";
     if (b) {
         batteryDraft_ = *b;
         batteryFields_->fill();
@@ -147,4 +149,18 @@ void SceneBuilder::fillDeviceCards() {
         driverLive_->setText(waiting);
     }
     filling_ = was;
+}
+
+// What a battery or a driver does now, read on the simulation's thread (SceneBuilder::pollLive).
+QString powerLiveText(const Simulation& sim, uint32_t id) {
+    RobotWorld::PowerReading r;
+    const RobotWorld* robot = sim.robot();
+    if (!robot) return QString();
+    SceneGraph& g = const_cast<SceneGraph&>(robot->graph());
+    if (!robot->powerReading(id, r)) return driverIn(g, id) ? "не подключён: у сочленения на этой оси нет мотора постоянного тока" : QString();
+    const bool battery = batteryIn(g, id) != nullptr;
+    QString t = battery ? QString("%1 В · ток %2 А · заряд %3 %").arg(double(r.voltage), 0, 'f', 2).arg(double(r.current), 0, 'f', 3).arg(100.0 * double(r.soc), 0, 'f', 1)
+                        : QString("на моторе %1 В · ток %2 А").arg(double(r.voltage), 0, 'f', 2).arg(double(r.current), 0, 'f', 3);
+    if (r.spent) t += battery ? "\nсела: защита разомкнула шину, моторы без питания" : "\nбатарея села: мотор без питания";
+    return t;
 }

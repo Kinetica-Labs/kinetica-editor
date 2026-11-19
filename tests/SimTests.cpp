@@ -123,6 +123,62 @@ void testSimDcMotorSpinsUp() {
     CHECK(std::fabs(atTau / ((1 - std::exp(-1.0_r)) * noLoad) - 1) < 0.03_r, "at tau the motor is at %f, not (1 - 1/e) U / K", double(atTau));
 }
 
+// A DC motor through a driver from a battery (RobotPower.cpp). The bridge draws d I from the pack while the motor's
+// torque K I spins the arm, so the charge the pack gave is d times the motor's charge: Q = d J w / K exactly, J w the
+// arm's angular momentum - Coulomb counting against the engine. Spun up free, the current dies away and the arm runs
+// at d E / K, E the pack's voltage with no load. A spent pack opens the bus: the motor gets one substep's kick and no
+// more. With no battery the driver runs on an ideal bus at the motor's line voltage: d U / K.
+void testSimBatteryDrivesMotor() {
+    JointDrive m;
+    m.enabled = true, m.voltage = 6, m.resistance = 2, m.constant = 0.8_r;
+    auto scene = [&](Real soc, bool battery) {
+        SceneGraph g = armOnPost(m);
+        g.world.gravity = Vector3(0.0_r);
+        g.entities[1].size = {0.4_r, 0.04_r, 0.4_r};
+        BatteryObject b;
+        b.id = 10, b.name = "Пак", b.series = 2, b.capacityAh = 0.001_r, b.soc = soc; // 3.6 C: the spin-up drains a third
+        if (battery) g.batteries.push_back(b);
+        DriverObject d;
+        d.id = 11, d.name = "Мост", d.joint = 3, d.dof = DofRx, d.battery = battery ? 10 : 0, d.duty = 0.5_r;
+        g.drivers.push_back(d);
+        return g;
+    };
+    Simulation s;
+    s.load(scene(1, true));
+    const int arm = s.robot()->bodyOf(2);
+    const Real mass = s.physics()->state(arm).mass, J = mass * (0.4_r * 0.4_r + 0.04_r * 0.04_r) / 12 + mass * 0.04_r;
+    for (int k = 0; k < 600; ++k) s.stepFrame();
+    RobotWorld::PowerReading pack, bridge;
+    const bool read = s.robot()->powerReading(10, pack) && s.robot()->powerReading(11, bridge);
+    const double w = s.physics()->state(arm).angularVelocity.z, Q = 0.001 * 3600;
+    const double drawn = (1.0 - double(pack.soc)) * Q, momentum = 0.5 * double(J) * w / double(m.constant);
+    std::printf("  2S pack, duty 0.5, K = 0.8: charge drawn %.4f C, d J w / K = %.4f C; settled %.3f rad/s at %.3f V (d V / K = %.3f), "
+                "%.4f A left\n", drawn, momentum, w, double(pack.voltage), 0.5 * double(pack.voltage) / double(m.constant), double(bridge.current));
+    CHECK(read && !pack.spent, "the pack and its driver read in the running world");
+    CHECK(std::fabs(drawn / momentum - 1) < 0.02, "the pack gave %f C, not d J w / K = %f C", drawn, momentum);
+    CHECK(std::fabs(w / (0.5 * double(pack.voltage) / double(m.constant)) - 1) < 0.01, "the arm runs at %f, not d V / K", w);
+
+    Simulation dead;
+    dead.load(scene(0, true));
+    for (int k = 0; k < 120; ++k) dead.stepFrame();
+    RobotWorld::PowerReading spent;
+    dead.robot()->powerReading(10, spent);
+    const double still = dead.physics()->state(dead.robot()->bodyOf(2)).angularVelocity.z;
+    CHECK(spent.spent && std::fabs(still) < 0.05, "a spent pack opens the bus: %f rad/s, spent %d", still, int(spent.spent));
+
+    Simulation ideal;
+    ideal.load(scene(1, false));
+    for (int k = 0; k < 600; ++k) ideal.stepFrame();
+    const double free = ideal.physics()->state(ideal.robot()->bodyOf(2)).angularVelocity.z, expected = 0.5 * double(m.voltage / m.constant);
+    CHECK(std::fabs(free / expected - 1) < 0.01, "with no battery the driver gives d U / K = %f, not %f", expected, free);
+    DriverObject full = ideal.robot()->graph().drivers[0];
+    full.duty = 1; // slid while the world runs
+    ideal.robot()->setDuties({full});
+    for (int k = 0; k < 600; ++k) ideal.stepFrame();
+    const double faster = ideal.physics()->state(ideal.robot()->bodyOf(2)).angularVelocity.z;
+    CHECK(std::fabs(faster / double(m.voltage / m.constant) - 1) < 0.01, "a duty of 1 set while running gives U / K, not %f", faster);
+}
+
 // The channels the plots draw, against the engine's own numbers. A box falling free from rest keeps its
 // mechanical energy (the potential turns into motion, m g h = m v^2 / 2, within the integrator's error)
 // and reads its height and speed; resting, its contacts carry its weight. The servo's joint reads the
