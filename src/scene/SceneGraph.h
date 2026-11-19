@@ -270,7 +270,7 @@ struct ControllerObject {
 // The kind says what a sensor measures, not which unit it is: the unit is its datasheet, `spec` - the
 // numbers a kind's model needs (rate, range, noise, offsets, mass...; their keys, units and the values of
 // a sensor no model was given: scene/SensorSpec.h) - and `model`, the name of the table's row they were
-// copied from (catalog/sensors/<kind>.csv). The numbers are the sensor's own: a scene reads the same with
+// copied from (data/sensors/<kind>.csv). The numbers are the sensor's own: a scene reads the same with
 // no table at hand, and a number typed over the model's makes the unit what was typed.
 //
 // The force sensors read what crosses a boundary - MuJoCo's touch, force, torque and actuatorfrc sensors.

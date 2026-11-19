@@ -1,6 +1,6 @@
 #pragma once
 // An IMU - a three-axis accelerometer and gyroscope - as its datasheet describes it (ImuSpec, in the datasheet's own
-// units; the numbers of a given model come from its row of catalog/sensors/imu.csv, scene/SensorSpec.h). The probe of
+// units; the numbers of a given model come from its row of data/sensors/imu.csv, scene/SensorSpec.h). The probe of
 // the physics gives it the true specific force [m/s^2] and angular rate [rad/s] in its own axes; it is two channels of
 // the signal chain (Signal.h) on one clock - the gyroscope's and the accelerometer's: at the output data rate, through
 // the low-pass of the stated bandwidth, the noise of the stated densities, the offsets and the sensitivity error drawn

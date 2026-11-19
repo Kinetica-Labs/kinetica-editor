@@ -2,7 +2,7 @@
 // A sensor's datasheet in the scene, and the tables of models it is copied from. A kind of sensor (an IMU, a sonar, a
 // force-torque sensor) has one device model (src/devices) that behaves as any unit of the kind given the numbers of its
 // datasheet: its fields (SpecField) say which - each a column of the kind's table and a key of the scene file, its unit
-// in its name as the datasheet states it. The tables (catalog/sensors/<kind>.csv: a row per model, a column per field,
+// in its name as the datasheet states it. The tables (data/sensors/<kind>.csv: a row per model, a column per field,
 // `model` and `source` - the datasheet it was read from) are data: a model is added by a row, not by code. A sensor
 // keeps its own copy of the numbers (SensorObject::spec), so a scene reads the same with no table at hand.
 #include "devices/ForceTorque.h"

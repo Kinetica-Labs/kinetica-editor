@@ -16,7 +16,7 @@ export APPIMAGE_EXTRACT_AND_RUN=1 QMAKE="$qmake" PATH="$tools:$PATH" # no FUSE n
 rm -rf "$out"
 linuxdeploy-x86_64.AppImage --appdir "$out" --executable "$build/kinetica" --desktop-file packaging/kinetica.desktop \
   --icon-file resources/icons/kinetica-256.png --icon-filename kinetica --plugin qt
-cp -r examples python catalog "$out/usr/bin/" # the program looks next to itself for them
+cp -r examples python data "$out/usr/bin/" # the program looks next to itself for them
 mkdir -p "$out/usr/bin/tools" && cp tools/ke_editor.py tools/ke_editor_mcp.py "$out/usr/bin/tools/"
 cp LICENSE THIRD_PARTY_NOTICES.md README.md "$out/" && cp extern/box3d/LICENSE "$out/LICENSE-box3d.txt"
 printf '#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/usr/bin/kinetica" "$@"\n' > "$out/kinetica"

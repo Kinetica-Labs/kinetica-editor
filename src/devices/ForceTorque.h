@@ -1,6 +1,6 @@
 #pragma once
 // A six-axis force-torque transducer as a robot's controller reads it, as its datasheet describes it (ForceTorqueSpec;
-// the numbers of a given model come from its row of catalog/sensors/wrench.csv, scene/SensorSpec.h). The scene gives
+// the numbers of a given model come from its row of data/sensors/wrench.csv, scene/SensorSpec.h). The scene gives
 // it the true load the flange passes to the tool, in the sensor's axes; it samples it on its own clock:
 //   - a sample at every whole period 1 / rate of the devices' clock it passes, of the true values holding since it
 //     last ran; between samples the reading is the last sample (its time is sampleNs), so a reading is up to a period

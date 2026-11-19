@@ -602,7 +602,7 @@ void testSensorDatasheet() {
     }
     CHECK(back.load(old, error) && back.sensors[0].spec.empty() && imuSpec(back.sensors[0]).rateHz == ImuSpec().rateHz, "an old file's IMU: the fields' values");
 
-    problems = sensorCatalog().load({KE_CATALOG});
+    problems = sensorCatalog().load({std::string(KE_DATA) + "/sensors"});
     int models = 0, outside = 0;
     for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
         for (const SensorModel* m : sensorCatalog().models(k)) {

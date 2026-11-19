@@ -189,12 +189,12 @@ class Body(SceneObject):
 
     def add_sonar(self, face="+x", model=None):
         """An ultrasonic range finder on a face - "+x" ... "-z", or "front", "rear", "top", "bottom", "left", "right" of
-        the body's own frame (forward +x, left -z) - looking out of it. `model`: a row of catalog/sensors/sonar.csv
+        the body's own frame (forward +x, left -z) - looking out of it. `model`: a row of data/sensors/sonar.csv
         ("HC-SR04"); none: the table's first."""
         return self._add_sensor("sonar", face, model)
 
     def add_imu(self, face="+y", model=None):
-        """An IMU flat on a face (as add_sonar names them), its z out of it. `model`: a row of catalog/sensors/imu.csv
+        """An IMU flat on a face (as add_sonar names them), its z out of it. `model`: a row of data/sensors/imu.csv
         ("MPU-6050", "ICM-42688-P"...); none: the table's first."""
         return self._add_sensor("imu", face, model)
 

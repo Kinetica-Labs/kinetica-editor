@@ -184,7 +184,7 @@ if(Qt6_FOUND)
   # "Открыть…" starts in examples/; the console's Python finds the kinetica package in python/.
   target_compile_definitions(kinetica PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
                                               KE_PYTHON="${CMAKE_CURRENT_SOURCE_DIR}/python"
-                                              KE_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/catalog/sensors")
+                                              KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
   if(MSVC)
     target_compile_options(kinetica PRIVATE /W4 /utf-8)
   else()
@@ -212,7 +212,7 @@ if(KE_TESTS)
   )
   target_link_libraries(ke_tests PRIVATE kecore)
   target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
-                                               KE_CATALOG="${CMAKE_CURRENT_SOURCE_DIR}/catalog/sensors")
+                                               KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
   if(MSVC)
     target_compile_options(ke_tests PRIVATE /W4 /wd4100 /utf-8)
   else()

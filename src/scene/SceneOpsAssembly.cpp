@@ -418,7 +418,7 @@ std::vector<SceneOp> assemblySceneOps() {
                    "{target: int, kind: 'imu'|'sonar'|'touch'|'stereo', face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z]} | "
                    "{joint: int, kind: 'wrench'|'effort', dof?: 'tx'..'rz'}, and for an imu, a sonar or a wrench model?: str (a row of "
                    "its table, sensor_models; none: the table's first), spec?: {key: number} over it", {}, sensorOp});
-    ops.push_back({"sensor_models", "The tables of sensor models (catalog/sensors/<kind>.csv, a row per model as its datasheet states it) "
+    ops.push_back({"sensor_models", "The tables of sensor models (data/sensors/<kind>.csv, a row per model as its datasheet states it) "
                                     "and the fields of each kind's datasheet: key, words, unit, range, the value of a sensor no model gave one",
                    "{kind?: 'imu'|'sonar'|'wrench'}", [](const SceneGraph&, const Value& a, Value& r, std::string& e) {
         Value kinds = Value::list();

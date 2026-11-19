@@ -60,16 +60,16 @@ const char* kNoReadings = "Показаний пока нет: мир робот
 
 } // namespace
 
-// The tables of sensor models: the program's (catalog/sensors next to it when installed, else the source tree's) and
-// the person's own (<app data>/catalog/sensors, its rows over the program's), read at start and again when one changes.
+// The tables of sensor models: the program's (data/sensors next to it when installed, else the source tree's) and
+// the person's own (<app data>/sensors, its rows over the program's), read at start and again when one changes.
 void SceneBuilder::loadSensorCatalog() {
-    const QString nextToExe = QCoreApplication::applicationDirPath() + "/catalog/sensors";
-#ifdef KE_CATALOG
-    const QString own = QDir(nextToExe).exists() ? nextToExe : QStringLiteral(KE_CATALOG);
+    const QString nextToExe = QCoreApplication::applicationDirPath() + "/data";
+#ifdef KE_DATA
+    const QString data = QDir(nextToExe).exists() ? nextToExe : QStringLiteral(KE_DATA);
 #else
-    const QString own = nextToExe;
+    const QString data = nextToExe;
 #endif
-    const QStringList dirs{own, QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/catalog/sensors"};
+    const QStringList dirs{data + "/sensors", QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/sensors"};
     std::string problems;
     sensorCatalog().clear();
     for (const QString& dir : dirs)
@@ -145,8 +145,8 @@ const std::vector<QAction*>& SceneBuilder::sensorActions() {
 }
 
 void SceneBuilder::updateSensorActions() {
-    const char* tips[] = {"Квадратурный энкодер на сочленение тела: фронты A/B/Z и счёт", "Акселерометр и гироскоп на верх тела: модель из таблицы catalog/sensors/imu.csv",
-                          "Ультразвуковой дальномер из грани, обращённой к виду: модель из таблицы catalog/sensors/sonar.csv", "Подушка касания на грани, обращённой к виду: сила контактов через неё",
+    const char* tips[] = {"Квадратурный энкодер на сочленение тела: фронты A/B/Z и счёт", "Акселерометр и гироскоп на верх тела: модель из таблицы data/sensors/imu.csv",
+                          "Ультразвуковой дальномер из грани, обращённой к виду: модель из таблицы data/sensors/sonar.csv", "Подушка касания на грани, обращённой к виду: сила контактов через неё",
                           "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота",
                           "Сила или момент мотора сочленения тела, как датчик тока сервы"};
     for (int k = 0; k < int(sensorActions().size()); ++k) {
@@ -179,7 +179,7 @@ void SceneBuilder::fillSensorMenu(const Entity& e) {
     addMenu_->addSection("Датчики");
     const bool joint = jointOfLink(graph_, e.id) != 0;
     const char* tips[] = {"Квадратурный энкодер на сочленение, которым держится это тело: фронты A/B/Z и счёт",
-                          "Акселерометр и гироскоп: частота, диапазон, шум и смещения — из паспорта модели (catalog/sensors/imu.csv)",
+                          "Акселерометр и гироскоп: частота, диапазон, шум и смещения — из паспорта модели (data/sensors/imu.csv)",
                           "Ультразвуковой дальномер из грани, обращённой к виду: луч, дальность и точность — из паспорта модели",
                           "Подушка на грани, обращённой к виду: нормальная сила контактов через неё — палец захвата, бампер, весы под ногой",
                           "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота: вес груза, удар, касание стола",
@@ -245,7 +245,7 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
     }, [&s, models](double k) {
         if (k >= 0 && size_t(k) < models().size()) applyModel(s, *models()[size_t(k)]);
     }).name("sensorModel").shown([&s] { return !specFields(s.kind).empty(); })
-        .tip("Модель — строка таблицы catalog/sensors/<вид>.csv: её числа из техописания переносятся в датчик, каждое можно поправить");
+        .tip("Модель — строка таблицы data/sensors/<вид>.csv: её числа из техописания переносятся в датчик, каждое можно поправить");
     for (SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
         for (const SpecField& field : specFields(kind)) {
             const std::string key = field.key;

@@ -1,6 +1,6 @@
 #pragma once
 // An ultrasonic range finder with a TRIG / ECHO pulse interface, as its datasheet describes it (SonarSpec; the numbers
-// of a given model come from its row of catalog/sensors/sonar.csv, scene/SensorSpec.h): a 10 us pulse on TRIG starts a
+// of a given model come from its row of data/sensors/sonar.csv, scene/SensorSpec.h): a 10 us pulse on TRIG starts a
 // measurement; the module sends a burst and then holds ECHO high for the sound's round trip to the nearest echo, 2 D / c
 // - so a host's distance is the pulse's width times c / 2. Range min to max over a beam of the stated full angle, the
 // stated accuracy taken as 3 sigma of a normal jitter of the trip when `noise`, a cycle between triggers. With no echo
