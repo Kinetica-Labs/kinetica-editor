@@ -187,7 +187,11 @@ if(Qt6_FOUND)
     shaders/shadow.vert shaders/shadow.frag shaders/shadow-distance.vert shaders/shadow-distance.frag shaders/lines.vert shaders/lines.frag)
   # The application's icon is embedded, so a launch from a terminal has it too.
   qt_add_resources(kinetica app_identity PREFIX "/app" BASE resources FILES
-    resources/icons/kinetica-32.png resources/icons/kinetica-64.png resources/icons/kinetica-128.png resources/icons/kinetica-256.png)
+    resources/icons/kinetica-16.png resources/icons/kinetica-24.png resources/icons/kinetica-32.png resources/icons/kinetica-48.png
+    resources/icons/kinetica-64.png resources/icons/kinetica-128.png resources/icons/kinetica-256.png)
+  if(WIN32) # the program's own icon: what Explorer, the taskbar and a shortcut show
+    target_sources(kinetica PRIVATE resources/kinetica.rc)
+  endif()
   target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
   # "Открыть…" starts in examples/; the console's Python finds the kinetica package in python/.
   target_compile_definitions(kinetica PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"

@@ -325,7 +325,7 @@ int main(int argc, char** argv) {
     QApplication::setOrganizationName("Kinetica");
     QApplication::setDesktopFileName("org.kinetica.Editor");
     QIcon applicationIcon;
-    for (int size : {32, 64, 128, 256})
+    for (int size : {16, 24, 32, 48, 64, 128, 256}) // the K of the logo (data/logo), every size drawn, not scaled by the desktop
         applicationIcon.addFile(QString(":/app/icons/kinetica-%1.png").arg(size), QSize(size, size));
     app.setWindowIcon(applicationIcon);
     applyDarkPalette(app);
