@@ -13,6 +13,7 @@
 
 #include "InspectorWidgets.h"
 #include "scene/Assembly.h"
+#include "core/Units.h"
 #include "scene/SensorSpec.h"
 
 #include <QBoxLayout>
@@ -270,11 +271,11 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
     }).name("sensorModel").shown([&s] { return !specFields(s.kind).empty(); })
         .tip("Модель — строка таблицы data/sensors/<вид>.csv: её числа из техописания переносятся в датчик, каждое можно поправить");
     for (SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
-        for (const SpecField& field : specFields(kind)) {
+        for (const Field& field : specFields(kind)) {
             const std::string key = field.key;
-            f.number(field.label, field.min, field.max, field.step, field.decimals, [&s, key] { return double(specValue(s, key)); },
+            f.number(QString::fromStdString(field.label), field.min, field.max, field.step, field.decimals, [&s, key] { return double(specValue(s, key)); },
                      [&s, key](double v) { s.spec[key] = Real(v); })
-                .unit(QString(" ") + field.unit).name(QString("spec_") + field.key).shown([&s, kind] { return s.kind == kind; });
+                .unit(QString::fromStdString(" " + unitText(field.unit))).name(QString::fromStdString("spec_" + key)).shown([&s, kind] { return s.kind == kind; });
         }
     f.note([&s] {
         const SensorModel* m = sensorCatalog().find(s.kind, s.model);

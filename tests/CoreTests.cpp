@@ -1,7 +1,10 @@
 // The Probe: channels (values, counters, timers) and debug drawing, against what was put in.
 #include "TestRunner.h"
 
+#include "core/Field.h"
 #include "core/Probe.h"
+#include "core/Units.h"
+#include "scene/SensorSpec.h"
 
 #include <chrono>
 #include <thread>
@@ -76,4 +79,49 @@ void testProbe() {
     CHECK(!Probe::drawEnabled(), "enableDraw(false)");
     Probe::clear();
     CHECK(Probe::channels().empty(), "clear() removes every channel");
+}
+
+// Units as data (core/Units.h): codes of the UCUM subset parse to their scale and dimension - km is 1000 m, a newton
+// metre is a joule, a datasheet's ug/sqrt(Hz) is 9.80665e-6 m s^-3/2, an unknown atom is refused with its name; the
+// words a person reads; a field's JSON Schema forbids other keys and carries its unit; a value out of range is refused
+// with the field, the bound and the unit, never clamped; every field of every datasheet has a unit its key's suffix
+// agrees with, and a key that says one unit and declares another is caught.
+void testUnitsAndFields() {
+    std::string error;
+    Unit km, nm, j, noise, accel, bad;
+    const bool parsed = parseUnit("km", km, error) && parseUnit("N.m", nm, error) && parseUnit("J", j, error) &&
+                        parseUnit("u[g]/[rtHz]", noise, error) && parseUnit("m/s2", accel, error);
+    const bool refused = !parseUnit("m/fortnight", bad, error) && error.find("fortnight") != std::string::npos;
+    std::printf("  km %g m; N.m %s, J %s; u[g]/[rtHz] %g %s; m/s2 %s; «%s» in words, «%s», «%s»; refused: %s\n", km.scale,
+                dimensionText(nm.dimension).c_str(), dimensionText(j.dimension).c_str(), noise.scale, dimensionText(noise.dimension).c_str(),
+                dimensionText(accel.dimension).c_str(), unitText("u[g]/[rtHz]").c_str(), unitText("m/s2").c_str(), unitText("N.m").c_str(), error.c_str());
+    CHECK(parsed && km.scale == 1000 && nm.dimension == j.dimension && std::fabs(noise.scale / 9.80665e-6 - 1) < 1e-12 &&
+          dimensionText(noise.dimension) == "m.s-3/2" && dimensionText(accel.dimension) == "m.s-2", "the units' scales and dimensions");
+    CHECK(refused && unitText("u[g]/[rtHz]") == "мкg/√Гц" && unitText("m/s2") == "м/с²" && unitText("N.m") == "Н·м", "a unit refused, or the words");
+
+    Field height;
+    height.key = "height_m", height.unit = "m", height.min = 0.1, height.max = 5, height.value = 1, height.label = "Высота";
+    const Value schema = fieldsSchema({height}, {"height_m"});
+    std::string far;
+    const bool out = !checkField(height, Value(12.0), far) && far == "height_m: 12 > 5 м (max)";
+    std::string text;
+    const bool typed = !checkField(height, Value("tall"), text) && text.find("expected a number") != std::string::npos;
+    CHECK(!schema["additionalProperties"].truth(true) && schema["properties"]["height_m"]["x-unit"].text() == "m" &&
+          schema["properties"]["height_m"]["maximum"].number() == 5 && schema["required"].size() == 1, "a field's JSON Schema");
+    CHECK(out && typed, "a value out of range or of another type is refused: %s; %s", far.c_str(), text.c_str());
+
+    int fields = 0, disagree = 0;
+    std::string why;
+    for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+        for (const Field& f : specFields(k)) {
+            ++fields;
+            std::string e;
+            if (!unitMatchesKey(f, e)) ++disagree, why += e + "; ";
+        }
+    Field wrong;
+    wrong.key = "rate_hz", wrong.unit = "s";
+    std::string caught;
+    const bool lint = !unitMatchesKey(wrong, caught);
+    std::printf("  datasheet fields: %d, their units against their keys: %d disagree %s; rate_hz in s caught: %s\n", fields, disagree, why.c_str(), caught.c_str());
+    CHECK(fields > 20 && disagree == 0 && lint, "a datasheet's unit and its key's suffix: %s", why.c_str());
 }

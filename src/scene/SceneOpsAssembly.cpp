@@ -9,6 +9,7 @@
 #include "scene/CameraHousing.h"
 #include "scene/SensorSpec.h"
 #include "core/Format.h"
+#include "core/Units.h"
 
 #include <algorithm>
 #include <cmath>
@@ -262,7 +263,7 @@ SceneOp gripSceneOp() {
 // numbers by key.
 static Value specAnswer(const SensorObject& s) {
     Value out = Value::map(), spec = Value::map();
-    for (const SpecField& f : specFields(s.kind)) spec.set(f.key, double(specValue(s, f.key)));
+    for (const Field& f : specFields(s.kind)) spec.set(f.key, double(specValue(s, f.key)));
     const SensorModel* m = sensorCatalog().find(s.kind, s.model);
     out.set("model", s.model);
     out.set("as_model", m != nullptr && specMatches(s, *m));
@@ -286,15 +287,14 @@ static bool setSpec(SensorObject& s, const Value& a, std::string& e) {
     const Value& spec = a["spec"];
     for (size_t k = 0; k < spec.keys().size(); ++k) {
         const std::string& key = spec.keys()[k];
-        const auto f = std::find_if(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const SpecField& x) { return key == x.key; });
+        const auto f = std::find_if(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const Field& x) { return key == x.key; });
         if (f == specFields(s.kind).end()) {
             e = "a " + kind + "'s datasheet has no " + key + "; its fields:";
-            for (const SpecField& x : specFields(s.kind)) e += std::string(" ") + x.key;
+            for (const Field& x : specFields(s.kind)) e += std::string(" ") + x.key;
             return false;
         }
-        const double v = spec.at(k).number(-1e300);
-        if (!(v >= f->min && v <= f->max)) return e = key + " is a number " + numberText(f->min) + ".." + numberText(f->max) + " " + f->unit, false;
-        s.spec[key] = Real(v);
+        if (!checkField(*f, spec.at(k), e)) return false;
+        s.spec[key] = Real(spec.at(k).number());
     }
     return true;
 }
@@ -425,9 +425,10 @@ std::vector<SceneOp> assemblySceneOps() {
         for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}) {
             if (a.has("kind") && a["kind"].text("") != sensorKindKey(k)) continue;
             Value kind = Value::map(), fields = Value::list(), models = Value::list();
-            for (const SpecField& f : specFields(k)) {
+            for (const Field& f : specFields(k)) {
                 Value x = Value::map();
-                x.set("key", f.key), x.set("label", f.label), x.set("unit", f.unit), x.set("min", f.min), x.set("max", f.max), x.set("value", f.value);
+                x.set("key", f.key), x.set("label", f.label), x.set("unit", f.unit), x.set("unit_text", unitText(f.unit)), x.set("min", f.min),
+                    x.set("max", f.max), x.set("value", f.value);
                 fields.push(x);
             }
             for (const SensorModel* m : sensorCatalog().models(k)) {

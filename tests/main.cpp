@@ -32,6 +32,7 @@ int main() {
     run("math: mesh primitives are closed and have their volumes", testPrimitives);
     run("math: BVH queries against brute force", testBVH);
     run("probe: channels, counters, timers, debug drawing", testProbe);
+    run("core: units as data (UCUM) and fields as data - their schema, their check, a key's suffix against its unit", testUnitsAndFields);
     run("runtime: bounded pipeline admission", testRuntimePolicyBounds);
     run("runtime: configuration is transactional", testRuntimePolicyTransactional);
     run("runtime: monotonic idle lease and explicit stop", testRuntimePolicyLease);

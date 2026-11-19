@@ -387,7 +387,7 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     // Its datasheet: the table's first model, its numbers in the card; one typed over them is the sensor's, the model said changed.
     auto* model = qobject_cast<QComboBox*>(field("sensorModel"));
     const std::vector<const SensorModel*> imus = sensorCatalog().models(SensorKind::Imu);
-    const bool sheet = sensor() && !imus.empty() && sensor()->model == imus.front()->name && shows("sensorModel") && shows("spec_gyro_noise_dps") &&
+    const bool sheet = sensor() && !imus.empty() && sensor()->model == imus.front()->name && shows("sensorModel") && shows("spec_gyro_noise_dps_rthz") &&
                        !shows("spec_min_m") && model && model->currentText() == QString::fromStdString(imus.front()->name);
     number("spec_rate_hz", 200);
     const bool typed = sensor() && specValue(*sensor(), "rate_hz") == 200 && model && model->currentText().contains("изменены");

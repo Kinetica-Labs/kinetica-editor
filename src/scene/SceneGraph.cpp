@@ -349,7 +349,7 @@ static void saveSpec(std::ostringstream& o, const SensorObject& s) {
     if (specFields(s.kind).empty()) return;
     if (!s.model.empty()) o << "  model " << quoted(s.model) << "\n";
     o << "  spec";
-    for (const SpecField& f : specFields(s.kind)) o << " " << f.key << " " << num(specValue(s, f.key));
+    for (const Field& f : specFields(s.kind)) o << " " << f.key << " " << num(specValue(s, f.key));
     o << "\n";
 }
 
@@ -702,7 +702,7 @@ static bool readSensorLine(const std::vector<std::string>& w, SensorObject& s, s
         LineReader r(w, 1);
         while (!r.done()) {
             const std::string k = r.key();
-            const bool known = std::any_of(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const SpecField& f) { return k == f.key; });
+            const bool known = std::any_of(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const Field& f) { return k == f.key; });
             if (!known || !r.number(s.spec[k])) return fail(bad, k);
         }
         return true;

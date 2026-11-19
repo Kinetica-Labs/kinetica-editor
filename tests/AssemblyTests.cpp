@@ -580,7 +580,7 @@ void testSensorDatasheet() {
     applyModel(s, *t);
     const ImuSpec spec = imuSpec(s);
     CHECK(s.model == "Test-IMU" && spec.rateHz == 200 && spec.bandwidthHz == 260 && specMatches(s, *t), "the model's numbers, the rest at the fields'");
-    s.spec["gyro_noise_dps"] = 0.002_r;
+    s.spec["gyro_noise_dps_rthz"] = 0.002_r;
     CHECK(!specMatches(s, *t) && imuSpec(s).gyroNoiseDps == double(0.002_r), "a number typed over the model's is the sensor's");
 
     SceneGraph g;
@@ -607,7 +607,7 @@ void testSensorDatasheet() {
     for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
         for (const SensorModel* m : sensorCatalog().models(k)) {
             ++models;
-            for (const SpecField& f : specFields(k))
+            for (const Field& f : specFields(k))
                 if (m->values.count(f.key) && !(m->values.at(f.key) >= f.min && m->values.at(f.key) <= f.max)) ++outside;
         }
     std::printf("  the program's tables: %zu files, %d models, %d numbers out of range; problems: %s\n", sensorCatalog().files().size(), models, outside,

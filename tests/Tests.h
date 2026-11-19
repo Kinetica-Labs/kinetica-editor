@@ -7,6 +7,7 @@ void testPrimitives();
 void testBVH();
 // CoreTests.cpp
 void testProbe();
+void testUnitsAndFields();
 // RuntimePolicyTests.cpp
 void testRuntimePolicyBounds();
 void testRuntimePolicyTransactional();

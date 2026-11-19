@@ -11,37 +11,44 @@ namespace ke {
 
 namespace {
 
+// A number of a datasheet: its key, unit (UCUM), range, step, decimals, its value with no model, its words.
+Field num(const char* key, const char* unit, double min, double max, double step, int decimals, double value, const char* label) {
+    Field f;
+    f.key = key, f.unit = unit, f.min = min, f.max = max, f.step = step, f.decimals = decimals, f.value = value, f.label = label;
+    return f;
+}
+
 // The fields' values with no model: a generic unit of the kind, nothing more precise than its kind usually is.
-const std::vector<SpecField> kImu = {
-    {"rate_hz", "Частота выдачи", "Гц", 0.1, 1e5, 10, 1, 1000},
-    {"bandwidth_hz", "Полоса фильтра", "Гц", 0.1, 2e4, 10, 1, 260},
-    {"accel_range_g", "Диапазон акселерометра", "±g", 0.5, 400, 1, 1, 2},
-    {"gyro_range_dps", "Диапазон гироскопа", "±°/с", 1, 1e4, 125, 0, 250},
-    {"bits", "Разрядность", "бит", 2, 32, 1, 0, 16},
-    {"accel_noise_ug", "Шум акселерометра", "мкg/√Гц", 0, 1e5, 10, 1, 400},
-    {"gyro_noise_dps", "Шум гироскопа", "°/с/√Гц", 0, 10, 0.001, 5, 0.005},
-    {"accel_offset_mg", "Смещение нуля акселерометра", "±мg", 0, 1000, 5, 1, 50},
-    {"gyro_offset_dps", "Смещение нуля гироскопа", "±°/с", 0, 100, 0.5, 2, 20},
-    {"scale_error_pct", "Ошибка чувствительности", "±%", 0, 50, 0.5, 2, 3},
-    {"mass_g", "Масса", "г", 0, 1e5, 1, 2, 0}};
-const std::vector<SpecField> kSonar = {
-    {"min_m", "Ближе не видит", "м", 0, 100, 0.01, 3, 0.02},
-    {"max_m", "Дальше не видит", "м", 0.01, 1000, 0.5, 2, 4},
-    {"beam_deg", "Угол луча", "°", 0.1, 180, 1, 1, 15},
-    {"accuracy_mm", "Точность (3σ)", "мм", 0, 1000, 1, 1, 3},
-    {"cycle_ms", "Цикл измерения", "мс", 0.1, 1e4, 10, 1, 60},
-    {"timeout_ms", "Нет эха: спад ECHO через", "мс", 0.1, 1e4, 1, 1, 38},
-    {"mass_g", "Масса", "г", 0, 1e5, 1, 2, 0}};
-const std::vector<SpecField> kWrench = {
-    {"rate_hz", "Частота", "Гц", 0.1, 1e5, 100, 1, 500},
-    {"force_range_n", "Диапазон силы", "±Н", 0.1, 1e6, 10, 1, 50},
-    {"torque_range_nm", "Диапазон момента", "±Н·м", 0.01, 1e5, 1, 2, 10},
-    {"force_precision_n", "Шум силы (3σ)", "Н", 0, 1e4, 0.1, 3, 3.5},
-    {"torque_precision_nm", "Шум момента (3σ)", "Н·м", 0, 1e3, 0.01, 4, 0.2},
-    {"force_accuracy_n", "Смещение силы (3σ)", "Н", 0, 1e4, 0.1, 3, 4},
-    {"torque_accuracy_nm", "Смещение момента (3σ)", "Н·м", 0, 1e3, 0.01, 4, 0.3},
-    {"mass_g", "Масса", "г", 0, 1e5, 10, 1, 0}};
-const std::vector<SpecField> kNone;
+const std::vector<Field> kImu = {
+    num("rate_hz", "Hz", 0.1, 1e5, 10, 1, 1000, "Частота выдачи"),
+    num("bandwidth_hz", "Hz", 0.1, 2e4, 10, 1, 260, "Полоса фильтра"),
+    num("accel_range_g", "[g]", 0.5, 400, 1, 1, 2, "Диапазон акселерометра, ±"),
+    num("gyro_range_dps", "deg/s", 1, 1e4, 125, 0, 250, "Диапазон гироскопа, ±"),
+    num("bits", "bit", 2, 32, 1, 0, 16, "Разрядность"),
+    num("accel_noise_ug_rthz", "u[g]/[rtHz]", 0, 1e5, 10, 1, 400, "Шум акселерометра"),
+    num("gyro_noise_dps_rthz", "deg/s/[rtHz]", 0, 10, 0.001, 5, 0.005, "Шум гироскопа"),
+    num("accel_offset_mg", "m[g]", 0, 1000, 5, 1, 50, "Смещение нуля акселерометра, ±"),
+    num("gyro_offset_dps", "deg/s", 0, 100, 0.5, 2, 20, "Смещение нуля гироскопа, ±"),
+    num("scale_error_pct", "%", 0, 50, 0.5, 2, 3, "Ошибка чувствительности, ±"),
+    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, "Масса")};
+const std::vector<Field> kSonar = {
+    num("min_m", "m", 0, 100, 0.01, 3, 0.02, "Ближе не видит"),
+    num("max_m", "m", 0.01, 1000, 0.5, 2, 4, "Дальше не видит"),
+    num("beam_deg", "deg", 0.1, 180, 1, 1, 15, "Угол луча"),
+    num("accuracy_mm", "mm", 0, 1000, 1, 1, 3, "Точность (3σ)"),
+    num("cycle_ms", "ms", 0.1, 1e4, 10, 1, 60, "Цикл измерения"),
+    num("timeout_ms", "ms", 0.1, 1e4, 1, 1, 38, "Нет эха: спад ECHO через"),
+    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, "Масса")};
+const std::vector<Field> kWrench = {
+    num("rate_hz", "Hz", 0.1, 1e5, 100, 1, 500, "Частота"),
+    num("force_range_n", "N", 0.1, 1e6, 10, 1, 50, "Диапазон силы, ±"),
+    num("torque_range_n_m", "N.m", 0.01, 1e5, 1, 2, 10, "Диапазон момента, ±"),
+    num("force_precision_n", "N", 0, 1e4, 0.1, 3, 3.5, "Шум силы (3σ)"),
+    num("torque_precision_n_m", "N.m", 0, 1e3, 0.01, 4, 0.2, "Шум момента (3σ)"),
+    num("force_accuracy_n", "N", 0, 1e4, 0.1, 3, 4, "Смещение силы (3σ)"),
+    num("torque_accuracy_n_m", "N.m", 0, 1e3, 0.01, 4, 0.3, "Смещение момента (3σ)"),
+    num("mass_kg", "kg", 0, 100, 0.01, 3, 0, "Масса")};
+const std::vector<Field> kNone;
 
 const char* kKindKeys[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo"}; // SensorKind
 
@@ -65,15 +72,15 @@ std::vector<std::string> cells(const std::string& line) {
     return out;
 }
 
-const SpecField* fieldOf(SensorKind kind, const std::string& key) {
-    for (const SpecField& f : specFields(kind))
+const Field* fieldOf(SensorKind kind, const std::string& key) {
+    for (const Field& f : specFields(kind))
         if (key == f.key) return &f;
     return nullptr;
 }
 
 } // namespace
 
-const std::vector<SpecField>& specFields(SensorKind kind) {
+const std::vector<Field>& specFields(SensorKind kind) {
     return kind == SensorKind::Imu ? kImu : kind == SensorKind::Sonar ? kSonar : kind == SensorKind::Wrench ? kWrench : kNone;
 }
 
@@ -88,14 +95,14 @@ bool sensorKindOf(const std::string& key, SensorKind& kind) {
 Real specValue(const SensorObject& s, const std::string& key) {
     const auto at = s.spec.find(key);
     if (at != s.spec.end()) return at->second;
-    const SpecField* f = fieldOf(s.kind, key);
+    const Field* f = fieldOf(s.kind, key);
     return f ? Real(f->value) : 0.0_r;
 }
 
 ImuSpec imuSpec(const SensorObject& s) {
     const auto v = [&s](const char* key) { return double(specValue(s, key)); };
-    return {v("rate_hz"), v("bandwidth_hz"), v("accel_range_g"), v("gyro_range_dps"), int(v("bits")), v("accel_noise_ug"),
-            v("gyro_noise_dps"), v("accel_offset_mg"), v("gyro_offset_dps"), v("scale_error_pct")};
+    return {v("rate_hz"), v("bandwidth_hz"), v("accel_range_g"), v("gyro_range_dps"), int(v("bits")), v("accel_noise_ug_rthz"),
+            v("gyro_noise_dps_rthz"), v("accel_offset_mg"), v("gyro_offset_dps"), v("scale_error_pct")};
 }
 
 SonarSpec sonarSpec(const SensorObject& s) {
@@ -105,11 +112,11 @@ SonarSpec sonarSpec(const SensorObject& s) {
 
 ForceTorqueSpec wrenchSpec(const SensorObject& s) {
     const auto v = [&s](const char* key) { return double(specValue(s, key)); };
-    return {v("rate_hz"), v("force_range_n"), v("torque_range_nm"), v("force_precision_n"), v("torque_precision_nm"), v("force_accuracy_n"),
-            v("torque_accuracy_nm")};
+    return {v("rate_hz"), v("force_range_n"), v("torque_range_n_m"), v("force_precision_n"), v("torque_precision_n_m"), v("force_accuracy_n"),
+            v("torque_accuracy_n_m")};
 }
 
-Real sensorMass(const SensorObject& s) { return fieldOf(s.kind, "mass_g") ? specValue(s, "mass_g") / 1000 : 0.0_r; }
+Real sensorMass(const SensorObject& s) { return fieldOf(s.kind, "mass_kg") ? specValue(s, "mass_kg") : 0.0_r; }
 
 std::string SensorCatalog::load(const std::vector<std::string>& directories) {
     clear();
@@ -151,8 +158,9 @@ std::string SensorCatalog::read(SensorKind kind, const std::string& text, const 
             if (columns[i] == "model") m.name = row[i];
             else if (columns[i] == "source") m.source = row[i];
             else if (row[i].empty() || !fieldOf(kind, columns[i])) continue;
-            else if (parseNumber(row[i], v)) m.values[columns[i]] = v;
-            else problems += where + columns[i] + " «" + row[i] + "» is not a number\n";
+            else if (!parseNumber(row[i], v)) problems += where + columns[i] + " «" + row[i] + "» is not a number\n";
+            else if (std::string e; !checkField(*fieldOf(kind, columns[i]), Value(double(v)), e)) problems += where + m.name + ": " + e + "\n";
+            else m.values[columns[i]] = v;
         }
         if (m.name.empty()) {
             problems += where + "a row with no model\n";
@@ -186,7 +194,7 @@ SensorCatalog& sensorCatalog() {
 void applyModel(SensorObject& s, const SensorModel& m) {
     s.model = m.name;
     s.spec.clear();
-    for (const SpecField& f : specFields(s.kind)) {
+    for (const Field& f : specFields(s.kind)) {
         const auto at = m.values.find(f.key);
         s.spec[f.key] = at != m.values.end() ? at->second : Real(f.value);
     }
@@ -197,11 +205,11 @@ void applyDefaultModel(SensorObject& s) {
     if (!models.empty()) return applyModel(s, *models.front());
     s.model.clear();
     s.spec.clear();
-    for (const SpecField& f : specFields(s.kind)) s.spec[f.key] = Real(f.value);
+    for (const Field& f : specFields(s.kind)) s.spec[f.key] = Real(f.value);
 }
 
 bool specMatches(const SensorObject& s, const SensorModel& m) {
-    for (const SpecField& f : specFields(s.kind)) {
+    for (const Field& f : specFields(s.kind)) {
         const auto at = m.values.find(f.key);
         if (specValue(s, f.key) != (at != m.values.end() ? at->second : Real(f.value))) return false;
     }

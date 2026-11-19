@@ -40,6 +40,8 @@ add_library(kecore STATIC
   src/math/MatrixNxN.h src/math/MatrixNxN.cpp
   src/core/Format.h        src/core/Format.cpp
   src/core/Value.h         src/core/Value.cpp
+  src/core/Units.h         src/core/Units.cpp
+  src/core/Field.h         src/core/Field.cpp
   src/core/Probe.h         src/core/Probe.cpp
   src/core/Parallel.h      src/core/Parallel.cpp
   src/core/Random.h

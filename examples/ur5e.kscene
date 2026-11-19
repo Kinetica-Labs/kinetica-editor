@@ -180,7 +180,7 @@ sensor "Сила-момент 1"
   pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
   wrench noise 1 seed 0
   model "UR5e tool flange"
-  spec rate_hz 500 force_range_n 50 torque_range_nm 10 force_precision_n 3.5 torque_precision_nm 0.2 force_accuracy_n 4 torque_accuracy_nm 0.3 mass_g 0
+  spec rate_hz 500 force_range_n 50 torque_range_n_m 10 force_precision_n 3.5 torque_precision_n_m 0.2 force_accuracy_n 4 torque_accuracy_n_m 0.3 mass_kg 0
 end
 controller "Пульт «Схват»"
   object id 53
