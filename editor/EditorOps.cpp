@@ -11,6 +11,7 @@
 #include "core/Format.h"
 #include "scene/Assembly.h"
 #include "scene/SceneEdits.h"
+#include "scene/SceneOps.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
@@ -80,8 +81,12 @@ void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& r
     if (runtime_ && (!query || name == "view_screenshot" || name == "ui_pointer")) runtime_->request(name, args, source);
     const bool guarded = !name.startsWith("ui_") && !query;
     if (guarded) builder_->apiCallStarted();
-    it->second.run(args, [this, source, name, args, reply, guarded, query](QJsonObject answer) {
+    const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
+    const bool playing = core && core->edit && !builder_->editing(); // an edit of a running scene: Stop takes it back
+    it->second.run(args, [this, source, name, args, reply, guarded, query, playing](QJsonObject answer) {
         if (guarded) builder_->apiCallFinished();
+        if (playing && answer.value("ok").toBool())
+            answer.insert("until_stop", "сцена играет: правка действует до ■ Стоп - sim_stop вернёт сцену, какой она была до ▶");
         const QJsonObject used = answer.contains("_args") ? answer.take("_args").toObject() : args; // what the window filled in
         if (!query && !pluginOps_.count(name)) journal(source, name, used, answer); // a plugin's command: its edits are the lines
         for (const Listener& l : listeners_) l(source, name, args, answer, query);
@@ -150,6 +155,9 @@ void EditorOps::addSceneOps() {
             const qint64 id = e.kind == ke::GraphEdit::Kind::Put && m.hasMatch() ? m.captured(1).toLongLong() : qint64(e.id);
             if (!changed.contains(id)) changed.append(id);
         }
+        for (const auto* pair : {&before.joints, &builder_->graph().joints}) // a joint gone with its link: said too
+            for (const ke::JointObject& j : *pair)
+                if (!ke::findJoint(before, j.id) != !ke::findJoint(builder_->graph(), j.id) && !changed.contains(qint64(j.id))) changed.append(qint64(j.id));
         return ok({{undo ? "undone" : "redone", done}, {"changed", changed}, {"world", world}, {"undo_steps", qint64(builder_->undoSteps())}});
     };
     addSync("edit_undo", "Undo the last step. Answers what it changed: the objects' ids, whether the world did; undone false: nothing "

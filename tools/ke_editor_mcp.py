@@ -48,7 +48,10 @@ INSTRUCTIONS = (
     "Run: sim_play, or sim_step frames on pause, then sim_state. Look: view_frame an object, then view_screenshot. Every "
     "edit is one undo step (edit_undo answers what it changed). A wrong field is refused with the fields the tool has. "
     "Your own tool: plugin_new {name} writes a one-file Python plugin whose commands become tools here "
-    "(docs/plugins.md). Units SI; angles in rad, except Euler degrees in the scene's rotation lines.")
+    "(docs/plugins.md). Units SI; angles in rad, except Euler degrees in the scene's rotation lines. The world: y up, the "
+    "floor at y 0; a shape's position is its centre and its size its full extent (a sphere's: its diameter). A joint's "
+    "coordinate is 0 in the pose it was made in. While the scene plays, an edit lasts until sim_stop, which brings the "
+    "scene back as it was before sim_play.")
 WIRING = {"plugin_register", "plugin_wait", "plugin_reply", "plugin_panel_set"}  # a plugin process's own, with its token
 
 

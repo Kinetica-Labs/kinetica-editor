@@ -216,34 +216,44 @@ QJsonObject argsSchema(const QString& argsLine) {
     return schema;
 }
 
+namespace {
+
+// What is wrong with one field's value against the schema (empty: nothing).
+QString fieldProblem(const QString& key, const QJsonValue& v, const QJsonObject& properties) {
+    if (key.startsWith('_')) return {};
+    if (!properties.contains(key))
+        return properties.isEmpty() ? "аргументов нет, а дано «" + key + "»" : "нет поля «" + key + "»; поля: " + QStringList(properties.keys()).join(", ");
+    const QJsonObject f = properties.value(key).toObject();
+    const QString type = f.value("type").toString();
+    if (!fits(v, type)) return key + ": ожидалось " + typeName(type) + (f.contains("description") ? " (" + f.value("description").toString() + ")" : QString());
+    if (f.contains("enum") && !f.value("enum").toArray().contains(v)) {
+        QStringList allowed;
+        for (const QJsonValue& e : f.value("enum").toArray()) allowed << (e.isString() ? e.toString() : QString::number(e.toDouble()));
+        return key + ": «" + (v.isString() ? v.toString() : QString::number(v.toDouble())) + "» не из списка: " + allowed.join(", ");
+    }
+    if (v.isDouble() && ((f.contains("minimum") && v.toDouble() < f.value("minimum").toDouble()) ||
+                         (f.contains("maximum") && v.toDouble() > f.value("maximum").toDouble())))
+        return QString("%1: %2 вне %3…%4").arg(key).arg(v.toDouble()).arg(f.value("minimum").toDouble()).arg(f.value("maximum").toDouble());
+    if (v.isArray() && f.contains("minItems") && (v.toArray().size() < f.value("minItems").toInt() || v.toArray().size() > f.value("maxItems").toInt()))
+        return QString("%1: ожидалось %2 числа").arg(key).arg(f.value("minItems").toInt());
+    if (v.isArray() && f.contains("items")) {
+        const QJsonObject item = f.value("items").toObject();
+        for (const QJsonValue& x : v.toArray())
+            if (!fits(x, item.value("type").toString()) || (item.contains("enum") && !item.value("enum").toArray().contains(x)))
+                return key + ": в списке ожидалось " + typeName(item.value("type").toString());
+    }
+    return {};
+}
+
+} // namespace
+
+// Every field that is wrong, not only the first: a call with three slips is mended in one go.
 QString argsProblem(const QJsonObject& args, const QJsonObject& schema) {
     const QJsonObject properties = schema.value("properties").toObject();
-    for (auto it = args.begin(); it != args.end(); ++it) {
-        if (it.key().startsWith('_')) continue;
-        if (!properties.contains(it.key()))
-            return properties.isEmpty() ? "аргументов нет, а дано «" + it.key() + "»" : "нет поля «" + it.key() + "»; поля: " + QStringList(properties.keys()).join(", ");
-        const QJsonObject f = properties.value(it.key()).toObject();
-        const QJsonValue v = it.value();
-        const QString type = f.value("type").toString();
-        if (!fits(v, type)) return it.key() + ": ожидалось " + typeName(type) + (f.contains("description") ? " (" + f.value("description").toString() + ")" : QString());
-        if (f.contains("enum") && !f.value("enum").toArray().contains(v)) {
-            QStringList allowed;
-            for (const QJsonValue& e : f.value("enum").toArray()) allowed << (e.isString() ? e.toString() : QString::number(e.toDouble()));
-            return it.key() + ": «" + (v.isString() ? v.toString() : QString::number(v.toDouble())) + "» не из списка: " + allowed.join(", ");
-        }
-        if (v.isDouble() && ((f.contains("minimum") && v.toDouble() < f.value("minimum").toDouble()) ||
-                             (f.contains("maximum") && v.toDouble() > f.value("maximum").toDouble())))
-            return QString("%1: %2 вне %3…%4").arg(it.key()).arg(v.toDouble()).arg(f.value("minimum").toDouble()).arg(f.value("maximum").toDouble());
-        if (v.isArray() && f.contains("minItems") && (v.toArray().size() < f.value("minItems").toInt() || v.toArray().size() > f.value("maxItems").toInt()))
-            return QString("%1: ожидалось %2 числа").arg(it.key()).arg(f.value("minItems").toInt());
-        if (v.isArray() && f.contains("items")) {
-            const QJsonObject item = f.value("items").toObject();
-            for (const QJsonValue& x : v.toArray())
-                if (!fits(x, item.value("type").toString()) || (item.contains("enum") && !item.value("enum").toArray().contains(x)))
-                    return it.key() + ": в списке ожидалось " + typeName(item.value("type").toString());
-        }
-    }
+    QStringList problems;
+    for (auto it = args.begin(); it != args.end(); ++it)
+        if (const QString p = fieldProblem(it.key(), it.value(), properties); !p.isEmpty()) problems << p;
     for (const QJsonValue& r : schema.value("required").toArray())
-        if (!args.contains(r.toString())) return "нет обязательного поля «" + r.toString() + "»";
-    return {};
+        if (!args.contains(r.toString())) problems << "нет обязательного поля «" + r.toString() + "»";
+    return problems.join("; ");
 }

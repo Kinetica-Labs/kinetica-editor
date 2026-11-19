@@ -403,7 +403,8 @@ void EditorOps::addStateOp() {
 void EditorOps::addChannelsOp() {
     add("sim_measure", "The plots' channels measured now (the physics engine's truth, for checks): scene - energy of motion, rotation and "
                        "height, momentum, angular momentum, the deepest contact; objects - each body by entity id: mass, centre, height, "
-                       "velocity, energy, spin, sleep, contact force; group - several bodies as one; joints - each freedom's coordinate, a "
+                       "velocity, energy, spin, sleep, contact force; group - several bodies as one; joints - each freedom's coordinate (0: the "
+                       "pose the joint was made in), a "
                        "servo's target, the drive's effort; goals - an IK goal's miss (mm) and turn miss (°). Each channel: id "
                        "(\"<id>/<quantity>\"), value, unit, name",
         "{scene?: bool, objects?: [int], group?: [int], joints?: [int], goals?: [int]}", [this](const QJsonObject& a, const Reply& reply) {

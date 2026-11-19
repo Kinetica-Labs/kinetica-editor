@@ -151,6 +151,8 @@ SceneOp wheelModuleOp() {
 
 // assembly_drive: the freedom's drive, the fields given over the ones it has (a target changed keeps the
 // stiffness), each checked: finite, not negative where a negative means nothing, a DC motor's constant above 0.
+void tuneServo(const SceneGraph& g, const JointObject& j, int dof, JointDrive& drive); // below, beside assembly_actuator
+
 bool driveOne(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     JointObject* j = nullptr;
     for (JointObject& x : g.joints)
@@ -186,9 +188,17 @@ bool driveOne(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     if (kind != "dcmotor") d.constant = 0;
     if (kind == "dcmotor" && !(d.constant > 0 && d.resistance > 0)) return e = "a DC motor needs constant > 0 and resistance > 0", false;
     const bool turn = dof >= DofRx;
-    if (kind == "servo" && !(d.stiffness > 0))
-        return e = std::string("a servo needs stiffness > 0 (") + (turn ? "N m/rad" : "N/m") + ") to hold its target: e.g. stiffness " +
-                   (turn ? "50, damping 5" : "500, damping 50") + "; a speed alone: kind velocity", false;
+    if (kind == "servo" && !(d.stiffness > 0) && a.has("stiffness"))
+        return e = std::string("a servo needs stiffness > 0 (") + (turn ? "N m/rad" : "N/m") + ") to hold its target; none given: tuned to its "
+                   "link; a speed alone: kind velocity", false;
+    std::string tuned;
+    if (kind == "servo" && !(d.stiffness > 0)) { // none given: tuned to what the joint carries, said in the answer
+        const Real damping = d.damping;
+        tuneServo(g, *j, dof, d);
+        if (a.has("damping")) d.damping = damping;
+        tuned = "жёсткость подобрана по звену: " + std::to_string(int(std::lround(d.stiffness))) + (turn ? " Н·м/рад" : " Н/м") +
+                ", провис под тяжестью не больше градуса";
+    }
     d.enabled = a.has("on") ? a["on"].truth(true) : true;
     j->dof[dof].drive = d;
     if (j->dof[dof].motion == JointMotion::Locked) j->dof[dof].motion = JointMotion::Free; // a drive on a locked freedom would move nothing
@@ -200,6 +210,7 @@ bool driveOne(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     if (kind == "dcmotor") drive.set("voltage", d.voltage), drive.set("resistance", d.resistance), drive.set("constant", d.constant);
     if (std::isfinite(d.maxForce)) drive.set("force", d.maxForce);
     r.set("drive", drive);
+    if (!tuned.empty()) r.set("note", tuned);
     return true;
 }
 
@@ -232,11 +243,35 @@ std::string bodiesForJoint(SceneGraph& g, uint32_t a, uint32_t b) {
     return made.empty() ? made : "Сочленению нужны тела: " + made;
 }
 
+// A servo tuned to what its joint carries: it holds the pose it is told and droops under gravity a degree at most (a turn:
+// k = m g d / 0.0175 rad, d the link's centre off the axis; a travel: 2 mm, k = m g / 0.002), critically damped
+// (c = 2 sqrt(k I), I the link's inertia about the axis; m along a travel). The link is the joint's a.
+void tuneServo(const SceneGraph& g, const JointObject& j, int dof, JointDrive& drive) {
+    const Entity* link = findEntity(g, j.a);
+    static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 1.0_r}; // box, sphere, cylinder, cone, plane, mesh
+    const Real mass = link ? std::max(link->rigid.density * share[int(link->shape)] * link->size.x * link->size.y * link->size.z, 0.01_r) : 1.0_r;
+    Vector3 originA, anchor;
+    Quaternion frameA, frameB;
+    jointWorldFrames(g, j, originA, frameA, anchor, frameB);
+    Vector3 e(0.0_r);
+    e[dof % 3] = 1;
+    const Vector3 axis = frameB.rotate(e);
+    const AABB box = objectBounds(g, j.a);
+    const Vector3 off = (box.valid() ? box.center() : anchor) - anchor;
+    const Real d = std::max(length(off - axis * dot(off, axis)), 0.05_r), reach = link ? maxComp(link->size) : 0.1_r;
+    const Real gravity = std::max(length(g.world.gravity), 1.0_r);
+    if (dof >= DofRx) {
+        drive.stiffness = std::max(mass * gravity * d / 0.0175_r, 10.0_r);
+        drive.damping = 2 * std::sqrt(drive.stiffness * mass * (d * d + reach * reach / 12));
+    } else {
+        drive.stiffness = std::max(mass * gravity / 0.002_r, 100.0_r);
+        drive.damping = 2 * std::sqrt(drive.stiffness * mass);
+    }
+}
+
 // assembly_actuator: a hinge or a slider with a servo tuned to what it carries, put where the two meet - what a person
 // means by "join these two with a motor". The anchor: given, else between the two boxes' nearest points (the link's
-// centre on the world). The servo holds the pose it is made in (target 0) and droops under gravity by a degree at most
-// (a turn: k = m g d / 0.0175 rad, d the link's centre off the axis; a travel: 2 mm, k = m g / 0.002), critically damped
-// (c = 2 sqrt(k I), I the link's inertia about the axis, m along a travel).
+// centre on the world). The servo (tuneServo) holds the pose it is made in, target 0.
 bool actuatorOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     const std::string kind = a["kind"].text("rotary");
     if (kind != "rotary" && kind != "linear") return e = "kind is rotary (a turn) or linear (a travel)", false;
@@ -267,22 +302,9 @@ bool actuatorOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
         if (x.id == id) j = &x;
     const int dof = j ? mainFreedom(*j) : -1;
     if (dof < 0) return e = "the joint has no free motion to drive", false;
-    link = findEntity(g, ea);
-    static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 1.0_r}; // box, sphere, cylinder, cone, plane, mesh
-    const Real mass = std::max(link->rigid.density * share[int(link->shape)] * link->size.x * link->size.y * link->size.z, 0.01_r);
-    const Vector3 centre = boxA.valid() ? boxA.center() : link->position, off = centre - anchor;
-    const Real d = std::max(length(off - axis * dot(off, axis)), 0.05_r), reach = maxComp(link->size);
     JointDrive& drive = j->dof[dof].drive;
     drive.enabled = true, drive.target = 0, drive.targetVelocity = 0, drive.constant = 0;
-    const Real gravity = std::max(length(g.world.gravity), 1.0_r);
-    if (rotary) {
-        const Real inertia = mass * (d * d + reach * reach / 12);
-        drive.stiffness = std::max(mass * gravity * d / 0.0175_r, 10.0_r);
-        drive.damping = 2 * std::sqrt(drive.stiffness * inertia);
-    } else {
-        drive.stiffness = std::max(mass * gravity / 0.002_r, 100.0_r);
-        drive.damping = 2 * std::sqrt(drive.stiffness * mass);
-    }
+    tuneServo(g, *j, dof, drive);
     r.set("id", id), r.set("joint", id), r.set("name", j->name);
     Value at = Value::list();
     for (int k = 0; k < 3; ++k) at.push(anchor[k]);
@@ -476,7 +498,8 @@ std::vector<SceneOp> assemblySceneOps() {
         return true;
     }, {}});
     ops.push_back({"assembly_attach", "A new link against a face of the target, joined to it at the face's centre (the magnet's click). "
-                   "axis: 0 and 1 across the face, 2 along its normal (a wheel)",
+                   "axis: 0 and 1 across the face, 2 along its normal (a wheel); the answer gives the joint's axis in the world. Answers id (the new "
+                   "link, as entity) and joint",
                    "{target: int, face: '+x'..'-z', joint?: 'hinge'|'weld'|'slider'|'ball'|'cylinder'|'universal'|'planar', axis?: 0|1|2, size?: [x,y,z], name?: str}",
                    {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         BoxFace f = BoxFace::PlusX;
@@ -484,7 +507,11 @@ std::vector<SceneOp> assemblySceneOps() {
         if (!t || !face(a["face"], f) || !kindOk(a["joint"])) return e = "needs a shape's id, a face and a known joint kind", false;
         const Attached done = attachToFace(g, t->id, f, linkLike(g, *t, a), JointType::Hinge, a["axis"].integer(0));
         setKind(g, done.joint, a["joint"]);
-        return r.set("entity", done.entity), r.set("joint", done.joint), true;
+        Vector3 at, axis; // the joint's axis in the world: no second call to learn which way the link turns
+        if (const JointObject* j = findJoint(g, done.joint)) jointWorldFrame(g, *j, at, axis);
+        Value along = Value::list();
+        for (int k = 0; k < 3; ++k) along.push(axis[k]);
+        return r.set("id", done.entity), r.set("entity", done.entity), r.set("joint", done.joint), r.set("axis", along), true;
     }});
     ops.push_back({"assembly_joint", "A joint between two shapes (b 0: the world) at a world point along a world direction. A shape that "
                                      "is geometry only becomes a body - a, the moving link, rigid; b, what it hangs on, rigid and fixed - "
@@ -499,7 +526,7 @@ std::vector<SceneOp> assemblySceneOps() {
         const uint32_t joint = addJoint(g, JointType::Hinge, ea, eb, anchor, axis);
         setKind(g, joint, a["type"]);
         if (const std::string note = bodiesForJoint(g, ea, eb); !note.empty()) r.set("note", note); // geometry alone is never built
-        return r.set("joint", joint), true;
+        return r.set("id", joint), r.set("joint", joint), true;
     }});
     ops.push_back({"assembly_actuator", "Join two shapes with a motor in one step: a hinge (rotary) or a slider (linear) along a world "
                                         "axis, put where they meet (anchor: else between their nearest points), with a servo tuned to "

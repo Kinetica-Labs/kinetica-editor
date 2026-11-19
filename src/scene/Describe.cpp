@@ -58,12 +58,19 @@ const DriverObject* driverOf(const SceneGraph& g, uint32_t joint) {
 
 // The joint's axis in its carrier's frame, in words ("ось вверх"): the main freedom's axis of frame b,
 // which the joint keeps in b's own frame.
-std::string axisWords(const JointObject& j, int main) {
-    SceneObject turn;
-    turn.rotationDeg = j.frameB;
+// The axis in words and as the world's axis it lies along ("ось вправо (+z мира)"; off every axis: its vector).
+std::string axisWords(const SceneGraph& g, const JointObject& j, int main) {
+    Vector3 originA, originB;
+    Quaternion frameA, frameB;
+    jointWorldFrames(g, j, originA, frameA, originB, frameB);
     Vector3 e(0.0_r);
     e[main % 3] = 1;
-    return std::string("ось ") + direction(objectRotation(turn).rotate(e));
+    const Vector3 v = frameB.rotate(e);
+    int k = 0;
+    for (int i = 1; i < 3; ++i)
+        if (std::fabs(v[i]) > std::fabs(v[k])) k = i;
+    const std::string world = std::fabs(v[k]) > 0.999_r ? std::string(v[k] > 0 ? "+" : "-") + char('x' + k) : "[" + num(v.x) + ", " + num(v.y) + ", " + num(v.z) + "]";
+    return std::string("ось ") + direction(v) + " (" + world + " мира)";
 }
 
 std::string jointWords(const SceneGraph& g, const JointObject& j) {
@@ -77,7 +84,7 @@ std::string jointWords(const SceneGraph& g, const JointObject& j) {
     const std::string id = " (сочленение #" + std::to_string(j.id) + ")";
     if (main < 0) return s + id;
     const JointFreedom& f = j.dof[main];
-    s += ", " + axisWords(j, main);
+    s += ", " + axisWords(g, j, main);
     if (f.motion == JointMotion::Limited) s += ", ход " + num(f.lower) + " … " + num(f.upper) + (main >= DofRx ? " рад" : " м");
     if (f.drive.enabled && f.drive.constant > 0) s += ", мотор постоянного тока " + num(f.drive.voltage, 1) + " В";
     else if (f.drive.enabled && f.drive.stiffness > 0)

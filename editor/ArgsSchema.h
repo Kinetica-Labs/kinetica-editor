@@ -18,5 +18,5 @@
 
 QJsonObject argsSchema(const QString& argsLine);
 // What is wrong with a call's arguments against the schema (empty: nothing): a field it does not have, a value not of
-// its type, a word not of its list. Fields starting with '_' (the console's `_py`) are the transport's, never refused.
+// its type, a word not of its list - every one, joined by "; ". Fields starting with '_' (the console's `_py`) are the transport's, never refused.
 QString argsProblem(const QJsonObject& args, const QJsonObject& schema);
