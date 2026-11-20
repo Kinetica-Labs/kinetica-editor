@@ -252,8 +252,12 @@ class Turbine:
     ke::SceneGraph back;
     std::string error;
     const size_t line = text.find("component turbines.turbine ");
-    const bool kept = line != std::string::npos && text.find(" radius 2", line) < text.find('\n', line) && back.load(text, error) && back.save() == text;
-    std::printf("  the plugin gone: «%s»; the scene keeps its words %s\n", qPrintable(note.left(80)), kept ? "yes" : "no");
+    // Its line as written, the radius the mouse set (to the pixel it was dragged to), and the scene read back the same.
+    const std::string words = line == std::string::npos ? std::string() : text.substr(line, text.find('\n', line) - line);
+    const size_t at = words.find(" radius ");
+    const double written = at == std::string::npos ? 0 : QByteArray::fromStdString(words.substr(at + 8)).split(' ').first().toDouble();
+    const bool kept = std::fabs(written - 2.0) < 0.03 && back.load(text, error) && back.save() == text;
+    std::printf("  the plugin gone: «%s»; the scene keeps its words %s: «%s»\n", qPrintable(note.left(80)), kept ? "yes" : "no", words.c_str());
     c.check(note.contains("не запущен") && kept, "its plugin gone, the card says so and the scene keeps the component to the bit");
 }
 
@@ -803,12 +807,13 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     const auto heard = QObject::connect(host, &PluginHost::output, [&printed](const QString& p, const QString& line) { printed << p + ": " + line; });
     const QString second = dir.path() + "/Мой плагин";
     QDir().mkpath(second);
-    write(second + "/plugin.py", "import threading\nfrom kinetica.plugin import command\n\nprint('привет из плагина')\n\n\n"
+    write(second + "/plugin.py", "import sys\nimport threading\nfrom kinetica.plugin import command\n\nprint('привет из плагина')\n"
+                                 "sys.stdout.write('строка Windows\\r\\n')\n\n\n"
                                  "@command(label='Ничего')\ndef nothing(scene):\n    return {}\n\n\n"
                                  "def worker():\n    raise KeyError('нет такого')\n\n\nthreading.Timer(0.5, worker).start()\n");
     host->start(true);
     const bool named = waitUntil([&] { return action(w, "plugin:moy_plagin_nothing") != nullptr; }, 10000);
-    const bool heardIt = waitUntil([&] { return printed.contains("moy_plagin: привет из плагина"); }, 3000);
+    const bool heardIt = waitUntil([&] { return printed.contains("moy_plagin: привет из плагина") && printed.contains("moy_plagin: строка Windows"); }, 3000);
     QString background;
     waitUntil([&] {
         if (auto* x = w.findChild<QLabel*>("pluginNoticeText"); x && x->isVisible() && x->text().contains("в фоне")) background = x->text();

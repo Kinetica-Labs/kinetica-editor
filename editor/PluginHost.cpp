@@ -268,7 +268,8 @@ void PluginHost::launch(Plugin& p) {
         Plugin* q = find(name);
         if (!q || !q->process) return;
         bool fell = false;
-        for (const QByteArray& raw : q->process->readAllStandardOutput().split('\n')) {
+        for (QByteArray raw : q->process->readAllStandardOutput().split('\n')) {
+            if (raw.endsWith('\r')) raw.chop(1); // Windows' Python ends a line with \r\n
             const QString line = QString::fromUtf8(raw).trimmed().isEmpty() ? QString() : QString::fromUtf8(raw);
             if (line.isEmpty()) continue;
             q->stderrTail << line;

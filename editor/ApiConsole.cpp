@@ -261,7 +261,7 @@ bool ApiConsole::startPython() {
 void ApiConsole::readPython() {
     pending_ += python_->readAllStandardOutput();
     for (int at = pending_.indexOf('\n'); at >= 0; at = pending_.indexOf('\n')) {
-        const QString line = QString::fromUtf8(pending_.left(at));
+        const QString line = QString::fromUtf8(pending_.left(at > 0 && pending_.at(at - 1) == '\r' ? at - 1 : at)); // Windows: \r\n
         pending_.remove(0, at + 1);
         if (line == "\x1e") continue; // the end of a line's answer
         appendLog(log_, QString("<span style='color:%1'>&nbsp;&nbsp;%2</span>").arg(line.startsWith("✗") ? "#ff7b72" : "#d0d4da", line.toHtmlEscaped()));
