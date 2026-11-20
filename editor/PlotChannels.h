@@ -13,16 +13,12 @@
 //      -> «Кадр: шаг физики», мс).
 // A channel without a part ("Высота, м") is the scene's own: «Сцена», its unit read after the last comma.
 //
-// Colours: the eight dark-surface slots of the validated categorical palette (the dataviz skill's
-// reference palette, checked with its validator on this chart surface #1c1e23: every adjacent pair
-// CVD ΔE ≥ 8.4, normal-vision ΔE ≥ 19.3, every slot ≥ 3:1 against the surface), in this fixed
-// order. A channel takes a slot when it is first shown and keeps it while it is shown; hidden, it
+// Colours: the slots of the charts' palette in their fixed order (TrackChart.h). A channel takes a slot
+// when it is first shown and keeps it while it is shown; hidden, it
 // gives the slot back - and gets the same one again when it returns, unless another channel took
 // it meanwhile. So the tracks on screen use the first slots, and switching one track on or off
-// never repaints the others. A ninth track at once takes slot 1 again with a dashed line, a
-// seventeenth with a dotted one: composite encoding, never a generated ninth hue. Lines drawn on
-// top of each other can bring any two slots together; the legend, the direct labels and the hover
-// tooltip carry the names, so identity is never colour alone.
+// never repaints the others. Lines drawn on top of each other can bring any two slots together; the
+// legend, the direct labels and the hover tooltip carry the names, so identity is never colour alone.
 #include "sim/Channels.h"
 
 #include <QColor>
@@ -73,7 +69,3 @@ private:
     std::map<std::string, int> lastSlot_; // the slot each channel had last (it gets it back if free)
     std::vector<std::string> pinned_;
 };
-
-// A number for people: a decimal comma and `significant` digits (no trailing zeros); the very large
-// and the very small as «1,5·10⁻⁶» - a power in superscript, never the programmer's «1.5e-06».
-QString numberText(double v, int significant = 4);

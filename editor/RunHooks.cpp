@@ -8,6 +8,7 @@
 #include <QTcpSocket>
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 
@@ -122,7 +123,7 @@ void RunHooks::count() {
 
 void RunHooks::tell(const QString& event, const QJsonObject& args, std::function<void(QJsonObject)> done) {
     const int call = ++nextCall_;
-    Round round{event, 0, {}, std::move(done)};
+    Round round{event, args.value("time").toDouble(std::nan("")), 0, {}, std::move(done)};
     for (Wire& w : wires_) {
         if (!w.hooks.contains(event) || w.owed.size() >= kOwedMost) continue;
         QJsonObject given = args; // the truth of the bodies only to a physics plugin; a controller sees its sensors
@@ -151,6 +152,7 @@ void RunHooks::answered(Wire& w, const QJsonObject& answer) {
         const QJsonObject commands = answer.value("commands").toObject();
         for (auto it = commands.begin(); it != commands.end(); ++it) round->second.commands.insert(it.key(), it.value());
         if (const QJsonArray pictures = answer.value("draw").toArray(); !pictures.isEmpty()) emit drew(w.plugin, event, pictures);
+        if (const QJsonObject values = answer.value("show").toObject(); !values.isEmpty()) emit showed(w.plugin, event, round->second.time, values);
     }
     settle(call);
 }

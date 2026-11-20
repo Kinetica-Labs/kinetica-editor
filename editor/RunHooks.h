@@ -4,14 +4,14 @@
 // hands a stepped frame's packet here (SimController::setLockstep), this thread writes it to every plugin's wire and
 // reads the answers, and their merged commands go back to the simulation's thread. The window's thread is not in the
 // loop: it waits for the screen at every paint, and a tick that woke it three times cost 33-61 ms a frame (measured,
-// UR5e, an empty on_tick). What the window does with an answer - its pictures over the view, its error on the banner -
-// comes to it as signals, after the fact. The commands of a plugin (plugin_wait, PluginHost.h) stay on the API's wire.
+// UR5e, an empty on_tick). What the window does with an answer - its pictures over the view, its panel's values, its
+// error on the banner - comes to it as signals, after the fact. The commands of a plugin (plugin_wait, PluginHost.h) stay on the API's wire.
 //
 // The wire, JSON lines on 127.0.0.1: a plugin with a hook connects to port() (KE_RUN_PORT of its process) and says who
 // it is - {"name", "token", "hooks": ["play", "tick", "tick:world", "stop"]} -, answered {"ok": true}. Then one line each
 // way an event: {"call": n, "event": "tick", "args": {time, dt, frame, sensors, bodies?}} out, and back
-// {"call": n, "commands": {id: {target | velocity | duty | force, torque}}, "draw": [...]} or {"call": n, "error":
-// "plugin.py:12: ..."}. One plugin's events go down one wire in order: play, every tick, stop.
+// {"call": n, "commands": {id: {target | velocity | duty | force, torque}}, "draw": [...], "show": {name: value}?} or
+// {"call": n, "error": "plugin.py:12: ..."}. One plugin's events go down one wire in order: play, every tick, stop.
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
@@ -45,6 +45,8 @@ public:
 
 signals:
     void drew(const QString& plugin, const QString& event, const QJsonArray& pictures); // what a hook drew (kinetica.plugin.draw)
+    // What a hook showed on its plugin's panel (kinetica.plugin.show), and its frame's time (NaN: not a frame's hook).
+    void showed(const QString& plugin, const QString& event, double time, const QJsonObject& values);
     void failed(const QString& plugin, const QString& event, const QString& error);     // the author's mistake, with its line
 
 private:
@@ -56,6 +58,7 @@ private:
     };
     struct Round {
         QString event;
+        double time = 0; // of the frame it is about (NaN: none)
         int waiting = 0;
         QJsonObject commands;
         std::function<void(QJsonObject)> done;

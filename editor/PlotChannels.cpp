@@ -1,15 +1,11 @@
 // The plots' catalogue of channels: name cards and colours (see PlotChannels.h).
 #include "PlotChannels.h"
 
+#include "TrackChart.h"
+
 #include <algorithm>
-#include <array>
-#include <cmath>
 
 namespace {
-
-// The validated categorical order, dark-surface steps (see the file head of PlotChannels.h).
-const std::array<QColor, 8> kSlots = {QColor("#3987e5"), QColor("#d95926"), QColor("#199e70"), QColor("#c98500"),
-                                      QColor("#d55181"), QColor("#008300"), QColor("#9085e9"), QColor("#e66767")};
 
 struct FixedCard {
     const char* id;
@@ -153,29 +149,6 @@ void PlotCatalog::releaseAllBut(const std::vector<std::string>& onScreen) {
     }
 }
 
-QString numberText(double v, int significant) {
-    if (!std::isfinite(v)) return "—";
-    if (v == 0) return "0";
-    const double a = std::fabs(v);
-    const int power = int(std::floor(std::log10(a)));
-    if (a >= 1e-3 && a < 1e5) {
-        QString s = QString::number(v, 'f', std::max(0, significant - 1 - power));
-        if (s.contains('.')) {
-            while (s.endsWith('0')) s.chop(1);
-            if (s.endsWith('.')) s.chop(1);
-        }
-        return s.replace('.', ',');
-    }
-    static const QString superscript = QString::fromUtf8("⁰¹²³⁴⁵⁶⁷⁸⁹");
-    QString exponent = power < 0 ? QString::fromUtf8("⁻") : QString();
-    for (const QChar c : QString::number(std::abs(power))) exponent += superscript[c.digitValue()];
-    return numberText(v / std::pow(10.0, power), std::max(1, significant - 1)) + QString::fromUtf8("·10") + exponent;
-}
+QColor PlotCatalog::color(const std::string& id) { return plotSlotColor(slotOf(id)); }
 
-QColor PlotCatalog::color(const std::string& id) { return kSlots[size_t(slotOf(id)) % kSlots.size()]; }
-
-// Solid for the first eight channels, dashed for the next eight, dotted after that.
-Qt::PenStyle PlotCatalog::lineStyle(const std::string& id) {
-    static const Qt::PenStyle styles[] = {Qt::SolidLine, Qt::DashLine, Qt::DotLine};
-    return styles[(size_t(slotOf(id)) / kSlots.size()) % 3];
-}
+Qt::PenStyle PlotCatalog::lineStyle(const std::string& id) { return plotSlotStyle(slotOf(id)); }

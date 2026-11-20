@@ -4,12 +4,14 @@
 // given; its panel - a tab of the inspector - runs it with the panel's field and shows the value it set; an error in a command answers with the author's file and line; the file saved, the plugin is back within a
 // few seconds with its new words; a plugin that falls over at its line 3 says so on the status bar - and the editor goes on.
 // A field that is an object of the scene - in a command's form, on a component's card -, and the controller's template.
+// A chart of a plugin's panel: its lines from what on_tick shows, a point a frame.
 #include "SelfTestSupport.h"
 
 #include "EditorOps.h"
 #include "MainWindow.h"
 #include "PluginHost.h"
 #include "Resources.h"
+#include "TrackChart.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -347,6 +349,70 @@ def mark(scene, dt, sensors):
                 "its pictures too %s\n", ticking ? "yes" : "no", gone ? "yes" : "no", api ? "yes" : "no", withPlugin ? "yes" : "no");
     c.check(ticking && gone && api && withPlugin, "on_tick draws while the scene plays, gone at Stop; view_draw for any client; a plugin's "
                                                   "pictures go with it");
+}
+
+// A plugin's chart (ui.chart): lines over the run's time, drawn by the editor from what the plugin shows in on_tick - a
+// point a frame at that frame's time, with the frame's answer; the same value is a word of the panel; a new run is a new
+// history; the plugin gone, its panel too.
+void testChart(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/meter");
+    write(folder + "/meter/plugin.py", R"py(from kinetica.plugin import on_play, on_tick, show, ui
+
+clock = 0.0
+
+ui.panel("Счётчик", ui.chart("Время кадра", {"clock": "время", "half": "половина"}, unit="с"), ui.value("clock", "Сейчас"), place="bottom")
+
+
+@on_play
+def start(scene):
+    global clock
+    clock = 0.0
+
+
+@on_tick
+def count(scene, dt, sensors):
+    global clock
+    clock += dt
+    show(clock=clock, half=clock / 2)
+)py");
+    host->start(true);
+    TrackChart* chart = nullptr;
+    waitUntil([&] { return (chart = w.findChild<TrackChart*>("pluginChart")) != nullptr && host->ticking(); }, 10000);
+    if (!chart) return c.check(false, "a plugin's chart comes with its panel"), void();
+    b.newScene();
+    ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 1.0, 0.0}}, {"role", "rigid"}});
+    const PlotSeries* line = chart->tracks().size() == 2 ? chart->tracks()[0].series : nullptr;
+    const PlotSeries* half = line ? chart->tracks()[1].series : nullptr;
+    const auto run = [&](int frames) {
+        QJsonObject stepped;
+        ops->run("sim_step", {{"frames", frames}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+        waitUntil([&] { return !stepped.isEmpty(); }, 20000);
+        waitUntil([&] { return line && line->size() == size_t(frames) + 1; }, 3000); // the answers come after the fact
+        pump(100);                                                                    // and the panel follows at 25 a second
+    };
+    run(30);
+    // A point a frame, the starting one too, at the frame's time: the plugin's clock runs one step ahead of it (the
+    // simulation's time is a float's sum of steps: the two agree to its rounding).
+    bool timed = line && line->size() == 31 && half->size() == 31 && line->time(0) == 0;
+    for (size_t k = 1; timed && k < line->size(); ++k)
+        timed = line->time(k) > line->time(k - 1) && std::fabs((line->value(k) - line->value(k - 1)) - (line->time(k) - line->time(k - 1))) < 1e-6 &&
+                std::fabs(half->value(k) * 2 - line->value(k)) < 1e-12;
+    auto* word = w.findChild<QLabel*>("pluginValue_clock");
+    const QString said = word ? word->text() : QString();
+    const bool worded = line && line->size() > 0 && said == "Сейчас: " + QString::number(line->latest(), 'g', 6);
+    const auto [from, to] = chart->timeRange();
+    const bool framed = line && line->size() > 0 && from == 0 && std::fabs(to - line->time(line->size() - 1)) < 1e-9 && chart->title() == "Время кадра, с";
+    std::printf("  a plugin's chart «%s»: %zu lines, %zu points over %.3f s after 30 frames, in step with the frames %s; the word «%s»\n",
+                qPrintable(chart->title()), chart->tracks().size(), line ? line->size() : 0, to, timed ? "yes" : "no", qPrintable(said));
+    c.check(timed && framed, "a plugin's chart: what on_tick shows is a point of its line at that frame's time, a frame each");
+    c.check(worded, "the value a chart draws is a word of the panel too: one show() for both");
+    b.stop();
+    pump(100);
+    run(10);
+    c.check(line && line->size() == 11 && line->time(0) == 0, "a new run is a new history of the chart");
+    b.stop();
+    QDir(folder + "/meter").removeRecursively();
+    c.check(waitUntil([&] { return w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000), "the plugin gone, its chart goes with its panel");
 }
 
 // A robot from URDF (plugins/urdf, the editor's own plugin; examples/robot-arm.urdf): «Импорт…» lists the format, the
@@ -779,6 +845,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testRunHooks(c, b, ops, host, dir.path());
     testComponents(c, w, b, v, ops, host, dir.path());
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
+    testChart(c, w, b, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
     testGizmos(c, w, b, v, ops, host, dir.path());

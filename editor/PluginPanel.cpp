@@ -2,6 +2,7 @@
 #include "PluginPanel.h"
 
 #include "InspectorWidgets.h"
+#include "TrackChart.h"
 
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -9,9 +10,15 @@
 #include <QLabel>
 #include <QLineEdit>
 #include <QPushButton>
+#include <QTimer>
+#include <QToolTip>
 #include <QVBoxLayout>
 
 #include <algorithm>
+
+namespace {
+constexpr double kLiveSeconds = 60.0; // a chart shows the run's last minute, sliding
+}
 
 PluginPanel::PluginPanel(const QJsonObject& d, std::function<void(const QString&, const QJsonObject&)> press, QWidget* parent)
     : QWidget(parent), press_(std::move(press)) {
@@ -20,8 +27,12 @@ PluginPanel::PluginPanel(const QJsonObject& d, std::function<void(const QString&
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(8, 8, 8, 8);
     col->setSpacing(6);
+    soon_ = new QTimer(this);
+    soon_->setSingleShot(true);
+    soon_->setInterval(40);
+    connect(soon_, &QTimer::timeout, this, [this] { refresh(); });
     for (const QJsonValue& c : d.value("children").toArray()) build(c.toObject(), col);
-    col->addStretch(1);
+    if (charts_.empty()) col->addStretch(1); // a chart takes the room there is
     refresh();
 }
 
@@ -96,6 +107,24 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
         texts_.push_back({name, line});
         connect(line, &QLineEdit::textEdited, this, [this, name](const QString& t) { values_.insert(name, t); });
         into->addWidget(line);
+    } else if (kind == "chart") {
+        auto* chart = new TrackChart(this);
+        chart->setObjectName("pluginChart");
+        const QString unit = n.value("unit").toString();
+        chart->setTitle(n.value("title").toString() + (unit.isEmpty() ? QString() : ", " + unit), false); // «Ошибка привода, рад»
+        chart->setEmptyText("линии появятся после ▶");
+        std::vector<PlotTrack> tracks;
+        for (const QJsonValue& v : n.value("lines").toArray()) {
+            const QString line = v.toObject().value("name").toString();
+            const int slot = int(tracks.size());
+            tracks.push_back({line.toStdString(), v.toObject().value("label").toString(line), unit, plotSlotColor(slot), plotSlotStyle(slot),
+                              &lines_[line], false});
+        }
+        chart->setTracks(std::move(tracks));
+        connect(chart, &TrackChart::hovered, this, [this, chart](double t, QPoint at, int track) { hover(chart, t, at, track); });
+        connect(chart, &TrackChart::hoverLeft, this, [this] { hover(nullptr, std::nan(""), {}, -1); });
+        charts_.push_back(chart);
+        into->addWidget(chart, 1);
     } else if (kind == "button") {
         auto* b = new QPushButton(n.value("label").toString(n.value("command").toString()), this);
         b->setObjectName("pluginButton_" + n.value("command").toString());
@@ -105,9 +134,26 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
     }
 }
 
-void PluginPanel::setValues(const QJsonObject& values) {
+void PluginPanel::setValues(const QJsonObject& values, double time) {
     for (auto it = values.begin(); it != values.end(); ++it) values_.insert(it.key(), it.value());
-    refresh();
+    if (!std::isfinite(time)) return refresh();
+    if (time < now_) // the time went back: a new run, a new history
+        for (auto& [name, line] : lines_) line.clear();
+    now_ = time;
+    for (auto& [name, line] : lines_)
+        if (const QJsonValue v = values.value(name); v.isDouble()) line.add(time, v.toDouble());
+    if (!soon_->isActive()) soon_->start();
+}
+
+// The mouse over a chart: the dashed line and the dots on every chart of the panel, the line under it in words -
+// «Ошибка: 0,02 рад в 2,40 с». Off the charts (no chart): gone.
+void PluginPanel::hover(TrackChart* chart, double t, QPoint at, int track) {
+    for (TrackChart* c : charts_) c->setHoverTime(t);
+    const PlotTrack* line = chart && track >= 0 && track < int(chart->tracks().size()) ? &chart->tracks()[size_t(track)] : nullptr;
+    const double v = line ? line->series->valueAt(t) : std::nan("");
+    if (!std::isfinite(v)) return QToolTip::hideText();
+    const QString value = numberText(v) + (line->unit.isEmpty() ? QString() : " " + line->unit);
+    QToolTip::showText(at + QPoint(14, 12), QString("%1: %2 в %3 с").arg(line->name, value, QString::number(t, 'f', 2).replace('.', ',')), chart);
 }
 
 void PluginPanel::refresh() {
@@ -120,4 +166,9 @@ void PluginPanel::refresh() {
     }
     for (auto& [name, line] : texts_)
         if (line->text() != values_.value(name).toString()) line->setText(values_.value(name).toString());
+    const double from = std::max(0.0, now_ - kLiveSeconds);
+    for (TrackChart* c : charts_) {
+        c->setWindow(from, std::max(now_, from + 1e-3));
+        c->refresh();
+    }
 }

@@ -1,8 +1,6 @@
 // One chart of the plots: lines of one unit over a window of time, drawn by hand (see TrackChart.h).
 #include "TrackChart.h"
 
-#include "PlotChannels.h"
-
 #include <QContextMenuEvent>
 #include <QFontMetricsF>
 #include <QMouseEvent>
@@ -10,6 +8,37 @@
 #include <QPolygonF>
 
 #include <algorithm>
+#include <array>
+
+QColor plotSlotColor(int slot) {
+    static const std::array<QColor, 8> palette = {QColor("#3987e5"), QColor("#d95926"), QColor("#199e70"), QColor("#c98500"),
+                                                  QColor("#d55181"), QColor("#008300"), QColor("#9085e9"), QColor("#e66767")};
+    return palette[size_t(slot) % palette.size()];
+}
+
+Qt::PenStyle plotSlotStyle(int slot) {
+    static const Qt::PenStyle styles[] = {Qt::SolidLine, Qt::DashLine, Qt::DotLine};
+    return styles[(size_t(slot) / 8) % 3];
+}
+
+QString numberText(double v, int significant) {
+    if (!std::isfinite(v)) return "—";
+    if (v == 0) return "0";
+    const double a = std::fabs(v);
+    const int power = int(std::floor(std::log10(a)));
+    if (a >= 1e-3 && a < 1e5) {
+        QString s = QString::number(v, 'f', std::max(0, significant - 1 - power));
+        if (s.contains('.')) {
+            while (s.endsWith('0')) s.chop(1);
+            if (s.endsWith('.')) s.chop(1);
+        }
+        return s.replace('.', ',');
+    }
+    static const QString superscript = QString::fromUtf8("⁰¹²³⁴⁵⁶⁷⁸⁹");
+    QString exponent = power < 0 ? QString::fromUtf8("⁻") : QString();
+    for (const QChar c : QString::number(std::abs(power))) exponent += superscript[c.digitValue()];
+    return numberText(v / std::pow(10.0, power), std::max(1, significant - 1)) + QString::fromUtf8("·10") + exponent;
+}
 
 namespace {
 

@@ -30,6 +30,17 @@
 #include <utility>
 #include <vector>
 
+// The lines' colours: the eight dark-surface slots of the validated categorical palette (the dataviz skill's
+// reference palette, checked with its validator on this chart surface #1c1e23: every adjacent pair CVD ΔE ≥ 8.4,
+// normal-vision ΔE ≥ 19.3, every slot ≥ 3:1 against the surface), in this fixed order. A ninth line takes slot 1
+// again with a dashed line, a seventeenth with a dotted one: composite encoding, never a generated ninth hue.
+QColor plotSlotColor(int slot);
+Qt::PenStyle plotSlotStyle(int slot);
+
+// A number for people: a decimal comma and `significant` digits (no trailing zeros); the very large
+// and the very small as «1,5·10⁻⁶» - a power in superscript, never the programmer's «1.5e-06».
+QString numberText(double v, int significant = 4);
+
 // One line of a chart.
 struct PlotTrack {
     std::string id;                        // the channel (never shown: the name is)

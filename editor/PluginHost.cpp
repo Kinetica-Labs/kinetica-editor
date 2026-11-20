@@ -141,6 +141,7 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
       place_(std::move(place)), watcher_(new QFileSystemWatcher(this)) {
     connect(hooks_, &RunHooks::drew, this, &PluginHost::hookDrew);
     connect(hooks_, &RunHooks::failed, this, &PluginHost::hookFailed);
+    connect(hooks_, &RunHooks::showed, this, &PluginHost::hookShowed);
     ops_->setUnknownHint([this](const QString& op) -> QString { // a command of a plugin that is down: why, and what to do
         for (const auto& p : plugins_) {
             if (!op.startsWith(p->name + "_")) continue;
@@ -451,6 +452,12 @@ void PluginHost::hookDrew(const QString& name, const QString& event, const QJson
             q->hookError = "draw: " + a.value("error").toString();
             emit output(name, q->hookError);
         }, "plugin:" + name);
+}
+
+// What a hook showed on its plugin's panel: with its frame's time, so a chart's lines take a point there.
+void PluginHost::hookShowed(const QString& name, const QString& event, double time, const QJsonObject& values) {
+    if (event == "tick" && builder_->editing()) return; // a late frame's values after Stop: none
+    if (Plugin* p = find(name); p && p->panel) p->panel->setValues(values, time);
 }
 
 void PluginHost::hookFailed(const QString& name, const QString& event, const QString& error) {

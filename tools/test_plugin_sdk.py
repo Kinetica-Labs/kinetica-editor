@@ -2,7 +2,8 @@
 editor's form and MCP read (type, default, unit, range, choices, the label's words, in the function's order); a plain
 default is a field too; an error points at the author's file and line, not at the SDK's; the hooks of a run answer on
 their own wire (editor/RunHooks.h) - who the plugin is first, then play, every tick and stop in order, a tick's commands
-merged, the bodies' truth only to a hook of the physics, a hook's mistake with its line."""
+merged, the bodies' truth only to a hook of the physics, a hook's mistake with its line; a chart of the panel is data, and
+what a hook shows on the panel goes with its frame's answer."""
 import json
 import os
 import socket
@@ -11,7 +12,7 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
 from kinetica import plugin  # noqa: E402
-from kinetica.plugin import command, field, on_play, on_stop, on_tick  # noqa: E402
+from kinetica.plugin import command, field, on_play, on_stop, on_tick, show, ui  # noqa: E402
 
 ran = []  # the run's hooks, as they were called
 
@@ -29,7 +30,11 @@ def control(scene, dt, sensors):
 
 @on_tick(world=True)
 def wind(scene, dt, bodies):
+    show(pushed=bodies[3]["mass"])
     return {3: {"force": [bodies[3]["mass"], 0, 0]}}
+
+
+ui.panel("Ветер", ui.chart("Сила", {"pushed": "по x"}, unit="Н"), place="bottom")
 
 
 @on_stop
@@ -79,6 +84,11 @@ class PluginSdk(unittest.TestCase):
                                  {"circle": {"centre": [0.0, 0.0, 0.0], "radius": 1.0, "axis": [1.0, 1.0, 0.0]}},
                                  {"box": {"centre": [0.0, 0.5, 0.0], "size": [1.0, 1.0, 2.0]}}])
 
+    def test_chart_is_data(self):
+        self.assertEqual(plugin._panel["children"], [{"kind": "chart", "title": "Сила", "lines": [{"name": "pushed", "label": "по x"}], "unit": "Н"}])
+        self.assertEqual(ui.chart("Углы", ["a", "b"])["lines"], [{"name": "a", "label": "a"}, {"name": "b", "label": "b"}])
+        show(pushed=1.0)  # no editor and no hook running: nowhere to say it, and no mistake
+
     def test_error_points_at_author(self):
         try:
             row(None, count="x") + 1  # a dict plus an int: the author's own line
@@ -115,7 +125,8 @@ class PluginSdk(unittest.TestCase):
 
         self.assertEqual(event(1, "play"), {"call": 1, "commands": {}, "draw": []})
         answer = event(2, "tick", dt=0.016, sensors=[{"id": 5, "kind": "encoder", "reading": 0.25}], bodies={"3": {"mass": 2.0}})
-        self.assertEqual(answer, {"call": 2, "commands": {"7": {"target": 0.5}, "3": {"force": [2.0, 0, 0]}}, "draw": []})
+        self.assertEqual(answer, {"call": 2, "commands": {"7": {"target": 0.5}, "3": {"force": [2.0, 0, 0]}}, "draw": [],
+                                  "show": {"pushed": 2.0}})  # what the hook showed on the panel: with the frame's answer
         wrong = event(3, "tick", dt=0.016, sensors=[], bodies={"3": {"mass": 2.0}})
         self.assertEqual(wrong["call"], 3)
         self.assertRegex(wrong["error"], r"^test_plugin_sdk\.py:\d+: KeyError: 5$")

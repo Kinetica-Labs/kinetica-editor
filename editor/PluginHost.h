@@ -105,6 +105,7 @@ private:
     QString refProblem(const QJsonObject& fields, const QJsonObject& args) const;
     void hookDrew(const QString& plugin, const QString& event, const QJsonArray& pictures); // a hook's answer, after the fact:
     void hookFailed(const QString& plugin, const QString& event, const QString& error);     // its pictures, its error (RunHooks.h)
+    void hookShowed(const QString& plugin, const QString& event, double time, const QJsonObject& values); // its panel's values
     Plugin* find(const QString& name);
     Plugin* authorised(const QJsonObject& a, QJsonObject& refusal);
     void notice(const QString& plugin, const QString& text); // a fall on the window's status bar, with «Перезапустить»; empty: gone

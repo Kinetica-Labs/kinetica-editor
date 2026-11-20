@@ -186,7 +186,7 @@ def _xyz(points):
     return [[float(p[0]), float(p[1]), float(p[2])] for p in points]
 
 
-_frame = threading.local()  # the hook running on this thread collects its drawings here
+_frame = threading.local()  # the hook running on this thread collects its drawings and its panel's values here
 draw = _Draw()
 
 
@@ -288,6 +288,15 @@ class ui:
         return {"kind": "value", "name": name, "default": default, **({"label": label} if label else {})}
 
     @staticmethod
+    def chart(title, lines, unit=None):
+        """Lines over the run's time, drawn by the editor. A line is one of the panel's values: show(error=0.02) from
+        on_tick adds a point at that frame's time. `lines`: the values' names, or {name: the line's words}::
+
+            ui.chart("Ошибка привода", {"error": "ошибка", "trim": "поправка"}, unit="рад")"""
+        lines = lines if isinstance(lines, dict) else {name: name for name in lines}
+        return {"kind": "chart", "title": title, "lines": [{"name": n, "label": l} for n, l in lines.items()], **({"unit": unit} if unit else {})}
+
+    @staticmethod
     def button(command, label=None, help=None):
         name = command if isinstance(command, str) else command.__name__
         return {"kind": "button", "command": name, "label": label or _commands.get(name, {}).get("label", name), **({"help": help} if help else {})}
@@ -329,8 +338,14 @@ class ui:
 
 
 def show(**values):
-    """The panel's words and fields set from the plugin: a measured value, a state, a count."""
-    if _link:
+    """The panel's words and fields set from the plugin: a measured value, a state, a count. From a hook of the run
+    (on_tick) they go with the frame's answer, no call of their own, and a chart's lines take a point at that frame."""
+    batch = getattr(_frame, "shown", None)
+    if batch is not None:
+        if _panel is None:
+            raise RuntimeError("show: the plugin has no panel (ui.panel(...) in its file)")
+        batch.update(values)
+    elif _link:
         _link["client"].call("plugin_panel_set", name=_link["name"], token=_link["token"], values=values)
 
 
@@ -418,14 +433,14 @@ def _run_wire(scene, port, name, token):
         try:
             for line in lines:
                 call = json.loads(line)
-                _frame.draws = []
+                _frame.draws, _frame.shown = [], {}
                 try:
                     with _busy:
                         commands = _run_hooks(scene, call["event"], call.get("args", {}))
-                    say({"call": call["call"], "commands": commands, "draw": _frame.draws})
+                    say({"call": call["call"], "commands": commands, "draw": _frame.draws, **({"show": _frame.shown} if _frame.shown else {})})
                 except Exception as error:  # the author's mistake, with its line; the run goes on
                     say({"call": call["call"], "error": _where(error)})
-                _frame.draws = None
+                _frame.draws = _frame.shown = None
         except OSError:  # the editor closed the wire: the plugin is being stopped
             pass
 
