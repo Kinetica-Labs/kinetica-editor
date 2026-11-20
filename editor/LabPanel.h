@@ -19,6 +19,7 @@
 
 class LabCard;
 class ProfilerBar;
+class QAction;
 class QCheckBox;
 class QPushButton;
 class QVBoxLayout;
@@ -37,6 +38,9 @@ public:
     void applyPreset(const QString& name);
     // Switch these layers on (the others keep their state).
     QCheckBox* layerBox(ke::DrawLayer l) const;
+    // A row of a group that is the window's own drawing, not the engine's Probe: its checkbox is a checkable action (the
+    // colliders' wireframes, menu «Вид»), both always alike - what a person looks for among the drawings is there.
+    void addActionRow(const QString& group, QAction* action, const QColor& colour);
 
 signals:
 

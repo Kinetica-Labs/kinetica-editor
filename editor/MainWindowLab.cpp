@@ -79,6 +79,7 @@ void MainWindow::buildLaboratory() {
     labDock_ = new QDockWidget("Лаборатория", this);
     labDock_->setObjectName("labDock");
     lab_ = new LabPanel;
+    lab_->addActionRow("Тела", collidersAct_, QColor(110, 232, 130)); // the window's wireframes, among the engine's drawings
     labDock_->setWidget(lab_);
     labDock_->setMinimumWidth(290);
     addDockWidget(Qt::LeftDockWidgetArea, labDock_);

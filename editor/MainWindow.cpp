@@ -208,10 +208,11 @@ void MainWindow::buildLayoutActions() {
     graphsAct_->setShortcut(QKeySequence("F9")); // Ctrl+G is Group, as in Maya
     graphsAct_->setToolTip("Графики внизу (F9): любая величина сцены во времени");
     connect(graphsAct_, &QAction::toggled, this, &MainWindow::setGraphsVisible);
-    collidersAct_ = new QAction(roleIcon(RoleIcon::Collider, 20), "Коллайдеры", this);
+    collidersAct_ = new QAction(roleIcon(RoleIcon::Collider, 20), "Коллайдеры всех тел", this);
+    collidersAct_->setObjectName("actionColliders");
     collidersAct_->setCheckable(true);
-    collidersAct_->setToolTip("Показать, чем сталкивается каждый объект: тонкий зелёный каркас. "
-                              "Выбранный объект показывает свой всегда");
+    collidersAct_->setToolTip("Чем сталкивается каждое тело — то, что видит физика: зелёный каркас поверх модели (серый — у неподвижных). "
+                              "Выбранное тело показывает свой всегда");
     connect(collidersAct_, &QAction::toggled, builder_, &SceneBuilder::setShowAllColliders);
     auto* hud = new QAction("Счётчик кадров", this);
     hud->setObjectName("actionHud");

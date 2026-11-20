@@ -5,7 +5,9 @@
 #include "LabLayers.h"
 #include "ProfilerBar.h"
 
+#include <QAction>
 #include <QCheckBox>
+#include <QSignalBlocker>
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -144,6 +146,29 @@ void LabPanel::addGroup(QVBoxLayout* col, const QString& group) {
             setMask(on ? (ke::Probe::layers() | bit) : (ke::Probe::layers() & ~bit));
         });
         boxes_[int(layer.layer)] = box;
+    }
+}
+
+void LabPanel::addActionRow(const QString& group, QAction* action, const QColor& colour) {
+    for (QLabel* caption : findChildren<QLabel*>("labGroup")) {
+        auto* col = caption->text() == group && caption->parentWidget() ? qobject_cast<QVBoxLayout*>(caption->parentWidget()->layout()) : nullptr;
+        if (!col) continue;
+        auto* row = new QWidget;
+        auto* line = new QHBoxLayout(row);
+        line->setContentsMargins(6, 0, 2, 0);
+        auto* box = new QCheckBox(action->text());
+        box->setObjectName("labActionRow");
+        box->setToolTip(action->toolTip());
+        box->setChecked(action->isChecked());
+        line->addWidget(box, 1);
+        line->addWidget(new LayerSwatch({colour}, false));
+        col->insertWidget(col->indexOf(caption) + 1, row);
+        connect(box, &QCheckBox::toggled, action, &QAction::setChecked);
+        connect(action, &QAction::toggled, box, [box](bool on) {
+            const QSignalBlocker quiet(box);
+            box->setChecked(on);
+        });
+        return;
     }
 }
 
