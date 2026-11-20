@@ -214,7 +214,7 @@ void testTitleList(Checker& c, QMainWindow& w, const Plots& p, const QString& di
     std::printf("  the title's ▾ %s the list; after a click on «импульс» the chart is «%s»\n", opened ? "opens" : "does NOT open",
                 qPrintable(p.panel->views()[0]->title()));
     c.check(opened && switched, "a click on a chart's title opens its list; a row there switches the chart to that quantity");
-    p.panel->applyPreset("Сбросить");
+    p.panel->applyPreset(ChannelList::Preset::Reset);
     pump(80);
 }
 
@@ -252,7 +252,7 @@ void testContextMenu(Checker& c, QMainWindow& w, const Plots& p, const QString& 
                 p.panel->charts()[0].ids.size());
     c.check(added == 4 && removeText.contains("Энергия вращения", Qt::CaseInsensitive) && p.panel->charts()[0].ids.size() == 3,
             "the right click adds a line («Добавить величину…») and removes the line under the mouse («Убрать линию»)");
-    p.panel->applyPreset("Сбросить"); // the energy chart with its own title again
+    p.panel->applyPreset(ChannelList::Preset::Reset); // the energy chart with its own title again
     pump(80);
 }
 
@@ -333,7 +333,7 @@ void testNormalized(Checker& c, QMainWindow& w, const Plots& p, const QString& d
     c.check(fits, "«Нормировать»: every line on one chart, each scaled to 0 … 1");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-normalized.png");
     p.panel->setArrangement(PlotPanel::Arrangement::Overlay);
-    p.panel->applyPreset("Сбросить");
+    p.panel->applyPreset(ChannelList::Preset::Reset);
 }
 
 // --- 6. Thirty minutes ----------------------------------------------------------------------------

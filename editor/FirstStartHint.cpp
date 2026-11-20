@@ -1,6 +1,7 @@
 // The first-minute bubble (see FirstStartHint.h): an amber rounded box with a small arrow, drawn by
 // hand so the arrow can sit on the side that faces the target.
 #include "FirstStartHint.h"
+#include "UiLanguage.h"
 
 #include <QEvent>
 #include <QHBoxLayout>
@@ -32,7 +33,7 @@ FirstStartHint::FirstStartHint(QWidget* window) : QFrame(window, Qt::ToolTip | Q
     row->addWidget(text_, 1);
     close_ = new QToolButton;
     close_->setText("✕");
-    close_->setToolTip("Больше не показывать");
+    close_->setToolTip(uiText("Kinetica", "Больше не показывать"));
     close_->setAutoRaise(true);
     close_->setStyleSheet(QString("color: %1; border: none; font-size: 13px;").arg(kInk.name()));
     row->addWidget(close_, 0, Qt::AlignTop);

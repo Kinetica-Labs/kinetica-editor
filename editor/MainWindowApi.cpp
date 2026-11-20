@@ -1,6 +1,7 @@
 // The API of the window (MainWindow.h): the operations (EditorOps) made once, the magnet on top of
 // them, and the server that lets a script or an agent call them from outside.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 
 #include "ApiConsole.h"
 #include "EditorOps.h"
@@ -39,7 +40,7 @@ void MainWindow::buildOperators() {
 // script, the window and the user do, as Python lines, and the Python line to type in (ApiConsole.h) - the
 // window is one client of the API among others, and the line says so. The View menu brings it back.
 void MainWindow::buildConsoleDock() {
-    auto* dock = new QDockWidget("Консоль API", this);
+    auto* dock = new QDockWidget(uiText("Kinetica", "Консоль API"), this);
     dock->setObjectName("consoleDock");
     auto* console = new ApiConsole(ops_, dock);
     console->setApiPort([this] { return apiPort(); });
@@ -47,9 +48,9 @@ void MainWindow::buildConsoleDock() {
     addDockWidget(Qt::BottomDockWidgetArea, dock);
     if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock); // a tab behind the Sequencer's
     if (auto* view = menuBar()->findChild<QMenu*>("viewMenu")) {
-        QAction* show = view->addAction("Консоль API");
+        QAction* show = view->addAction(uiText("Kinetica", "Консоль API"));
         show->setObjectName("actionApiConsole");
-        show->setToolTip("Каждое действие агента, скрипта, окна и ваше — строкой Python; строка ввода для своих вызовов");
+        show->setToolTip(uiText("Kinetica", "Каждое действие агента, скрипта, окна и ваше — строкой Python; строка ввода для своих вызовов"));
         connect(show, &QAction::triggered, dock, [dock] {
             dock->show();
             dock->raise();
@@ -69,7 +70,7 @@ void MainWindow::showDrivenByApi() {
         if (!console->isVisible()) console->show();
     }
     if (!apiBanner_) {
-        apiBanner_ = new QLabel("АГЕНТ управляет редактором через API — не трогайте мышь и клавиши", view_);
+        apiBanner_ = new QLabel(uiText("Kinetica", "АГЕНТ управляет редактором через API — не трогайте мышь и клавиши"), view_);
         apiBanner_->setObjectName("apiBanner"); // view_screenshot's clean picture leaves it out
         apiBanner_->setAttribute(Qt::WA_TransparentForMouseEvents);
         apiBanner_->setStyleSheet("QLabel { background: rgba(255, 140, 0, 225); color: #111; font-weight: bold;"
@@ -79,7 +80,7 @@ void MainWindow::showDrivenByApi() {
         apiIdle_->setInterval(4000);
         connect(apiIdle_, &QTimer::timeout, this, [this] {
             apiBanner_->hide();
-            setWindowTitle(windowTitle().remove("[АГЕНТ] "));
+            setWindowTitle(windowTitle().remove(uiText("Kinetica", "[АГЕНТ] ")));
             if (view_) view_->setAgentDriving(false); // the gizmo back for a hand
         });
     }
@@ -89,7 +90,8 @@ void MainWindow::showDrivenByApi() {
     if (!apiBanner_->isVisible()) {
         apiBanner_->show();
         apiBanner_->raise();
-        if (!windowTitle().startsWith("[АГЕНТ] ")) setWindowTitle("[АГЕНТ] " + windowTitle());
+        const char* prefix = uiText("Kinetica", "[АГЕНТ] ");
+        if (!windowTitle().startsWith(prefix)) setWindowTitle(prefix + windowTitle());
     }
     apiIdle_->start();
 }
@@ -107,6 +109,6 @@ bool MainWindow::startApi(quint16 port) {
     }
     server->setOnActivity([this] { showDrivenByApi(); });
     apiServer_ = server;
-    statusBar()->showMessage(QString("API редактора: 127.0.0.1:%1").arg(server->port()), 8000);
+    statusBar()->showMessage(QString(uiText("Kinetica", "API редактора: 127.0.0.1:%1")).arg(server->port()), 8000);
     return true;
 }

@@ -8,6 +8,7 @@
 //      what the frame holds: the pose and the sleep).
 // The thing on the card gets a ring in the view, so the numbers and the place belong together.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 
 #include "LabCard.h"
 #include "LabPanel.h"
@@ -47,39 +48,39 @@ QString vec(const Vector3& v, int digits) {
 // engine already brakes when it has an impulse, one that only waits when it has none.
 QString touchWords(const ke::Frame::ContactInfo& c) {
     const float mm = float(c.depth) * 1000.0f;
-    if (mm > 0.05f) return "проникли друг в друга";
-    if (mm >= -0.05f) return c.normalImpulse > 0 ? "касаются и давят" : "касаются";
-    return c.normalImpulse > 0 ? "на подлёте: движок тормозит" : "зазор: ещё не касаются";
+    if (mm > 0.05f) return uiText("Kinetica", "проникли друг в друга");
+    if (mm >= -0.05f) return c.normalImpulse > 0 ? uiText("Kinetica", "касаются и давят") : uiText("Kinetica", "касаются");
+    return c.normalImpulse > 0 ? uiText("Kinetica", "на подлёте: движок тормозит") : uiText("Kinetica", "зазор: ещё не касаются");
 }
 
 // What a body of the physics engine is called in the scene: the object it is (the frame says which),
 // else the floor (the world's own body), else «тело №n».
 QString bodyName(const SceneBuilder& b, const ke::Frame& s, int body) {
-    if (body < 0) return "неподвижный мир";
+    if (body < 0) return uiText("Kinetica", "неподвижный мир");
     for (const ke::Frame::Body& f : s.bodies)
         if (f.body == body) {
             const ke::SceneObject* o = ke::findObject(b.graph(), f.object);
             if (!o && ke::isArrayCopyId(f.object)) o = ke::findObject(b.graph(), ke::arrayOfCopyId(f.object));
-            if (o && !o->name.empty()) return QString::fromStdString(o->name) + QString(" (тело №%1)").arg(body);
-            return QString("тело №%1").arg(body);
+            if (o && !o->name.empty()) return QString::fromStdString(o->name) + QString(uiText("Kinetica", " (тело №%1)")).arg(body);
+            return QString(uiText("Kinetica", "тело №%1")).arg(body);
         }
-    return body == 0 ? QString("пол") : QString("тело №%1").arg(body);
+    return body == 0 ? QString(uiText("Kinetica", "пол")) : QString(uiText("Kinetica", "тело №%1")).arg(body);
 }
 
 } // namespace
 
 // The button and the key, the dock (at the left, hidden), the timeline on the view.
 void MainWindow::buildLaboratory() {
-    labAct_ = new QAction("Лаборатория", this);
+    labAct_ = new QAction(uiText("Kinetica", "Лаборатория"), this);
     labAct_->setObjectName("actionLaboratory");
     labAct_->setCheckable(true);
     labAct_->setShortcut(QKeySequence("F8"));
-    labAct_->setToolTip("Лаборатория (F8): что считает движок — контакты, силы, тела, суставы; карточка по щелчку, "
-                        "время каждой стадии");
-    labDock_ = new QDockWidget("Лаборатория", this);
+    labAct_->setToolTip(uiText("Kinetica", "Лаборатория (F8): что считает движок — контакты, силы, тела, суставы; карточка по щелчку, "
+                        "время каждой стадии"));
+    labDock_ = new QDockWidget(uiText("Kinetica", "Лаборатория"), this);
     labDock_->setObjectName("labDock");
     lab_ = new LabPanel;
-    lab_->addActionRow("Тела", collidersAct_, QColor(110, 232, 130)); // the window's wireframes, among the engine's drawings
+    lab_->addActionRow(uiText("Kinetica", "Тела"), collidersAct_, QColor(110, 232, 130)); // the window's wireframes, among the engine's drawings
     labDock_->setWidget(lab_);
     labDock_->setMinimumWidth(290);
     addDockWidget(Qt::LeftDockWidgetArea, labDock_);
@@ -132,7 +133,7 @@ void MainWindow::labPlot(const QString& channel) {
     plots_->showChannel(channel.toStdString());
     setGraphsVisible(true);
     const QString name = plots_->catalog().card(channel.toStdString()).name;
-    statusBar()->showMessage("График «" + name + "» — внизу, в «Графиках» (F9)", 4000);
+    statusBar()->showMessage(uiText("Kinetica", "График «") + name + uiText("Kinetica", "» — внизу, в «Графиках» (F9)"), 4000);
 }
 
 // 1. The contact nearest to the click on the screen, if within 10 px. 2. Else the body under it.
@@ -162,14 +163,14 @@ void MainWindow::showContactCard(const ke::Frame& s, int index) {
     const ke::Frame::ContactInfo& c = s.contacts[size_t(index)];
     const QString pair = "A: " + bodyName(*builder_, s, c.bodyA) + "   ·   B: " + bodyName(*builder_, s, c.bodyB);
     const double contacts = s.probe.value("physics/contacts", double(s.contacts.size()));
-    lab_->card()->showThing(QString("Точка контакта %1 из %2").arg(index + 1).arg(s.contacts.size()), pair,
-                            {{"Глубина", num(double(c.depth) * 1000.0, 2), "мм", ""},
-                             {"Касание", touchWords(c), "", ""},
-                             {"Нормаль, от A к B", vec(c.normal, 3), "", ""},
-                             {"Нормальный импульс", num(double(c.normalImpulse), 4), "Н·с", ""},
-                             {"Где", vec(c.position, 3), "м", ""},
-                             {"Кадр", QString::number(s.frame) + ", t = " + num(double(s.time), 2), "с", ""},
-                             {"Контактов в сцене", QString::number(qint64(contacts)), "", ""}});
+    lab_->card()->showThing(QString(uiText("Kinetica", "Точка контакта %1 из %2")).arg(index + 1).arg(s.contacts.size()), pair,
+                            {{uiText("Kinetica", "Глубина"), num(double(c.depth) * 1000.0, 2), uiText("Kinetica", "мм"), ""},
+                             {uiText("Kinetica", "Касание"), touchWords(c), "", ""},
+                             {uiText("Kinetica", "Нормаль, от A к B"), vec(c.normal, 3), "", ""},
+                             {uiText("Kinetica", "Нормальный импульс"), num(double(c.normalImpulse), 4), uiText("Kinetica", "Н·с"), ""},
+                             {uiText("Kinetica", "Где"), vec(c.position, 3), uiText("Kinetica", "м"), ""},
+                             {uiText("Kinetica", "Кадр"), QString::number(s.frame) + ", t = " + num(double(s.time), 2), uiText("Kinetica", "с"), ""},
+                             {uiText("Kinetica", "Контактов в сцене"), QString::number(qint64(contacts)), "", ""}});
     lab_->card()->setButton(QString(), QString(), nullptr);
     view_->setLabMarker(true, c.position);
 }
@@ -219,22 +220,22 @@ void MainWindow::showBodyCard(int body) {
 }
 
 void MainWindow::fillBodyCard(const LabBodyFacts& f) {
-    const QString dash = "— только вживую";
+    const QString dash = uiText("Kinetica", "— только вживую");
     std::vector<LabCard::Row> rows;
-    if (f.live && !f.alive) rows.push_back({"Состояние", "не стало телом", "", ""});
+    if (f.live && !f.alive) rows.push_back({uiText("Kinetica", "Состояние"), uiText("Kinetica", "не стало телом"), "", ""});
     // A number the simulation measures for one object is plotted from its channel, «<label>/<quantity>».
     auto channel = [&f](const char* quantity) { return f.label + "/" + quantity; };
-    rows.push_back({"Масса", f.live ? (f.fixed ? QString("∞ (неподвижное)") : num(f.mass, 3)) : dash, f.live && !f.fixed ? "кг" : "",
+    rows.push_back({uiText("Kinetica", "Масса"), f.live ? (f.fixed ? QString(uiText("Kinetica", "∞ (неподвижное)")) : num(f.mass, 3)) : dash, f.live && !f.fixed ? uiText("Kinetica", "кг") : "",
                     channel("mass")});
-    rows.push_back({"Моменты инерции (оси тела)", f.live && !f.fixed ? vec(f.inertia, 4) : (f.live ? QString("∞") : dash),
-                    f.live && !f.fixed ? "кг·м²" : "", ""});
-    rows.push_back({"Скорость", f.live ? vec(f.vel, 3) : dash, f.live ? "м/с" : "", ""});
-    rows.push_back({"|v|", f.live ? num(ke::length(f.vel), 3) : dash, f.live ? "м/с" : "", channel("speed")});
-    rows.push_back({"Угловая скорость", f.live ? vec(f.angVel, 3) : dash, f.live ? "рад/с" : "", ""});
-    rows.push_back({"|ω|", f.live ? num(ke::length(f.angVel), 3) : dash, f.live ? "рад/с" : "", channel("angular speed")});
-    rows.push_back({f.live ? "Центр масс" : "Где", vec(f.pos, 3), "м", ""});
-    rows.push_back({"Высота над полом", f.live && std::isfinite(f.height) ? num(f.height, 3) : dash, f.live ? "м" : "", channel("height")});
-    rows.push_back({"Сон", f.sleeping ? QString("спит") : QString("не спит"), "", channel("asleep")});
+    rows.push_back({uiText("Kinetica", "Моменты инерции (оси тела)"), f.live && !f.fixed ? vec(f.inertia, 4) : (f.live ? QString("∞") : dash),
+                    f.live && !f.fixed ? uiText("Kinetica", "кг·м²") : "", ""});
+    rows.push_back({uiText("Kinetica", "Скорость"), f.live ? vec(f.vel, 3) : dash, f.live ? uiText("Kinetica", "м/с") : "", ""});
+    rows.push_back({"|v|", f.live ? num(ke::length(f.vel), 3) : dash, f.live ? uiText("Kinetica", "м/с") : "", channel("speed")});
+    rows.push_back({uiText("Kinetica", "Угловая скорость"), f.live ? vec(f.angVel, 3) : dash, f.live ? uiText("Kinetica", "рад/с") : "", ""});
+    rows.push_back({"|ω|", f.live ? num(ke::length(f.angVel), 3) : dash, f.live ? uiText("Kinetica", "рад/с") : "", channel("angular speed")});
+    rows.push_back({f.live ? uiText("Kinetica", "Центр масс") : uiText("Kinetica", "Где"), vec(f.pos, 3), uiText("Kinetica", "м"), ""});
+    rows.push_back({uiText("Kinetica", "Высота над полом"), f.live && std::isfinite(f.height) ? num(f.height, 3) : dash, f.live ? uiText("Kinetica", "м") : "", channel("height")});
+    rows.push_back({uiText("Kinetica", "Сон"), f.sleeping ? QString(uiText("Kinetica", "спит")) : QString(uiText("Kinetica", "не спит")), "", channel("asleep")});
     if (const auto s = view_->snapshot()) {
         double kinetic = std::nan(""), rotational = 0;
         for (const ke::Measurement& m : s->measurements) {
@@ -244,9 +245,9 @@ void MainWindow::fillBodyCard(const LabBodyFacts& f) {
         int awake = 0;
         for (const ke::Frame::Body& b : s->bodies) awake += b.body >= 0 && b.movable && !b.sleeping;
         if (std::isfinite(kinetic))
-            rows.push_back({"Энергия движения всех тел", num(kinetic + rotational, 3), "Дж", "scene/kinetic energy"});
-        rows.push_back({"Тел не спит", QString::number(awake), "", ""});
+            rows.push_back({uiText("Kinetica", "Энергия движения всех тел"), num(kinetic + rotational, 3), uiText("Kinetica", "Дж"), "scene/kinetic energy"});
+        rows.push_back({uiText("Kinetica", "Тел не спит"), QString::number(awake), "", ""});
     }
-    lab_->card()->showThing("Тело", f.label.empty() ? QString("тело") : QString::fromStdString(f.label) + (f.live ? "" : " · из сохранённого кадра"), rows);
+    lab_->card()->showThing(uiText("Kinetica", "Тело"), f.label.empty() ? QString(uiText("Kinetica", "тело")) : QString::fromStdString(f.label) + (f.live ? "" : uiText("Kinetica", " · из сохранённого кадра")), rows);
     lab_->card()->setButton(QString(), QString(), nullptr);
 }

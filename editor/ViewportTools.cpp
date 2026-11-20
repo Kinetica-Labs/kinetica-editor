@@ -2,6 +2,7 @@
 // around), the grab tool of play mode (a mouse joint on a body), the edit tool (select, box select,
 // gizmo drags, Shift-clone, keyboard transforms), the assembly magnet's tool and making shapes.
 #include "ViewportTools.h"
+#include "UiLanguage.h"
 
 #include "ColliderGuides.h"
 #include "SceneMarkers.h"
@@ -376,8 +377,8 @@ bool isPlaced(const CreateWhat& w) { return w.kind != CreateWhat::Kind::Shape; }
 bool isCamera(const CreateWhat& w) { return w.kind == CreateWhat::Kind::Camera; }
 
 QString titleOf(const CreateWhat& w) {
-    if (isCamera(w)) return w.target ? "Камера с целью" : "Камера";
-    return w.kind == CreateWhat::Kind::Light ? QString(ke::lightTitle(w.light)) : QString(ke::shapeTitle(w.shape));
+    if (isCamera(w)) return w.target ? uiText("Kinetica", "Камера с целью") : uiText("Kinetica", "Камера");
+    return uiText("Kinetica", w.kind == CreateWhat::Kind::Light ? ke::lightTitle(w.light) : ke::shapeTitle(w.shape));
 }
 
 QString metres(float x) { return QString::number(double(x), 'f', 2); }
@@ -580,16 +581,16 @@ QString CreateTool::sizeText(const CreateWhat& w) const {
     if (step_ == 0) return {};
     const Step step = stepsOf(w)[size_t(step_)];
     if (isPlaced(w)) {
-        const QString high = "высота " + metres(position_.y - start_.y) + " м";
+        const QString high = uiText("Kinetica", "высота ") + metres(position_.y - start_.y) + uiText("Kinetica", " м");
         const ke::Vector3 to = target_ - position_;
         const float far = ke::length(to);
         if (step != Step::Aim || far < kLeast) return high;
         if (w.kind == CreateWhat::Kind::Light && w.light == ke::LightKind::Sun)
-            return high + ", " + QString::number(qRound(std::asin(std::clamp(-to.y / far, -1.0f, 1.0f)) * 57.29578f)) + "° к горизонту";
-        return high + ", до цели " + metres(far) + " м";
+            return high + ", " + QString::number(qRound(std::asin(std::clamp(-to.y / far, -1.0f, 1.0f)) * 57.29578f)) + uiText("Kinetica", "° к горизонту");
+        return high + uiText("Kinetica", ", до цели ") + metres(far) + uiText("Kinetica", " м");
     }
-    const QString base = isRound(w.shape) ? "радиус " + metres(0.5f * size_.x) + " м" : metres(size_.x) + " × " + metres(size_.z) + " м";
-    return step == Step::Height ? base + ", высота " + metres(size_.y) + " м" : base;
+    const QString base = isRound(w.shape) ? uiText("Kinetica", "радиус ") + metres(0.5f * size_.x) + uiText("Kinetica", " м") : metres(size_.x) + " × " + metres(size_.z) + uiText("Kinetica", " м");
+    return step == Step::Height ? base + uiText("Kinetica", ", высота ") + metres(size_.y) + uiText("Kinetica", " м") : base;
 }
 
 // «Куб · шаг 2/3 ●●○ · противоположный угол, щелчок — дальше · 0.40 × 0.30 м · Backspace — шаг назад ...»
@@ -600,22 +601,22 @@ QString CreateTool::hint(const CreateWhat& w) const {
     QString doing;
     switch (step) {
     case Step::Place:
-        doing = isPlaced(w)                        ? "щёлкните место на полу или на теле"
-                : w.shape == ke::ShapeKind::Sphere ? "щёлкните центр шара"
-                : round                            ? "щёлкните центр основания"
-                                                   : "щёлкните первый угол основания (или сразу тяните)";
+        doing = isPlaced(w)                        ? uiText("Kinetica", "щёлкните место на полу или на теле")
+                : w.shape == ke::ShapeKind::Sphere ? uiText("Kinetica", "щёлкните центр шара")
+                : round                            ? uiText("Kinetica", "щёлкните центр основания")
+                                                   : uiText("Kinetica", "щёлкните первый угол основания (или сразу тяните)");
         break;
-    case Step::Base: doing = round ? "радиус" : "противоположный угол"; break;
-    case Step::Height: doing = "высота — ведите мышь вверх"; break;
-    case Step::Aim: doing = isCamera(w) ? (w.target ? "цель — наведите на объект или точку" : "куда смотрит — наведите на точку") : "куда светит — наведите на точку"; break;
+    case Step::Base: doing = round ? uiText("Kinetica", "радиус") : uiText("Kinetica", "противоположный угол"); break;
+    case Step::Height: doing = uiText("Kinetica", "высота — ведите мышь вверх"); break;
+    case Step::Aim: doing = isCamera(w) ? (w.target ? uiText("Kinetica", "цель — наведите на объект или точку") : uiText("Kinetica", "куда смотрит — наведите на точку")) : uiText("Kinetica", "куда светит — наведите на точку"); break;
     }
-    if (step != Step::Place) doing += size_t(step_) + 1 == steps.size() ? ", щелчок — готово" : ", щелчок — дальше";
+    if (step != Step::Place) doing += size_t(step_) + 1 == steps.size() ? uiText("Kinetica", ", щелчок — готово") : uiText("Kinetica", ", щелчок — дальше");
     QString dots;
     for (size_t k = 0; k < steps.size(); ++k) dots += int(k) <= step_ ? QString("●") : QString("○");
-    QString text = QString("%1 · шаг %2/%3 %4 · %5").arg(titleOf(w)).arg(step_ + 1).arg(steps.size()).arg(dots, doing);
+    QString text = QString(uiText("Kinetica", "%1 · шаг %2/%3 %4 · %5")).arg(titleOf(w)).arg(step_ + 1).arg(steps.size()).arg(dots, doing);
     const QString size = sizeText(w);
     if (!size.isEmpty()) text += " · " + size;
-    return text + (step_ == 0 ? " · Esc — выход" : " · Backspace — шаг назад · Esc — отмена") + " · Ctrl — сетка 5 см";
+    return text + (step_ == 0 ? uiText("Kinetica", " · Esc — выход") : uiText("Kinetica", " · Backspace — шаг назад · Esc — отмена")) + uiText("Kinetica", " · Ctrl — сетка 5 см");
 }
 
 void PluginTool::press(Viewport&, QMouseEvent* e) { pressed_ = now_ = e->position(), dragging_ = false; }

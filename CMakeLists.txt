@@ -102,9 +102,11 @@ endif()
 set(OpenGL_GL_PREFERENCE LEGACY)
 find_package(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)
 if(Qt6_FOUND)
+  find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
   qt_standard_project_setup()
   qt_add_executable(kinetica WIN32
     editor/main.cpp
+    editor/UiLanguage.h editor/UiLanguage.cpp
     editor/MainWindow.h      editor/MainWindow.cpp editor/MainWindowStart.cpp editor/MainWindowControls.cpp
     editor/MainWindowToolbar.cpp editor/MainWindowLayout.cpp editor/MainWindowPlay.cpp editor/MainWindowApi.cpp
     editor/MainWindowPlots.cpp editor/MainWindowLab.cpp
@@ -173,6 +175,22 @@ if(Qt6_FOUND)
     editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp
     editor/SelfTestShaders.cpp editor/SelfTestCreate.cpp
   )
+  qt_add_translations(kinetica
+    TS_FILES translations/kinetica_en.ts
+    SOURCE_TARGETS kinetica
+    SOURCES src/scene/AssemblyPresets.cpp src/scene/SceneActions.cpp src/scene/SensorSpec.cpp src/sim/Channels.cpp
+    RESOURCE_PREFIX /i18n
+    NO_GENERATE_PLURALS_TS_FILE
+    LUPDATE_OPTIONS -source-language ru -no-obsolete -tr-function-alias
+      "translate+=uiText,QT_TRANSLATE_NOOP+=KE_UI_LABEL")
+  # Package Qt's Russian labels for built-in dialogs alongside the editor's catalog.
+  get_target_property(ke_qtpaths Qt6::qtpaths IMPORTED_LOCATION)
+  execute_process(COMMAND "${ke_qtpaths}" --query QT_INSTALL_TRANSLATIONS
+    OUTPUT_VARIABLE ke_qt_translations OUTPUT_STRIP_TRAILING_WHITESPACE)
+  if(EXISTS "${ke_qt_translations}/qtbase_ru.qm")
+    qt_add_resources(kinetica qt_ru PREFIX "/i18n" BASE "${ke_qt_translations}"
+      FILES "${ke_qt_translations}/qtbase_ru.qm")
+  endif()
   qt_add_resources(kinetica shaders PREFIX "/shaders" BASE shaders FILES
     shaders/background.vert shaders/background.frag shaders/outline.frag shaders/mesh.vert shaders/mesh.frag
     shaders/shadow.vert shaders/shadow.frag shaders/shadow-distance.vert shaders/shadow-distance.frag shaders/lines.vert shaders/lines.frag)

@@ -1,5 +1,6 @@
 // One chart of the plots: lines of one unit over a window of time, drawn by hand (see TrackChart.h).
 #include "TrackChart.h"
+#include "UiLanguage.h"
 
 #include <QContextMenuEvent>
 #include <QFontMetricsF>
@@ -358,7 +359,7 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
         p.drawText(QRectF(x - 40, r.bottom() + 5, 80, 14), Qt::AlignHCenter | Qt::AlignTop, formatNumber(t, tStep));
     }
     p.setPen(kMuted);
-    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop, "t, с");
+    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop, uiText("Kinetica", "t, с"));
 }
 
 // One line: the samples inside the window, as a 2 px line when they are sparse and as a ribbon when
@@ -524,7 +525,7 @@ void TrackChart::paintEvent(QPaintEvent*) {
     if (allZero_) {
         p.setFont(smallFont(this, 9));
         p.setPen(kAxisText);
-        p.drawText(r.adjusted(0, 6, 0, 0), Qt::AlignHCenter | Qt::AlignTop, "всё это время — ровно 0");
+        p.drawText(r.adjusted(0, 6, 0, 0), Qt::AlignHCenter | Qt::AlignTop, uiText("Kinetica", "всё это время — ровно 0"));
     }
     drawHoverLine(p, r);
 }

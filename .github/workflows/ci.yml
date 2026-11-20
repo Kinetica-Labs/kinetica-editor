@@ -40,6 +40,12 @@ jobs:
           KE_SOFTWARE_GL: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --self-test
+      - name: Английский интерфейс и выбор языка
+        env:
+          KE_EDITOR_TEST: language
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --language en --self-test
 
   windows:
     name: Windows MSVC

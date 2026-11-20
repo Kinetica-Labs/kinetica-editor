@@ -1,6 +1,7 @@
 // The Laboratory's live profiler (see ProfilerBar.h): the stages of the last frame as one stacked bar,
 // the parts of the engine in words under it, and the whole step over the last 5 seconds.
 #include "ProfilerBar.h"
+#include "UiLanguage.h"
 
 #include <QContextMenuEvent>
 #include <QMenu>
@@ -25,9 +26,9 @@ const QColor kText(223, 227, 232), kMuted(139, 147, 162), kTrack(44, 48, 56), kG
 struct Part { const char* prefix; QString name; QColor color; };
 constexpr size_t kOther = 1, kUntimed = 2; // indices into parts()
 const std::vector<Part>& parts() {
-    static const std::vector<Part> p = {{"physics", "Физика", QColor(86, 180, 233)},
-                                        {"", "Прочее", QColor(204, 121, 167)},
-                                        {"", "Вне замеров", QColor(96, 104, 116)}};
+    static const std::vector<Part> p = {{"physics", uiText("Kinetica", "Физика"), QColor(86, 180, 233)},
+                                        {"", uiText("Kinetica", "Прочее"), QColor(204, 121, 167)},
+                                        {"", uiText("Kinetica", "Вне замеров"), QColor(96, 104, 116)}};
     return p;
 }
 
@@ -36,7 +37,7 @@ const std::vector<Part>& parts() {
 // under their words here.
 QString stageName(const std::string& channel) {
     static const std::map<std::string, QString> names = {
-        {"engine", "движок физики"}, {"drives", "приводы"}, {"sensors", "датчики"}, {"step", "шаг"}};
+        {"engine", uiText("Kinetica", "движок физики")}, {"drives", uiText("Kinetica", "приводы")}, {"sensors", uiText("Kinetica", "датчики")}, {"step", uiText("Kinetica", "шаг")}};
     std::string word = channel.substr(channel.find('/') + 1);
     if (word.size() > 3 && word.compare(word.size() - 3, 3, " ms") == 0) word.resize(word.size() - 3);
     const auto it = names.find(word);
@@ -52,7 +53,7 @@ const Part& partOf(const std::string& channel) {
 // Milliseconds with as many digits as the size asks for: 0,08 мс, 3,4 мс, 27 мс.
 QString ms(double v) {
     const int digits = v < 1 ? 2 : v < 10 ? 1 : 0;
-    return QString::number(v, 'f', digits).replace('.', ',') + " мс";
+    return QString::number(v, 'f', digits).replace('.', ',') + uiText("Kinetica", " мс");
 }
 
 } // namespace
@@ -60,8 +61,8 @@ QString ms(double v) {
 ProfilerBar::ProfilerBar(QWidget* parent) : QWidget(parent) {
     setObjectName("profilerBar");
     setMouseTracking(true);
-    setToolTip("Куда уходит время шага физики, по частям. Бюджет кадра — 16,7 мс: столько есть у кадра, "
-               "чтобы сцена шла со скоростью 60 кадров/с. Правый щелчок по отрезку — «Построить график»");
+    setToolTip(uiText("Kinetica", "Куда уходит время шага физики, по частям. Бюджет кадра — 16,7 мс: столько есть у кадра, "
+               "чтобы сцена шла со скоростью 60 кадров/с. Правый щелчок по отрезку — «Построить график»"));
     clock_.start();
 }
 
@@ -89,7 +90,7 @@ void ProfilerBar::addFrame(const ke::Probe::Snapshot& probe) {
     for (const Stage& stage : stages_) timed += stage.ms;
     if (stepMs_ > timed * 1.02 + 1e-3) {
         const Part& untimed = parts()[kUntimed];
-        stages_.push_back({kStepChannel, untimed.name, "между замерами", stepMs_ - timed, untimed.color});
+        stages_.push_back({kStepChannel, untimed.name, uiText("Kinetica", "между замерами"), stepMs_ - timed, untimed.color});
     }
     const qint64 now = clock_.elapsed();
     history_.push_back({now, stepMs_});
@@ -110,10 +111,10 @@ static double barScale(const std::vector<ProfilerBar::Stage>& stages, double ste
 
 // The step in words: its time and its share of one frame's budget (16,7 ms: 60 frames a second).
 static QString headline(double stepMs) {
-    if (stepMs <= 0) return "Шаг физики: ждём первого шага";
+    if (stepMs <= 0) return uiText("Kinetica", "Шаг физики: ждём первого шага");
     const double share = 100.0 * stepMs / kBudgetMs;
-    const QString part = share < 1 ? QString("меньше 1 %") : QString("%1 %").arg(int(std::lround(share)));
-    return "Шаг физики: " + ms(stepMs) + " · " + part + " бюджета кадра";
+    const QString part = share < 1 ? QString(uiText("Kinetica", "меньше 1 %")) : QString("%1 %").arg(int(std::lround(share)));
+    return uiText("Kinetica", "Шаг физики: ") + ms(stepMs) + " · " + part + uiText("Kinetica", " бюджета кадра");
 }
 
 int ProfilerBar::stageAt(const QPointF& p) const {
@@ -215,7 +216,7 @@ void ProfilerBar::paintSparkline(QPainter& p) {
     const double budgetY = at(now, kBudgetMs).y();
     p.setPen(QPen(kMuted, 1.0, Qt::DashLine));
     p.drawLine(QPointF(r.left(), budgetY), QPointF(r.right(), budgetY));
-    p.drawText(QPointF(r.left() + 4, budgetY - 3), "60 кадров/с");
+    p.drawText(QPointF(r.left() + 4, budgetY - 3), uiText("Kinetica", "60 кадров/с"));
     QPainterPath line;
     line.moveTo(at(history_.front().first, history_.front().second));
     for (const auto& h : history_) line.lineTo(at(h.first, h.second));
@@ -226,7 +227,7 @@ void ProfilerBar::paintSparkline(QPainter& p) {
     p.setBrush(kText);
     p.drawEllipse(at(now, history_.back().second), 3.0, 3.0);
     p.setPen(kMuted);
-    p.drawText(r.adjusted(0, 2, -4, 0), Qt::AlignRight | Qt::AlignTop, "шаг за 5 с");
+    p.drawText(r.adjusted(0, 2, -4, 0), Qt::AlignRight | Qt::AlignTop, uiText("Kinetica", "шаг за 5 с"));
 }
 
 void ProfilerBar::mouseMoveEvent(QMouseEvent* e) {
@@ -235,7 +236,7 @@ void ProfilerBar::mouseMoveEvent(QMouseEvent* e) {
     const Stage& s = stages_[size_t(i)];
     const double share = stepMs_ > 0 ? 100.0 * s.ms / stepMs_ : 0.0;
     QToolTip::showText(e->globalPosition().toPoint(),
-                       QString("%1 · %2: %3 (%4 % шага)\nканал %5 — правый щелчок: график")
+                       QString(uiText("Kinetica", "%1 · %2: %3 (%4 % шага)\nканал %5 — правый щелчок: график"))
                            .arg(s.part, s.name, ms(s.ms)).arg(int(share + 0.5)).arg(QString::fromStdString(s.channel)),
                        this);
 }
@@ -243,8 +244,8 @@ void ProfilerBar::mouseMoveEvent(QMouseEvent* e) {
 void ProfilerBar::contextMenuEvent(QContextMenuEvent* e) {
     const int i = stageAt(e->pos());
     const std::string channel = i >= 0 ? stages_[size_t(i)].channel : std::string(kStepChannel);
-    const QString what = i >= 0 ? stages_[size_t(i)].part + " · " + stages_[size_t(i)].name : QString("весь шаг");
+    const QString what = i >= 0 ? stages_[size_t(i)].part + " · " + stages_[size_t(i)].name : QString(uiText("Kinetica", "весь шаг"));
     QMenu menu(this);
-    QAction* plot = menu.addAction("Построить график: " + what);
+    QAction* plot = menu.addAction(uiText("Kinetica", "Построить график: ") + what);
     if (menu.exec(e->globalPos()) == plot) emit plotRequested(QString::fromStdString(channel));
 }

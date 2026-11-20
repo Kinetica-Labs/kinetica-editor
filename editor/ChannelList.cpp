@@ -1,5 +1,6 @@
 // The plots' lists of quantities (see ChannelList.h): the popup, its search, its rows.
 #include "ChannelList.h"
+#include "UiLanguage.h"
 
 #include <QApplication>
 #include <QKeyEvent>
@@ -58,24 +59,30 @@ ChannelList::ChannelList(Mode mode, QWidget* parent) : QFrame(parent), mode_(mod
     col->setContentsMargins(10, 10, 10, 10);
     col->setSpacing(8);
 
-    hint_ = new QLabel(mode == Mode::Chart ? "Щелчок по строке — показать эту величину на графике; ＋ — добавить ещё одну линию"
-                                           : "Галочка — нарисовать величину; величины одной единицы делят один график");
+    hint_ = new QLabel(mode == Mode::Chart ? uiText("Kinetica", "Щелчок по строке — показать эту величину на графике; ＋ — добавить ещё одну линию")
+                                           : uiText("Kinetica", "Галочка — нарисовать величину; величины одной единицы делят один график"));
     hint_->setWordWrap(true);
     col->addWidget(hint_);
     search_ = new QLineEdit;
     search_->setObjectName("channelSearch");
-    search_->setPlaceholderText("Найти: «энергия», «скорость», «высота»…");
+    search_->setPlaceholderText(uiText("Kinetica", "Найти: «энергия», «скорость», «высота»…"));
     search_->setClearButtonEnabled(true);
     connect(search_, &QLineEdit::textChanged, this, &ChannelList::applyFilter);
     col->addWidget(search_);
 
     if (mode == Mode::Checklist) {
         auto* presets = new QHBoxLayout;
-        presets->addWidget(new QLabel("Сразу:"));
-        for (const char* name : {"Энергия", "Движок", "Сбросить"}) {
-            auto* b = new QPushButton(name);
-            b->setObjectName(QString("channelPreset_") + name);
-            connect(b, &QPushButton::clicked, this, [this, name] { emit presetChosen(QString(name)); });
+        presets->addWidget(new QLabel(uiText("Kinetica", "Сразу:")));
+        struct Choice { Preset preset; const char* id; const char* label; };
+        const Choice choices[] = {
+            {Preset::Energy, "energy", uiText("Kinetica", "Энергия")},
+            {Preset::Engine, "engine", uiText("Kinetica", "Движок")},
+            {Preset::Reset, "reset", uiText("Kinetica", "Сбросить")}
+        };
+        for (const auto& choice : choices) {
+            auto* b = new QPushButton(choice.label);
+            b->setObjectName(QString("channelPreset_") + choice.id);
+            connect(b, &QPushButton::clicked, this, [this, preset = choice.preset] { emit presetChosen(preset); });
             presets->addWidget(b);
         }
         presets->addStretch(1);
@@ -212,7 +219,7 @@ void ChannelList::setRows(const std::vector<Row>& rows) {
         } else {
             item->setFlags(Qt::ItemIsEnabled);
             item->setText(kAddColumn, r->on ? "✓" : "＋");
-            item->setToolTip(kAddColumn, r->on ? "Убрать эту линию с графика" : "Добавить линию на этот график");
+            item->setToolTip(kAddColumn, r->on ? uiText("Kinetica", "Убрать эту линию с графика") : uiText("Kinetica", "Добавить линию на этот график"));
             item->setForeground(kAddColumn, r->on ? QColor(124, 255, 154) : QColor(143, 193, 255));
         }
     }

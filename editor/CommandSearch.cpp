@@ -1,5 +1,6 @@
 // The command search (see CommandSearch.h).
 #include "CommandSearch.h"
+#include "UiLanguage.h"
 
 #include <QAction>
 #include <QKeyEvent>
@@ -43,14 +44,14 @@ CommandSearch::CommandSearch(QMainWindow* window) : QFrame(window, Qt::Popup), w
     col->setContentsMargins(10, 10, 10, 10);
     col->setSpacing(6);
     field_ = new QLineEdit;
-    field_->setPlaceholderText("Найти команду: например «группа», «коллайдер», «сохранить»…");
+    field_->setPlaceholderText(uiText("Kinetica", "Найти команду: например «группа», «коллайдер», «сохранить»…"));
     field_->setClearButtonEnabled(true);
     col->addWidget(field_);
     list_ = new QListWidget;
     list_->setObjectName("commandList");
     list_->setUniformItemSizes(true);
     col->addWidget(list_);
-    auto* tip = new QLabel("Enter — выполнить · ↑ ↓ — выбрать · Esc — закрыть");
+    auto* tip = new QLabel(uiText("Kinetica", "Enter — выполнить · ↑ ↓ — выбрать · Esc — закрыть"));
     tip->setObjectName("commandTip");
     col->addWidget(tip);
     connect(field_, &QLineEdit::textChanged, this, &CommandSearch::refill);
@@ -100,7 +101,7 @@ void CommandSearch::collect() {
     for (QToolBar* bar : window_->findChildren<QToolBar*>())
         for (QAction* a : bar->actions())
             if (!a->isSeparator() && !a->text().isEmpty() && !a->menu() && seen.insert(a).second)
-                commands_.push_back({a, plain(a->text()), "Панель", a->shortcut().toString(QKeySequence::NativeText)});
+                commands_.push_back({a, plain(a->text()), uiText("Kinetica", "Панель"), a->shortcut().toString(QKeySequence::NativeText)});
 }
 
 void CommandSearch::collectMenu(QMenu* menu, const QString& path) {
@@ -132,7 +133,7 @@ void CommandSearch::refill() {
     bool fuzzyLine = false;
     for (const auto& [rank, c] : ranked) {
         if (rank == 2 && !query.isEmpty() && !fuzzyLine) { // the letters-in-order matches start here
-            auto* line = new QListWidgetItem("Похожие по буквам");
+            auto* line = new QListWidgetItem(uiText("Kinetica", "Похожие по буквам"));
             line->setFlags(Qt::NoItemFlags);
             line->setForeground(QColor(120, 126, 138));
             list_->addItem(line);

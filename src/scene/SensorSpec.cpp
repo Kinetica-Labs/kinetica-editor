@@ -1,5 +1,6 @@
 // The datasheets of the kinds of sensors and the tables of their models (SensorSpec.h).
 #include "scene/SensorSpec.h"
+#include "core/UiLabel.h"
 
 #include "core/Format.h"
 
@@ -20,34 +21,34 @@ Field num(const char* key, const char* unit, double min, double max, double step
 
 // The fields' values with no model: a generic unit of the kind, nothing more precise than its kind usually is.
 const std::vector<Field> kImu = {
-    num("rate_hz", "Hz", 0.1, 1e5, 10, 1, 1000, "Частота выдачи"),
-    num("bandwidth_hz", "Hz", 0.1, 2e4, 10, 1, 260, "Полоса фильтра"),
-    num("accel_range_g", "[g]", 0.5, 400, 1, 1, 2, "Диапазон акселерометра, ±"),
-    num("gyro_range_dps", "deg/s", 1, 1e4, 125, 0, 250, "Диапазон гироскопа, ±"),
-    num("bits", "bit", 2, 32, 1, 0, 16, "Разрядность"),
-    num("accel_noise_ug_rthz", "u[g]/[rtHz]", 0, 1e5, 10, 1, 400, "Шум акселерометра"),
-    num("gyro_noise_dps_rthz", "deg/s/[rtHz]", 0, 10, 0.001, 5, 0.005, "Шум гироскопа"),
-    num("accel_offset_mg", "m[g]", 0, 1000, 5, 1, 50, "Смещение нуля акселерометра, ±"),
-    num("gyro_offset_dps", "deg/s", 0, 100, 0.5, 2, 20, "Смещение нуля гироскопа, ±"),
-    num("scale_error_pct", "%", 0, 50, 0.5, 2, 3, "Ошибка чувствительности, ±"),
-    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, "Масса")};
+    num("rate_hz", "Hz", 0.1, 1e5, 10, 1, 1000, KE_UI_LABEL("Kinetica", "Частота выдачи")),
+    num("bandwidth_hz", "Hz", 0.1, 2e4, 10, 1, 260, KE_UI_LABEL("Kinetica", "Полоса фильтра")),
+    num("accel_range_g", "[g]", 0.5, 400, 1, 1, 2, KE_UI_LABEL("Kinetica", "Диапазон акселерометра, ±")),
+    num("gyro_range_dps", "deg/s", 1, 1e4, 125, 0, 250, KE_UI_LABEL("Kinetica", "Диапазон гироскопа, ±")),
+    num("bits", "bit", 2, 32, 1, 0, 16, KE_UI_LABEL("Kinetica", "Разрядность")),
+    num("accel_noise_ug_rthz", "u[g]/[rtHz]", 0, 1e5, 10, 1, 400, KE_UI_LABEL("Kinetica", "Шум акселерометра")),
+    num("gyro_noise_dps_rthz", "deg/s/[rtHz]", 0, 10, 0.001, 5, 0.005, KE_UI_LABEL("Kinetica", "Шум гироскопа")),
+    num("accel_offset_mg", "m[g]", 0, 1000, 5, 1, 50, KE_UI_LABEL("Kinetica", "Смещение нуля акселерометра, ±")),
+    num("gyro_offset_dps", "deg/s", 0, 100, 0.5, 2, 20, KE_UI_LABEL("Kinetica", "Смещение нуля гироскопа, ±")),
+    num("scale_error_pct", "%", 0, 50, 0.5, 2, 3, KE_UI_LABEL("Kinetica", "Ошибка чувствительности, ±")),
+    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, KE_UI_LABEL("Kinetica", "Масса"))};
 const std::vector<Field> kSonar = {
-    num("min_m", "m", 0, 100, 0.01, 3, 0.02, "Ближе не видит"),
-    num("max_m", "m", 0.01, 1000, 0.5, 2, 4, "Дальше не видит"),
-    num("beam_deg", "deg", 0.1, 180, 1, 1, 15, "Угол луча"),
-    num("accuracy_mm", "mm", 0, 1000, 1, 1, 3, "Точность (3σ)"),
-    num("cycle_ms", "ms", 0.1, 1e4, 10, 1, 60, "Цикл измерения"),
-    num("timeout_ms", "ms", 0.1, 1e4, 1, 1, 38, "Нет эха: спад ECHO через"),
-    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, "Масса")};
+    num("min_m", "m", 0, 100, 0.01, 3, 0.02, KE_UI_LABEL("Kinetica", "Ближе не видит")),
+    num("max_m", "m", 0.01, 1000, 0.5, 2, 4, KE_UI_LABEL("Kinetica", "Дальше не видит")),
+    num("beam_deg", "deg", 0.1, 180, 1, 1, 15, KE_UI_LABEL("Kinetica", "Угол луча")),
+    num("accuracy_mm", "mm", 0, 1000, 1, 1, 3, KE_UI_LABEL("Kinetica", "Точность (3σ)")),
+    num("cycle_ms", "ms", 0.1, 1e4, 10, 1, 60, KE_UI_LABEL("Kinetica", "Цикл измерения")),
+    num("timeout_ms", "ms", 0.1, 1e4, 1, 1, 38, KE_UI_LABEL("Kinetica", "Нет эха: спад ECHO через")),
+    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, KE_UI_LABEL("Kinetica", "Масса"))};
 const std::vector<Field> kWrench = {
-    num("rate_hz", "Hz", 0.1, 1e5, 100, 1, 500, "Частота"),
-    num("force_range_n", "N", 0.1, 1e6, 10, 1, 50, "Диапазон силы, ±"),
-    num("torque_range_n_m", "N.m", 0.01, 1e5, 1, 2, 10, "Диапазон момента, ±"),
-    num("force_precision_n", "N", 0, 1e4, 0.1, 3, 3.5, "Шум силы (3σ)"),
-    num("torque_precision_n_m", "N.m", 0, 1e3, 0.01, 4, 0.2, "Шум момента (3σ)"),
-    num("force_accuracy_n", "N", 0, 1e4, 0.1, 3, 4, "Смещение силы (3σ)"),
-    num("torque_accuracy_n_m", "N.m", 0, 1e3, 0.01, 4, 0.3, "Смещение момента (3σ)"),
-    num("mass_kg", "kg", 0, 100, 0.01, 3, 0, "Масса")};
+    num("rate_hz", "Hz", 0.1, 1e5, 100, 1, 500, KE_UI_LABEL("Kinetica", "Частота")),
+    num("force_range_n", "N", 0.1, 1e6, 10, 1, 50, KE_UI_LABEL("Kinetica", "Диапазон силы, ±")),
+    num("torque_range_n_m", "N.m", 0.01, 1e5, 1, 2, 10, KE_UI_LABEL("Kinetica", "Диапазон момента, ±")),
+    num("force_precision_n", "N", 0, 1e4, 0.1, 3, 3.5, KE_UI_LABEL("Kinetica", "Шум силы (3σ)")),
+    num("torque_precision_n_m", "N.m", 0, 1e3, 0.01, 4, 0.2, KE_UI_LABEL("Kinetica", "Шум момента (3σ)")),
+    num("force_accuracy_n", "N", 0, 1e4, 0.1, 3, 4, KE_UI_LABEL("Kinetica", "Смещение силы (3σ)")),
+    num("torque_accuracy_n_m", "N.m", 0, 1e3, 0.01, 4, 0.3, KE_UI_LABEL("Kinetica", "Смещение момента (3σ)")),
+    num("mass_kg", "kg", 0, 100, 0.01, 3, 0, KE_UI_LABEL("Kinetica", "Масса"))};
 const std::vector<Field> kNone;
 
 const char* kKindKeys[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo"}; // SensorKind

@@ -1,5 +1,6 @@
 // The "Смотрю через" list in the corner of the 3D view (see CameraPicker.h).
 #include "CameraPicker.h"
+#include "UiLanguage.h"
 
 #include "Icons.h"
 
@@ -20,12 +21,12 @@ CameraPicker::CameraPicker(QWidget* view) : QObject(view) {
     row->setSpacing(8);
 
     // 2. The words, and the list itself.
-    auto* label = new QLabel("Смотрю через:");
+    auto* label = new QLabel(uiText("Kinetica", "Смотрю через:"));
     row->addWidget(label);
     list_ = new QComboBox;
     list_->setObjectName("cameraPickerList");
-    list_->setToolTip("Через чей глаз показан вид: свободная камера редактора или одна из камер сцены. "
-                      "Esc — назад к виду редактора");
+    list_->setToolTip(uiText("Kinetica", "Через чей глаз показан вид: свободная камера редактора или одна из камер сцены. "
+                      "Esc — назад к виду редактора"));
     list_->setCursor(Qt::PointingHandCursor);
     list_->setSizeAdjustPolicy(QComboBox::AdjustToContents);
     row->addWidget(list_);
@@ -44,7 +45,7 @@ void CameraPicker::showCameras(const std::vector<Choice>& cameras, uint32_t curr
     // 1. Refill the list only when the scene's cameras changed (a move of the view does not).
     if (cameras != shown_ || list_->count() == 0) {
         list_->clear();
-        list_->addItem("Вид редактора", 0u);
+        list_->addItem(uiText("Kinetica", "Вид редактора"), 0u);
         for (const Choice& c : cameras) list_->addItem(sceneIcon(SceneIcon::Camera, 16), c.name, c.cameraId);
         shown_ = cameras;
     }

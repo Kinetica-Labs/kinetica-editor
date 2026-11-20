@@ -1,5 +1,6 @@
 // The Laboratory's card of a contact point or a body (see LabCard.h).
 #include "LabCard.h"
+#include "UiLanguage.h"
 
 #include <QGridLayout>
 #include <QLabel>
@@ -40,8 +41,8 @@ LabCard::LabCard(QWidget* parent) : QFrame(parent) {
 
 // Nothing picked yet: the card says what to click, and that a right click on a number plots it.
 void LabCard::showHint() {
-    showThing("Карточка", "Щёлкните в виде по точке контакта (включите слой «Точки контакта») или по телу — "
-                          "здесь появятся его числа. Правый щелчок по числу — график.",
+    showThing(uiText("Kinetica", "Карточка"), uiText("Kinetica", "Щёлкните в виде по точке контакта (включите слой «Точки контакта») или по телу — "
+                          "здесь появятся его числа. Правый щелчок по числу — график."),
               {});
     setButton(QString(), QString(), nullptr);
 }
@@ -81,10 +82,10 @@ void LabCard::addRow(int r, const Row& row) {
 // body) keeps the item, greyed, and says where its plot is: never a button that silently does nothing.
 void LabCard::showValueMenu(QLabel* value, const std::string& channel, const QPoint& at) {
     QMenu menu(value);
-    QAction* plot = menu.addAction("Построить график");
+    QAction* plot = menu.addAction(uiText("Kinetica", "Построить график"));
     if (channel.empty()) {
         plot->setEnabled(false);
-        menu.addAction("у этого числа нет канала — графики есть у |v|, |ω|, высоты, массы")->setEnabled(false);
+        menu.addAction(uiText("Kinetica", "у этого числа нет канала — графики есть у |v|, |ω|, высоты, массы"))->setEnabled(false);
     }
     if (menu.exec(value->mapToGlobal(at)) == plot && !channel.empty()) emit plotRequested(QString::fromStdString(channel));
 }

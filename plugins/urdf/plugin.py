@@ -19,6 +19,7 @@ from kinetica.plugin import command
 
 UP = ((1.0, 0.0, 0.0), (0.0, 0.0, 1.0), (0.0, -1.0, 0.0))  # URDF's z up as the editor's y up
 I3 = ((1.0, 0.0, 0.0), (0.0, 1.0, 0.0), (0.0, 0.0, 1.0))
+ENGLISH = os.environ.get("KE_UI_LANGUAGE") == "en"
 
 
 def mul(a, b):
@@ -178,7 +179,7 @@ def plural(n, one, few, many):
     return f"{n} {few if 2 <= n % 10 <= 4 and not 12 <= n % 100 <= 14 else many}"
 
 
-@command(label="URDF — робот", opens=[".urdf"])
+@command(label="URDF Robot" if ENGLISH else "URDF — робот", opens=[".urdf"])
 def load(scene, path):
     """A robot from a URDF file: links as shapes in a group named after the robot, joints as motors holding the pose."""
     ed = scene.ed
@@ -261,7 +262,7 @@ def load(scene, path):
                 made += 1
             continue
         if kind not in ("revolute", "continuous", "prismatic"):
-            notes.append(f"сустав {j.get('name')} ({kind}) пропущен")
+            notes.append(f"Skipped joint {j.get('name')} ({kind})" if ENGLISH else f"сустав {j.get('name')} ({kind}) пропущен")
             continue
         a = j.find("axis")
         axis = rot(UP, rot(turn, numbers(a.get("xyz") if a is not None else "1 0 0")))
@@ -282,6 +283,17 @@ def load(scene, path):
                 text = re.sub(r"^(  link .*)$", lambda m: m.group(1) + "\n" + line, text, count=1, flags=re.M)
             ed.scene_put(block=text)
     ed.selection_set(ids=[group])
+    if ENGLISH:
+        count = len(entity)
+        said = f"{root.get('name', 'robot')}: {count} {'link' if count == 1 else 'links'}, {made} {'joint' if made == 1 else 'joints'}"
+        visuals = [n[7:] for n in notes if n.startswith("visual ")]
+        warnings = [f"Missing collision mesh {n[10:]}" if n.startswith("collision ") else n
+                    for n in notes if not n.startswith("visual ")]
+        if visuals:
+            formats = ", ".join(sorted(set(visuals)))
+            warnings.append(f"Missing or unreadable visual meshes ({formats}); showing collision geometry")
+        return {"group": group, "links": count, "joints": made,
+                "note": said + ("; " + "; ".join(sorted(set(warnings))) if warnings else "")}
     gave_way = [n for n in notes if n.startswith("visual ")]  # "visual .dae": drawn by its collision mesh instead
     notes = [n for n in notes if not n.startswith("visual ")] + (
         [f"{plural(len(gave_way), 'меш', 'меша', 'мешей')} {', '.join(sorted({n[7:] for n in gave_way}))} не читаются или нет файла — "

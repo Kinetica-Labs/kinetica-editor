@@ -4,6 +4,7 @@
 // each by its place on the keyboard (KeyPlace.h). A panel is the scene's data, made by the operations
 // controller_add and controller_set as well; the running world does not take a panel's input yet (src/sim).
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "InspectorWidgets.h"
 #include "KeyPlace.h"
@@ -24,23 +25,23 @@ namespace {
 
 QString driveText(const ControllerAction& a) {
     switch (a.drive) {
-    case ControlDrive::Plane: return "цель по полу, м/с";
-    case ControlDrive::Lift: return "цель вверх-вниз, м/с";
-    case ControlDrive::Turn: return "поворот цели, °/с";
-    case ControlDrive::Grip: return "схват, предел силы Н";
-    case ControlDrive::Jog: return a.dof >= DofRx ? "сустав, °/с" : "сустав, м/с";
-    case ControlDrive::Duty: return "ШИМ драйвера";
+    case ControlDrive::Plane: return uiText("Kinetica", "цель по полу, м/с");
+    case ControlDrive::Lift: return uiText("Kinetica", "цель вверх-вниз, м/с");
+    case ControlDrive::Turn: return uiText("Kinetica", "поворот цели, °/с");
+    case ControlDrive::Grip: return uiText("Kinetica", "схват, предел силы Н");
+    case ControlDrive::Jog: return a.dof >= DofRx ? uiText("Kinetica", "сустав, °/с") : uiText("Kinetica", "сустав, м/с");
+    case ControlDrive::Duty: return uiText("Kinetica", "ШИМ драйвера");
     }
     return QString();
 }
 
-QString deviceText(const std::string& d) { return d == "keys" ? "клавиатура" : d == "gamepad" ? "геймпад" : d == "mouse" ? "мышь" : QString::fromStdString(d); }
+QString deviceText(const std::string& d) { return d == "keys" ? uiText("Kinetica", "клавиатура") : d == "gamepad" ? uiText("Kinetica", "геймпад") : d == "mouse" ? uiText("Kinetica", "мышь") : QString::fromStdString(d); }
 
 QString controlText(const ControlBinding& b) {
     static const std::pair<const char*, const char*> pad[] = {
-        {"left_stick", "левый стик"}, {"right_stick", "правый стик"}, {"left_x", "левый стик ↔"}, {"left_y", "левый стик ↕"},
-        {"right_x", "правый стик ↔"}, {"right_y", "правый стик ↕"}, {"left_trigger", "курок LT"}, {"right_trigger", "курок RT"},
-        {"left_bumper", "LB"}, {"right_bumper", "RB"}, {"left", "левая кнопка"}, {"right", "правая кнопка"}, {"middle", "колесо"}};
+        {"left_stick", uiText("Kinetica", "левый стик")}, {"right_stick", uiText("Kinetica", "правый стик")}, {"left_x", uiText("Kinetica", "левый стик ↔")}, {"left_y", uiText("Kinetica", "левый стик ↕")},
+        {"right_x", uiText("Kinetica", "правый стик ↔")}, {"right_y", uiText("Kinetica", "правый стик ↕")}, {"left_trigger", uiText("Kinetica", "курок LT")}, {"right_trigger", uiText("Kinetica", "курок RT")},
+        {"left_bumper", "LB"}, {"right_bumper", "RB"}, {"left", uiText("Kinetica", "левая кнопка")}, {"right", uiText("Kinetica", "правая кнопка")}, {"middle", uiText("Kinetica", "колесо")}};
     QStringList names;
     for (const std::string& c : b.controls) {
         QString n = QString::fromStdString(c);
@@ -48,18 +49,18 @@ QString controlText(const ControlBinding& b) {
             if (c == code) n = text;
         names << (n.size() == 1 ? n.toUpper() : n);
     }
-    return names.join(" ") + (b.toggle ? " (переключатель)" : "") + (b.invert ? " (наоборот)" : "");
+    return names.join(" ") + (b.toggle ? uiText("Kinetica", " (переключатель)") : "") + (b.invert ? uiText("Kinetica", " (наоборот)") : "");
 }
 
 // What the next press of a binding being set stands for: a key composite's directions, or the one control.
 QString captureStep(const ControllerAction& a, const ControlBinding& b, size_t got) {
-    if (b.device != "keys") return a.value == ControlValue::Vector2 ? "стик" : a.value == ControlValue::Axis ? "ось или курок" : "кнопку";
-    static const char* four[] = {"вперёд", "назад", "влево", "вправо"};
-    static const char* two[] = {"плюс", "минус"};
+    if (b.device != "keys") return a.value == ControlValue::Vector2 ? uiText("Kinetica", "стик") : a.value == ControlValue::Axis ? uiText("Kinetica", "ось или курок") : uiText("Kinetica", "кнопку");
+    static const char* four[] = {uiText("Kinetica", "вперёд"), uiText("Kinetica", "назад"), uiText("Kinetica", "влево"), uiText("Kinetica", "вправо")};
+    static const char* two[] = {uiText("Kinetica", "плюс"), uiText("Kinetica", "минус")};
     const size_t n = b.controls.size();
     if (n >= 4) return QString("%1 (%2/4)").arg(four[std::min<size_t>(got, 3)]).arg(got + 1);
     if (n == 2) return QString("%1 (%2/2)").arg(two[std::min<size_t>(got, 1)]).arg(got + 1);
-    return "клавишу";
+    return uiText("Kinetica", "клавишу");
 }
 
 } // namespace
@@ -73,19 +74,19 @@ ControllerObject* SceneBuilder::controllerIn(uint32_t id) {
 const ControllerObject* SceneBuilder::controllerById(uint32_t id) const { return const_cast<SceneBuilder*>(this)->controllerIn(id); }
 
 void SceneBuilder::buildControllerCard(QVBoxLayout* body) {
-    controllerCard_ = new ComponentCard("Пульт", deviceIcon(DeviceIcon::Controller, 22));
+    controllerCard_ = new ComponentCard(uiText("Kinetica", "Пульт"), deviceIcon(DeviceIcon::Controller, 22));
     controllerCard_->setObjectName("controllerCard");
-    controllerCard_->setToolTip("Абстрактный пульт: действия двигают цель руки, схват, сустав или мотор; кнопки клавиатуры, "
-                                "мыши и геймпада назначаются действиям");
+    controllerCard_->setToolTip(uiText("Kinetica", "Абстрактный пульт: действия двигают цель руки, схват, сустав или мотор; кнопки клавиатуры, "
+                                "мыши и геймпада назначаются действиям"));
     controllerInfo_ = new QLabel;
     controllerInfo_->setWordWrap(true);
     controllerCard_->body()->addWidget(controllerInfo_);
     controllerActions_ = new QTableWidget(0, 3);
     controllerActions_->setObjectName("controllerActions");
-    controllerActions_->setHorizontalHeaderLabels({"Действие", "Двигает", "Скорость"});
+    controllerActions_->setHorizontalHeaderLabels({uiText("Kinetica", "Действие"), uiText("Kinetica", "Двигает"), uiText("Kinetica", "Скорость")});
     controllerBinds_ = new QTableWidget(0, 3);
     controllerBinds_->setObjectName("controllerBinds");
-    controllerBinds_->setHorizontalHeaderLabels({"Действие", "Кнопки", ""});
+    controllerBinds_->setHorizontalHeaderLabels({uiText("Kinetica", "Действие"), uiText("Kinetica", "Кнопки"), ""});
     for (QTableWidget* t : {controllerActions_, controllerBinds_}) {
         t->verticalHeader()->setVisible(false);
         t->setEditTriggers(QAbstractItemView::NoEditTriggers);
@@ -109,7 +110,7 @@ void SceneBuilder::fillControllerCard() {
     const ControllerObject* c = controllerIn(selectedId_);
     controllerCard_->setVisible(c != nullptr);
     if (!c) return;
-    controllerInfo_->setText(QString::fromStdString(c->name) + " · «Назначить» — нажмите клавиши, которые возьмёт привязка; Esc — отмена");
+    controllerInfo_->setText(QString::fromStdString(c->name) + uiText("Kinetica", " · «Назначить» — нажмите клавиши, которые возьмёт привязка; Esc — отмена"));
     controllerActions_->setRowCount(int(c->actions.size()));
     for (size_t k = 0; k < c->actions.size(); ++k) {
         const ControllerAction& a = c->actions[k];
@@ -135,9 +136,9 @@ void SceneBuilder::fillControllerBinds(const ControllerObject& c) {
             auto* keys = new QTableWidgetItem(deviceIcon(DeviceIcon::Controller, 16), controlText(bind));
             keys->setToolTip(deviceText(bind.device) + ": " + controlText(bind));
             if (bind.device != "gamepad") keys->setIcon(QIcon());
-            keys->setText((bind.device == "mouse" ? "мышь: " : "") + controlText(bind));
+            keys->setText((bind.device == "mouse" ? uiText("Kinetica", "мышь: ") : "") + controlText(bind));
             controllerBinds_->setItem(row, 1, keys);
-            auto* set = new QPushButton("Назначить");
+            auto* set = new QPushButton(uiText("Kinetica", "Назначить"));
             set->setObjectName(QString("bind_%1_%2").arg(k).arg(b));
             set->setEnabled(bind.device == "keys"); // a key by a key; a pad's and the mouse's controls are named in the scene file
             connect(set, &QPushButton::clicked, this, [this, k, b, set] { startCapture(k, b, set); });
@@ -158,7 +159,7 @@ void SceneBuilder::startCapture(size_t action, size_t binding, QPushButton* butt
     const ControllerObject* c = controllerIn(selectedId_);
     if (!c || action >= c->actions.size() || binding >= c->actions[action].bindings.size()) return;
     capture_ = BindCapture{c->id, action, binding, {}, button};
-    button->setText("Нажмите: " + captureStep(c->actions[action], c->actions[action].bindings[binding], 0));
+    button->setText(uiText("Kinetica", "Нажмите: ") + captureStep(c->actions[action], c->actions[action].bindings[binding], 0));
     qApp->installEventFilter(this);
 }
 
@@ -170,7 +171,7 @@ void SceneBuilder::captureControl(const std::string& control) {
     const ControlBinding& b = a.bindings[capture_.binding];
     capture_.got.push_back(control);
     const size_t need = b.device == "keys" ? b.controls.size() : 1;
-    if (capture_.got.size() < need) return capture_.button->setText("Нажмите: " + captureStep(a, b, capture_.got.size()));
+    if (capture_.got.size() < need) return capture_.button->setText(uiText("Kinetica", "Нажмите: ") + captureStep(a, b, capture_.got.size()));
     finishCapture(true);
 }
 

@@ -55,6 +55,7 @@ public:
     void setThumbnailMode();
     // The builder starts on this scene file instead of an empty floor (the command line's --scene).
     void setStartScene(const QString& path) { startScene_ = path; }
+    void setRestartFile(const QString& path) { restartFile_ = path; }
     // The screenshot of the automation shows the whole window (panels too), not only the 3D view.
     void setScreenshotWholeWindow(bool on) { auto_.wholeWindow = on; }
     // The screenshot of the builder's scene is taken in edit mode (nothing simulated).
@@ -81,6 +82,9 @@ private:
     // UI construction
     void connectViewport();       // the mouse joint, the software-OpenGL restart
     void buildActions();
+    void changeLanguage(const QString& code);
+    void restartForLanguage(const QString& code);
+    bool resumeAfterRestart(QString& error);
     void buildResultsDock();
     void buildSceneBuilderDock(); // the "Конструктор": shapes with roles, no code (SceneBuilder)
     static class QScrollArea* scrolled(QWidget* content); // an inspector tab: grows down, never sideways
@@ -249,6 +253,7 @@ private:
     class QLabel* apiBanner_ = nullptr;
     class QTimer* apiIdle_ = nullptr;
     QString startScene_;
+    QString restartFile_;
     class QToolBar* createBar_ = nullptr;
     std::vector<class QToolButton*> createButtons_; // shapes, model, lights, camera: first to lose captions
     std::vector<class QToolButton*> runButtons_;    // run / pause / stop / step, undo / redo

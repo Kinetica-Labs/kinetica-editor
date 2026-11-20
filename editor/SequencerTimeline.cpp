@@ -4,6 +4,7 @@
 // folding row, and the tracks of objects with no parent. A folded row draws the keys of all its tracks as ticks, one a
 // pixel; only the rows in sight are drawn. A filter keeps the tracks whose object's name holds its words, unfolded.
 #include "SequencerViews.h"
+#include "UiLanguage.h"
 
 #include "SceneBuilder.h"
 #include "SequencerPanel.h"
@@ -41,7 +42,7 @@ void drawRuler(QPainter& p, const Axis& a, const QPalette& pal, int height) {
         if (k % 2) continue;
         const bool edge = x + 40 > a.width;
         p.drawText(edge ? QRectF(x - 63, 1, 60, kRuler - 7) : QRectF(x + 3, 1, 60, kRuler - 7), (edge ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter,
-                   QString::number(t) + " с");
+                   QString::number(t) + uiText("Kinetica", " с"));
         p.setPen(faint);
         p.drawLine(QPointF(x, kRuler), QPointF(x, height));
     }
@@ -185,11 +186,11 @@ void SequencerTimeline::rebuild() {
         r.kind = Row::Track, r.depth = depth, r.id = q->tracks[i].object, r.track = i;
         const ke::SceneObject* o = find(r.id);
         r.lost = !o;
-        r.name = o ? QString::fromStdString(o->name) : QString("потерян (id %1)").arg(r.id);
+        r.name = o ? QString::fromStdString(o->name) : QString(uiText("Kinetica", "потерян (id %1)")).arg(r.id);
         rows_.push_back(std::move(r));
     };
     Row head;
-    head.kind = Row::All, head.count = int(all.size()), head.name = "Все дорожки", head.times = ticksOf(*q, all);
+    head.kind = Row::All, head.count = int(all.size()), head.name = uiText("Kinetica", "Все дорожки"), head.times = ticksOf(*q, all);
     rows_.push_back(std::move(head));
     if (allOpen_ || unfold)
         for (const Item& item : items) {
@@ -271,8 +272,8 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
     if (!q || q->tracks.empty()) {
         p.setPen(pal.color(QPalette::PlaceholderText));
         p.drawText(QRectF(kNames + kPad, kRuler + 4, width() - kNames - 2 * kPad, height() - kRuler - 8), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
-                   "Выделите объект и нажмите «◆ Ключ» (I): секвенция запомнит, где он стоит в момент бегунка. Передвиньте бегунок, "
-                   "переставьте объект, ещё ключ — между ключами он поедет сам. Или «▶● Запись» сверху: физика станет секвенцией.");
+                   uiText("Kinetica", "Выделите объект и нажмите «◆ Ключ» (I): секвенция запомнит, где он стоит в момент бегунка. Передвиньте бегунок, "
+                   "переставьте объект, ещё ключ — между ключами он поедет сам. Или «▶● Запись» сверху: физика станет секвенцией."));
     }
     const bool unfold = !filter_.isEmpty();
     const uint32_t selected = panel_->builder()->selectedId();

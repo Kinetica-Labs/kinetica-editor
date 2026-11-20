@@ -1,6 +1,7 @@
 // Plugins as processes (see PluginHost.h): the folders scanned, a process a plugin, its commands as the editor's
 // operations and buttons, its calls held for it and answered, a saved file restarting it, a fall said on a banner.
 #include "PluginHost.h"
+#include "UiLanguage.h"
 
 #include "RunHooks.h"
 
@@ -146,8 +147,8 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
         for (const auto& p : plugins_) {
             if (!op.startsWith(p->name + "_")) continue;
             if (p->state == "упал")
-                return "«" + op + "» - команда плагина «" + p->name + "», а он упал: " + (p->error.isEmpty() ? QString("без сообщения") : p->error) +
-                       ". Исправьте файл и сохраните - плагин перезапустится сам";
+                return "«" + op + uiText("Kinetica", "» - команда плагина «") + p->name + uiText("Kinetica", "», а он упал: ") + (p->error.isEmpty() ? QString(uiText("Kinetica", "без сообщения")) : p->error) +
+                       uiText("Kinetica", ". Исправьте файл и сохраните - плагин перезапустится сам");
             if (p->state == "запускается") return "плагин «" + p->name + "» ещё запускается: «" + op + "» появится через секунду";
             if (p->state == "остановлен") return "плагин «" + p->name + "» остановлен: plugin_reload {name: \"" + p->name + "\"} запустит его";
         }
@@ -233,14 +234,14 @@ void PluginHost::scan(const QString& folder) {
 
 QString PluginHost::create(const QString& name, QString& error, const QString& kind) {
     const QString folder = userFolder() + "/" + slug(name);
-    if (slug(name).isEmpty()) return error = "имя плагина: буквы и цифры, например «my_tools»", QString();
-    if (QFileInfo::exists(folder)) return error = "плагин «" + slug(name) + "» уже есть: " + folder, QString();
+    if (slug(name).isEmpty()) return error = uiText("Kinetica", "имя плагина: буквы и цифры, например «my_tools»"), QString();
+    if (QFileInfo::exists(folder)) return error = uiText("Kinetica", "плагин «") + slug(name) + uiText("Kinetica", "» уже есть: ") + folder, QString();
     if (kind != "command" && kind != "controller" && kind != "world") return error = "kind: command, controller or world", QString();
     QFile templ(pythonPackage() + "/kinetica/plugin_template" + (kind == "command" ? QString() : "_" + kind) + ".py");
-    if (!templ.open(QIODevice::ReadOnly)) return error = "нет заготовки плагина: " + templ.fileName(), QString();
+    if (!templ.open(QIODevice::ReadOnly)) return error = uiText("Kinetica", "нет заготовки плагина: ") + templ.fileName(), QString();
     QDir().mkpath(folder);
     QFile out(folder + "/plugin.py");
-    if (!out.open(QIODevice::WriteOnly)) return error = "не записать " + out.fileName(), QString();
+    if (!out.open(QIODevice::WriteOnly)) return error = uiText("Kinetica", "не записать ") + out.fileName(), QString();
     out.write(QString::fromUtf8(templ.readAll()).replace("PLUGIN_NAME", slug(name)).toUtf8());
     out.close();
     scan(userFolder());
@@ -281,7 +282,7 @@ void PluginHost::launch(Plugin& p) {
             QTimer::singleShot(200, this, [this, name] { // the traceback's last line comes a moment later
                 if (Plugin* r = find(name)) {
                     r->error = lastError(r->stderrTail);
-                    notice(name, "Плагин «" + name + "»: ошибка в фоне — " + r->error);
+                    notice(name, uiText("Kinetica", "Плагин «") + name + uiText("Kinetica", "»: ошибка в фоне — ") + r->error);
                     emit changed();
                 }
             });
@@ -290,8 +291,8 @@ void PluginHost::launch(Plugin& p) {
     connect(p.process, &QProcess::errorOccurred, this, [this, name](QProcess::ProcessError e) {
         Plugin* q = find(name);
         if (!q || e != QProcess::FailedToStart) return;
-        q->state = "не запустился", q->error = "нет Python: " + pythonInterpreter();
-        notice(name, "Плагин «" + name + "» не запустился: " + q->error);
+        q->state = "не запустился", q->error = uiText("Kinetica", "нет Python: ") + pythonInterpreter();
+        notice(name, uiText("Kinetica", "Плагин «") + name + uiText("Kinetica", "» не запустился: ") + q->error);
         emit changed();
     });
     connect(p.process, &QProcess::finished, this, [this, name](int code, QProcess::ExitStatus status) {
@@ -309,7 +310,7 @@ void PluginHost::forget(const QString& file) {
         Plugin& p = **it;
         if (p.process) p.process->disconnect(this), stop(p);
         unregister(p);
-        for (auto& [id, reply] : p.open) reply(EditorOps::error("плагин «" + p.name + "» удалён"));
+        for (auto& [id, reply] : p.open) reply(EditorOps::error(uiText("Kinetica", "плагин «") + p.name + uiText("Kinetica", "» удалён")));
         if (noticeFor_ == p.name) notice(p.name, {});
         hooks_->expect(p.name, {});
         plugins_.erase(it);
@@ -330,13 +331,13 @@ void PluginHost::onExit(Plugin& p, int code) {
     p.process->deleteLater();
     p.process = nullptr;
     unregister(p);
-    for (auto& [id, reply] : p.open) reply(EditorOps::error("плагин «" + p.name + "» остановился"));
+    for (auto& [id, reply] : p.open) reply(EditorOps::error(uiText("Kinetica", "плагин «") + p.name + uiText("Kinetica", "» остановился")));
     p.open.clear(), p.queued.clear(), p.waiting = nullptr;
     if (p.restarting) return p.restarting = false, launch(p); // once: a plugin falling at its start falls, it does not loop
     hooks_->expect(p.name, {});
     p.state = code == 0 ? "остановлен" : "упал";
     p.error = code == 0 ? QString() : lastError(p.stderrTail);
-    if (code != 0) notice(p.name, "Плагин «" + p.name + "» упал: " + (p.error.isEmpty() ? QString("код %1").arg(code) : p.error));
+    if (code != 0) notice(p.name, uiText("Kinetica", "Плагин «") + p.name + uiText("Kinetica", "» упал: ") + (p.error.isEmpty() ? QString(uiText("Kinetica", "код %1")).arg(code) : p.error));
     emit changed();
 }
 
@@ -352,7 +353,7 @@ void PluginHost::notice(const QString& plugin, const QString& text) {
         noticeText_ = new QLabel;
         noticeText_->setObjectName("pluginNoticeText");
         auto* again = new QToolButton;
-        again->setText("Перезапустить");
+        again->setText(uiText("Kinetica", "Перезапустить"));
         auto* close = new QToolButton;
         close->setText("✕");
         row->addWidget(noticeText_), row->addWidget(again), row->addWidget(close);
@@ -390,7 +391,7 @@ void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args
     builder_->beginUndoGroup(); // every edit the plugin makes for this call: one step of Ctrl+Z
     p.open[id] = [this, reply](QJsonObject r) { // a call that failed changes nothing: what it had built is taken back
         if (builder_->endUndoGroup(r.value("ok").toBool()))
-            r.insert("error", r.value("error").toString() + ". Правки этого вызова отменены: сцена как до него");
+            r.insert("error", r.value("error").toString() + uiText("Kinetica", ". Правки этого вызова отменены: сцена как до него"));
         reply(r);
     };
     QJsonObject given;
@@ -404,7 +405,7 @@ void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args
         if (!q || it == q->open.end()) return;
         const EditorOps::Reply r = it->second;
         q->open.erase(it);
-        r(EditorOps::error("плагин «" + name + "» не ответил за 30 с"));
+        r(EditorOps::error(uiText("Kinetica", "плагин «") + name + uiText("Kinetica", "» не ответил за 30 с")));
     });
 }
 
@@ -434,7 +435,7 @@ QString PluginHost::refProblem(const QJsonObject& fields, const QJsonObject& arg
             if (there.size() < 8) there << QString("%1 «%2»").arg(o.toObject().value("id").toInt()).arg(o.toObject().value("name").toString());
         }
         if (!found)
-            return QString("%1: объект %2 — не «%3»; в сцене: %4").arg(it.key()).arg(id).arg(kind, objects.isEmpty() ? QString("таких нет")
+            return QString(uiText("Kinetica", "%1: объект %2 — не «%3»; в сцене: %4")).arg(it.key()).arg(id).arg(kind, objects.isEmpty() ? QString(uiText("Kinetica", "таких нет"))
                                                                     : there.join(", ") + (objects.size() > there.size() ? " …" : ""));
     }
     return QString();
@@ -466,7 +467,7 @@ void PluginHost::hookFailed(const QString& name, const QString& event, const QSt
     if (!q || !q->hookError.isEmpty()) return; // said once a run, not sixty times a second
     q->hookError = error;
     emit output(name, "on_" + event + ": " + error);
-    notice(name, "Плагин «" + name + "»: ошибка в on_" + event + " — " + error);
+    notice(name, uiText("Kinetica", "Плагин «") + name + uiText("Kinetica", "»: ошибка в on_") + event + " — " + error);
 }
 
 void PluginHost::deliver(Plugin& p) {
@@ -508,7 +509,7 @@ void PluginHost::invoke(const QString& plugin, const Command& c) {
                 box->addItem(o.toObject().value("name").toString(), o.toObject().value("id").toInt());
             const int selected = box->findData(int(builder_->selectedId()));
             box->setCurrentIndex(std::max(0, selected >= 0 ? selected : box->findData(start.toInt())));
-            if (box->count() == 0) box->addItem("в сцене нет: " + f.value("ref").toString()), box->setEnabled(false);
+            if (box->count() == 0) box->addItem(uiText("Kinetica", "в сцене нет: ") + f.value("ref").toString()), box->setEnabled(false);
             read.push_back([&args, name, box] {
                 if (box->isEnabled()) args.insert(name, box->currentData().toInt());
                 else args.remove(name);
@@ -551,8 +552,8 @@ void PluginHost::invoke(const QString& plugin, const Command& c) {
         rows->addRow(f.value("label").toString(name), w);
     }
     auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-    buttons->button(QDialogButtonBox::Ok)->setText("Выполнить");
-    buttons->button(QDialogButtonBox::Cancel)->setText("Отмена"); // Qt's own word is English: one language in one dialog
+    buttons->button(QDialogButtonBox::Ok)->setText(uiText("Kinetica", "Выполнить"));
+    buttons->button(QDialogButtonBox::Cancel)->setText(uiText("Kinetica", "Отмена")); // Qt's own word is English: one language in one dialog
     rows->addRow(buttons);
     connect(buttons, &QDialogButtonBox::accepted, &form, &QDialog::accept);
     connect(buttons, &QDialogButtonBox::rejected, &form, &QDialog::reject);
@@ -608,7 +609,7 @@ void PluginHost::openFile(const QString& op, const QString& path) {
         if (!w) return;
         if (!r.value("ok").toBool()) return w->statusBar()->showMessage(r.value("error").toString(), 12000);
         const QString note = r.value("note").toString();
-        w->statusBar()->showMessage(QFileInfo(path).fileName() + (note.isEmpty() ? QString(" открыт") : ": " + note), 12000);
+        w->statusBar()->showMessage(QFileInfo(path).fileName() + (note.isEmpty() ? QString(uiText("Kinetica", " открыт")) : ": " + note), 12000);
     }, "ui");
 }
 
@@ -642,7 +643,7 @@ void PluginHost::addOps() {
                 if (const QString kind = f.value().toObject().value("ref").toString(); !kind.isEmpty()) {
                     QString why;
                     refObjects(kind, &why);
-                    if (!why.isEmpty()) emit output(p->name, "поле «" + f.key() + "» команды «" + cmd.name + "»: " + why);
+                    if (!why.isEmpty()) emit output(p->name, uiText("Kinetica", "поле «") + f.key() + uiText("Kinetica", "» команды «") + cmd.name + "»: " + why);
                 }
             const QString plugin = p->name, command = cmd.name;
             ops_->addPluginOp(cmd.op, QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ",
@@ -650,7 +651,7 @@ void PluginHost::addOps() {
                               argsHelp(cmd.args, c.value("order").toArray()),
                               [this, plugin, command, fields = cmd.args](const QJsonObject& args, const EditorOps::Reply& r) {
                 Plugin* q = find(plugin);
-                if (!q || !q->process) return r(EditorOps::error("плагин «" + plugin + "» не запущен"));
+                if (!q || !q->process) return r(EditorOps::error(uiText("Kinetica", "плагин «") + plugin + uiText("Kinetica", "» не запущен")));
                 if (const QString why = refProblem(fields, args); !why.isEmpty()) return r(EditorOps::error(why));
                 call(*q, command, args, r);
             }, jsonSchema(cmd.args));
@@ -668,14 +669,14 @@ void PluginHost::addOps() {
                 for (QAction* other : window_->findChildren<QAction*>())
                     if (other != cmd.action && other->shortcuts().contains(QKeySequence(cmd.key))) owner = other->text().remove('&');
                 if (owner.isEmpty()) cmd.action->setShortcut(QKeySequence(cmd.key));
-                else emit output(p->name, "клавиша " + cmd.key + " уже у «" + owner + "»: у «" + cmd.label + "» её нет, выберите другую");
+                else emit output(p->name, uiText("Kinetica", "клавиша ") + cmd.key + uiText("Kinetica", " уже у «") + owner + uiText("Kinetica", "»: у «") + cmd.label + uiText("Kinetica", "» её нет, выберите другую"));
             }
             if (!p->menu) { // its own submenu: whose command it is, and its file a click away
                 p->menu = new QMenu(p->name, window_);
                 p->menu->setObjectName("pluginMenu:" + p->name);
                 menu_->insertMenu(commandsEnd_, p->menu);
                 p->menu->addSeparator();
-                QAction* open = p->menu->addAction("Открыть plugin.py");
+                QAction* open = p->menu->addAction(uiText("Kinetica", "Открыть plugin.py"));
                 open->setToolTip(p->file);
                 connect(open, &QAction::triggered, this, [file = p->file] { QDesktopServices::openUrl(QUrl::fromLocalFile(file)); });
             }
@@ -719,7 +720,7 @@ void PluginHost::addOps() {
         if (p->reloaded) {
             p->reloaded = false;
             if (auto* w = qobject_cast<QMainWindow*>(window_))
-                w->statusBar()->showMessage(QString("Плагин «%1» перезапущен за %2 мс").arg(p->name).arg(p->since.elapsed()), 5000);
+                w->statusBar()->showMessage(QString(uiText("Kinetica", "Плагин «%1» перезапущен за %2 мс")).arg(p->name).arg(p->since.elapsed()), 5000);
         }
         emit changed();
         reply(EditorOps::ok({{"ops", made}}));
@@ -752,7 +753,7 @@ void PluginHost::addOps() {
         const EditorOps::Reply answer = it->second;
         p->open.erase(it);
         if (a.contains("error")) answer(EditorOps::error(a.value("event").toBool() ? a.value("error").toString()
-                                                                                    : "плагин «" + p->name + "»: " + a.value("error").toString()));
+                                                                                    : uiText("Kinetica", "плагин «") + p->name + "»: " + a.value("error").toString()));
         else answer(EditorOps::ok(a.value("result").toObject()));
         reply(EditorOps::ok());
     });
@@ -773,7 +774,7 @@ void PluginHost::addOps() {
                                "is a plugin (a repository's checkout), as «Плагины → Добавить папку плагинов…»",
                 "{folder?: str}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         const QString folder = a.value("folder").toString();
-        if (a.contains("folder") && !QFileInfo(folder).isDir()) return reply(EditorOps::error("нет папки «" + folder + "»"));
+        if (a.contains("folder") && !QFileInfo(folder).isDir()) return reply(EditorOps::error(uiText("Kinetica", "нет папки «") + folder + "»"));
         const QStringList before = names();
         if (a.contains("folder")) addFolder(QFileInfo(folder).absoluteFilePath());
         start(onlyGiven_);

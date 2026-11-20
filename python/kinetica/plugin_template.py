@@ -6,11 +6,16 @@ editor restarts the plugin within a second. An error shows its line here, and th
 editor's API console. `scene` is the editor's object model, as in its console: scene.objects, scene.add("box"),
 scene.editor.selection, and scene.ed.<operation>(...) for any operation (the console's ed).
 """
+import os
+
 from kinetica.plugin import command, field
 
+ENGLISH = os.environ.get("KE_UI_LANGUAGE") == "en"
 
-@command(label="Поднять выделенное")
-def lift(scene, height: float = field(0.1, unit="м", range=(-1.0, 1.0), label="На сколько")):
+
+@command(label="Lift Selection" if ENGLISH else "Поднять выделенное")
+def lift(scene, height: float = field(0.1, unit="m" if ENGLISH else "м", range=(-1.0, 1.0),
+                                    label="Height" if ENGLISH else "На сколько")):
     """Lift the selected objects by `height` - one undo step, however many they are."""
     chosen = scene.editor.selection
     if chosen:

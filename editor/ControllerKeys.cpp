@@ -1,5 +1,6 @@
 // A person's keys to the scene's panels (see ControllerKeys.h).
 #include "ControllerKeys.h"
+#include "UiLanguage.h"
 
 #include "EditorOps.h"
 #include "KeyPlace.h"
@@ -29,12 +30,12 @@ bool typing() {
 
 const char* doing(ke::ControlDrive d) {
     switch (d) {
-    case ke::ControlDrive::Plane: return "по полу";
-    case ke::ControlDrive::Lift: return "вверх-вниз";
-    case ke::ControlDrive::Turn: return "поворот";
-    case ke::ControlDrive::Grip: return "схват";
-    case ke::ControlDrive::Jog: return "сустав";
-    case ke::ControlDrive::Duty: return "мотор";
+    case ke::ControlDrive::Plane: return uiText("Kinetica", "по полу");
+    case ke::ControlDrive::Lift: return uiText("Kinetica", "вверх-вниз");
+    case ke::ControlDrive::Turn: return uiText("Kinetica", "поворот");
+    case ke::ControlDrive::Grip: return uiText("Kinetica", "схват");
+    case ke::ControlDrive::Jog: return uiText("Kinetica", "сустав");
+    case ke::ControlDrive::Duty: return uiText("Kinetica", "мотор");
     }
     return "";
 }
@@ -69,10 +70,10 @@ QString ControllerKeys::note() const {
             for (const ke::ControlBinding& b : a.bindings) {
                 if (b.device != "keys" || b.controls.empty()) continue;
                 QStringList keys;
-                for (const std::string& k : b.controls) keys << (k == "Space" ? QString("пробел") : QString::fromStdString(k));
+                for (const std::string& k : b.controls) keys << (k == "Space" ? QString(uiText("Kinetica", "пробел")) : QString::fromStdString(k));
                 parts << keys.join(' ') + " — " + doing(a.drive);
             }
-    return parts.join(" · ") + " · T — клавиши окну";
+    return parts.join(" · ") + uiText("Kinetica", " · T — клавиши окну");
 }
 
 void ControllerKeys::setActive(bool on) {

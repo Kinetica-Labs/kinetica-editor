@@ -1,6 +1,7 @@
 // The plots at the bottom of the window (see PlotPanel.h): the recording, the charts that come by
 // themselves, what the reader may change on them, the hover, the cursor and the CSV.
 #include "PlotPanel.h"
+#include "UiLanguage.h"
 
 #include "core/Format.h"
 
@@ -36,13 +37,13 @@ const std::vector<std::string>& defaultChannels() {
 }
 
 std::vector<PlotPanel::Chart> defaultCharts() {
-    return {{"Энергия сцены — движения, высоты, полная (Дж)", defaultChannels(), {}, false}};
+    return {{uiText("Kinetica", "Энергия сцены — движения, высоты, полная (Дж)"), defaultChannels(), {}, false}};
 }
 
 // The selected object's two charts: how high it is and how fast it moves.
 std::vector<PlotPanel::Chart> objectCharts(const QString& label) {
     const std::string l = label.toStdString();
-    return {{"Высота, м", {l + "/height"}, {}, true}, {"Скорость, м/с", {l + "/speed"}, {}, true}};
+    return {{uiText("Kinetica", "Высота, м"), {l + "/height"}, {}, true}, {uiText("Kinetica", "Скорость, м/с"), {l + "/speed"}, {}, true}};
 }
 
 QString formatValue(double v) { return numberText(v, 4); }
@@ -60,7 +61,7 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     col->setSpacing(0);
 
     // Before the first frame: one quiet line, nothing to press.
-    placeholder_ = new QLabel("Графики появятся после ▶");
+    placeholder_ = new QLabel(uiText("Kinetica", "Графики появятся после ▶"));
     placeholder_->setObjectName("plotPlaceholder");
     placeholder_->setAlignment(Qt::AlignCenter);
     placeholder_->setStyleSheet("color: #8a93a3;");
@@ -96,8 +97,8 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
 void PlotPanel::buildBar() {
     more_ = new QToolButton;
     more_->setObjectName("plotMore");
-    more_->setText("Ещё величины…");
-    more_->setToolTip("Все величины, которые считает движок, с галочками — для тех, кому нужно всё");
+    more_->setText(uiText("Kinetica", "Ещё величины…"));
+    more_->setToolTip(uiText("Kinetica", "Все величины, которые считает движок, с галочками — для тех, кому нужно всё"));
     connect(more_, &QToolButton::clicked, this, [this] {
         checklist_->setRows(rowsFor(-1));
         checklist_->popupAt(more_, more_->rect());
@@ -108,7 +109,7 @@ void PlotPanel::buildBar() {
     row->setContentsMargins(0, 0, 0, 0);
     row->setSpacing(0);
     switchGroup_ = new QButtonGroup(this);
-    const std::pair<const char*, const char*> choices[] = {{"overlay", "Наложить"}, {"lanes", "Дорожками"}, {"normalized", "Нормировать"}};
+    const std::pair<const char*, const char*> choices[] = {{"overlay", uiText("Kinetica", "Наложить")}, {"lanes", uiText("Kinetica", "Дорожками")}, {"normalized", uiText("Kinetica", "Нормировать")}};
     for (int i = 0; i < 3; ++i) {
         auto* b = new QToolButton;
         b->setObjectName(QString("plotLayout_") + choices[i].first);
@@ -118,9 +119,9 @@ void PlotPanel::buildBar() {
         switchGroup_->addButton(b, i);
         row->addWidget(b);
     }
-    switchGroup_->button(0)->setToolTip("Графики рядом; на каждом — линии одной единицы");
-    switchGroup_->button(1)->setToolTip("Графики друг под другом, с общей осью времени");
-    switchGroup_->button(2)->setToolTip("Все линии на одном графике, каждая от 0 до 1: форма, не величина");
+    switchGroup_->button(0)->setToolTip(uiText("Kinetica", "Графики рядом; на каждом — линии одной единицы"));
+    switchGroup_->button(1)->setToolTip(uiText("Kinetica", "Графики друг под другом, с общей осью времени"));
+    switchGroup_->button(2)->setToolTip(uiText("Kinetica", "Все линии на одном графике, каждая от 0 до 1: форма, не величина"));
     const QString quiet = "QToolButton { color: #aab1bd; border: 1px solid #353a43; padding: 2px 8px; background: transparent; }"
                           "QToolButton:hover { background: #2f3540; }"
                           "QToolButton:checked { color: white; background: #2a3a52; border-color: #3d5a80; }";
@@ -243,7 +244,7 @@ const PlotSeries* PlotPanel::series(const std::string& id) const {
 // --- The selected object --------------------------------------------------------------------------
 
 void PlotPanel::showObject(const QString& label) {
-    showSection(label, label.isEmpty() ? QString() : "Объект: " + label, label.isEmpty() ? std::vector<Chart>() : objectCharts(label),
+    showSection(label, label.isEmpty() ? QString() : uiText("Kinetica", "Объект: ") + label, label.isEmpty() ? std::vector<Chart>() : objectCharts(label),
                 {label.toStdString() + "/"});
 }
 
@@ -320,27 +321,27 @@ void PlotPanel::setChannelShown(const std::string& id, bool on) {
 //   «Энергия»  - the scene's energy chart, back in front if it was taken away;
 //   «Движок»   - a chart of the step's time and its five longest stages right now;
 //   «Сбросить» - the charts as they come by themselves: the energy, and the object's if one is selected.
-void PlotPanel::applyPreset(const QString& name) {
-    if (name == "Энергия") {
+void PlotPanel::applyPreset(ChannelList::Preset preset) {
+    if (preset == ChannelList::Preset::Energy) {
         if (!std::any_of(charts_.begin(), charts_.end(), [](const Chart& c) { return c.ids == defaultChannels(); }))
             charts_.insert(charts_.begin(), defaultCharts().front());
-    } else if (name == "Движок") {
+    } else if (preset == ChannelList::Preset::Engine) {
         std::vector<std::pair<double, std::string>> stages;
         for (const auto& [id, s] : series_) {
             const PlotChannel card = catalog_.card(id);
-            if (id != "physics/step ms" && card.group == PlotGroup::Engine && card.unit == "мс" && std::isfinite(s.latest()))
+            if (id != "physics/step ms" && card.group == PlotGroup::Engine && card.unit == uiText("Kinetica", "мс") && std::isfinite(s.latest()))
                 stages.push_back({s.latest(), id});
         }
         std::sort(stages.rbegin(), stages.rend()); // the longest first
-        Chart engine{"Время шага физики по стадиям, мс", {"physics/step ms"}, {}, false};
+        Chart engine{uiText("Kinetica", "Время шага физики по стадиям, мс"), {"physics/step ms"}, {}, false};
         for (size_t i = 0; i < stages.size() && i < 5; ++i) engine.ids.push_back(stages[i].second);
         charts_.insert(std::find_if(charts_.begin(), charts_.end(), [](const Chart& c) { return c.object; }), engine);
-    } else if (name == "Сбросить") {
+    } else {
         charts_ = defaultCharts();
         if (!object_.isEmpty()) charts_.insert(charts_.end(), sectionCharts_.begin(), sectionCharts_.end());
     }
     chartsChanged();
-    touched_ = name != "Сбросить";
+    touched_ = preset != ChannelList::Preset::Reset;
 }
 
 // The «+»: an empty chart after the scene's charts, its list open at once.
@@ -432,33 +433,33 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
         connect(a, &QAction::triggered, this, act);
         return a;
     };
-    item("plotMenuAdd", "Добавить величину…", [this, chart] {
+    item("plotMenuAdd", uiText("Kinetica", "Добавить величину…"), [this, chart] {
         if (chart >= 0) return openChartList(chart);
         checklist_->setRows(rowsFor(-1));
         checklist_->popupAt(more_, more_->rect());
     });
     const int k = view->nearestTrack(at);
     const std::string line = k >= 0 ? view->tracks()[size_t(k)].id : std::string();
-    item("plotMenuRemoveLine", k >= 0 ? "Убрать линию «" + view->tracks()[size_t(k)].name + "»" : QString("Убрать линию"),
+    item("plotMenuRemoveLine", k >= 0 ? uiText("Kinetica", "Убрать линию «") + view->tracks()[size_t(k)].name + "»" : QString(uiText("Kinetica", "Убрать линию")),
          [this, chart, line] { chart >= 0 ? setOnChart(chart, line, false) : setChannelShown(line, false); })
         ->setEnabled(k >= 0);
-    item("plotMenuRemoveChart", "Убрать этот график", [this, chart] { removeChart(chart); })->setEnabled(chart >= 0);
+    item("plotMenuRemoveChart", uiText("Kinetica", "Убрать этот график"), [this, chart] { removeChart(chart); })->setEnabled(chart >= 0);
     menu->addSeparator();
     auto* layouts = new QActionGroup(menu);
-    const std::pair<const char*, const char*> choices[] = {{"plotMenuOverlay", "Наложить"}, {"plotMenuLanes", "Дорожками"},
-                                                           {"plotMenuNormalized", "Нормировать"}};
+    const std::pair<const char*, const char*> choices[] = {{"plotMenuOverlay", uiText("Kinetica", "Наложить")}, {"plotMenuLanes", uiText("Kinetica", "Дорожками")},
+                                                           {"plotMenuNormalized", uiText("Kinetica", "Нормировать")}};
     for (int i = 0; i < 3; ++i) {
         QAction* a = item(choices[i].first, choices[i].second, [this, i] { setArrangement(Arrangement(i)); });
         a->setCheckable(true);
         a->setChecked(int(arrangement_) == i);
         layouts->addAction(a);
     }
-    QAction* whole = item("plotMenuWhole", "Весь прогон, а не последняя минута", [this] { setWholeRun(!wholeRun_); });
+    QAction* whole = item("plotMenuWhole", uiText("Kinetica", "Весь прогон, а не последняя минута"), [this] { setWholeRun(!wholeRun_); });
     whole->setCheckable(true);
     whole->setChecked(wholeRun_);
     menu->addSeparator();
-    item("plotMenuCsv", "Сохранить CSV…", [this] { emit saveCsvRequested(); });
-    item("plotMenuCopy", "Скопировать картинку", [view] { QApplication::clipboard()->setImage(view->grab().toImage()); });
+    item("plotMenuCsv", uiText("Kinetica", "Сохранить CSV…"), [this] { emit saveCsvRequested(); });
+    item("plotMenuCopy", uiText("Kinetica", "Скопировать картинку"), [view] { QApplication::clipboard()->setImage(view->grab().toImage()); });
     return menu;
 }
 
@@ -499,11 +500,11 @@ QString PlotPanel::unitOf(const Chart& c) { return c.ids.empty() ? QString() : c
 // name, how many more, and their unit.
 QString PlotPanel::titleOf(const Chart& c) {
     if (!c.title.isEmpty()) return c.title;
-    if (c.ids.empty()) return "Выберите величину";
+    if (c.ids.empty()) return uiText("Kinetica", "Выберите величину");
     const PlotChannel first = catalog_.card(c.ids.front());
     const QString unit = first.unit.isEmpty() ? QString() : ", " + first.unit;
     if (c.ids.size() == 1) return first.name + unit;
-    return QString("%1 и ещё %2%3").arg(first.name).arg(c.ids.size() - 1).arg(unit);
+    return QString(uiText("Kinetica", "%1 и ещё %2%3")).arg(first.name).arg(c.ids.size() - 1).arg(unit);
 }
 
 PlotTrack PlotPanel::trackOf(const std::string& id, bool hidden) {
@@ -562,7 +563,7 @@ void PlotPanel::rebuildCharts() {
         std::vector<int> scene, object;
         for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
         const bool headers = !object.empty();
-        box->addWidget(section(headers ? QString("Сцена") : QString(), scene, true), std::max(1, int(scene.size())));
+        box->addWidget(section(headers ? QString(uiText("Kinetica", "Сцена")) : QString(), scene, true), std::max(1, int(scene.size())));
         if (!object.empty()) box->addWidget(section(objectTitle(), object, false), int(object.size()));
     }
     scroll_->setWidget(host);
@@ -579,8 +580,8 @@ TrackChart* PlotPanel::normalizedView() {
         for (const std::string& id : c.ids)
             if (seen.insert(id).second) tracks.push_back(trackOf(id, c.hidden.count(id) > 0));
     TrackChart* v = makeView(-1);
-    v->setTitle("Все линии от 0 до 1 — форма, не величина", false);
-    v->setEmptyText("Нет ни одной линии: щёлкните правой кнопкой — «Добавить величину…»");
+    v->setTitle(uiText("Kinetica", "Все линии от 0 до 1 — форма, не величина"), false);
+    v->setEmptyText(uiText("Kinetica", "Нет ни одной линии: щёлкните правой кнопкой — «Добавить величину…»"));
     v->setTracks(tracks);
     return v;
 }
@@ -608,8 +609,8 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& chart
         for (const std::string& id : c.ids) tracks.push_back(trackOf(id, c.hidden.count(id) > 0));
         TrackChart* v = makeView(charts[i]);
         v->setTitle(titleOf(c));
-        v->setEmptyText(c.ids.empty() ? "Щёлкните ▾ у заголовка и выберите, что рисовать"
-                                      : "Ждём первых чисел — они приходят, пока сцена идёт");
+        v->setEmptyText(c.ids.empty() ? uiText("Kinetica", "Щёлкните ▾ у заголовка и выберите, что рисовать")
+                                      : uiText("Kinetica", "Ждём первых чисел — они приходят, пока сцена идёт"));
         v->setTracks(tracks);
         if (lanes) v->setMinimumHeight(96);
         grid->addWidget(v, int(i) / columns, int(i) % columns);
@@ -618,7 +619,7 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& chart
         auto* add = new QToolButton;
         add->setObjectName("plotAddChart");
         add->setText("+");
-        add->setToolTip("Ещё один график: выбрать, что на нём");
+        add->setToolTip(uiText("Kinetica", "Ещё один график: выбрать, что на нём"));
         add->setStyleSheet("QToolButton { color: #8b93a2; border: 1px dashed #3a3f48; border-radius: 6px; background: transparent; font-size: 17px; }"
                            "QToolButton:hover { color: white; border-color: #4096ff; }");
         connect(add, &QToolButton::clicked, this, &PlotPanel::addChart);
@@ -695,7 +696,7 @@ QString PlotPanel::tooltipText(const TrackChart* view, double t, int track) cons
     const double v = line.series ? line.series->valueAt(t) : std::nan("");
     if (!std::isfinite(v)) return QString();
     const QString value = formatValue(v) + (line.unit.isEmpty() ? QString() : " " + line.unit);
-    return QString("%1: %2 в %3 с").arg(line.name, value, QString::number(t, 'f', 2).replace('.', ','));
+    return QString(uiText("Kinetica", "%1: %2 в %3 с")).arg(line.name, value, QString::number(t, 'f', 2).replace('.', ','));
 }
 
 // --- The CSV --------------------------------------------------------------------------------------
@@ -720,7 +721,7 @@ bool writeTable(const QString& path, const std::vector<std::pair<QString, const 
     QTextStream out(&f);
     out.setGenerateByteOrderMark(people);
     auto quoted = [](QString s) { return "\"" + s.replace("\"", "\"\"") + "\""; };
-    out << (people ? quoted("t, с") : QString("t"));
+    out << (people ? quoted(uiText("Kinetica", "t, с")) : QString("t"));
     for (const auto& [head, s] : columns) out << "," << quoted(head);
     out << "\n";
     std::vector<size_t> at(columns.size(), 0);

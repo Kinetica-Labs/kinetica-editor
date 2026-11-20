@@ -1,6 +1,7 @@
 // The role bar (see RoleBar.h): the picture buttons of the rigid body and its collider in one row,
 // and the helpers that read and set a component on an entity.
 #include "RoleBar.h"
+#include "UiLanguage.h"
 
 #include "scene/SceneActions.h"
 
@@ -12,8 +13,8 @@
 namespace {
 
 const char* kTips[] = {
-    "Твёрдое тело: не гнётся; падает, сталкивается, катится (сталкивается своим коллайдером)",
-    "Коллайдер: чем форма сталкивается. Один — неподвижное препятствие; вместе с «Твёрдым» — движущееся тело",
+    QT_TRANSLATE_NOOP("Kinetica", "Твёрдое тело: не гнётся; падает, сталкивается, катится (сталкивается своим коллайдером)"),
+    QT_TRANSLATE_NOOP("Kinetica", "Коллайдер: чем форма сталкивается. Один — неподвижное препятствие; вместе с «Твёрдым» — движущееся тело"),
 };
 
 QToolButton* roleButton(RoleIcon role) {
@@ -32,16 +33,16 @@ QToolButton* roleButton(RoleIcon role) {
 } // namespace
 
 QString roleName(RoleIcon role) {
-    const char* names[] = {"Твёрдое", "Коллайдер"};
+    const char* names[] = {uiText("Kinetica", "Твёрдое"), uiText("Kinetica", "Коллайдер")};
     return names[int(role)];
 }
 
 QString roleTitle(RoleIcon role) {
-    const char* titles[] = {"Твёрдое тело", "Коллайдер"};
+    const char* titles[] = {uiText("Kinetica", "Твёрдое тело"), uiText("Kinetica", "Коллайдер")};
     return titles[int(role)];
 }
 
-QString roleTip(RoleIcon role) { return kTips[int(role)]; }
+QString roleTip(RoleIcon role) { return uiText("Kinetica", kTips[int(role)]); }
 
 // The buttons are the core's roles, in the same order (ke::Role).
 bool roleEnabled(const ke::Entity& e, RoleIcon role) { return ke::hasRole(e, ke::Role(int(role))); }
@@ -64,7 +65,7 @@ RoleBar::RoleBar(QWidget* parent) : QWidget(parent) {
         }
         col->addLayout(line);
     };
-    row("тело и чем сталкивается", {RoleIcon::Rigid, RoleIcon::Collider});
+    row(uiText("Kinetica", "тело и чем сталкивается"), {RoleIcon::Rigid, RoleIcon::Collider});
 }
 
 void RoleBar::setRoles(const ke::Entity& e) {

@@ -93,7 +93,7 @@ public:
     void showChannel(const std::string& id);              // a line on the chart of its unit, or a new chart
     void setChannelShown(const std::string& id, bool on); // the checklist's checkbox
     bool showsChannel(const std::string& id) const;
-    void applyPreset(const QString& name);                // «Энергия», «Движок», «Сбросить»
+    void applyPreset(ChannelList::Preset preset);
     void addChart();                                      // the «+»: an empty chart, its list open
     void openChartList(int chart);                        // the ▾ after a chart's title
     void switchChart(int chart, const std::string& id);   // the list: this quantity instead

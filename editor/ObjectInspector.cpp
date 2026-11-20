@@ -1,6 +1,7 @@
 // The "Объект" block (see ObjectInspector.h): one row with the eye, the lock, the name and the
 // colour swatch, then position and rotation.
 #include "ObjectInspector.h"
+#include "UiLanguage.h"
 
 #include "Icons.h"
 #include "InspectorWidgets.h"
@@ -35,16 +36,16 @@ ObjectInspector::ObjectInspector(QWidget* parent) : QWidget(parent) {
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(8);
-    col->addWidget(sectionTitle("Объект"));
+    col->addWidget(sectionTitle(uiText("Kinetica", "Объект")));
 
     auto* top = new QHBoxLayout;
     top->setSpacing(4);
-    visible_ = toggle("Видимый: скрытое не участвует в расчёте");
-    locked_ = toggle("Замок: мышь не выделяет и не двигает (пол, фон)");
+    visible_ = toggle(uiText("Kinetica", "Видимый: скрытое не участвует в расчёте"));
+    locked_ = toggle(uiText("Kinetica", "Замок: мышь не выделяет и не двигает (пол, фон)"));
     name_ = new QLineEdit;
-    name_->setPlaceholderText("имя");
+    name_->setPlaceholderText(uiText("Kinetica", "имя"));
     colour_ = new QPushButton;
-    colour_->setToolTip("Цвет");
+    colour_->setToolTip(uiText("Kinetica", "Цвет"));
     top->addWidget(visible_);
     top->addWidget(locked_);
     top->addWidget(name_, 1);
@@ -55,8 +56,8 @@ ObjectInspector::ObjectInspector(QWidget* parent) : QWidget(parent) {
     form->setSpacing(6);
     position_ = new Vec3Row(-50, 50, 0.05, 3); // millimetres: a 1 cm gap is 0.045, not 0.04
     rotation_ = new Vec3Row(-360, 360, 5, 0);
-    form->addRow("Где, м", position_);
-    form->addRow("Поворот, °", rotation_);
+    form->addRow(uiText("Kinetica", "Где, м"), position_);
+    form->addRow(uiText("Kinetica", "Поворот, °"), rotation_);
     col->addLayout(form);
 
     connect(name_, &QLineEdit::textEdited, this, &ObjectInspector::edited);
@@ -73,7 +74,7 @@ ObjectInspector::ObjectInspector(QWidget* parent) : QWidget(parent) {
 void ObjectInspector::setObject(const ke::SceneObject& o) {
     const QSignalBlocker a(visible_), b(locked_);
     name_->setText(QString::fromStdString(o.name));
-    name_->setPlaceholderText("имя");
+    name_->setPlaceholderText(uiText("Kinetica", "имя"));
     visible_->setChecked(o.visible);
     locked_->setChecked(o.locked);
     colourValue_ = QColor::fromRgbF(o.color.x, o.color.y, o.color.z);
@@ -100,7 +101,7 @@ void ObjectInspector::writeTo(ke::SceneObject& o) const {
 void ObjectInspector::showMixed(bool name, int positionMask, int rotationMask) {
     if (name) {
         name_->clear();
-        name_->setPlaceholderText("— разные имена —");
+        name_->setPlaceholderText(uiText("Kinetica", "— разные имена —"));
     }
     for (int k = 0; k < 3; ++k) {
         if (positionMask & (1 << k)) ::showMixed(position_->spin(k));
@@ -109,7 +110,7 @@ void ObjectInspector::showMixed(bool name, int positionMask, int rotationMask) {
 }
 
 void ObjectInspector::pickColour() {
-    const QColor c = QColorDialog::getColor(colourValue_, this, "Цвет");
+    const QColor c = QColorDialog::getColor(colourValue_, this, uiText("Kinetica", "Цвет"));
     if (!c.isValid()) return;
     colourValue_ = c;
     colour_->setStyleSheet(swatchStyle(c));

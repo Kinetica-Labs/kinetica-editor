@@ -30,6 +30,7 @@ class ChannelList : public QFrame {
     Q_OBJECT
 public:
     enum class Mode { Chart, Checklist };
+    enum class Preset { Energy, Engine, Reset };
 
     // One row of the list.
     struct Row {
@@ -66,7 +67,7 @@ public:
 signals:
     void chosen(std::string id);
     void toggled(std::string id, bool on);
-    void presetChosen(QString name);
+    void presetChosen(Preset preset);
 
 private:
     void applyFilter();

@@ -12,8 +12,10 @@
 
 #include "Gizmo.h"
 #include "MainWindow.h"
+#include "PlotChannels.h"
 #include "RoleBar.h"
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 #include "Viewport.h"
 
 #include <QAction>
@@ -658,6 +660,28 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
     auto run = [&](const char* name, const std::function<void()>& group) {
         if (only.isEmpty() || QString(name).contains(only)) group();
     };
+    run("language", [&] {
+        const bool english = UiLanguage::active() == "en";
+        auto* menu = w.findChild<QMenu*>("languageMenu");
+        auto* ru = w.findChild<QAction*>("language_ru");
+        auto* en = w.findChild<QAction*>("language_en");
+        auto* play = w.findChild<QAction*>("actionPlay");
+        c.check(menu && menu->title() == (english ? "Language" : "Язык") && ru && en
+                    && ru->text() == "Русский" && en->text() == "English",
+                "the localized menu offers both languages");
+        c.check(play && play->text() == (english ? "Play" : "Пуск")
+                    && QString::fromUtf8(uiText("Kinetica", ke::shapeTitle(ke::ShapeKind::Box))) == (english ? "Cube" : "Куб")
+                    && uiCount(2, UiCount::Object) == (english ? "2 objects" : "2 объекта"),
+                "the action, core label and plural use the selected language");
+        const auto energy = PlotCatalog().card("scene/kinetic energy");
+        const auto& sensors = b->sensorActions();
+        c.check(energy.name == (english ? "Kinetic energy" : "Кинетическая энергия")
+                    && energy.unit == (english ? "J" : "Дж") && !sensors.empty()
+                    && sensors.front()->text() == (english ? "Encoder" : "Энкодер"),
+                "chart labels, units and sensor menus localize when read from label tables");
+        c.check(ru && en && ru->isChecked() == !english && en->isChecked() == english,
+                "the current language is checked");
+    });
     run("gizmo", [&] { testEuler(c), testArrowDrag(c), testRingTurn(c), testScaleDrag(c), testKeyboardTransform(c); });
     run("play", [&] { testEditPlayStop(c, w, *b, v), testUndoRedo(c, w, *b); });
     run("mouse", [&] { testMouseDrag(c, w, *b, v), testCyclePicking(c, w, *b, v); });

@@ -9,9 +9,9 @@
 //               hidden template, so one number changes how many there are.
 // The drag, the popover and the copies are one undo step; Esc or Отмена leaves the scene as it was.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "scene/SceneActions.h"
-#include "RuPlural.h"
 
 #include <cmath>
 
@@ -110,10 +110,10 @@ void SceneBuilder::finishClone(int copies, CloneKind kind) {
     refreshList();
     setSelection(made, made.empty() ? 0 : made.back());
     applyEdit(0);
-    const QString what = kind == CloneKind::Array      ? ruPlural(int(made.size()), "массив", "массива", "массивов")
-                         : kind == CloneKind::Instance ? ruPlural(int(made.size()), "экземпляр", "экземпляра", "экземпляров")
-                                                       : ruPlural(int(made.size()), "копия", "копии", "копий");
-    emit statusMessage("Клонировано: " + what + " · Ctrl+Z — отменить всё сразу");
+    const QString what = kind == CloneKind::Array      ? uiCount(int(made.size()), UiCount::Array)
+                         : kind == CloneKind::Instance ? uiCount(int(made.size()), UiCount::Instance)
+                                                       : uiCount(int(made.size()), UiCount::Copy);
+    emit statusMessage(uiText("Kinetica", "Клонировано: ") + what + uiText("Kinetica", " · Ctrl+Z — отменить всё сразу"));
 }
 
 // Отмена, Esc or a click past the popover: the scene as before the drag, and no undo step for it.

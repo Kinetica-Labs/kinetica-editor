@@ -6,6 +6,7 @@
 // back. The gizmo works in the world: an object in a group is moved where the mouse takes it, its
 // pose written back relative to the group.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 #include "scene/Collider.h"
 
 #include "IkSolverView.h"
@@ -394,18 +395,18 @@ void SceneBuilder::refreshIkView() {
     const bool movable = selected && selected->rigid.enabled && !selected->rigid.fixed; // a thing to take, not the floor or a table
     const bool reach = selected && !link && !selected->goalOf && movable && goalNear(selectedId_) != 0;
     goalButton_->setVisible(link || reach);
-    goalButton_->setText(reach ? "Рука — к этому предмету" : "Вести звено мышью (цель)"); // it said «рука тянется сюда» and did not
-    goalButton_->setToolTip(reach ? "Цель руки встаёт на 10 см над предметом, рука идёт к ней. Дальше: опустить — F, сомкнуть схват — пробел "
-                                    "(в «Пуске»; в правке — кнопка «Схват: сжать» у цели)"
-                                  : "Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
-                                    "инверсная кинематика ведёт сочленения (в «Пуске» — сервоприводами)");
+    goalButton_->setText(reach ? uiText("Kinetica", "Рука — к этому предмету") : uiText("Kinetica", "Вести звено мышью (цель)")); // it said «рука тянется сюда» and did not
+    goalButton_->setToolTip(reach ? uiText("Kinetica", "Цель руки встаёт на 10 см над предметом, рука идёт к ней. Дальше: опустить — F, сомкнуть схват — пробел "
+                                    "(в «Пуске»; в правке — кнопка «Схват: сжать» у цели)")
+                                  : uiText("Kinetica", "Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
+                                    "инверсная кинематика ведёт сочленения (в «Пуске» — сервоприводами)"));
     const Entity* goal = nullptr;
     for (const Entity& e : graph_.entities)
         if (e.id == selectedId_ && e.goalOf != 0 && selection_.size() == 1) goal = &e;
     bool fingers = false;
     const bool closed = goal && handClosed(graph_, goal->goalOf, fingers);
     grip_->setVisible(goal && fingers);
-    grip_->setText(closed ? "Схват: разжать" : "Схват: сжать");
+    grip_->setText(closed ? uiText("Kinetica", "Схват: разжать") : uiText("Kinetica", "Схват: сжать"));
     ikMore_->setVisible(goal != nullptr);
     ikView_->setVisible(goal && ikMore_->isChecked()); // folded under «Подробно» unless opened
     if (!goal) return;
@@ -466,7 +467,7 @@ void SceneBuilder::takeGoalFromPath(uint32_t id) {
         if (!goal->pathTurns.empty()) goal->rotationDeg = goal->pathTurns.back();
     }
     goal->path.clear(), goal->pathTurns.clear();
-    emit statusMessage("Цель снята с траектории: теперь её ведёт гизмо");
+    emit statusMessage(uiText("Kinetica", "Цель снята с траектории: теперь её ведёт гизмо"));
 }
 
 bool SceneBuilder::goalSelected() const {
@@ -502,13 +503,13 @@ void SceneBuilder::addGoalToSelected() {
         std::string error;
         flushCode();
         if (!transact([&](SceneGraph& g, std::string& e) { return ke::findSceneOp("assembly_goal_pose")->edit(g, args, answer, e); }, error))
-            return emit statusMessage("Рука: " + QString::fromStdString(error));
+            return emit statusMessage(uiText("Kinetica", "Рука: ") + QString::fromStdString(error));
         codeAction("assembly_goal_pose", QString("ed.assembly_goal_pose(goal=%1, position=[%2, %3, %4])").arg(goal).arg(over.x).arg(over.y).arg(over.z),
                    {{"goal", int(goal)}, {"position", QJsonArray{over.x, over.y, over.z}}}, false);
-        return emit statusMessage("Рука идёт к «" + QString::fromStdString(entityById(effector)->name) +
-                                  "»: цель на 10 см над ним. Опустить — F, сомкнуть схват — пробел, поднять — R");
+        return emit statusMessage(uiText("Kinetica", "Рука идёт к «") + QString::fromStdString(entityById(effector)->name) +
+                                  uiText("Kinetica", "»: цель на 10 см над ним. Опустить — F, сомкнуть схват — пробел, поднять — R"));
     }
-    if (!entityById(effector) || ke::ikChain(graph_, effector).empty()) return emit statusMessage("Цель IK: выберите последнее звено руки — то, что висит на сочленении");
+    if (!entityById(effector) || ke::ikChain(graph_, effector).empty()) return emit statusMessage(uiText("Kinetica", "Цель IK: выберите последнее звено руки — то, что висит на сочленении"));
     flushCode();
     remember();
     const uint32_t goal = coreEdit([effector](SceneGraph& g) { return ke::addGoal(g, effector); });
@@ -516,6 +517,6 @@ void SceneBuilder::addGoalToSelected() {
     setSelection({goal}, goal);
     applyEdit(goal);
     codeAction("assembly_goal", codeRefs({effector}) + ".add_goal()", {{"effector", double(effector)}}, false);
-    emit statusMessage("Тяните и вращайте цель гизмо — рука идёт за ней (во время игры — моторами)");
+    emit statusMessage(uiText("Kinetica", "Тяните и вращайте цель гизмо — рука идёт за ней (во время игры — моторами)"));
 }
 

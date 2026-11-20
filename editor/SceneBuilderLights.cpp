@@ -10,6 +10,7 @@
 // camera object (each move merged into one undo step, like a drag); a locked camera does not move
 // and the view snaps back to it. Esc or the button again gives the editor's own view back.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "InspectorWidgets.h"
 #include "ObjectInspector.h"
@@ -26,7 +27,7 @@
 
 using namespace ke;
 
-const char* lightName(LightKind k) { return ke::lightTitle(k); }
+const char* lightName(LightKind k) { return uiText("Kinetica", ke::lightTitle(k)); }
 
 SceneIcon lightIcon(LightKind k) {
     static const SceneIcon icons[] = {SceneIcon::Sun, SceneIcon::Bulb, SceneIcon::Spot};
@@ -70,8 +71,8 @@ QIcon SceneBuilder::kindIcon(uint32_t id, int size) const {
 // Making them
 // ---------------------------------------------------------------------------
 void SceneBuilder::buildLightActions() {
-    const char* tips[] = {"Солнце: параллельный свет издалека, с тенями; важно только, куда оно светит",
-                          "Лампа: светит во все стороны и гаснет к своей дальности", "Прожектор: конус света с мягким краем"};
+    const char* tips[] = {uiText("Kinetica", "Солнце: параллельный свет издалека, с тенями; важно только, куда оно светит"),
+                          uiText("Kinetica", "Лампа: светит во все стороны и гаснет к своей дальности"), uiText("Kinetica", "Прожектор: конус света с мягким краем")};
     for (int k = 0; k < 3; ++k) {
         const LightKind kind = LightKind(k);
         auto* a = new QAction(sceneIcon(lightIcon(kind), 48), lightName(kind), this);
@@ -79,8 +80,8 @@ void SceneBuilder::buildLightActions() {
         connect(a, &QAction::triggered, this, [this, kind] { addLight(kind); });
         lightActions_.push_back(a);
     }
-    cameraAct_ = new QAction(sceneIcon(SceneIcon::Camera, 48), "Камера", this);
-    cameraAct_->setToolTip("Камера там, где сейчас вид редактора, смотрит в центр сцены. Через неё — скриншоты");
+    cameraAct_ = new QAction(sceneIcon(SceneIcon::Camera, 48), uiText("Kinetica", "Камера"), this);
+    cameraAct_->setToolTip(uiText("Kinetica", "Камера там, где сейчас вид редактора, смотрит в центр сцены. Через неё — скриншоты"));
     connect(cameraAct_, &QAction::triggered, this, [this] { addCamera(); });
 }
 
@@ -137,54 +138,54 @@ void SceneBuilder::editCamera(uint32_t id, const std::function<void(Camera&)>& c
 // The "Свет" and "Камера" cards
 // ---------------------------------------------------------------------------
 void SceneBuilder::buildLightCards(QVBoxLayout* col) {
-    lightCard_ = new ComponentCard("Свет", sceneIcon(SceneIcon::Bulb, 22));
+    lightCard_ = new ComponentCard(uiText("Kinetica", "Свет"), sceneIcon(SceneIcon::Bulb, 22));
     lightCard_->setObjectName("lightCard");
-    lightCard_->setToolTip("Свет только для глаза: физика его не видит. Цвет — в блоке «Объект»");
+    lightCard_->setToolTip(uiText("Kinetica", "Свет только для глаза: физика его не видит. Цвет — в блоке «Объект»"));
     std::vector<FieldForm::Tile> kinds;
     for (int k = 0; k < 3; ++k) kinds.push_back({sceneIcon(lightIcon(LightKind(k)), 32), lightName(LightKind(k))});
     Light* l = &lightDraft_;
     const auto spot = [l] { return l->kind == LightKind::Spot; };
     lightFields_ = new FieldForm([this](bool click) { commitSelected(lightFields_, lightDraft_, [this](uint32_t id) { return lightById(id); }, click); });
     lightFields_->tiles(kinds, 32, l->kind).name("lightKind")
-        .number("Яркость", 0, 100, 0.1, 2, l->intensity)
-        .number("Дальность, м", 0.1, 1000, 0.5, 2, l->range).shown([l] { return l->kind != LightKind::Sun; })
-        .number("Конус, °", 1, 179, 1, 1, l->coneDeg).shown(spot)
-        .number("Мягкий край, °", 0, 90, 1, 1, l->softnessDeg).shown(spot)
-        .toggle("Отбрасывает тени", l->shadows).name("lightShadows")
-        .tip("Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр (у лампы — шесть), поэтому у "
-             "ламп и прожекторов она сначала выключена, как в Blender и Unity. Тени рисуются не больше чем от 4 источников сразу");
+        .number(uiText("Kinetica", "Яркость"), 0, 100, 0.1, 2, l->intensity)
+        .number(uiText("Kinetica", "Дальность, м"), 0.1, 1000, 0.5, 2, l->range).shown([l] { return l->kind != LightKind::Sun; })
+        .number(uiText("Kinetica", "Конус, °"), 1, 179, 1, 1, l->coneDeg).shown(spot)
+        .number(uiText("Kinetica", "Мягкий край, °"), 0, 90, 1, 1, l->softnessDeg).shown(spot)
+        .toggle(uiText("Kinetica", "Отбрасывает тени"), l->shadows).name("lightShadows")
+        .tip(uiText("Kinetica", "Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр (у лампы — шесть), поэтому у "
+             "ламп и прожекторов она сначала выключена, как в Blender и Unity. Тени рисуются не больше чем от 4 источников сразу"));
     lightCard_->body()->addWidget(lightFields_);
     connect(lightCard_, &ComponentCard::removeClicked, this, &SceneBuilder::removeSelected);
     col->addWidget(lightCard_);
 
-    cameraCard_ = new ComponentCard("Камера", sceneIcon(SceneIcon::Camera, 22));
+    cameraCard_ = new ComponentCard(uiText("Kinetica", "Камера"), sceneIcon(SceneIcon::Camera, 22));
     cameraCard_->setObjectName("cameraCard");
     Camera* c = &cameraDraft_;
     cameraFields_ = new FieldForm([this](bool click) { commitSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); }, click); });
     // Free or target (3ds Max's Free and Target cameras), and what it looks at: its own target (a cube the gizmo moves) or
     // another object. Not the draft's to edit: a target is an object of its own, made or removed - camera_aim does it.
     cameraAimFields_ = new FieldForm([this](bool) { aimSelectedCameras(); });
-    cameraAimFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), "Свободная", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё"},
-                             {sceneIcon(SceneIcon::Camera, 26), "С целью", "Всегда смотрит на цель — свой кубик (двигайте его гизмо) или другой "
-                                                                         "объект; двигаете камеру или цель, она поворачивается за ней; в игре следит за телом"}}, 26,
+    cameraAimFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), uiText("Kinetica", "Свободная"), uiText("Kinetica", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё")},
+                             {sceneIcon(SceneIcon::Camera, 26), uiText("Kinetica", "С целью"), uiText("Kinetica", "Всегда смотрит на цель — свой кубик (двигайте его гизмо) или другой "
+                                                                         "объект; двигаете камеру или цель, она поворачивается за ней; в игре следит за телом")}}, 26,
                             [this] { return cameraAim_.first; }, [this](double k) { cameraAim_.first = k; }).name("cameraKind")
-        .choice("Цель", [this] {
-            std::vector<FieldForm::Option> out{{"свой кубик-цель", 0}};
+        .choice(uiText("Kinetica", "Цель"), [this] {
+            std::vector<FieldForm::Option> out{{uiText("Kinetica", "свой кубик-цель"), 0}};
             for (const Entity& e : graph_.entities)
                 if (!e.targetOf) out.push_back({QString::fromStdString(e.name), double(e.id)});
             return out;
         }, [this] { return cameraAim_.second; }, [this](double id) { cameraAim_.second = id; })
         .name("cameraTarget").shown([this] { return cameraAim_.first == 1; })
-        .tip("На что смотрит камера: свой кубик-цель (выберите его и двигайте гизмо) или объект — за ним она следит и в игре");
+        .tip(uiText("Kinetica", "На что смотрит камера: свой кубик-цель (выберите его и двигайте гизмо) или объект — за ним она следит и в игре"));
     cameraCard_->body()->addWidget(cameraAimFields_);
-    cameraFields_->number("Угол обзора, °", 1, 170, 1, 1, c->fovDeg)
-        .number("Ближе не видит, м", 0.001, 10, 0.01, 3, c->nearClip)
-        .number("Дальше не видит, м", 1, 100000, 10, 0, c->farClip);
+    cameraFields_->number(uiText("Kinetica", "Угол обзора, °"), 1, 170, 1, 1, c->fovDeg)
+        .number(uiText("Kinetica", "Ближе не видит, м"), 0.001, 10, 0.01, 3, c->nearClip)
+        .number(uiText("Kinetica", "Дальше не видит, м"), 1, 100000, 10, 0, c->farClip);
     cameraCard_->body()->addWidget(cameraFields_);
-    throughButton_ = new QPushButton(sceneIcon(SceneIcon::Camera, 20), "Смотреть через камеру");
+    throughButton_ = new QPushButton(sceneIcon(SceneIcon::Camera, 20), uiText("Kinetica", "Смотреть через камеру"));
     throughButton_->setObjectName("throughCamera");
     throughButton_->setCheckable(true);
-    throughButton_->setToolTip("Вид станет этой камерой; движение вида двигает камеру. Esc — назад");
+    throughButton_->setToolTip(uiText("Kinetica", "Вид станет этой камерой; движение вида двигает камеру. Esc — назад"));
     connect(throughButton_, &QPushButton::toggled, this, [this](bool on) {
         if (!filling_) lookThrough(on ? selectedId_ : 0);
     });
@@ -317,7 +318,7 @@ void SceneBuilder::lookThrough(uint32_t cameraId) {
     filling_ = false;
     refreshLightsAndCameras();
     if (!editing()) applyEditDuringPlay(0); // the running scene's cameras follow
-    emit statusMessage(cameraId ? "Вид через камеру: движение вида двигает камеру. Esc — назад к виду редактора" : "Вид редактора");
+    emit statusMessage(cameraId ? uiText("Kinetica", "Вид через камеру: движение вида двигает камеру. Esc — назад к виду редактора") : uiText("Kinetica", "Вид редактора"));
 }
 
 void SceneBuilder::lookThroughActiveCamera() {
@@ -333,7 +334,7 @@ void SceneBuilder::onViewMovedThroughCamera(const Vector3& eye, const Vector3& f
     Camera* c = cameraById(throughId_);
     if (!c) return;
     if (c->locked) {
-        emit statusMessage("Камера заперта замком: вид не двигает её");
+        emit statusMessage(uiText("Kinetica", "Камера заперта замком: вид не двигает её"));
         return emitCameraView();
     }
     remember(true);

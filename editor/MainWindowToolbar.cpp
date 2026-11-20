@@ -9,6 +9,7 @@
 // then the icons get smaller. fitMainToolbar() picks the first step at which everything fits, on
 // every resize of the window.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 #include "MagnetController.h"
 
 #include "EditorOps.h"
@@ -45,7 +46,7 @@ void setLook(QToolButton* b, bool tight, bool iconOnly) {
 } // namespace
 
 void MainWindow::buildMainToolbar() {
-    auto* tb = new QToolBar("Создать", this);
+    auto* tb = new QToolBar(uiText("Kinetica", "Создать"), this);
     createBar_ = tb;
     tb->setObjectName("createBar");
     tb->setMovable(false);
@@ -54,8 +55,8 @@ void MainWindow::buildMainToolbar() {
     addToolBar(Qt::TopToolBarArea, tb);
     std::vector<QAction*> create = shapeCreateActions();
     connect(view_, &Viewport::created, this, &MainWindow::addDrawn);
-    auto* modelAct = new QAction(shapeIcon(ke::ShapeKind::Mesh, 48), "Модель", this);
-    modelAct->setToolTip("Модель из файла OBJ / STL: только форма, роль — плитками справа");
+    auto* modelAct = new QAction(shapeIcon(ke::ShapeKind::Mesh, 48), uiText("Kinetica", "Модель"), this);
+    modelAct->setToolTip(uiText("Kinetica", "Модель из файла OBJ / STL: только форма, роль — плитками справа"));
     connect(modelAct, &QAction::triggered, this, &MainWindow::importModel);
     create.push_back(modelAct);
     addShapeButton(tb, create);
@@ -88,16 +89,16 @@ void MainWindow::addCompactButtons(QToolBar* tb) {
         tb->addWidget(b);
     };
     auto* samplesButton = new QToolButton;
-    samplesButton->setText("Примеры");
-    samplesButton->setToolTip("Все готовые сцены картинками: UR5e, рука-манипулятор, текстуры… Нажмите — откроется");
+    samplesButton->setText(uiText("Kinetica", "Примеры"));
+    samplesButton->setToolTip(uiText("Kinetica", "Все готовые сцены картинками: UR5e, рука-манипулятор, текстуры… Нажмите — откроется"));
     connect(samplesButton, &QToolButton::clicked, this, &MainWindow::openGallery);
     compact(samplesButton);
-    auto* physicsAction = new QAction("Физика мира…", this); physicsAction->setObjectName("worldPhysics");
+    auto* physicsAction = new QAction(uiText("Kinetica", "Физика мира…"), this); physicsAction->setObjectName("worldPhysics");
     connect(physicsAction, &QAction::triggered, this, [this] {
         auto* dock = findChild<QDockWidget*>("inspectorDock"); dock->show(); dock->raise();
         inspectorTabs_->setCurrentIndex(2);
     });
-    physicsAction->setToolTip("Физика мира: гравитация, шаг и подшаги, контакты, жёсткость суставов — вкладка «Мир» инспектора");
+    physicsAction->setToolTip(uiText("Kinetica", "Физика мира: гравитация, шаг и подшаги, контакты, жёсткость суставов — вкладка «Мир» инспектора"));
     menuBar()->findChild<QMenu*>("simulationMenu")->addAction(physicsAction);
     for (QAction* a : {labAct_, graphsAct_}) {
         auto* b = new QToolButton;
@@ -111,11 +112,11 @@ void MainWindow::addCompactButtons(QToolBar* tb) {
 void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shapes) {
     auto* button = new QToolButton;
     button->setObjectName("shapesButton");
-    button->setText("Фигура ▾");
+    button->setText(uiText("Kinetica", "Фигура ▾"));
     button->setIcon(shapeIcon(ke::ShapeKind::Box, 48));
     button->setIconSize(tb->iconSize());
     button->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    button->setToolTip("Создать фигуру: куб, сфера, цилиндр, конус, плоскость или модель из файла. Только форма — роль плитками справа");
+    button->setToolTip(uiText("Kinetica", "Создать фигуру: куб, сфера, цилиндр, конус, плоскость или модель из файла. Только форма — роль плитками справа"));
     button->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(button);
     menu->setToolTipsVisible(true);
@@ -132,9 +133,9 @@ void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shape
 // one after another, as 3ds Max's Create panel does. The builder's own create actions still add a shape at
 // once over a free spot, as scene_add with no place does for a script or an agent.
 std::vector<QAction*> MainWindow::shapeCreateActions() {
-    const char* tips[] = {"Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)",
-                          "Шар: центр, затем радиус", "Цилиндр: центр основания, радиус, высота",
-                          "Конус: центр основания, радиус, высота", "Плоскость: угол, затем противоположный угол"};
+    const char* tips[] = {uiText("Kinetica", "Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)"),
+                          uiText("Kinetica", "Шар: центр, затем радиус"), uiText("Kinetica", "Цилиндр: центр основания, радиус, высота"),
+                          uiText("Kinetica", "Конус: центр основания, радиус, высота"), uiText("Kinetica", "Плоскость: угол, затем противоположный угол")};
     std::vector<QAction*> out;
     for (int k = 0; k < 5; ++k) {
         CreateWhat what;
@@ -153,7 +154,7 @@ QAction* MainWindow::createAction(const CreateWhat& what, const QIcon& icon, con
 }
 
 void MainWindow::startCreating(const CreateWhat& what) {
-    if (!builder_->editing()) return statusBar()->showMessage("Создавать можно в режиме правки — остановите сцену", 6000);
+    if (!builder_->editing()) return statusBar()->showMessage(uiText("Kinetica", "Создавать можно в режиме правки — остановите сцену"), 6000);
     magnet_->setActive(false);
     statusBar()->clearMessage(); // the hint line says what the mouse does now
     view_->setCreateMode(true, what);
@@ -191,7 +192,7 @@ void MainWindow::addDrawn(const CreateWhat& what, const ke::Vector3& position, c
     }
     args["_py"] = py;
     const QJsonObject done = ops_->runNow(op, args);
-    if (!done.value("ok").toBool()) statusBar()->showMessage("Создание: " + done.value("error").toString(), 6000);
+    if (!done.value("ok").toBool()) statusBar()->showMessage(uiText("Kinetica", "Создание: ") + done.value("error").toString(), 6000);
 }
 
 // "Свет ▾" opens its three lights at once (no second click on an arrow); "Камера" beside it. Each is placed
@@ -199,16 +200,16 @@ void MainWindow::addDrawn(const CreateWhat& what, const ke::Vector3& position, c
 void MainWindow::addLightButtons(QToolBar* tb) {
     auto* lights = new QToolButton;
     lights->setObjectName("lightsButton");
-    lights->setText("Свет ▾");
+    lights->setText(uiText("Kinetica", "Свет ▾"));
     lights->setIcon(sceneIcon(SceneIcon::Bulb, 48));
     lights->setIconSize(tb->iconSize());
     lights->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    lights->setToolTip("Свет: солнце, лампа или прожектор. Физика его не видит — он для глаза и скриншотов");
+    lights->setToolTip(uiText("Kinetica", "Свет: солнце, лампа или прожектор. Физика его не видит — он для глаза и скриншотов"));
     lights->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(lights);
     menu->setToolTipsVisible(true);
-    const char* tips[] = {"Солнце: место, высота, куда светит — важно только направление; с тенями",
-                          "Лампа: место, затем высота; светит во все стороны", "Прожектор: место, высота, куда светит — конус света"};
+    const char* tips[] = {uiText("Kinetica", "Солнце: место, высота, куда светит — важно только направление; с тенями"),
+                          uiText("Kinetica", "Лампа: место, затем высота; светит во все стороны"), uiText("Kinetica", "Прожектор: место, высота, куда светит — конус света")};
     for (int k = 0; k < 3; ++k) {
         CreateWhat what;
         what.kind = CreateWhat::Kind::Light;
@@ -222,21 +223,21 @@ void MainWindow::addLightButtons(QToolBar* tb) {
     // target - the object its third click aims at (a robot's gripper: the camera follows it in play), or a point.
     auto* cameras = new QToolButton;
     cameras->setObjectName("camerasButton");
-    cameras->setText("Камера ▾");
+    cameras->setText(uiText("Kinetica", "Камера ▾"));
     cameras->setIcon(sceneIcon(SceneIcon::Camera, 48));
     cameras->setIconSize(tb->iconSize());
     cameras->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     cameras->setPopupMode(QToolButton::InstantPopup);
-    cameras->setToolTip("Камера: свободная или с целью. Место, высота, куда смотрит. Через неё — вид и скриншоты");
+    cameras->setToolTip(uiText("Kinetica", "Камера: свободная или с целью. Место, высота, куда смотрит. Через неё — вид и скриншоты"));
     auto* cameraMenu = new QMenu(cameras);
     CreateWhat camera, aimed;
     camera.kind = aimed.kind = CreateWhat::Kind::Camera;
     aimed.target = true;
-    cameraMenu->addAction(createAction(camera, sceneIcon(SceneIcon::Camera, 48), "Свободная камера",
-                                       "Свободная: смотрит туда, куда повёрнута. Место, высота, куда смотрит", "camera"));
-    cameraMenu->addAction(createAction(aimed, sceneIcon(SceneIcon::Camera, 48), "Камера с целью",
-                                       "С целью: всегда смотрит на цель — объект под третьим щелчком (схват робота: камера следит за ним в игре) "
-                                       "или точку. Двигаете камеру — она продолжает смотреть на цель", "camera_target"));
+    cameraMenu->addAction(createAction(camera, sceneIcon(SceneIcon::Camera, 48), uiText("Kinetica", "Свободная камера"),
+                                       uiText("Kinetica", "Свободная: смотрит туда, куда повёрнута. Место, высота, куда смотрит"), "camera"));
+    cameraMenu->addAction(createAction(aimed, sceneIcon(SceneIcon::Camera, 48), uiText("Kinetica", "Камера с целью"),
+                                       uiText("Kinetica", "С целью: всегда смотрит на цель — объект под третьим щелчком (схват робота: камера следит за ним в игре) "
+                                       "или точку. Двигаете камеру — она продолжает смотреть на цель"), "camera_target"));
     cameras->setMenu(cameraMenu);
     tb->addWidget(cameras);
     createButtons_.push_back(cameras);
@@ -247,19 +248,19 @@ void MainWindow::addLightButtons(QToolBar* tb) {
 void MainWindow::addSensorButton(QToolBar* tb) {
     auto* sensors = new QToolButton;
     sensors->setObjectName("sensorsButton");
-    sensors->setText("Датчик ▾");
+    sensors->setText(uiText("Kinetica", "Датчик ▾"));
     sensors->setIcon(deviceIcon(DeviceIcon::Sonar, 48));
     sensors->setIconSize(tb->iconSize());
     sensors->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    sensors->setToolTip("Датчик на выбранное тело или на его сочленение: без своей формы, накидывается как свойство");
+    sensors->setToolTip(uiText("Kinetica", "Датчик на выбранное тело или на его сочленение: без своей формы, накидывается как свойство"));
     sensors->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(sensors);
     menu->setToolTipsVisible(true);
     const std::vector<QAction*>& kinds = builder_->sensorActions();
-    menu->addSection("На тело");
+    menu->addSection(uiText("Kinetica", "На тело"));
     for (int k : {1, 2, 3}) // IMU, sonar, touch
         if (size_t(k) < kinds.size()) menu->addAction(kinds[size_t(k)]);
-    menu->addSection("На сочленение тела");
+    menu->addSection(uiText("Kinetica", "На сочленение тела"));
     for (int k : {0, 4, 5}) // encoder, wrench, effort
         if (size_t(k) < kinds.size()) menu->addAction(kinds[size_t(k)]);
     connect(menu, &QMenu::aboutToShow, builder_, &SceneBuilder::updateSensorActions);

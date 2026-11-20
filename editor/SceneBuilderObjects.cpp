@@ -5,6 +5,7 @@
 // компонентом", "Инвертировать выбор"). The poses are kept in the world whatever the hierarchy
 // does: grouping, ungrouping or exploding an array never moves anything on the screen.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "scene/SceneActions.h"
 #include "scene/Assembly.h"
@@ -95,7 +96,7 @@ QString SceneBuilder::objectTitle(uint32_t id) const {
         if (a.id != id) continue;
         const SceneObject* t = findObject(graph_, a.templateId);
         const int n = a.pattern == ArrayPattern::Grid ? a.count[0] * a.count[1] * a.count[2] : a.count[0];
-        return QString("Массив: %1 × %2").arg(n).arg(t ? QString::fromStdString(t->name) : QString("?"));
+        return QString(uiText("Kinetica", "Массив: %1 × %2")).arg(n).arg(t ? QString::fromStdString(t->name) : QString("?"));
     }
     return QString::fromStdString(o->name);
 }
@@ -137,7 +138,7 @@ bool SceneBuilder::drawnSelected(uint32_t drawnId) const {
 // poses now relative to the group. Members of one parent group stay inside it.
 void SceneBuilder::groupSelected() {
     const std::vector<uint32_t> roots = selectionRoots();
-    if (roots.empty()) return emit statusMessage("Выберите объекты, которые объединить в группу");
+    if (roots.empty()) return emit statusMessage(uiText("Kinetica", "Выберите объекты, которые объединить в группу"));
     const QString py = "scene.group(" + codeRefs(roots) + ")";
     flushCode();
     remember();
@@ -145,7 +146,7 @@ void SceneBuilder::groupSelected() {
     refreshList();
     setSelection({group}, group);
     applyEdit(0);
-    emit statusMessage("Группа: щелчок по ней выбирает всю группу, ещё щелчок — объект внутри");
+    emit statusMessage(uiText("Kinetica", "Группа: щелчок по ней выбирает всю группу, ещё щелчок — объект внутри"));
     codeAction("scene_group", py, {{"ids", jsonIds(roots)}}, false);
 }
 
@@ -153,7 +154,7 @@ void SceneBuilder::ungroupSelected() {
     std::vector<uint32_t> groups;
     for (uint32_t id : selection_)
         if (groupById(id)) groups.push_back(id);
-    if (groups.empty()) return emit statusMessage("Выберите группу, чтобы разгруппировать");
+    if (groups.empty()) return emit statusMessage(uiText("Kinetica", "Выберите группу, чтобы разгруппировать"));
     const QString py = codeCall("ungroup", groups);
     flushCode();
     remember();
@@ -183,7 +184,7 @@ void SceneBuilder::makeArrayOfSelected() {
     std::vector<uint32_t> shapes;
     for (uint32_t id : selectionRoots())
         if (const Entity* e = entityById(id); e && !isHiddenTemplate(*e)) shapes.push_back(id);
-    if (shapes.empty()) return emit statusMessage("Массив делается из формы: выберите куб, шар…");
+    if (shapes.empty()) return emit statusMessage(uiText("Kinetica", "Массив делается из формы: выберите куб, шар…"));
     const QString py = "scene.make_array(" + codeRefs(shapes) + ")";
     flushCode();
     remember();
@@ -276,7 +277,7 @@ void SceneBuilder::selectWithRole(RoleIcon role) {
     std::vector<uint32_t> ids;
     for (const Entity& e : graph_.entities)
         if (e.visible && !e.locked && roleEnabled(resolveInstance(graph_, e), role)) ids.push_back(e.id);
-    if (ids.empty()) emit statusMessage("Ни у одного объекта нет компонента «" + roleTitle(role) + "»");
+    if (ids.empty()) emit statusMessage(uiText("Kinetica", "Ни у одного объекта нет компонента «") + roleTitle(role) + "»");
     setSelection(ids, selectedId_);
 }
 

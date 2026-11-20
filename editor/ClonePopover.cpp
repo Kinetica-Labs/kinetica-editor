@@ -1,5 +1,6 @@
 // The "Клонировать" popover (see ClonePopover.h).
 #include "ClonePopover.h"
+#include "UiLanguage.h"
 
 #include <QBoxLayout>
 #include <QGuiApplication>
@@ -18,23 +19,23 @@ ClonePopover::ClonePopover(QWidget* parent) : QFrame(parent, Qt::Popup) {
     setFrameShape(QFrame::StyledPanel);
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(12, 10, 12, 10);
-    auto* title = new QLabel("Клонировать");
+    auto* title = new QLabel(uiText("Kinetica", "Клонировать"));
     title->setObjectName("headerName");
     col->addWidget(title);
     auto* countRow = new QHBoxLayout;
-    countRow->addWidget(new QLabel("Сколько копий"));
+    countRow->addWidget(new QLabel(uiText("Kinetica", "Сколько копий")));
     count_ = new QSpinBox;
     count_->setObjectName("cloneCount");
     count_->setRange(1, 1000);
     count_->setValue(1);
-    count_->setToolTip("Каждая следующая копия делает тот же шаг: сдвиг d → d, 2d, 3d…");
+    count_->setToolTip(uiText("Kinetica", "Каждая следующая копия делает тот же шаг: сдвиг d → d, 2d, 3d…"));
     countRow->addWidget(count_);
     col->addLayout(countRow);
-    const char* names[] = {"Копия", "Экземпляр", "Массив"};
+    const char* names[] = {uiText("Kinetica", "Копия"), uiText("Kinetica", "Экземпляр"), uiText("Kinetica", "Массив")};
     const char* ids[] = {"cloneCopy", "cloneInstance", "cloneArray"};
-    const char* tips[] = {"Независимые объекты: каждый правится сам по себе",
-                          "Общие форма и компоненты: правка одного меняет все (⧉ в списке)",
-                          "Один объект «Массив»: число копий и шаг меняются одним числом"};
+    const char* tips[] = {uiText("Kinetica", "Независимые объекты: каждый правится сам по себе"),
+                          uiText("Kinetica", "Общие форма и компоненты: правка одного меняет все (⧉ в списке)"),
+                          uiText("Kinetica", "Один объект «Массив»: число копий и шаг меняются одним числом")};
     for (int k = 0; k < 3; ++k) {
         kinds_[k] = new QRadioButton(names[k]);
         kinds_[k]->setObjectName(ids[k]);
@@ -46,7 +47,7 @@ ClonePopover::ClonePopover(QWidget* parent) : QFrame(parent, Qt::Popup) {
     auto* ok = new QPushButton("OK");
     ok->setObjectName("cloneOk");
     ok->setDefault(true);
-    auto* cancel = new QPushButton("Отмена");
+    auto* cancel = new QPushButton(uiText("Kinetica", "Отмена"));
     cancel->setObjectName("cloneCancel");
     connect(ok, &QPushButton::clicked, this, &ClonePopover::accept);
     connect(cancel, &QPushButton::clicked, this, &QWidget::close);
@@ -60,7 +61,7 @@ void ClonePopover::allowKinds(bool instance, bool array) {
     const bool allowed[] = {true, instance, array};
     for (int k = 1; k < 3; ++k) {
         kinds_[k]->setEnabled(allowed[k]);
-        if (!allowed[k]) kinds_[k]->setToolTip("Масштаб повторяют только независимые копии: у экземпляров и массива размер общий");
+        if (!allowed[k]) kinds_[k]->setToolTip(uiText("Kinetica", "Масштаб повторяют только независимые копии: у экземпляров и массива размер общий"));
     }
 }
 

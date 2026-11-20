@@ -1,6 +1,7 @@
 // The gallery of examples (see ExamplesGallery.h): tiles, the kind filter, and the pictures made in
 // the background by the editor's own program.
 #include "ExamplesGallery.h"
+#include "UiLanguage.h"
 
 #include <QCoreApplication>
 #include <QDir>
@@ -17,13 +18,12 @@
 namespace {
 
 const QSize kThumb(240, 150);
-const char* kEditorCategory = "Сцены редактора";
 
 // The names of the editor's own scenes; another file is shown by its file name.
 QString sceneTitle(const QString& baseName) {
-    if (baseName == "robot-arm") return "Рука-манипулятор";
-    if (baseName == "ur5e") return "UR5e: цель ИК, схват, кубики";
-    if (baseName == "textures") return "Текстуры";
+    if (baseName == "robot-arm") return uiText("Kinetica", "Рука-манипулятор");
+    if (baseName == "ur5e") return uiText("Kinetica", "UR5e: цель ИК, схват, кубики");
+    if (baseName == "textures") return uiText("Kinetica", "Текстуры");
     return baseName;
 }
 
@@ -32,17 +32,17 @@ QIcon placeholder(const QString& title) {
     pm.fill(QColor(44, 48, 56));
     QPainter p(&pm);
     p.setPen(QColor(120, 128, 140));
-    p.drawText(pm.rect().adjusted(8, 8, -8, -8), Qt::AlignCenter | Qt::TextWordWrap, title + "\n\nкартинка готовится…");
+    p.drawText(pm.rect().adjusted(8, 8, -8, -8), Qt::AlignCenter | Qt::TextWordWrap, title + uiText("Kinetica", "\n\nкартинка готовится…"));
     return QIcon(pm);
 }
 
 } // namespace
 
 ExamplesGallery::ExamplesGallery(const QString& examplesDir, QWidget* parent) : QDialog(parent) {
-    setWindowTitle("Примеры");
+    setWindowTitle(uiText("Kinetica", "Примеры"));
     resize(1100, 720);
     auto* col = new QVBoxLayout(this);
-    auto* hint = new QLabel("Нажмите на картинку — сцена откроется. Сцены редактора можно менять и сохранять.");
+    auto* hint = new QLabel(uiText("Kinetica", "Нажмите на картинку — сцена откроется. Сцены редактора можно менять и сохранять."));
     hint->setObjectName("galleryHint");
     col->addWidget(hint);
     tabs_ = new QTabBar;
@@ -88,8 +88,9 @@ void ExamplesGallery::collect(const QString& examplesDir) {
     QStringList files = QDir(examplesDir).entryList({"*.kscene"}, QDir::Files, QDir::Name);
     files.sort();
     if (files.removeOne("ur5e.kscene")) files.prepend("ur5e.kscene");
-    categories_ << "Все" << kEditorCategory;
-    for (const QString& f : files) examples_.push_back({sceneTitle(QFileInfo(f).completeBaseName()), kEditorCategory, examplesDir + "/" + f});
+    const QString category = uiText("Kinetica", "Сцены редактора");
+    categories_ << uiText("Kinetica", "Все") << category;
+    for (const QString& f : files) examples_.push_back({sceneTitle(QFileInfo(f).completeBaseName()), category, examplesDir + "/" + f});
 }
 
 void ExamplesGallery::buildTiles() {
@@ -99,7 +100,7 @@ void ExamplesGallery::buildTiles() {
         const QString picture = thumbnailPath(e);
         auto* item = new QListWidgetItem(QFileInfo::exists(picture) ? QIcon(picture) : placeholder(e.title), e.title, list_);
         item->setData(Qt::UserRole, int(i));
-        item->setToolTip(e.category + " — можно менять и сохранять");
+        item->setToolTip(e.category + uiText("Kinetica", " — можно менять и сохранять"));
         item->setTextAlignment(Qt::AlignHCenter | Qt::AlignTop);
         items_.push_back(item);
         if (!QFileInfo::exists(picture)) queue_.push_back(int(i));

@@ -9,7 +9,7 @@
 #include "RunHooks.h"
 #include "PluginHost.h"
 #include "EditorOps.h"
-#include "RuPlural.h"
+#include "UiLanguage.h"
 
 #include "RoleBar.h"
 #include "PlotPanel.h"
@@ -99,9 +99,9 @@ void MainWindow::connectViewport() {
     connect(view_, &Viewport::openGLUnsupported, this, [this](QString renderer) {
         auto answer = QMessageBox::question(
             this, "OpenGL",
-            QString("Видеокарта или драйвер не поддерживает OpenGL 3.0 (%1).\n\n"
+            QString(uiText("Kinetica", "Видеокарта или драйвер не поддерживает OpenGL 3.0 (%1).\n\n"
                     "Перезапустить программу в программном режиме? Всё будет рисоваться процессором "
-                    "(медленнее, но работает на любом ПК).").arg(renderer));
+                    "(медленнее, но работает на любом ПК).")).arg(renderer));
         if (answer != QMessageBox::Yes) return;
         QStringList args = QCoreApplication::arguments().mid(1);
         args << "--software-gl";
@@ -144,89 +144,108 @@ void MainWindow::buildActions() {
 // Пуск, Пауза, Стоп (and Шаг in the menu): shared toolbar and menu actions.
 void MainWindow::buildRunActions() {
     // Edit -> play -> stop, as in a game engine: the builder's scene is only simulated while it plays.
-    playAct_ = new QAction(controlIcon(ControlIcon::Play, 48), "Пуск", this);
+    playAct_ = new QAction(controlIcon(ControlIcon::Play, 48), uiText("Kinetica", "Пуск"), this);
     playAct_->setShortcut(Qt::Key_Space);
-    playAct_->setToolTip("Пуск (пробел): физика оживает — сцена строится из того, что нарисовано");
+    playAct_->setToolTip(uiText("Kinetica", "Пуск (пробел): физика оживает — сцена строится из того, что нарисовано"));
     connect(playAct_, &QAction::triggered, this, &MainWindow::togglePlay);
     playAct_->setObjectName("actionPlay");
-    pauseAct_ = new QAction(controlIcon(ControlIcon::Pause, 48), "Пауза", this);
+    pauseAct_ = new QAction(controlIcon(ControlIcon::Pause, 48), uiText("Kinetica", "Пауза"), this);
     pauseAct_->setObjectName("actionPause");
-    pauseAct_->setToolTip("Пауза (пробел)");
+    pauseAct_->setToolTip(uiText("Kinetica", "Пауза (пробел)"));
     connect(pauseAct_, &QAction::triggered, this, [this] { builder_->pause(); });
-    stopAct_ = new QAction(controlIcon(ControlIcon::Stop, 48), "Стоп", this);
+    stopAct_ = new QAction(controlIcon(ControlIcon::Stop, 48), uiText("Kinetica", "Стоп"), this);
     stopAct_->setObjectName("actionStop");
     stopAct_->setShortcut(QKeySequence("Shift+Space"));
-    stopAct_->setToolTip("Стоп (Shift+пробел): назад к правке — сцена такая, какой её нарисовали");
+    stopAct_->setToolTip(uiText("Kinetica", "Стоп (Shift+пробел): назад к правке — сцена такая, какой её нарисовали"));
     connect(stopAct_, &QAction::triggered, this, [this] { builder_->stop(); });
 
     buildRecordAction();
-    stepAct_ = new QAction(controlIcon(ControlIcon::Step, 48), "Шаг", this);
+    stepAct_ = new QAction(controlIcon(ControlIcon::Step, 48), uiText("Kinetica", "Шаг"), this);
     stepAct_->setShortcut(Qt::Key_Period);
-    stepAct_->setToolTip("Один кадр (.)");
+    stepAct_->setToolTip(uiText("Kinetica", "Один кадр (.)"));
     connect(stepAct_, &QAction::triggered, this, [this] { builder_->step(); });
 }
 
 // The menu bar: Файл (import, export, screenshot), Симуляция, Вид (filled later), Справка.
 void MainWindow::buildMenus() {
-    auto* importAct = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "Импорт…", this);
+    auto* importAct = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), uiText("Kinetica", "Импорт…"), this);
     importAct->setShortcut(QKeySequence("Ctrl+I")); // Ctrl+O opens a scene (menu "Сцена")
-    importAct->setToolTip("Модель OBJ или STL как новый объект, робот URDF и форматы плагинов; файл можно и перетащить в вид");
+    importAct->setToolTip(uiText("Kinetica", "Модель OBJ или STL как новый объект, робот URDF и форматы плагинов; файл можно и перетащить в вид"));
     connect(importAct, &QAction::triggered, this, &MainWindow::importModel);
-    auto* shotAct = new QAction("Скриншот…", this);
+    auto* shotAct = new QAction(uiText("Kinetica", "Скриншот…"), this);
     shotAct->setShortcut(QKeySequence("Ctrl+P"));
     connect(shotAct, &QAction::triggered, this, &MainWindow::screenshot);
-    auto* csvAct = new QAction("Экспорт всех каналов CSV…", this);
-    csvAct->setToolTip("Всё, что записано за прогон, по столбцу на канал; только нарисованное — «Сохранить CSV» под графиками");
+    auto* csvAct = new QAction(uiText("Kinetica", "Экспорт всех каналов CSV…"), this);
+    csvAct->setToolTip(uiText("Kinetica", "Всё, что записано за прогон, по столбцу на канал; только нарисованное — «Сохранить CSV» под графиками"));
     csvAct->setShortcut(QKeySequence("Ctrl+E"));
     connect(csvAct, &QAction::triggered, this, &MainWindow::exportCsv);
 
-    auto* file = menuBar()->addMenu("&Файл");
+    auto* file = menuBar()->addMenu(uiText("Kinetica", "&Файл"));
     file->setObjectName("fileMenu");
     file->addAction(importAct);
     file->addAction(csvAct);
     file->addAction(shotAct);
     file->addSeparator();
-    file->addAction("Выход", QKeySequence::Quit, this, &QWidget::close);
+    file->addAction(uiText("Kinetica", "Выход"), QKeySequence::Quit, this, &QWidget::close);
 
-    auto* sim = menuBar()->addMenu("&Симуляция");
+    auto* sim = menuBar()->addMenu(uiText("Kinetica", "&Симуляция"));
     sim->setObjectName("simulationMenu");
     for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_, stepAct_}) sim->addAction(a);
-    auto* rt = sim->addAction("Не быстрее реального времени");
+    auto* rt = sim->addAction(uiText("Kinetica", "Не быстрее реального времени"));
     rt->setCheckable(true);
     rt->setChecked(true);
     connect(rt, &QAction::toggled, this, [this](bool on) { ctrl_->setRealtimeLimit(on); });
 
-    auto* viewMenu = menuBar()->addMenu("&Вид");
+    auto* viewMenu = menuBar()->addMenu(uiText("Kinetica", "&Вид"));
     viewMenu->setObjectName("viewMenu");
     viewMenu->addSeparator();
 
-    auto* help = menuBar()->addMenu("&Справка");
+    auto* settings = menuBar()->addMenu(uiText("Kinetica", "Настройки"));
+    settings->setObjectName("settingsMenu");
+    auto* language = settings->addMenu(uiText("Kinetica", "Язык"));
+    language->setObjectName("languageMenu");
+    auto* languages = new QActionGroup(language);
+    const auto addLanguage = [&](const QString& code, const QString& label) {
+        auto* action = language->addAction(label);
+        action->setObjectName("language_" + code);
+        languages->addAction(action);
+        action->setCheckable(true);
+        action->setChecked(code == UiLanguage::active());
+        connect(action, &QAction::triggered, this, [this, code] {
+            if (code == UiLanguage::active()) return;
+            QTimer::singleShot(0, this, [this, code] { changeLanguage(code); });
+        });
+    };
+    addLanguage("ru", "Русский");
+    addLanguage("en", "English");
+
+    auto* help = menuBar()->addMenu(uiText("Kinetica", "&Справка"));
     help->setObjectName("helpMenu");
-    help->addAction("Управление и методы", QKeySequence::HelpContents, this, &MainWindow::showHelp);
-    help->addAction("О программе", this, &MainWindow::showAbout);
+    help->addAction(uiText("Kinetica", "Управление и методы"), QKeySequence::HelpContents, this, &MainWindow::showHelp);
+    help->addAction(uiText("Kinetica", "О программе"), this, &MainWindow::showAbout);
 }
 
 void MainWindow::buildLayoutActions() {
-    graphsAct_ = new QAction("Графики", this);
+    graphsAct_ = new QAction(uiText("Kinetica", "Графики"), this);
     graphsAct_->setObjectName("actionGraphs");
     graphsAct_->setCheckable(true);
     graphsAct_->setShortcut(QKeySequence("F9")); // Ctrl+G is Group, as in Maya
-    graphsAct_->setToolTip("Графики внизу (F9): любая величина сцены во времени");
+    graphsAct_->setToolTip(uiText("Kinetica", "Графики внизу (F9): любая величина сцены во времени"));
     connect(graphsAct_, &QAction::toggled, this, &MainWindow::setGraphsVisible);
-    collidersAct_ = new QAction(roleIcon(RoleIcon::Collider, 20), "Коллайдеры всех тел", this);
+    collidersAct_ = new QAction(roleIcon(RoleIcon::Collider, 20), uiText("Kinetica", "Коллайдеры всех тел"), this);
     collidersAct_->setObjectName("actionColliders");
     collidersAct_->setCheckable(true);
-    collidersAct_->setToolTip("Чем сталкивается каждое тело — то, что видит физика: зелёный каркас поверх модели (серый — у неподвижных). "
-                              "Выбранное тело показывает свой всегда");
+    collidersAct_->setToolTip(uiText("Kinetica", "Чем сталкивается каждое тело — то, что видит физика: зелёный каркас поверх модели (серый — у неподвижных). "
+                              "Выбранное тело показывает свой всегда"));
     connect(collidersAct_, &QAction::toggled, builder_, &SceneBuilder::setShowAllColliders);
     collidersAct_->setChecked(true); // on from the start: what the physics collides with is seen (a person asked for it)
-    auto* hud = new QAction("Производительность", this);
+    auto* hud = new QAction(uiText("Kinetica", "Производительность"), this);
     hud->setObjectName("actionHud");
     hud->setCheckable(true);
     hud->setChecked(view_->showHud());
     hud->setShortcut(QKeySequence(Qt::Key_F3));
-    hud->setToolTip("Табличка в углу вида (F3): кадров в секунду крупно, график последних кадров, время рисования и шага физики, "
-                    "скорость против реального времени, кто рисует — видеокарта или процессор");
+    hud->setToolTip(uiText("Kinetica", "Табличка в углу вида (F3): кадров в секунду крупно, график последних кадров, время рисования и шага физики, "
+                    "скорость против реального времени, кто рисует — видеокарта или процессор"));
     connect(hud, &QAction::triggered, this, [this](bool on) { ops_->run("view_hud", {{"on", on}}, [](const QJsonObject&) {}, "ui"); });
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     viewMenu->addSeparator();
@@ -281,7 +300,7 @@ QMenu* MainWindow::buildEditContextMenu() {
     auto* menu = new QMenu(this);
     for (QAction* a : toolGroup_->actions()) menu->addAction(a); // the toolbar's own actions: one state
     // One switch, the shelf's «Глоб./Лок.» in words (it was a section of two with English in brackets).
-    QAction* local = menu->addAction("Оси объекта", this, [this](bool on) { localAct_->setChecked(on); });
+    QAction* local = menu->addAction(uiText("Kinetica", "Оси объекта"), this, [this](bool on) { localAct_->setChecked(on); });
     local->setObjectName("menuLocalAxes");
     local->setCheckable(true);
     local->setChecked(localAct_->isChecked());
@@ -295,12 +314,12 @@ void MainWindow::addObjectActions(QMenu* menu) {
     const ke::SceneObject* o = builder_->object(id);
     if (!o) return;
     const int n = int(builder_->selection().size());
-    menu->addSection(n > 1 ? "Выбрано: " + ruPlural(n, "объект", "объекта", "объектов") : builder_->objectTitle(id));
-    menu->addAction("К выбранному", QKeySequence(Qt::Key_F), this, [this] { builder_->frameSelected(); }); // «Показать» was also «unhide»
-    menu->addAction("Дублировать", duplicateAct_->shortcut(), this, [this] { builder_->duplicateSelected(); });
-    menu->addAction("Удалить", deleteAct_->shortcut(), this, [this] { builder_->removeSelected(); });
-    menu->addAction(o->visible ? "Скрыть" : "Показать объект", QKeySequence(Qt::Key_H), this, [this, id] { builder_->toggleVisible(id); });
-    menu->addAction(o->locked ? "Разблокировать" : "Заблокировать", this, [this, id] { builder_->toggleLocked(id); });
+    menu->addSection(n > 1 ? uiText("Kinetica", "Выбрано: ") + uiCount(n, UiCount::Object) : builder_->objectTitle(id));
+    menu->addAction(uiText("Kinetica", "К выбранному"), QKeySequence(Qt::Key_F), this, [this] { builder_->frameSelected(); }); // «Показать» was also «unhide»
+    menu->addAction(uiText("Kinetica", "Дублировать"), duplicateAct_->shortcut(), this, [this] { builder_->duplicateSelected(); });
+    menu->addAction(uiText("Kinetica", "Удалить"), deleteAct_->shortcut(), this, [this] { builder_->removeSelected(); });
+    menu->addAction(o->visible ? uiText("Kinetica", "Скрыть") : uiText("Kinetica", "Показать объект"), QKeySequence(Qt::Key_H), this, [this, id] { builder_->toggleVisible(id); });
+    menu->addAction(o->locked ? uiText("Kinetica", "Разблокировать") : uiText("Kinetica", "Заблокировать"), this, [this, id] { builder_->toggleLocked(id); });
     addManyActions(menu);
     // The selection helpers and the components stay where they are found once: «Правка» and the inspector (a fourth way to
     // a component, «Роль ▸», did not open for a newcomer three times; the menu was twenty lines).
@@ -331,7 +350,7 @@ void MainWindow::setTool(GizmoMode m) {
 // The tool shelf at the left edge of the 3D view, as in Blender: select, move, rotate, scale, and
 // whether the gizmo's axes are the world's or the object's own.
 void MainWindow::buildToolShelf() {
-    auto* tb = new QToolBar("Инструменты", this);
+    auto* tb = new QToolBar(uiText("Kinetica", "Инструменты"), this);
     tb->setObjectName("toolShelf");
     tb->setMovable(false);
     tb->setIconSize(QSize(28, 28));
@@ -340,10 +359,10 @@ void MainWindow::buildToolShelf() {
     toolGroup_ = new QActionGroup(this);
     struct Tool { GizmoMode mode; ControlIcon icon; const char* name; const char* id; const char* key; const char* tip; };
     const Tool tools[] = {
-        {GizmoMode::Select, ControlIcon::ToolSelect, "Выбор", "toolSelect", "Q", "Выбор (Q): щелчок выбирает, ещё щелчок туда же — то, что позади"},
-        {GizmoMode::Translate, ControlIcon::ToolMove, "Перемещение", "toolMove", "W", "Перемещение (W): стрелки — по оси, квадраты — в плоскости, центр — свободно; Ctrl — шаг 0,1 м"},
-        {GizmoMode::Rotate, ControlIcon::ToolRotate, "Вращение", "toolRotate", "E", "Вращение (E): кольца — вокруг оси, внешнее — вокруг взгляда; Ctrl — шаг 15°"},
-        {GizmoMode::Scale, ControlIcon::ToolScale, "Масштаб", "toolScale", "R", "Масштаб (R): кубики — по оси, центр — целиком; Ctrl — шаг 10 %"}};
+        {GizmoMode::Select, ControlIcon::ToolSelect, uiText("Kinetica", "Выбор"), "toolSelect", "Q", uiText("Kinetica", "Выбор (Q): щелчок выбирает, ещё щелчок туда же — то, что позади")},
+        {GizmoMode::Translate, ControlIcon::ToolMove, uiText("Kinetica", "Перемещение"), "toolMove", "W", uiText("Kinetica", "Перемещение (W): стрелки — по оси, квадраты — в плоскости, центр — свободно; Ctrl — шаг 0,1 м")},
+        {GizmoMode::Rotate, ControlIcon::ToolRotate, uiText("Kinetica", "Вращение"), "toolRotate", "E", uiText("Kinetica", "Вращение (E): кольца — вокруг оси, внешнее — вокруг взгляда; Ctrl — шаг 15°")},
+        {GizmoMode::Scale, ControlIcon::ToolScale, uiText("Kinetica", "Масштаб"), "toolScale", "R", uiText("Kinetica", "Масштаб (R): кубики — по оси, центр — целиком; Ctrl — шаг 10 %")}};
     for (const Tool& t : tools) {
         QAction* a = tb->addAction(controlIcon(t.icon, 28), t.name);
         a->setObjectName(t.id);
@@ -356,15 +375,15 @@ void MainWindow::buildToolShelf() {
         connect(a, &QAction::triggered, this, [this, m] { setTool(m); });
     }
     tb->addSeparator();
-    localAct_ = tb->addAction("Глоб.");
+    localAct_ = tb->addAction(uiText("Kinetica", "Глоб."));
     localAct_->setObjectName("toolLocal");
     localAct_->setCheckable(true);
     localAct_->setShortcut(Qt::Key_L);
-    localAct_->setToolTip("Оси гизмо (L): «Глоб.» — оси сцены, «Лок.» — оси самого объекта");
+    localAct_->setToolTip(uiText("Kinetica", "Оси гизмо (L): «Глоб.» — оси сцены, «Лок.» — оси самого объекта"));
     connect(localAct_, &QAction::toggled, this, [this](bool on) {
         builder_->sayAction("gizmo_set", QString("editor.gizmo.local = %1").arg(on ? "True" : "False"), {{"local", on}});
         view_->gizmo().setLocal(on);
-        localAct_->setText(on ? "Лок." : "Глоб."); // not «Мир»: that is the inspector's tab of the world's physics
+        localAct_->setText(on ? uiText("Kinetica", "Лок.") : uiText("Kinetica", "Глоб.")); // not «Мир»: that is the inspector's tab of the world's physics
         view_->update();
     });
     setTool(GizmoMode::Translate);
@@ -390,13 +409,13 @@ void MainWindow::buildSceneBuilderDock() {
     builder_ = new SceneBuilder(ctrl_.get(), this);
     inspectorTabs_ = new QTabWidget;
     inspectorTabs_->setObjectName("inspectorTabs");
-    inspectorTabs_->addTab(scrolled(builder_->sceneListPanel()), "Сцена");
-    inspectorTabs_->addTab(scrolled(builder_->inspectorPanel()), "Объект");
-    inspectorTabs_->addTab(scrolled(builder_->worldPanel()), "Мир");
-    inspectorTabs_->setTabToolTip(0, "Все объекты сцены");
-    inspectorTabs_->setTabToolTip(2, "Физика всей сцены: гравитация, шаг, контакты, суставы");
-    inspectorTabs_->setTabToolTip(1, "Выбранный объект: где стоит, как выглядит и что умеет");
-    auto* dock = new QDockWidget("Инспектор", this);
+    inspectorTabs_->addTab(scrolled(builder_->sceneListPanel()), uiText("Kinetica", "Сцена"));
+    inspectorTabs_->addTab(scrolled(builder_->inspectorPanel()), uiText("Kinetica", "Объект"));
+    inspectorTabs_->addTab(scrolled(builder_->worldPanel()), uiText("Kinetica", "Мир"));
+    inspectorTabs_->setTabToolTip(0, uiText("Kinetica", "Все объекты сцены"));
+    inspectorTabs_->setTabToolTip(2, uiText("Kinetica", "Физика всей сцены: гравитация, шаг, контакты, суставы"));
+    inspectorTabs_->setTabToolTip(1, uiText("Kinetica", "Выбранный объект: где стоит, как выглядит и что умеет"));
+    auto* dock = new QDockWidget(uiText("Kinetica", "Инспектор"), this);
     dock->setObjectName("inspectorDock");
     dock->setWidget(inspectorTabs_);
     addDockWidget(Qt::RightDockWidgetArea, dock);
@@ -432,7 +451,7 @@ void MainWindow::connectSceneBuilder() {
     auto* barRow = new QHBoxLayout(colliderBar);
     barRow->setContentsMargins(12, 5, 6, 5);
     auto* barText = new QLabel(colliderBar);
-    auto* done = new QPushButton("Готово (Esc)", colliderBar);
+    auto* done = new QPushButton(uiText("Kinetica", "Готово (Esc)"), colliderBar);
     done->setObjectName("colliderModeDone");
     barRow->addWidget(barText);
     barRow->addWidget(done);
@@ -441,8 +460,8 @@ void MainWindow::connectSceneBuilder() {
     connect(builder_, &SceneBuilder::colliderEditChanged, this, [this, colliderBar, barText](bool on) {
         colliderBar->setVisible(on);
         if (!on) return;
-        barText->setText("<b>Правка коллайдера</b> «" + builder_->objectTitle(builder_->selectedId()) +
-                         "» — точки: размер, гизмо: место и поворот, модель не меняется");
+        barText->setText(uiText("Kinetica", "<b>Правка коллайдера</b> «") + builder_->objectTitle(builder_->selectedId()) +
+                         uiText("Kinetica", "» — точки: размер, гизмо: место и поворот, модель не меняется"));
         colliderBar->adjustSize();
         colliderBar->move((view_->width() - colliderBar->width()) / 2, view_->height() - colliderBar->height() - 12); // the top: the hints
         colliderBar->raise();
@@ -492,24 +511,24 @@ void MainWindow::connectSceneBuilder() {
 }
 
 void MainWindow::buildSceneMenu() {
-    auto* menu = new QMenu("С&цена", this);
-    menu->addAction("Новая пустая сцена", QKeySequence::New, this, [this] {
+    auto* menu = new QMenu(uiText("Kinetica", "С&цена"), this);
+    menu->addAction(uiText("Kinetica", "Новая пустая сцена"), QKeySequence::New, this, [this] {
         const size_t before = builder_->undoTaken();
         builder_->newScene();
-        if (builder_->undoTaken() > before) statusBar()->showMessage("Новая сцена. Прежняя не потеряна: Ctrl+Z вернёт её", 10000);
+        if (builder_->undoTaken() > before) statusBar()->showMessage(uiText("Kinetica", "Новая сцена. Прежняя не потеряна: Ctrl+Z вернёт её"), 10000);
     });
-    menu->addAction("Открыть…", QKeySequence::Open, this, [this] {
-        const QString path = QFileDialog::getOpenFileName(this, "Открыть сцену", examplesDir(), "Сцена Kinetica (*.kscene)");
+    menu->addAction(uiText("Kinetica", "Открыть…"), QKeySequence::Open, this, [this] {
+        const QString path = QFileDialog::getOpenFileName(this, uiText("Kinetica", "Открыть сцену"), examplesDir(), uiText("Kinetica", "Сцена Kinetica (*.kscene)"));
         if (path.isEmpty()) return;
         QString error;
-        if (!builder_->openFile(path, error)) QMessageBox::warning(this, "Открыть сцену", error);
+        if (!builder_->openFile(path, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);
     });
-    menu->addAction("Сохранить…", QKeySequence::Save, this, [this] {
-        const QString path = QFileDialog::getSaveFileName(this, "Сохранить сцену", examplesDir(), "Сцена Kinetica (*.kscene)");
+    menu->addAction(uiText("Kinetica", "Сохранить…"), QKeySequence::Save, this, [this] {
+        const QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Сохранить сцену"), examplesDir(), uiText("Kinetica", "Сцена Kinetica (*.kscene)"));
         if (path.isEmpty()) return;
         QString error;
-        if (!builder_->saveFile(path, error)) return void(QMessageBox::warning(this, "Сохранить сцену", error));
-        statusBar()->showMessage("Сохранено: " + QDir::toNativeSeparators(path), 8000);
+        if (!builder_->saveFile(path, error)) return void(QMessageBox::warning(this, uiText("Kinetica", "Сохранить сцену"), error));
+        statusBar()->showMessage(uiText("Kinetica", "Сохранено: ") + QDir::toNativeSeparators(path), 8000);
     });
     // New, open and save live in Файл; Сцена is what goes into the scene - a newcomer found it a copy of Файл and no
     // joint in it. The toolbar's lists and the inspector's «+ Добавить компонент» are the same actions here.
@@ -522,13 +541,13 @@ void MainWindow::buildSceneMenu() {
         menu->removeAction(sceneActions[i]);
         file->insertAction(anchor, sceneActions[i]);
     }
-    auto* gallery = new QAction("Примеры…", file);
+    auto* gallery = new QAction(uiText("Kinetica", "Примеры…"), file);
     connect(gallery, &QAction::triggered, this, &MainWindow::openGallery);
     file->insertAction(anchor, gallery);
     file->insertSeparator(anchor);
-    menu->addSection("Добавить");
-    const std::pair<const char*, const char*> lists[] = {{"shapesButton", "Фигура"}, {"lightsButton", "Свет"},
-                                                         {"camerasButton", "Камера"}, {"sensorsButton", "Датчик на выбранное"}};
+    menu->addSection(uiText("Kinetica", "Добавить"));
+    const std::pair<const char*, const char*> lists[] = {{"shapesButton", uiText("Kinetica", "Фигура")}, {"lightsButton", uiText("Kinetica", "Свет")},
+                                                         {"camerasButton", uiText("Kinetica", "Камера")}, {"sensorsButton", uiText("Kinetica", "Датчик на выбранное")}};
     for (const auto& [button, title] : lists)
         if (auto* b = findChild<QToolButton*>(button); b && b->menu()) {
             QMenu* sub = menu->addMenu(b->icon(), title);
@@ -539,11 +558,11 @@ void MainWindow::buildSceneMenu() {
                 sub->addActions(b->menu()->actions());
             });
         }
-    QMenu* component = menu->addMenu("Компонент выбранного: сочленение, датчик…");
+    QMenu* component = menu->addMenu(uiText("Kinetica", "Компонент выбранного: сочленение, датчик…"));
     component->setToolTipsVisible(true);
     connect(component, &QMenu::aboutToShow, this, [this, component] {
         builder_->fillAddMenu(component);
-        if (component->isEmpty()) component->addAction("Сначала выберите тело (с Ctrl — второе: сочленение между ними)")->setEnabled(false);
+        if (component->isEmpty()) component->addAction(uiText("Kinetica", "Сначала выберите тело (с Ctrl — второе: сочленение между ними)"))->setEnabled(false);
     });
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     menuBar()->insertMenu(viewMenu->menuAction(), menu);
@@ -553,7 +572,7 @@ void MainWindow::buildSceneMenu() {
 // Results dock: numbers on the left, one chart per quantity on the right
 // ---------------------------------------------------------------------------
 void MainWindow::buildResultsDock() {
-    auto* dock = new QDockWidget("Графики", this);
+    auto* dock = new QDockWidget(uiText("Kinetica", "Графики"), this);
     dock->setObjectName("resultsDock");
 
     QWidget* plotHost = buildPlots(); // the charts and the quiet bar under them (MainWindowPlots.cpp)
@@ -633,43 +652,43 @@ void MainWindow::runAutomation(int frames, const QString& shot) {
 // ---------------------------------------------------------------------------
 // «Импорт…»: a model (OBJ, STL) as a shape, or a file a plugin opens (a robot's URDF) - one dialog, the format by the file.
 void MainWindow::importModel() {
-    QStringList filters{"3D-модели (*.obj *.stl)"}, masks{"*.obj", "*.stl"};
+    QStringList filters{uiText("Kinetica", "3D-модели (*.obj *.stl)")}, masks{"*.obj", "*.stl"};
     for (const QString& f : plugins_->formats()) filters << f, masks << f.section('(', 1).chopped(1).split(' ');
-    filters.prepend("Всё, что откроется (" + masks.join(' ') + ")");
-    const QString path = QFileDialog::getOpenFileName(this, "Импорт", examplesDir(), filters.join(";;"));
+    filters.prepend(uiText("Kinetica", "Всё, что откроется (") + masks.join(' ') + ")");
+    const QString path = QFileDialog::getOpenFileName(this, uiText("Kinetica", "Импорт"), examplesDir(), filters.join(";;"));
     if (!path.isEmpty()) importFile(path);
 }
 
 void MainWindow::importFile(const QString& path) {
     if (const QString op = plugins_->openerFor(path); !op.isEmpty()) return plugins_->openFile(op, path);
     QString error;
-    if (!builder_->importModel(path, error)) QMessageBox::warning(this, "Модель", "Не удалось загрузить модель:\n" + error);
+    if (!builder_->importModel(path, error)) QMessageBox::warning(this, uiText("Kinetica", "Модель"), uiText("Kinetica", "Не удалось загрузить модель:\n") + error);
 }
 
 void MainWindow::exportCsv() {
     if (plots_->empty()) {
-        QMessageBox::information(this, "Экспорт", "Нет данных: запустите расчёт.");
+        QMessageBox::information(this, uiText("Kinetica", "Экспорт"), uiText("Kinetica", "Нет данных: запустите расчёт."));
         return;
     }
-    QString path = QFileDialog::getSaveFileName(this, "Экспорт графиков", "results.csv", "CSV (*.csv)");
+    QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Экспорт графиков"), "results.csv", "CSV (*.csv)");
     if (path.isEmpty()) return;
-    if (!plots_->writeCsv(path)) QMessageBox::warning(this, "Экспорт", "Не удалось записать файл.");
-    else statusBar()->showMessage("Сохранено: " + path, 4000);
+    if (!plots_->writeCsv(path)) QMessageBox::warning(this, uiText("Kinetica", "Экспорт"), uiText("Kinetica", "Не удалось записать файл."));
+    else statusBar()->showMessage(uiText("Kinetica", "Сохранено: ") + path, 4000);
 }
 
 void MainWindow::screenshot() {
     QImage img = view_->grabFramebuffer();
     QString def = QString("kinetica_%1.png").arg(QDateTime::currentDateTime().toString("yyyyMMdd_hhmmss"));
-    QString path = QFileDialog::getSaveFileName(this, "Сохранить скриншот", def, "PNG (*.png)");
-    if (!path.isEmpty() && img.save(path)) statusBar()->showMessage("Сохранено: " + path, 4000);
+    QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Сохранить скриншот"), def, "PNG (*.png)");
+    if (!path.isEmpty() && img.save(path)) statusBar()->showMessage(uiText("Kinetica", "Сохранено: ") + path, 4000);
 }
 
 void MainWindow::showHelp() {
     QMessageBox box(this);
-    box.setWindowTitle("Управление и методы");
+    box.setWindowTitle(uiText("Kinetica", "Управление и методы"));
     box.setTextFormat(Qt::RichText);
     box.setText(
-        "<h3>Управление</h3>"
+        uiText("Kinetica", "<h3>Управление</h3>"
         "<b>Пробел</b> — пуск/пауза (над секвенсором — проиграть и остановить секвенцию, как в видеоредакторе), "
         "<b>Shift+пробел</b> — стоп, <b>.</b> — шаг, <b>F</b> — показать выбранное, "
         "<b>Ctrl+K</b> — найти команду.<br>"
@@ -690,12 +709,12 @@ void MainWindow::showHelp() {
         "«Плагины → Новый плагин…» создаёт файл plugin.py с готовой командой: она сразу становится кнопкой в "
         "«Плагины», строкой в Ctrl+K, вызовом в консоли и инструментом для ИИ-агента. Сохраните файл — плагин "
         "перезапустится. Каждое действие окна видно строкой Python в «Консоли API» — с неё и начинают свою команду. "
-        "Подробно — docs/plugins.md.");
+        "Подробно — docs/plugins.md."));
     box.exec();
 }
 
 void MainWindow::showAbout() {
-    QMessageBox::about(this, "О программе",
-                       "<b>Kinetica Editor 0.1</b><br>Редактор робототехники: звенья, суставы, приводы, датчики.<br>"
-                       "Физика твёрдых тел — Box3D. C++17 · Qt 6 · OpenGL 3.0");
+    QMessageBox::about(this, uiText("Kinetica", "О программе"),
+                       uiText("Kinetica", "<b>Kinetica Editor 0.1</b><br>Редактор робототехники: звенья, суставы, приводы, датчики.<br>"
+                       "Физика твёрдых тел — Box3D. C++17 · Qt 6 · OpenGL 3.0"));
 }

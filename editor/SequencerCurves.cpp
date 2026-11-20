@@ -4,6 +4,7 @@
 // the turn and shows or hides an axis. A key's dot dragged: up and down its value, along its time (whichever the hand
 // moves more first); released, one sequence_key_set. The values' range is fitted to the curve, and held while dragging.
 #include "SequencerViews.h"
+#include "UiLanguage.h"
 
 #include "SceneBuilder.h"
 #include "SequencerPanel.h"
@@ -124,7 +125,7 @@ void SequencerCurves::paintEvent(QPaintEvent*) {
     if (!t) {
         p.setPen(pal.color(QPalette::PlaceholderText));
         p.drawText(QRectF(kNames + kPad, kRuler + 4, width() - kNames - 2 * kPad, 40), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
-                   "Здесь кривые дорожки: выделите объект, у которого есть ключи");
+                   uiText("Kinetica", "Здесь кривые дорожки: выделите объект, у которого есть ключи"));
         drawPlayhead(p, a, panel_->playhead(), height());
         return;
     }
@@ -138,7 +139,7 @@ void SequencerCurves::paintEvent(QPaintEvent*) {
     p.setFont(bold);
     p.setPen(text);
     p.drawText(QRectF(8, kRuler + 4, kNames - 12, 22), Qt::AlignLeft | Qt::AlignVCenter,
-               p.fontMetrics().elidedText(o ? QString::fromStdString(o->name) : QString("потерян"), Qt::ElideRight, kNames - 12));
+               p.fontMetrics().elidedText(o ? QString::fromStdString(o->name) : QString(uiText("Kinetica", "потерян")), Qt::ElideRight, kNames - 12));
     p.setFont(font());
     for (bool turn : {false, true}) {
         const QRectF box = modeBox(turn);
@@ -146,7 +147,7 @@ void SequencerCurves::paintEvent(QPaintEvent*) {
         p.setBrush(turn == turn_ ? pal.color(QPalette::Highlight) : QColor(128, 128, 128, 40));
         p.drawRoundedRect(box, 4, 4);
         p.setPen(turn == turn_ ? pal.color(QPalette::HighlightedText) : text);
-        p.drawText(box, Qt::AlignCenter, turn ? "Поворот, °" : "Место, м");
+        p.drawText(box, Qt::AlignCenter, turn ? uiText("Kinetica", "Поворот, °") : uiText("Kinetica", "Место, м"));
     }
     for (int c = 0; c < 3; ++c) {
         const QRectF box = axisBox(c);

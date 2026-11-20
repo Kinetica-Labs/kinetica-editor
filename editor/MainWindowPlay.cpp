@@ -10,6 +10,7 @@
 //   - a white window: if the GPU's first frames come back all one colour, the editor offers to start
 //     again with the software renderer, and remembers the choice (Вид → Рендер на процессоре).
 #include "MainWindow.h"
+#include "UiLanguage.h"
 
 #include "CommandSearch.h"
 #include "ControllerKeys.h"
@@ -38,10 +39,10 @@
 #include <algorithm>
 
 void MainWindow::buildPlayExtras() {
-    keepAct_ = new QAction("Сохранить положения из симуляции", this);
+    keepAct_ = new QAction(uiText("Kinetica", "Сохранить положения из симуляции"), this);
     keepAct_->setObjectName("keepSimulation");
     keepAct_->setShortcut(Qt::Key_K);
-    keepAct_->setToolTip("Положения тел сейчас останутся после ■ Стоп (выбранных, или всех) — K");
+    keepAct_->setToolTip(uiText("Kinetica", "Положения тел сейчас останутся после ■ Стоп (выбранных, или всех) — K"));
     connect(keepAct_, &QAction::triggered, builder_, &SceneBuilder::keepSimulationPoses);
     QMenu* sim = menuBar()->findChild<QMenu*>("simulationMenu");
     if (sim) sim->addAction(keepAct_);
@@ -50,7 +51,7 @@ void MainWindow::buildPlayExtras() {
     qobject_cast<QVBoxLayout*>(centralWidget()->layout())->addWidget(simulationBar_);
 
     search_ = new CommandSearch(this);
-    searchAct_ = new QAction("Найти команду…", this);
+    searchAct_ = new QAction(uiText("Kinetica", "Найти команду…"), this);
     searchAct_->setObjectName("commandSearch");
     searchAct_->setShortcut(QKeySequence("Ctrl+K"));
     connect(searchAct_, &QAction::triggered, search_, &CommandSearch::open);
@@ -58,7 +59,7 @@ void MainWindow::buildPlayExtras() {
     if (help) help->insertAction(help->actions().value(0), searchAct_);
     else addAction(searchAct_);
 
-    auto* cpu = new QAction("Рендер на процессоре (после перезапуска)", this);
+    auto* cpu = new QAction(uiText("Kinetica", "Рендер на процессоре (после перезапуска)"), this);
     cpu->setObjectName("softwareRender");
     cpu->setCheckable(true);
     cpu->setChecked(QSettings().value("render/softwareGL", false).toBool());
@@ -99,16 +100,16 @@ bool MainWindow::looksBlank(const QImage& frame) {
 // `pretend`: the self-test's way to see the question without a broken driver.
 void MainWindow::checkBlankView(bool pretend) {
     if (!pretend && (view_->softwareRenderer() || !looksBlank(view_->grabFramebuffer()))) return;
-    auto* box = new QMessageBox(QMessageBox::Warning, "Окно пустое?",
-                                "Похоже, видеокарта не нарисовала сцену: окно белое или одноцветное. Так бывает, "
+    auto* box = new QMessageBox(QMessageBox::Warning, uiText("Kinetica", "Окно пустое?"),
+                                uiText("Kinetica", "Похоже, видеокарта не нарисовала сцену: окно белое или одноцветное. Так бывает, "
                                 "когда драйвер занят другой программой (например, видеоредактором).\n\n"
                                 "Перезапустить редактор с рендером на процессоре? Выбор запомнится "
-                                "(Вид → Рендер на процессоре).",
+                                "(Вид → Рендер на процессоре)."),
                                 QMessageBox::NoButton, this);
     box->setObjectName("blankViewDialog");
     box->setAttribute(Qt::WA_DeleteOnClose);
-    QPushButton* restart = box->addButton("Перезапустить на процессоре", QMessageBox::AcceptRole);
-    box->addButton("Нет, всё видно", QMessageBox::RejectRole);
+    QPushButton* restart = box->addButton(uiText("Kinetica", "Перезапустить на процессоре"), QMessageBox::AcceptRole);
+    box->addButton(uiText("Kinetica", "Нет, всё видно"), QMessageBox::RejectRole);
     connect(restart, &QPushButton::clicked, this, [] {
         QSettings().setValue("render/softwareGL", true);
         QStringList args = QCoreApplication::arguments().mid(1);
@@ -120,12 +121,12 @@ void MainWindow::checkBlankView(bool pretend) {
 }
 
 void MainWindow::buildRecordAction() {
-    recordAct_ = new QAction(controlIcon(ControlIcon::Record, 48), "Запись", this); // ▶●
+    recordAct_ = new QAction(controlIcon(ControlIcon::Record, 48), uiText("Kinetica", "Запись"), this); // ▶●
     recordAct_->setObjectName("actionRecord");
     recordAct_->setCheckable(true);
     recordAct_->setShortcut(QKeySequence("Ctrl+R"));
-    recordAct_->setToolTip("Пуск и запись (Ctrl+R): физика идёт и пишется. Ещё раз или ■ Стоп — запись становится секвенцией "
-                           "«Запись N» во вкладке «Секвенсор»: смотреть бегунком и ▶ Просмотром; «▶ в Пуске» — повторять её как анимацию");
+    recordAct_->setToolTip(uiText("Kinetica", "Пуск и запись (Ctrl+R): физика идёт и пишется. Ещё раз или ■ Стоп — запись становится секвенцией "
+                           "«Запись N» во вкладке «Секвенсор»: смотреть бегунком и ▶ Просмотром; «▶ в Пуске» — повторять её как анимацию"));
     connect(recordAct_, &QAction::triggered, this, [this](bool on) {
         const qint64 now = QDateTime::currentMSecsSinceEpoch();
         if (!on && now - recordSince_ < 500) return recordAct_->setChecked(true); // the second click of a double click
@@ -134,7 +135,7 @@ void MainWindow::buildRecordAction() {
             syncRecord();
             if (!r["ok"].toBool()) return statusBar()->showMessage(r["error"].toString(), 8000);
             if (!r.contains("tracks")) return;
-            statusBar()->showMessage(QString("Записано: тел %1, ключей %2, %3 с — во вкладке «Секвенсор»: бегунок, ▶ Просмотр; «▶ в Пуске» повторит как анимацию")
+            statusBar()->showMessage(QString(uiText("Kinetica", "Записано: тел %1, ключей %2, %3 с — во вкладке «Секвенсор»: бегунок, ▶ Просмотр; «▶ в Пуске» повторит как анимацию"))
                                          .arg(r["tracks"].toInt()).arg(r["keys"].toInt()).arg(r["length"].toDouble(), 0, 'f', 2), 12000);
             if (auto* dock = findChild<QDockWidget*>("sequencerDock")) dock->show(), dock->raise(); // the take to look at
         }, "ui");
@@ -153,7 +154,7 @@ void MainWindow::syncRecord() {
     const bool on = ops_ && ops_->recording();
     if (on == recordBlink_->isActive()) return;
     recordAct_->setChecked(on);
-    recordAct_->setText(on ? "Пишется" : "Запись");
+    recordAct_->setText(on ? uiText("Kinetica", "Пишется") : uiText("Kinetica", "Запись"));
     if (on) recordBlink_->start();
     else recordBlink_->stop(), recordAct_->setIcon(controlIcon(ControlIcon::Record, 48));
 }

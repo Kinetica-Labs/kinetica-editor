@@ -5,6 +5,7 @@
 // UTF-8 on every system (PYTHONUTF8): Windows' Python writes print() in the console's code page otherwise, and a
 // plugin's Russian words came to the API console as noise. Its lines there end in \r\n: readers drop the \r.
 #include "Resources.h"
+#include "UiLanguage.h"
 
 #include <QDir>
 #include <QProcessEnvironment>
@@ -25,6 +26,7 @@ inline QProcessEnvironment pythonEnvironment(quint16 port) {
     const QString package = pythonPackage();
     env.insert("PYTHONPATH", package + (env.contains("PYTHONPATH") ? QDir::listSeparator() + env.value("PYTHONPATH") : QString()));
     env.insert("KE_EDITOR_PORT", QString::number(port));
+    env.insert("KE_UI_LANGUAGE", UiLanguage::active());
     env.insert("PYTHONUNBUFFERED", "1");
     env.insert("PYTHONUTF8", "1");
     return env;

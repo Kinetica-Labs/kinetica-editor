@@ -10,10 +10,12 @@ leaves it short of its target - and what the encoder reads short is gathered int
 wave. A joint with no encoder of a known zero is left alone (Датчик ▾ → Энкодер, or joint.add_encoder(reference=0)).
 """
 import math
+import os
 
 from kinetica import Encoder
 from kinetica.plugin import on_play, on_tick
 
+ENGLISH = os.environ.get("KE_UI_LANGUAGE") == "en"
 SWING = 0.3   # rad: how far a joint goes each way
 GAIN = 4.0    # 1/s: how fast what the encoder reads short moves the target
 encoders = {}  # a servo joint -> the encoder on it
@@ -32,7 +34,10 @@ def start(scene):
     for sensor in scene.sensors:
         if isinstance(sensor, Encoder) and sensor.parent in servos:
             encoders[sensor.parent] = sensor.id
-    print("ведём суставов с энкодером:", len(encoders), "из", len(servos), "с сервоприводом")
+    if ENGLISH:
+        print(f"Controlling {len(encoders)} of {len(servos)} servo joints with encoders")
+    else:
+        print("ведём суставов с энкодером:", len(encoders), "из", len(servos), "с сервоприводом")
 
 
 @on_tick
@@ -51,5 +56,5 @@ def control(scene, dt, sensors):
         commands[joint] = {"target": goal + trim[joint]}
     if commands and t - said >= 1.0:  # once a second: how far the worst joint is from where it should be
         said = t
-        print("отклонение, рад:", round(worst, 4))
+        print("tracking error, rad:" if ENGLISH else "отклонение, рад:", round(worst, 4))
     return commands

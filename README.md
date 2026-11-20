@@ -85,6 +85,11 @@ C:\Qt\6.7.3\msvc2019_64\bin\windeployqt build\Release\kinetica.exe   # библ�
 
 ## Запуск и проверка
 
+Язык окна выбирается в **Настройки → Язык** (**Settings → Language**). Редактор сохраняет выбор, сам перезапускается
+и открывает текущую сцену вместе с несохранёнными правками. Для разового запуска на английском используйте `build/kinetica --language en`.
+Каталог английских подписей лежит в `translations/kinetica_en.ts`. После изменения исходных строк
+обновите его командой `cmake --build build --target update_translations`.
+
 ```sh
 build/kinetica --scene examples/ur5e.kscene   # окно со сценой UR5e (Windows: build\Release\kinetica.exe)
 build/ke_tests                                # тесты ядра

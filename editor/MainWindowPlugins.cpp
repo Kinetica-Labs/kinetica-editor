@@ -3,6 +3,7 @@
 // plugins' folder, and starting them all again. Plugins start with a person's window (main.cpp); an unattended run -
 // the self-test, pictures - starts none of them, so it does not depend on what a user installed.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 
 #include "ApiConsole.h"
 #include "EditorOps.h"
@@ -73,7 +74,7 @@ void MainWindow::syncControllers() {
                     const QString why = applyCommands(s, commands);
                     if (!why.isEmpty()) // a command that did nothing is said, once a run - not sixty times a second
                         QMetaObject::invokeMethod(self, [self, why] {
-                            if (self && !self->commandWarned_) self->commandWarned_ = true, emit self->plugins_->output("такт", "команда не выполнена: " + why);
+                            if (self && !self->commandWarned_) self->commandWarned_ = true, emit self->plugins_->output(uiText("Kinetica", "такт"), uiText("Kinetica", "команда не выполнена: ") + why);
                         }, Qt::QueuedConnection);
                 }, "controllers");
             ctrl->release(frame);
@@ -82,7 +83,7 @@ void MainWindow::syncControllers() {
 }
 
 void MainWindow::buildPlugins() {
-    auto* menu = new QMenu("&Плагины", this);
+    auto* menu = new QMenu(uiText("Kinetica", "&Плагины"), this);
     menu->setObjectName("pluginsMenu");
     menu->setToolTipsVisible(true);
     menuBar()->insertMenu(menuBar()->findChild<QMenu*>("helpMenu")->menuAction(), menu);
@@ -123,21 +124,21 @@ void MainWindow::buildPlugins() {
         plugins_->useTool(op, {{"point", three(point)}, {"normal", three(normal)}, {"object", int(object)}, {"to", three(to)},
                                {"to_object", int(toObject)}});
     });
-    QAction* make = menu->addAction("Новый плагин…");
+    QAction* make = menu->addAction(uiText("Kinetica", "Новый плагин…"));
     make->setObjectName("actionNewPlugin");
-    make->setToolTip("Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится");
+    make->setToolTip(uiText("Kinetica", "Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится"));
     connect(make, &QAction::triggered, this, [this] {
         // What to make, in words, then a name: each kind's file works at once - a button, a waving arm, a wind.
         QDialog ask(this);
-        ask.setWindowTitle("Новый плагин");
+        ask.setWindowTitle(uiText("Kinetica", "Новый плагин"));
         auto* form = new QFormLayout(&ask);
         auto* name = new QLineEdit("my_plugin");
         name->setObjectName("pluginNewName");
-        form->addRow("Имя", name);
+        form->addRow(uiText("Kinetica", "Имя"), name);
         const std::pair<const char*, const char*> kinds[] = {
-            {"command", "Команда — кнопка, строка Ctrl+K и инструмент агента: сделать что-то со сценой"},
-            {"controller", "Контроллер робота — каждый кадр Пуска: датчики → команды суставам"},
-            {"world", "Физика мира — каждый кадр Пуска: тела → силы (ветер, магнит, тяга…)"}};
+            {"command", uiText("Kinetica", "Команда — кнопка, строка Ctrl+K и инструмент агента: сделать что-то со сценой")},
+            {"controller", uiText("Kinetica", "Контроллер робота — каждый кадр Пуска: датчики → команды суставам")},
+            {"world", uiText("Kinetica", "Физика мира — каждый кадр Пуска: тела → силы (ветер, магнит, тяга…)")}};
         auto* group = new QButtonGroup(&ask);
         for (const auto& [key, words] : kinds) {
             auto* option = new QRadioButton(words);
@@ -148,8 +149,8 @@ void MainWindow::buildPlugins() {
             form->addRow(option);
         }
         auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
-        buttons->button(QDialogButtonBox::Ok)->setText("Создать");
-        buttons->button(QDialogButtonBox::Cancel)->setText("Отмена");
+        buttons->button(QDialogButtonBox::Ok)->setText(uiText("Kinetica", "Создать"));
+        buttons->button(QDialogButtonBox::Cancel)->setText(uiText("Kinetica", "Отмена"));
         connect(buttons, &QDialogButtonBox::accepted, &ask, &QDialog::accept);
         connect(buttons, &QDialogButtonBox::rejected, &ask, &QDialog::reject);
         form->addRow(buttons);
@@ -158,28 +159,28 @@ void MainWindow::buildPlugins() {
         ops_->run("plugin_new", {{"name", name->text()}, {"kind", kind}}, [this](const QJsonObject& r) {
             if (!r.value("ok").toBool()) return statusBar()->showMessage(r.value("error").toString(), 10000);
             const QString file = r.value("file").toString();
-            statusBar()->showMessage("Плагин создан: " + file + " — его кнопка в «Плагины»; сохраните файл, и он перезапустится", 15000);
+            statusBar()->showMessage(uiText("Kinetica", "Плагин создан: ") + file + uiText("Kinetica", " — его кнопка в «Плагины»; сохраните файл, и он перезапустится"), 15000);
             if (!auto_.active) QDesktopServices::openUrl(QUrl::fromLocalFile(file)); // a person writes it on
         }, "ui");
     });
-    QAction* add = menu->addAction("Добавить папку плагинов…");
+    QAction* add = menu->addAction(uiText("Kinetica", "Добавить папку плагинов…"));
     add->setObjectName("actionAddPluginFolder");
-    add->setToolTip("Папка, где каждая подпапка с plugin.py — плагин: например, репозиторий kinetica-plugins. Редактор запомнит её");
+    add->setToolTip(uiText("Kinetica", "Папка, где каждая подпапка с plugin.py — плагин: например, репозиторий kinetica-plugins. Редактор запомнит её"));
     connect(add, &QAction::triggered, this, [this] {
-        const QString dir = QFileDialog::getExistingDirectory(this, "Папка плагинов", QDir::homePath());
+        const QString dir = QFileDialog::getExistingDirectory(this, uiText("Kinetica", "Папка плагинов"), QDir::homePath());
         if (dir.isEmpty()) return;
         ops_->run("plugin_scan", {{"folder", dir}}, [this, dir](const QJsonObject& r) {
-            statusBar()->showMessage(r.value("ok").toBool() ? "Плагины из " + dir + " запущены; папка запомнена" : r.value("error").toString(), 8000);
+            statusBar()->showMessage(r.value("ok").toBool() ? uiText("Kinetica", "Плагины из ") + dir + uiText("Kinetica", " запущены; папка запомнена") : r.value("error").toString(), 8000);
         }, "ui");
     });
-    QAction* folder = menu->addAction("Папка моих плагинов");
-    folder->setToolTip("Каждая папка с plugin.py в ней — плагин");
+    QAction* folder = menu->addAction(uiText("Kinetica", "Папка моих плагинов"));
+    folder->setToolTip(uiText("Kinetica", "Каждая папка с plugin.py в ней — плагин"));
     connect(folder, &QAction::triggered, this, [this] {
         QDir().mkpath(plugins_->userFolder());
         QDesktopServices::openUrl(QUrl::fromLocalFile(plugins_->userFolder()));
     });
-    QAction* again = menu->addAction("Перезапустить плагины");
-    again->setToolTip("Каждый плагин запускается заново; папки плагинов просматриваются ещё раз — новая папка с plugin.py подхватывается");
+    QAction* again = menu->addAction(uiText("Kinetica", "Перезапустить плагины"));
+    again->setToolTip(uiText("Kinetica", "Каждый плагин запускается заново; папки плагинов просматриваются ещё раз — новая папка с plugin.py подхватывается"));
     connect(again, &QAction::triggered, this, [this] {
         const QStringList known = plugins_->names(); // the ones a scan starts now are fresh already
         ops_->run("plugin_scan", {}, [](const QJsonObject&) {}, "ui");

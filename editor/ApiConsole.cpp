@@ -2,6 +2,7 @@
 // to type calls into. A call typed is run through the same registry as the window's and the network's,
 // with the source "console", and comes back into the log as every other call does.
 #include "ApiConsole.h"
+#include "UiLanguage.h"
 
 #include "PythonRuntime.h"
 
@@ -118,14 +119,14 @@ bool ApiConsole::parseCall(const QString& text, QString& name, QJsonObject& args
     while (i < t.size() && (t[i].isLetterOrNumber() || t[i] == '_')) ++i;
     name = t.left(i);
     const QString rest = t.mid(i).trimmed();
-    if (name.isEmpty()) return error = "нужно имя операции: ed.scene_list()", false;
+    if (name.isEmpty()) return error = uiText("Kinetica", "нужно имя операции: ed.scene_list()"), false;
     QString json = "{}";
     if (rest.startsWith('{')) json = rest;
     else if (rest.startsWith('(') && rest.endsWith(')')) json = argumentsAsJson(rest.mid(1, rest.size() - 2));
-    else if (!rest.isEmpty()) return error = "аргументы — в скобках: " + name + "(key=value, ...)", false;
+    else if (!rest.isEmpty()) return error = uiText("Kinetica", "аргументы — в скобках: ") + name + "(key=value, ...)", false;
     QJsonParseError bad;
     const QJsonDocument doc = QJsonDocument::fromJson(json.toUtf8(), &bad);
-    if (!doc.isObject()) return error = "аргументы не читаются: " + bad.errorString(), false;
+    if (!doc.isObject()) return error = uiText("Kinetica", "аргументы не читаются: ") + bad.errorString(), false;
     args = doc.object();
     return true;
 }
@@ -139,14 +140,15 @@ ApiConsole::ApiConsole(EditorOps* ops, QWidget* parent) : QWidget(parent), ops_(
     log_->setReadOnly(true);
     log_->setMaximumBlockCount(4000);
     log_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    log_->setPlaceholderText("Здесь каждое действие — агента, скрипта, окна и ваше — появляется строкой Python с ответом");
+    log_->setPlaceholderText(uiText("Kinetica", "Здесь каждое действие — агента, скрипта, окна и ваше — появляется строкой Python с ответом"));
     col->addWidget(log_, 1);
     auto* row = new QHBoxLayout;
     row->addWidget(new QLabel(">>>"));
     input_ = new QLineEdit;
     input_->setObjectName("apiConsoleInput");
     input_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
-    input_->setPlaceholderText("scene.add(\"box\")   scene.objects[\"Куб 1\"].move((0, 0.1, 0))   ed.scene_list()   — Python; ↑↓ — прежние");
+    input_->setPlaceholderText(QString("scene.add(\"box\")   scene.objects[\"Куб 1\"].move((0, 0.1, 0))   ed.scene_list()")
+        + uiText("Kinetica", "   — Python; ↑↓ — прежние"));
     QStringList names;
     for (const QJsonValue& op : ops_->list()) names << "ed." + op.toObject().value("name").toString() + "(";
     auto* complete = new QCompleter(names, input_);
@@ -155,18 +157,18 @@ ApiConsole::ApiConsole(EditorOps* ops, QWidget* parent) : QWidget(parent), ops_(
     input_->setCompleter(complete);
     input_->installEventFilter(this);
     row->addWidget(input_, 1);
-    queries_ = new QCheckBox("запросы");
-    queries_->setToolTip("Показывать и запросы, которые ничего не меняют: списки, состояние, снимки, пиксели точек");
+    queries_ = new QCheckBox(uiText("Kinetica", "запросы"));
+    queries_->setToolTip(uiText("Kinetica", "Показывать и запросы, которые ничего не меняют: списки, состояние, снимки, пиксели точек"));
     row->addWidget(queries_);
-    auto* follow = new QCheckBox("Следить");
+    auto* follow = new QCheckBox(uiText("Kinetica", "Следить"));
     follow->setObjectName("apiConsoleFollow");
     follow->setChecked(true);
-    follow->setToolTip("Показывать последние команды; отключите, чтобы спокойно читать предыдущие строки");
+    follow->setToolTip(uiText("Kinetica", "Показывать последние команды; отключите, чтобы спокойно читать предыдущие строки"));
     connect(follow, &QCheckBox::toggled, log_, [this](bool enabled) {
         if (enabled) log_->verticalScrollBar()->setValue(log_->verticalScrollBar()->maximum());
     });
     row->addWidget(follow);
-    auto* clear = new QPushButton("Очистить");
+    auto* clear = new QPushButton(uiText("Kinetica", "Очистить"));
     connect(clear, &QPushButton::clicked, log_, &QPlainTextEdit::clear);
     row->addWidget(clear);
     col->addLayout(row);
@@ -185,7 +187,7 @@ void ApiConsole::show(const QString& source, const QString& name, const QJsonObj
     if (query && source != "console" && !queries_->isChecked()) return;
     if (EditorOps::wiring(name)) return; // a plugin's own wiring is no one's action
     const bool plugin = source.startsWith("plugin:");
-    const QString who = source == "console" ? "вы" : source == "ui" ? "окно" : plugin ? "плагин " + source.mid(7) : "агент";
+    const QString who = source == "console" ? uiText("Kinetica", "вы") : source == "ui" ? uiText("Kinetica", "окно") : plugin ? uiText("Kinetica", "плагин ") + source.mid(7) : uiText("Kinetica", "агент");
     const QString colour = source == "console" ? "#7fb8ff" : source == "ui" ? "#9aa0a8" : plugin ? "#7cff9a" : "#ffb454";
     QJsonObject plain = args;
     const QString line = plain.take("_py").toString(); // the object model's own line (kinetica), when it sent one
@@ -251,7 +253,7 @@ bool ApiConsole::startPython() {
     const QString interpreter = pythonInterpreter();
     python_->start(interpreter, {"-u", "-m", "kinetica.console"});
     if (python_->waitForStarted(3000)) return true;
-    appendLog(log_, "<span style='color:#ff7b72'>✗ Python 3 не запустился: поставьте его (python.org, «Add to PATH»); строка — один вызов, как ed.scene_list()</span>");
+    appendLog(log_, uiText("Kinetica", "<span style='color:#ff7b72'>✗ Python 3 не запустился: поставьте его (python.org, «Add to PATH»); строка — один вызов, как ed.scene_list()</span>"));
     python_->deleteLater();
     python_ = nullptr;
     noPython_ = true;

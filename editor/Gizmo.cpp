@@ -4,6 +4,7 @@
 // projected polyline, a square by whether the mouse is inside its projected corners. The squares
 // and the centre win over the shafts where they overlap.
 #include "Gizmo.h"
+#include "UiLanguage.h"
 
 #include <QMatrix4x4>
 #include <QVector4D>
@@ -453,10 +454,10 @@ std::string Gizmo::dragLabel() const {
     char buf[128] = "";
     if (dragMode_ == GizmoMode::Translate) {
         const Vector3 d = last_.position - startPosition_;
-        if (axisHeld) std::snprintf(buf, sizeof(buf), "%s %+.3f м", names[k], double(dot(d, axes_[k])));
-        else std::snprintf(buf, sizeof(buf), "%.3f м  (x %+.3f  y %+.3f  z %+.3f)", double(length(d)), double(d.x), double(d.y), double(d.z));
+        if (axisHeld) std::snprintf(buf, sizeof(buf), uiText("Kinetica", "%s %+.3f м"), names[k], double(dot(d, axes_[k])));
+        else std::snprintf(buf, sizeof(buf), uiText("Kinetica", "%.3f м  (x %+.3f  y %+.3f  z %+.3f)"), double(length(d)), double(d.x), double(d.y), double(d.z));
     } else if (dragMode_ == GizmoMode::Rotate) {
-        std::snprintf(buf, sizeof(buf), "%s %+.1f°", axisHeld ? names[k] : "вокруг взгляда", double(angleDeg_));
+        std::snprintf(buf, sizeof(buf), "%s %+.1f°", axisHeld ? names[k] : uiText("Kinetica", "вокруг взгляда"), double(angleDeg_));
         if (const float quarter = nearQuarter(); quarter != 0) // let go now, it is completed to this
             std::snprintf(buf + std::strlen(buf), sizeof(buf) - std::strlen(buf), "  → %+.0f°", double(quarter));
     } else if (dragMode_ == GizmoMode::Scale) {
@@ -464,7 +465,7 @@ std::string Gizmo::dragLabel() const {
         else std::snprintf(buf, sizeof(buf), "×%.2f", double(last_.scale.x));
     }
     std::string s = buf;
-    if (modal_ && modalAxis_ >= 0) s += local_ ? "  · своя ось" : "  · ось мира";
+    if (modal_ && modalAxis_ >= 0) s += local_ ? uiText("Kinetica", "  · своя ось") : uiText("Kinetica", "  · ось мира");
     return s;
 }
 

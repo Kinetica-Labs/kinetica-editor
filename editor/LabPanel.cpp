@@ -1,5 +1,6 @@
 // The Laboratory's panel (see LabPanel.h): quick presets, the layers by group, the card, the profiler.
 #include "LabPanel.h"
+#include "UiLanguage.h"
 
 #include "LabCard.h"
 #include "LabLayers.h"
@@ -67,17 +68,17 @@ LabPanel::LabPanel(QWidget* parent) : QWidget(parent) {
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(10, 8, 10, 10);
     col->setSpacing(8);
-    auto* intro = new QLabel("Что считает движок — прямо в виде. Щёлкните по контакту или телу: "
-                             "его числа появятся в карточке.");
+    auto* intro = new QLabel(uiText("Kinetica", "Что считает движок — прямо в виде. Щёлкните по контакту или телу: "
+                             "его числа появятся в карточке."));
     intro->setObjectName("labIntro");
     intro->setWordWrap(true);
     col->addWidget(intro);
     buildPresets(col);
-    col->addWidget(sectionTitle("Что рисовать"));
+    col->addWidget(sectionTitle(uiText("Kinetica", "Что рисовать")));
     col->addWidget(buildLayerList(), 1);
     card_ = new LabCard;
     col->addWidget(card_);
-    col->addWidget(sectionTitle("Время кадра"));
+    col->addWidget(sectionTitle(uiText("Kinetica", "Время кадра")));
     profiler_ = new ProfilerBar;
     col->addWidget(profiler_);
     showMask(ke::Probe::layers());
@@ -85,7 +86,7 @@ LabPanel::LabPanel(QWidget* parent) : QWidget(parent) {
 
 // «Быстрые наборы»: four buttons in two rows; the one whose set is on now is lit.
 void LabPanel::buildPresets(QVBoxLayout* col) {
-    col->addWidget(sectionTitle("Быстрые наборы"));
+    col->addWidget(sectionTitle(uiText("Kinetica", "Быстрые наборы")));
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     int i = 0;

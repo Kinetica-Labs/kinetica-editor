@@ -2,6 +2,7 @@
 // and off together with what they need, the gizmo's edits, the undo history, the edit / play / stop
 // modes and what the viewport shows in each. The panels are built in SceneBuilderPanels.cpp.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 #include "scene/Collider.h"
 #include "core/Probe.h"
 #include "scene/SensorSpec.h"
@@ -34,7 +35,7 @@
 
 using namespace ke;
 
-const char* shapeName(ShapeKind k) { return ke::shapeTitle(k); }
+const char* shapeName(ShapeKind k) { return uiText("Kinetica", ke::shapeTitle(k)); }
 
 SceneBuilder::SceneBuilder(SimController* ctrl, QObject* parent) : QObject(parent), ctrl_(ctrl) {
     lastRemember_.start();
@@ -119,10 +120,10 @@ std::string groupsText(const SceneGraph& g) {
 // the scene plays moves the goal's mark in the running world (RobotWorld::setGoals) and its arm's targets.
 void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     (void)entityId; // every change is found by comparing, whichever edit made it
-    if (worldText(graph_) != worldText(simGraph_)) return reloadNeeded("Тяжесть, размер мира и настройки физики меняют только перезапуском сцены");
-    if (groupsText(graph_) != groupsText(simGraph_)) return reloadNeeded("Группы меняют только перезапуском сцены");
-    if (arrayText(graph_) != arrayText(simGraph_)) return reloadNeeded("Массивы меняют только перезапуском сцены");
-    if (devicesText(graph_, false) != devicesText(simGraph_, false)) return reloadNeeded("Датчики, колёса, батареи и пульты меняют только перезапуском сцены");
+    if (worldText(graph_) != worldText(simGraph_)) return reloadNeeded(uiText("Kinetica", "Тяжесть, размер мира и настройки физики меняют только перезапуском сцены"));
+    if (groupsText(graph_) != groupsText(simGraph_)) return reloadNeeded(uiText("Kinetica", "Группы меняют только перезапуском сцены"));
+    if (arrayText(graph_) != arrayText(simGraph_)) return reloadNeeded(uiText("Kinetica", "Массивы меняют только перезапуском сцены"));
+    if (devicesText(graph_, false) != devicesText(simGraph_, false)) return reloadNeeded(uiText("Kinetica", "Датчики, колёса, батареи и пульты меняют только перезапуском сцены"));
     if (devicesText(graph_) != devicesText(simGraph_)) { // a driver's duty: the bridge takes it at the next substep
         const std::vector<DriverObject> drivers = graph_.drivers;
         ctrl_->post([drivers](Simulation& s) {
@@ -132,7 +133,7 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     SceneGraph goalsAside = graph_, before = simGraph_; // the goals are handles: no body of the world
     for (SceneGraph* g : {&goalsAside, &before})
         g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }), g->entities.end());
-    if (entitiesText(goalsAside) != entitiesText(before)) return reloadNeeded("Тела и коллайдеры меняют только перезапуском сцены");
+    if (entitiesText(goalsAside) != entitiesText(before)) return reloadNeeded(uiText("Kinetica", "Тела и коллайдеры меняют только перезапуском сцены"));
     refreshLightsAndCameras();
     if (lightsText(graph_) != lightsText(simGraph_)) {
         const std::vector<Light> lights = graph_.lights;
@@ -158,7 +159,7 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
         ctrl_->post([joints, self](Simulation& s) {
             if (!s.robot() || s.robot()->setJoints(*s.physics(), joints)) return;
             QMetaObject::invokeMethod(self, [self] {
-                if (self && !self->editing()) self->reloadNeeded("Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены");
+                if (self && !self->editing()) self->reloadNeeded(uiText("Kinetica", "Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены"));
             }, Qt::QueuedConnection);
         }, "joints");
     }
@@ -168,7 +169,7 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
 // A change the running simulation cannot take: stop with the edit kept, and say what to do.
 void SceneBuilder::reloadNeeded(const QString& why) {
     returnToEdit(true);
-    showBanner(why + ". Правка сохранена.", "▶ Пуск", [this] { play(); });
+    showBanner(why + uiText("Kinetica", ". Правка сохранена."), uiText("Kinetica", "▶ Пуск"), [this] { play(); });
     stickyBanner_ = true;
 }
 
@@ -199,7 +200,7 @@ bool SceneBuilder::importModel(const QString& path, QString& error) {
     std::string err;
     const TriMesh m = entityLocalMesh(probe, graph_.baseDirectory, &err);
     if (m.triangles.empty()) {
-        error = err.empty() ? QString("в файле нет треугольников") : QString::fromStdString(err);
+        error = err.empty() ? QString(uiText("Kinetica", "в файле нет треугольников")) : QString::fromStdString(err);
         return false;
     }
     const Vector3 extent = m.bounds().extent();
@@ -268,7 +269,7 @@ void SceneBuilder::toggleRole(RoleIcon role) {
 
 void SceneBuilder::setRoleOfSelected(RoleIcon role, bool on) {
     if (selectedEntities().empty()) {
-        emit statusMessage("Сначала выберите объект — или создайте его кнопкой сверху");
+        emit statusMessage(uiText("Kinetica", "Сначала выберите объект — или создайте его кнопкой сверху"));
         return;
     }
     std::vector<uint32_t> ids;
@@ -280,7 +281,7 @@ void SceneBuilder::setRoleOfSelected(RoleIcon role, bool on) {
     flushCode();
     remember();
     const std::string note = ke::setRoles(graph_, ids, ke::Role(int(role)), on);
-    if (!note.empty()) emit statusMessage(QString::fromStdString(note));
+    if (!note.empty()) emit statusMessage(uiText("Kinetica", note.c_str()));
     fillInspector();
     refreshList();
     applyEdit(selectedId_);
@@ -407,8 +408,8 @@ void SceneBuilder::setMode(Mode m) {
     worldPanel_->setEditable(editing());
     liveTargetValid_ = false;
     playHint_->setVisible(!editing());
-    playHint_->setText("Идёт симуляция: свет, камеры и приводы суставов меняются на лету, на паузе работает гизмо; "
-                       "остальное — после ■ Стоп, который вернёт сцену, какой она была до ▶.");
+    playHint_->setText(uiText("Kinetica", "Идёт симуляция: свет, камеры и приводы суставов меняются на лету, на паузе работает гизмо; "
+                       "остальное — после ■ Стоп, который вернёт сцену, какой она была до ▶."));
     if (editing()) refreshView();
     else refreshColliderGuides(); // the play-mode lines come with the next snapshot
     refreshLightsAndCameras();
@@ -466,7 +467,7 @@ void SceneBuilder::returnToEdit(bool keepEdits) {
         refreshList();
         fillInspector();
         updateHistoryActions();
-        if (edited) emit statusMessage("Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются — как в Unity)");
+        if (edited) emit statusMessage(uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются — как в Unity)"));
     }
     hasPlayBackup_ = false;
     hasKeptBefore_ = false;
@@ -489,7 +490,7 @@ bool SceneBuilder::loadIntoSimulation() {
 }
 
 std::string SceneBuilder::displayName() const {
-    return fileName_.isEmpty() ? std::string("Новая сцена") : fileName_.toStdString(); // what a person calls it, not «Конструктор»
+    return fileName_.isEmpty() ? std::string(uiText("Kinetica", "Новая сцена")) : fileName_.toStdString(); // what a person calls it, not «Конструктор»
 }
 
 void SceneBuilder::refreshView() {
@@ -737,6 +738,31 @@ bool SceneBuilder::openFile(const QString& path, QString& error) {
 }
 
 QString SceneBuilder::snapshotText() const { return QString::fromStdString(graph_.save()); }
+
+QJsonObject SceneBuilder::restartSnapshot() {
+    flushCode();
+    QJsonArray selection;
+    for (const uint32_t id : orderedSelection()) selection.append(double(id));
+    return {{"scene", snapshotText()}, {"base", QString::fromStdString(graph_.baseDirectory)},
+            {"file", fileName_}, {"next_id", double(nextId_)}, {"selection", selection}};
+}
+
+bool SceneBuilder::restoreRestartSnapshot(const QJsonObject& snapshot, QString& error) {
+    if (!restoreSnapshot(snapshot.value("scene").toString(), snapshot.value("base").toString(),
+                         uint32_t(snapshot.value("next_id").toDouble()), error)) return false;
+    fileName_ = snapshot.value("file").toString();
+    for (const QJsonValue& id : snapshot.value("selection").toArray()) {
+        const auto n = uint32_t(id.toDouble());
+        if (findObject(graph_, n) || isDevice(n)) selection_.push_back(n);
+    }
+    selectedId_ = selection_.empty() ? 0 : selection_.back();
+    refreshList();
+    fillInspector();
+    refreshView();
+    frameObjects();
+    if (selectedId_) emit selectionChanged(selectedId_);
+    return true;
+}
 
 bool SceneBuilder::restoreSnapshot(const QString& text, const QString& baseDirectory, uint32_t nextId, QString& error) {
     SceneGraph g;

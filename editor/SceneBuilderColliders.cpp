@@ -4,6 +4,7 @@
 // rolls around the sphere that it moves. The selected object always shows its collider; the
 // toolbar's "Коллайдеры" shows every object's.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "scene/Collider.h"
 #include "sim/RobotWorld.h"
@@ -108,7 +109,7 @@ std::vector<ShapeHandle> SceneBuilder::handlesOf(const ColliderRole& c) const {
     if (!sizedByNumbers(c.kind) || !colliderBodyPose(p, q)) return out;
     const Vector3 centre = p + q.rotate(c.offset);
     const Quaternion turn = q * colliderTurn(c);
-    static const char* faces[3][2] = {{"грань +X", "грань −X"}, {"грань +Y", "грань −Y"}, {"грань +Z", "грань −Z"}};
+    static const char* faces[3][2] = {{uiText("Kinetica", "грань +X"), uiText("Kinetica", "грань −X")}, {uiText("Kinetica", "грань +Y"), uiText("Kinetica", "грань −Y")}, {uiText("Kinetica", "грань +Z"), uiText("Kinetica", "грань −Z")}};
     auto add = [&](int dimension, int side, bool both, const char* what) {
         ShapeHandle h;
         Vector3 axis(0.0f);
@@ -119,8 +120,8 @@ std::vector<ShapeHandle> SceneBuilder::handlesOf(const ColliderRole& c) const {
     };
     if (c.kind == ColliderKind::Box)
         for (int k = 0; k < 3; ++k) add(k, 1, false, faces[k][0]), add(k, -1, false, faces[k][1]);
-    else add(0, 1, true, "диаметр");
-    if (c.kind == ColliderKind::Capsule || c.kind == ColliderKind::Cylinder) add(1, 1, true, "высота"), add(1, -1, true, "высота");
+    else add(0, 1, true, uiText("Kinetica", "диаметр"));
+    if (c.kind == ColliderKind::Capsule || c.kind == ColliderKind::Cylinder) add(1, 1, true, uiText("Kinetica", "высота")), add(1, -1, true, uiText("Kinetica", "высота"));
     return out;
 }
 
@@ -136,11 +137,11 @@ void SceneBuilder::emitShapeHandles() {
 void SceneBuilder::setColliderEdit(bool on) {
     const Entity* e = on && editing() && selection_.size() == 1 ? masterById(selectedId_) : nullptr;
     if (on && (!e || !e->collider.enabled || isHandle(*e))) {
-        emit statusMessage("Коллайдер: выберите одно тело с коллайдером (в правке)");
+        emit statusMessage(uiText("Kinetica", "Коллайдер: выберите одно тело с коллайдером (в правке)"));
         on = false;
     } else if (on && !sizedByNumbers(heldNow(*e).kind)) {
-        emit statusMessage("Коллайдер повторяет геометрию (выпуклая оболочка): выберите в карточке коробку, сферу, капсулу или цилиндр — "
-                           "их место и размер задаются руками");
+        emit statusMessage(uiText("Kinetica", "Коллайдер повторяет геометрию (выпуклая оболочка): выберите в карточке коробку, сферу, капсулу или цилиндр — "
+                           "их место и размер задаются руками"));
         on = false;
     }
     const uint32_t was = colliderEdit_;
@@ -150,8 +151,8 @@ void SceneBuilder::setColliderEdit(bool on) {
         updateGizmoTarget();
         refreshColliderGuides();
         emitShapeHandles();
-        if (on) emit statusMessage("Коллайдер «" + QString::fromStdString(e->name) + "»: точки — размер, гизмо — место и поворот; "
-                                   "модель не меняется. Esc — назад к телу");
+        if (on) emit statusMessage(uiText("Kinetica", "Коллайдер «") + QString::fromStdString(e->name) + uiText("Kinetica", "»: точки — размер, гизмо — место и поворот; "
+                                   "модель не меняется. Esc — назад к телу"));
     }
     emit colliderEditChanged(colliderEdit_ != 0);
 }

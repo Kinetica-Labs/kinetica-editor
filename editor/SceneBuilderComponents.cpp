@@ -3,6 +3,7 @@
 // an edit one component_set, one undo step and one Python line -, «Плагины» in «+ Добавить компонент», and the fields that
 // have a handle as Cinema 4D's orange points on the shape: a radius, a length, a point, dragged where they are seen.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "ApiConsole.h"
 #include "EditorOps.h"
@@ -87,7 +88,7 @@ void SceneBuilder::setComponent(uint32_t id, const QString& type, const QJsonObj
     std::string error;
     Value answer = Value::map();
     if (!transact([&](SceneGraph& g, std::string& e) { return findSceneOp("component_set")->edit(g, coreValue(args), answer, e); }, error))
-        return emit statusMessage("Компонент: " + QString::fromStdString(error));
+        return emit statusMessage(uiText("Kinetica", "Компонент: ") + QString::fromStdString(error));
     codeAction("component_set", ApiConsole::pythonCall("component_set", args), args, false);
 }
 
@@ -97,7 +98,7 @@ void SceneBuilder::removeComponent(uint32_t id, const QString& type) {
     std::string error;
     Value answer = Value::map();
     if (!transact([&](SceneGraph& g, std::string& e) { return findSceneOp("component_remove")->edit(g, coreValue(args), answer, e); }, error))
-        return emit statusMessage("Компонент: " + QString::fromStdString(error));
+        return emit statusMessage(uiText("Kinetica", "Компонент: ") + QString::fromStdString(error));
     codeAction("component_remove", ApiConsole::pythonCall("component_remove", args), args, false);
 }
 
@@ -107,9 +108,9 @@ void SceneBuilder::addPluginComponentsTo(QMenu* menu, const Entity& e) {
     for (const auto& [type, schema] : componentTypes_) {
         const bool has = std::any_of(e.components.begin(), e.components.end(), [&](const PluginComponent& c) { return QString::fromStdString(c.type) == type; });
         if (has) continue;
-        if (!section) menu->addSection("Плагины"), section = true;
+        if (!section) menu->addSection(uiText("Kinetica", "Плагины")), section = true;
         QAction* a = menu->addAction(schema.value("label").toString(type));
-        a->setToolTip("Компонент плагина «" + type.section('.', 0, 0) + "»: " + schema.value("help").toString());
+        a->setToolTip(uiText("Kinetica", "Компонент плагина «") + type.section('.', 0, 0) + "»: " + schema.value("help").toString());
         connect(a, &QAction::triggered, this, [this, type, schema] {
             QJsonObject defaults; // the fields' own defaults written in: the scene says what it holds
             const QJsonObject fields = schema.value("fields").toObject();
@@ -132,7 +133,7 @@ void SceneBuilder::fillPluginCards() {
     for (const PluginComponent& c : e->components) {
         const QString type = QString::fromStdString(c.type);
         const QJsonObject schema = componentType(c.type);
-        auto* card = new ComponentCard(schema.isEmpty() ? type + " — нет плагина" : schema.value("label").toString(type), QIcon());
+        auto* card = new ComponentCard(schema.isEmpty() ? type + uiText("Kinetica", " — нет плагина") : schema.value("label").toString(type), QIcon());
         card->setObjectName("pluginComponent:" + type);
         connect(card, &ComponentCard::removeClicked, this, [this, id, type] {
             QTimer::singleShot(0, this, [this, id, type] { removeComponent(id, type); }); // after the card's own click
@@ -141,7 +142,7 @@ void SceneBuilder::fillPluginCards() {
         if (schema.isEmpty()) {
             QString words;
             for (const auto& [k, w] : c.values) words += QString::fromStdString(k + " " + w + "  ");
-            auto* note = new QLabel("Плагин «" + type.section('.', 0, 0) + "» не запущен: значения сохраняются как есть. " + words);
+            auto* note = new QLabel(uiText("Kinetica", "Плагин «") + type.section('.', 0, 0) + uiText("Kinetica", "» не запущен: значения сохраняются как есть. ") + words);
             note->setWordWrap(true);
             note->setObjectName("roleRowLabel");
             card->body()->addWidget(note);
@@ -175,7 +176,7 @@ void SceneBuilder::fillPluginCards() {
                 int at = 0;
                 for (int k = 1; k < ids.size(); ++k)
                     if (ids.at(k).toInt() == kept) at = k;
-                if (kept && !at) items << QString("нет объекта %1").arg(kept), ids.append(kept), at = int(ids.size()) - 1; // gone from the scene: said, kept
+                if (kept && !at) items << QString(uiText("Kinetica", "нет объекта %1")).arg(kept), ids.append(kept), at = int(ids.size()) - 1; // gone from the scene: said, kept
                 form->choice(label, items, [at] { return double(at); }, [pending, name, ids](double k) { pending->insert(name, ids.at(int(k))); });
             } else if (f.contains("enum")) {
                 QStringList items;

@@ -1,5 +1,6 @@
 // The control schemes (see ControlScheme.h): one table per scheme, Alt + a button the same in all.
 #include "ControlScheme.h"
+#include "UiLanguage.h"
 
 #include <QSettings>
 
@@ -36,18 +37,18 @@ bool blenderKeys(ControlScheme s) { return s == ControlScheme::Blender; }
 
 QString controlSchemeName(ControlScheme s) {
     switch (s) {
-    case ControlScheme::Simple: return "Простая";
-    case ControlScheme::Blender: return "Как в Blender";
-    case ControlScheme::MayaUnity: return "Как в Maya/Unity";
+    case ControlScheme::Simple: return uiText("Kinetica", "Простая");
+    case ControlScheme::Blender: return uiText("Kinetica", "Как в Blender");
+    case ControlScheme::MayaUnity: return uiText("Kinetica", "Как в Maya/Unity");
     }
     return {};
 }
 
 QString cameraHint(ControlScheme s) {
     switch (s) {
-    case ControlScheme::Simple: return "ПКМ: осмотр (клик — меню, +WASD — полёт) · СКМ: панорама · колесо: зум";
-    case ControlScheme::Blender: return "СКМ: вращать · Shift+СКМ: панорама · Ctrl+СКМ, колесо: зум · ПКМ: меню";
-    case ControlScheme::MayaUnity: return "Alt+ЛКМ: вращать · СКМ: панорама · Alt+ПКМ, колесо: зум · ПКМ: осмотр, +WASD — полёт";
+    case ControlScheme::Simple: return uiText("Kinetica", "ПКМ: осмотр (клик — меню, +WASD — полёт) · СКМ: панорама · колесо: зум");
+    case ControlScheme::Blender: return uiText("Kinetica", "СКМ: вращать · Shift+СКМ: панорама · Ctrl+СКМ, колесо: зум · ПКМ: меню");
+    case ControlScheme::MayaUnity: return uiText("Kinetica", "Alt+ЛКМ: вращать · СКМ: панорама · Alt+ПКМ, колесо: зум · ПКМ: осмотр, +WASD — полёт");
     }
     return {};
 }

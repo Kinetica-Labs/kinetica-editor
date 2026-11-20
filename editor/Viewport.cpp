@@ -5,6 +5,7 @@
 // is in ViewportInput.cpp and ViewportTools.cpp, lights and cameras in ViewportLights.cpp, shadows in
 // ViewportShadows.cpp, the play frame, the orbit pivot and following a body in ViewportPlay.cpp.
 #include "Viewport.h"
+#include "UiLanguage.h"
 
 #include <QOpenGLTimeMonitor>
 
@@ -324,7 +325,7 @@ void Viewport::drawEditLabel(QPainter& p) {
         const Vector3 at = editTool_.draggedTo();
         const QString name = h.plugin ? h.label : QString(h.what);
         text = h.free ? QString("%1 %2 %3 %4").arg(name).arg(double(at.x), 0, 'f', 3).arg(double(at.y), 0, 'f', 3).arg(double(at.z), 0, 'f', 3)
-                      : QString("%1 %2 м").arg(name).arg(double(ke::dot(at - h.centre, h.axis)) * (h.both ? 2.0 : 1.0), 0, 'f', 3);
+                      : QString(uiText("Kinetica", "%1 %2 м")).arg(name).arg(double(ke::dot(at - h.centre, h.axis)) * (h.both ? 2.0 : 1.0), 0, 'f', 3);
     }
     if (text.isEmpty()) return;
     if (!typed_.isEmpty()) text = "= " + typed_ + "   " + text;
@@ -575,7 +576,7 @@ void Viewport::paintGL() {
         p.fillRect(rect(), QColor(26, 28, 33));
         p.setPen(QColor(230, 200, 120));
         p.drawText(rect(), Qt::AlignCenter,
-                   QString("OpenGL 3.0 недоступен (%1).\nЗапустите с ключом --software-gl — рендер на процессоре.").arg(renderer_));
+                   QString(uiText("Kinetica", "OpenGL 3.0 недоступен (%1).\nЗапустите с ключом --software-gl — рендер на процессоре.")).arg(renderer_));
         return;
     }
     QElapsedTimer painting;
@@ -698,12 +699,12 @@ void Viewport::drawOverlay() {
     p.setPen(QColor(170, 176, 188));
     const double time = double(snap_->time);
     if (editMode_ && createMode_) p.drawText(14, 42, createTool_.hint(createWhat_)); // what the next click does
-    else if (!editMode_) p.drawText(14, 42, QString("t = %1 с").arg(time, 0, 'f', 2));
+    else if (!editMode_) p.drawText(14, 42, QString(uiText("Kinetica", "t = %1 с")).arg(time, 0, 'f', 2));
     if (!snap_->grips.empty()) { // the gripper as it reports itself, playing or paused (an edited scene's frame has none)
         using S = ke::Frame::GripState;
         const ke::Frame::GripInfo& g = snap_->grips.front();
-        const QString text = g.state == S::Holding ? "Схват: держит ✓" : g.state == S::Empty ? "Схват: сомкнут — пусто, промах"
-                           : g.state == S::Closing ? "Схват: смыкается…" : "Схват: открыт (пробел — сомкнуть)";
+        const QString text = g.state == S::Holding ? uiText("Kinetica", "Схват: держит ✓") : g.state == S::Empty ? uiText("Kinetica", "Схват: сомкнут — пусто, промах")
+                           : g.state == S::Closing ? uiText("Kinetica", "Схват: смыкается…") : uiText("Kinetica", "Схват: открыт (пробел — сомкнуть)");
         const QColor colour = g.state == S::Holding ? QColor(110, 220, 120) : g.state == S::Empty ? QColor(255, 160, 80) : QColor(170, 176, 188);
         f.setBold(g.state == S::Holding || g.state == S::Empty);
         p.setFont(f);
@@ -778,7 +779,7 @@ void Viewport::drawToolDrag(QPainter& p) {
     uint32_t object = 0;
     if (surfaceAt(pluginTool_.from(), a, n, object) && surfaceAt(pluginTool_.to(), b, n, object)) {
         p.setPen(QColor(255, 214, 90));
-        p.drawText(pluginTool_.to() + QPointF(12, -8), QLocale().toString(double(ke::length(b - a)), 'f', 3) + " м");
+        p.drawText(pluginTool_.to() + QPointF(12, -8), QLocale().toString(double(ke::length(b - a)), 'f', 3) + uiText("Kinetica", " м"));
     }
     p.restore();
 }

@@ -3,6 +3,7 @@
 // shape appears in the air over a free spot so ▶ drops it; a rigid body gets its collider (Unity's
 // "Add Component" adding a Rigidbody's collider) and nothing else that could surprise.
 #include "scene/SceneActions.h"
+#include "core/UiLabel.h"
 
 #include "math/ElementaryFunctions.h"
 
@@ -59,12 +60,12 @@ bool hasRole(const Entity& e, Role r) { return r == Role::Rigid ? e.rigid.enable
 void setRole(Entity& e, Role r, bool on) { (r == Role::Rigid ? e.rigid.enabled : e.collider.enabled) = on; }
 
 const char* shapeTitle(ShapeKind k) {
-    static const char* names[] = {"Куб", "Сфера", "Цилиндр", "Конус", "Плоскость", "Модель"};
+    static const char* names[] = {KE_UI_LABEL("Kinetica", "Куб"), KE_UI_LABEL("Kinetica", "Сфера"), KE_UI_LABEL("Kinetica", "Цилиндр"), KE_UI_LABEL("Kinetica", "Конус"), KE_UI_LABEL("Kinetica", "Плоскость"), KE_UI_LABEL("Kinetica", "Модель")};
     return names[std::clamp(int(k), 0, 5)];
 }
 
 const char* lightTitle(LightKind k) {
-    static const char* names[] = {"Солнце", "Лампа", "Прожектор"};
+    static const char* names[] = {KE_UI_LABEL("Kinetica", "Солнце"), KE_UI_LABEL("Kinetica", "Лампа"), KE_UI_LABEL("Kinetica", "Прожектор")};
     return names[std::clamp(int(k), 0, 2)];
 }
 
@@ -291,7 +292,7 @@ std::string keepComponentsConsistent(Entity& e, Role role) {
     if (role != Role::Rigid || e.collider.enabled) return {};
     e.collider.enabled = true;
     e.collider.kind = ColliderKind::Auto;
-    return "Добавлен коллайдер «Авто»: тело сталкивается своей формой";
+    return KE_UI_LABEL("Kinetica", "Добавлен коллайдер «Авто»: тело сталкивается своей формой");
 }
 
 } // namespace

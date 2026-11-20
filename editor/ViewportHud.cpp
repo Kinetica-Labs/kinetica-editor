@@ -6,6 +6,7 @@
 // the scene runs or stands paused - not while it is edited, when the view is painted on a change only. The operation view_hud shows and
 // hides it; its numbers are the frame_timing of sim_state.
 #include "Viewport.h"
+#include "UiLanguage.h"
 
 #include <QFontMetrics>
 #include <QOpenGLTimeMonitor>
@@ -21,12 +22,12 @@ QColor smoothness(double fps) { return fps >= 55 ? QColor(94, 224, 122) : fps >=
 
 // "Mesa Intel(R) UHD Graphics (TGL GT1)" -> "Intel UHD Graphics"; llvmpipe is said as the processor.
 QString rendererWords(const QString& renderer) {
-    if (renderer.contains("llvmpipe", Qt::CaseInsensitive) || renderer.contains("softpipe", Qt::CaseInsensitive)) return "процессор (llvmpipe)";
+    if (renderer.contains("llvmpipe", Qt::CaseInsensitive) || renderer.contains("softpipe", Qt::CaseInsensitive)) return uiText("Kinetica", "процессор (llvmpipe)");
     QString r = renderer;
     r.remove("Mesa ").remove("(R)").remove("(TM)");
     if (const int paren = r.indexOf(" ("); paren > 0) r = r.left(paren);
     if (const int slash = r.indexOf('/'); slash > 0) r = r.left(slash);
-    return "видеокарта " + r.simplified();
+    return uiText("Kinetica", "видеокарта ") + r.simplified();
 }
 
 } // namespace
@@ -107,13 +108,13 @@ void Viewport::drawHud(QPainter& p) {
     QFont small = p.font();
     small.setPointSizeF(8.5);
     small.setBold(false);
-    const QString gpu = gpuMs_ >= 0 ? QString("видеокарта %1 мс (тени %2) · ").arg(double(gpuMs_), 0, 'f', 1).arg(double(gpuShadowMs_), 0, 'f', 1)
+    const QString gpu = gpuMs_ >= 0 ? QString(uiText("Kinetica", "видеокарта %1 мс (тени %2) · ")).arg(double(gpuMs_), 0, 'f', 1).arg(double(gpuShadowMs_), 0, 'f', 1)
                                      : QString();
-    const QString row1 = playing ? QString("кадр %1 мс · ").arg(fps > 0 ? 1000.0 / fps : 0.0, 0, 'f', 1) + gpu +
-                                       QString("процессор %1 мс · физика %2 мс").arg(double(paintMs_), 0, 'f', 1).arg(double(snap_->stepMs), 0, 'f', 1)
-                                 : gpu + QString("процессор %1 мс · физика стоит (%2)").arg(double(paintMs_), 0, 'f', 1)
-                                             .arg(snap_->time > 0 ? "пауза" : "правка"); // a paused world's frame has its time
-    const QString speed = playing && realtime_ > 0 ? QString("×%1 реального времени · ").arg(realtime_, 0, 'f', 2) : QString();
+    const QString row1 = playing ? QString(uiText("Kinetica", "кадр %1 мс · ")).arg(fps > 0 ? 1000.0 / fps : 0.0, 0, 'f', 1) + gpu +
+                                       QString(uiText("Kinetica", "процессор %1 мс · физика %2 мс")).arg(double(paintMs_), 0, 'f', 1).arg(double(snap_->stepMs), 0, 'f', 1)
+                                 : gpu + QString(uiText("Kinetica", "процессор %1 мс · физика стоит (%2)")).arg(double(paintMs_), 0, 'f', 1)
+                                             .arg(snap_->time > 0 ? uiText("Kinetica", "пауза") : uiText("Kinetica", "правка")); // a paused world's frame has its time
+    const QString speed = playing && realtime_ > 0 ? QString(uiText("Kinetica", "×%1 реального времени · ")).arg(realtime_, 0, 'f', 2) : QString();
     const QString row2 = speed + rendererWords(renderer_);
     const QFontMetrics fm(small); // the plate as wide as its words
     const double words = std::max(fm.horizontalAdvance(row1), fm.horizontalAdvance(row2));
@@ -131,7 +132,7 @@ void Viewport::drawHud(QPainter& p) {
     p.drawText(number, Qt::AlignLeft | Qt::AlignVCenter, figure);
     p.setFont(small);
     p.setPen(QColor(170, 178, 192));
-    p.drawText(QRectF(number.left(), number.bottom() - 4, 90, 14), Qt::AlignLeft | Qt::AlignVCenter, playing ? "кадров/с" : "по изменению");
+    p.drawText(QRectF(number.left(), number.bottom() - 4, 90, 14), Qt::AlignLeft | Qt::AlignVCenter, playing ? uiText("Kinetica", "кадров/с") : uiText("Kinetica", "по изменению"));
 
     // The frame times of the last two seconds against the 60 Hz frame: a flat line is a smooth picture, a spike a hitch.
     const QRectF graph(plate.left() + 104, plate.top() + 10, plate.width() - 116, 30);

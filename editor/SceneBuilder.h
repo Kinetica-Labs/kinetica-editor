@@ -131,6 +131,8 @@ public:
     QString snapshotText() const;
     uint32_t nextIdToGive() const { return nextId_; }
     bool restoreSnapshot(const QString& text, const QString& baseDirectory, uint32_t nextId, QString& error);
+    QJsonObject restartSnapshot();
+    bool restoreRestartSnapshot(const QJsonObject& snapshot, QString& error);
     const ke::SceneGraph& graph() const { return graph_; }
 
     // Play / pause / stop / one step.

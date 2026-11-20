@@ -1,5 +1,6 @@
 // A plugin's panel from its description (see PluginPanel.h).
 #include "PluginPanel.h"
+#include "UiLanguage.h"
 
 #include "InspectorWidgets.h"
 #include "TrackChart.h"
@@ -23,7 +24,7 @@ constexpr double kLiveSeconds = 60.0; // a chart shows the run's last minute, sl
 PluginPanel::PluginPanel(const QJsonObject& d, std::function<void(const QString&, const QJsonObject&)> press, QWidget* parent)
     : QWidget(parent), press_(std::move(press)) {
     setObjectName("pluginPanel");
-    title_ = d.value("title").toString("Плагин"), place_ = d.value("place").toString("right");
+    title_ = d.value("title").toString(uiText("Kinetica", "Плагин")), place_ = d.value("place").toString("right");
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(8, 8, 8, 8);
     col->setSpacing(6);
@@ -112,7 +113,7 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
         chart->setObjectName("pluginChart");
         const QString unit = n.value("unit").toString();
         chart->setTitle(n.value("title").toString() + (unit.isEmpty() ? QString() : ", " + unit), false); // «Ошибка привода, рад»
-        chart->setEmptyText("линии появятся после ▶");
+        chart->setEmptyText(uiText("Kinetica", "линии появятся после ▶"));
         std::vector<PlotTrack> tracks;
         for (const QJsonValue& v : n.value("lines").toArray()) {
             const QString line = v.toObject().value("name").toString();
@@ -153,7 +154,7 @@ void PluginPanel::hover(TrackChart* chart, double t, QPoint at, int track) {
     const double v = line ? line->series->valueAt(t) : std::nan("");
     if (!std::isfinite(v)) return QToolTip::hideText();
     const QString value = numberText(v) + (line->unit.isEmpty() ? QString() : " " + line->unit);
-    QToolTip::showText(at + QPoint(14, 12), QString("%1: %2 в %3 с").arg(line->name, value, QString::number(t, 'f', 2).replace('.', ',')), chart);
+    QToolTip::showText(at + QPoint(14, 12), QString(uiText("Kinetica", "%1: %2 в %3 с")).arg(line->name, value, QString::number(t, 'f', 2).replace('.', ',')), chart);
 }
 
 void PluginPanel::refresh() {

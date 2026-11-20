@@ -1,7 +1,10 @@
 // The plots' catalogue of channels: name cards and colours (see PlotChannels.h).
 #include "PlotChannels.h"
+#include "UiLanguage.h"
 
 #include "TrackChart.h"
+
+#include <QCoreApplication>
 
 #include <algorithm>
 
@@ -16,27 +19,27 @@ struct FixedCard {
 // The scene's energy as the first chart names it: plain words for everyone. The simulation measures
 // the total; its two parts the panel adds up from its channels (PlotPanel::append).
 const FixedCard kEnergy[] = {
-    {"scene/kinetic energy", "Кинетическая энергия", "Дж"},
-    {"scene/potential energy", "Потенциальная энергия", "Дж"},
-    {"scene/mechanical energy", "Полная энергия", "Дж"},
+    {"scene/kinetic energy", QT_TRANSLATE_NOOP("Kinetica", "Кинетическая энергия"), QT_TRANSLATE_NOOP("Kinetica", "Дж")},
+    {"scene/potential energy", QT_TRANSLATE_NOOP("Kinetica", "Потенциальная энергия"), QT_TRANSLATE_NOOP("Kinetica", "Дж")},
+    {"scene/mechanical energy", QT_TRANSLATE_NOOP("Kinetica", "Полная энергия"), QT_TRANSLATE_NOOP("Kinetica", "Дж")},
 };
 
 // The engine's counters people ask for most, in words (the rest keep the engine's own words).
 const FixedCard kEngine[] = {
-    {"physics/step ms", "Кадр: шаг физики", "мс"},
-    {"physics/contacts", "Физика: точек контакта", ""},
-    {"physics/time s", "Время сцены", "с"},
+    {"physics/step ms", QT_TRANSLATE_NOOP("Kinetica", "Кадр: шаг физики"), QT_TRANSLATE_NOOP("Kinetica", "мс")},
+    {"physics/contacts", QT_TRANSLATE_NOOP("Kinetica", "Физика: точек контакта"), ""},
+    {"physics/time s", QT_TRANSLATE_NOOP("Kinetica", "Время сцены"), QT_TRANSLATE_NOOP("Kinetica", "с")},
 };
 
 // The parts of the engine an internal's id starts with ("physics/drives ms" -> «Физика: drives»).
-const FixedCard kParts[] = {{"rigid", "Твёрдые тела", ""}, {"physics", "Физика", ""}, {"scene", "Сцена", ""}};
+const FixedCard kParts[] = {{"rigid", QT_TRANSLATE_NOOP("Kinetica", "Твёрдые тела"), ""}, {"physics", QT_TRANSLATE_NOOP("Kinetica", "Физика"), ""}, {"scene", QT_TRANSLATE_NOOP("Kinetica", "Сцена"), ""}};
 
 // The unit an engine id ends with ("rigid/solve ms"), and the id without it.
 struct UnitSuffix {
     const char* suffix;
     const char* unit;
 };
-const UnitSuffix kSuffixes[] = {{" ms", "мс"}, {" s", "с"}, {" J", "Дж"}, {" N", "Н"}, {" %", "%"}, {" m", "м"}};
+const UnitSuffix kSuffixes[] = {{" ms", QT_TRANSLATE_NOOP("Kinetica", "мс")}, {" s", QT_TRANSLATE_NOOP("Kinetica", "с")}, {" J", QT_TRANSLATE_NOOP("Kinetica", "Дж")}, {" N", QT_TRANSLATE_NOOP("Kinetica", "Н")}, {" %", "%"}, {" m", QT_TRANSLATE_NOOP("Kinetica", "м")}};
 
 PlotGroup groupOf(ke::ChannelGroup g) {
     switch (g) {
@@ -50,7 +53,17 @@ PlotGroup groupOf(ke::ChannelGroup g) {
 // The simulation's card. An object's, a group's or a joint's name says what, not whose («Масса»): its
 // label - the id before the last '/' - goes in front, the name after it in small letters.
 PlotChannel fromSimulation(const ke::ChannelInfo& info) {
-    PlotChannel c{info.id, QString::fromStdString(info.name), QString::fromStdString(info.unit), groupOf(info.group)};
+    PlotChannel c{info.id, QCoreApplication::translate("Kinetica", info.name.c_str()),
+                  QCoreApplication::translate("Kinetica", info.unit.c_str()), groupOf(info.group)};
+    // The simulation sends some labels as a battery name or a joint axis followed by a label.
+    // Look up the label separately so the name and the channel's stable ID stay intact.
+    if (UiLanguage::active() == "en" && c.name == QString::fromStdString(info.name)) {
+        const size_t colon = info.name.rfind(": ");
+        if (colon != std::string::npos) {
+            c.name = QString::fromStdString(info.name.substr(0, colon))
+                + QCoreApplication::translate("Kinetica", info.name.c_str() + colon);
+        }
+    }
     const size_t slash = info.id.rfind('/');
     if (info.group != ke::ChannelGroup::Scene && slash != std::string::npos && !c.name.isEmpty()) {
         QString what = c.name;
@@ -64,13 +77,13 @@ PlotChannel fromSimulation(const ke::ChannelInfo& info) {
 // engine's own words ("rigid/solve ms" -> «Твёрдые тела: solve», мс).
 PlotChannel engineCard(const std::string& id) {
     for (const FixedCard& e : kEngine)
-        if (id == e.id) return {id, QString::fromUtf8(e.name), QString::fromUtf8(e.unit), PlotGroup::Engine};
+        if (id == e.id) return {id, QString::fromUtf8(uiText("Kinetica", e.name)), QString::fromUtf8(uiText("Kinetica", e.unit)), PlotGroup::Engine};
     std::string rest = id;
     QString unit;
     for (const UnitSuffix& s : kSuffixes) {
         const std::string suffix = s.suffix;
         if (rest.size() > suffix.size() && rest.compare(rest.size() - suffix.size(), suffix.size(), suffix) == 0) {
-            unit = QString::fromUtf8(s.unit);
+            unit = QString::fromUtf8(uiText("Kinetica", s.unit));
             rest.resize(rest.size() - suffix.size());
             break;
         }
@@ -78,7 +91,7 @@ PlotChannel engineCard(const std::string& id) {
     const size_t slash = rest.find('/');
     for (const FixedCard& part : kParts)
         if (slash != std::string::npos && rest.compare(0, slash, part.id) == 0)
-            return {id, QString::fromUtf8(part.name) + ": " + QString::fromStdString(rest.substr(slash + 1)), unit, PlotGroup::Engine};
+            return {id, QString::fromUtf8(uiText("Kinetica", part.name)) + ": " + QString::fromStdString(rest.substr(slash + 1)), unit, PlotGroup::Engine};
     return {id, QString::fromStdString(rest), unit, PlotGroup::Engine};
 }
 
@@ -86,10 +99,10 @@ PlotChannel engineCard(const std::string& id) {
 
 QString plotGroupTitle(PlotGroup group) {
     switch (group) {
-    case PlotGroup::Scene: return "Сцена";
-    case PlotGroup::Object: return "Объект";
-    case PlotGroup::Group: return "Группа";
-    case PlotGroup::Engine: return "Движок (для разработчиков)";
+    case PlotGroup::Scene: return uiText("Kinetica", "Сцена");
+    case PlotGroup::Object: return uiText("Kinetica", "Объект");
+    case PlotGroup::Group: return uiText("Kinetica", "Группа");
+    case PlotGroup::Engine: return uiText("Kinetica", "Движок (для разработчиков)");
     }
     return QString();
 }
@@ -104,7 +117,7 @@ void PlotCatalog::learn(const std::vector<ke::Measurement>& measurements) {
 // engine internal.
 PlotChannel PlotCatalog::card(const std::string& id) const {
     for (const FixedCard& e : kEnergy)
-        if (id == e.id) return {id, QString::fromUtf8(e.name), QString::fromUtf8(e.unit), PlotGroup::Scene};
+        if (id == e.id) return {id, QString::fromUtf8(uiText("Kinetica", e.name)), QString::fromUtf8(uiText("Kinetica", e.unit)), PlotGroup::Scene};
     if (auto it = learned_.find(id); it != learned_.end()) return it->second;
     if (const ke::ChannelInfo* info = ke::describeChannel(id)) return fromSimulation(*info);
     const QString text = QString::fromStdString(id);

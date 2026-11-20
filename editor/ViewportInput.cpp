@@ -3,6 +3,7 @@
 // a click on a sensor or a body in play, making shapes with the mouse (on, off, Esc), and the line of
 // the status bar that says what the buttons and keys do right now.
 #include "Viewport.h"
+#include "UiLanguage.h"
 
 #include "SensorGlyphs.h"
 
@@ -599,46 +600,46 @@ bool Viewport::modalKey(QKeyEvent* e) {
 // What the buttons and keys do right now (the status bar)
 // ---------------------------------------------------------------------------
 QString Viewport::mouseHint() const {
-    if (navPressed_ || navHover_ != NavCube::kOutside) return "Клик по шарику оси: вид вдоль неё (Y — сверху) · тяните: вращать вид";
+    if (navPressed_ || navHover_ != NavCube::kOutside) return uiText("Kinetica", "Клик по шарику оси: вид вдоль неё (Y — сверху) · тяните: вращать вид");
     if (rightHeld_ && rightButtonFlies(scheme_) && (flew_ || !flyKeys_.empty()))
-        return "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться";
+        return uiText("Kinetica", "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться");
     if (!toolOp_.isEmpty())
-        return "«" + toolLabel_ + (toolDrags_ ? "»: тяните от точки до точки — обе уходят плагину · щелчок — одна точка · Esc — выход · "
-                                              : "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · ") + cameraHint(scheme_);
+        return "«" + toolLabel_ + (toolDrags_ ? uiText("Kinetica", "»: тяните от точки до точки — обе уходят плагину · щелчок — одна точка · Esc — выход · ")
+                                              : uiText("Kinetica", "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · ")) + cameraHint(scheme_);
     if (!editMode_ && gizmoShown() && !gizmo_.dragging() && gizmo_.hover() != GizmoHandle::None)
-        return "Тяните: цель IK, рука идёт за ней моторами · " + cameraHint(scheme_);
-    if (!editMode_ && !gizmo_.dragging()) return "ЛКМ по телу: схватить и тащить · " + cameraHint(scheme_);
+        return uiText("Kinetica", "Тяните: цель IK, рука идёт за ней моторами · ") + cameraHint(scheme_);
+    if (!editMode_ && !gizmo_.dragging()) return uiText("Kinetica", "ЛКМ по телу: схватить и тащить · ") + cameraHint(scheme_);
     if (createMode_) return createTool_.hint(createWhat_);
-    if (gizmo_.modal()) return "X / Y / Z: ось (ещё раз — своя) · число: точно · Enter или ЛКМ: принять · Esc или ПКМ: отмена";
+    if (gizmo_.modal()) return uiText("Kinetica", "X / Y / Z: ось (ещё раз — своя) · число: точно · Enter или ЛКМ: принять · Esc или ПКМ: отмена");
     if (gizmo_.dragging() && editTool_.cloning())
-        return "Клонирование: отпустите — спросим, сколько копий · X / Y / Z: ось · Ctrl: шаг · Esc или ПКМ: отмена";
-    if (gizmo_.dragging()) return "X / Y / Z: только по оси · Shift+X / Y / Z: в плоскости · Ctrl: шаг · Shift: точнее · Esc или ПКМ: отмена";
-    if (editTool_.boxSelecting()) return "Отпустите — выбрать всё в рамке · Shift: добавить · Ctrl: убрать";
+        return uiText("Kinetica", "Клонирование: отпустите — спросим, сколько копий · X / Y / Z: ось · Ctrl: шаг · Esc или ПКМ: отмена");
+    if (gizmo_.dragging()) return uiText("Kinetica", "X / Y / Z: только по оси · Shift+X / Y / Z: в плоскости · Ctrl: шаг · Shift: точнее · Esc или ПКМ: отмена");
+    if (editTool_.boxSelecting()) return uiText("Kinetica", "Отпустите — выбрать всё в рамке · Shift: добавить · Ctrl: убрать");
     if (!handles_.empty() && !colliderMode()) { // a plugin's orange points: what they are, in its words
-        if (editTool_.draggingHandle()) return QString("Тяните: %1 · Esc или ПКМ: отмена").arg(editTool_.draggedHandle().label);
-        if (hoveredHandle_ >= 0) return QString("Тяните точку: %1").arg(handles_[size_t(hoveredHandle_)].label);
+        if (editTool_.draggingHandle()) return QString(uiText("Kinetica", "Тяните: %1 · Esc или ПКМ: отмена")).arg(editTool_.draggedHandle().label);
+        if (hoveredHandle_ >= 0) return QString(uiText("Kinetica", "Тяните точку: %1")).arg(handles_[size_t(hoveredHandle_)].label);
     }
     if (colliderMode()) { // the collider's points before the gizmo's words: they are what the mode is for
-        if (editTool_.draggingHandle()) return QString("Тяните: %1 коллайдера · Esc или ПКМ: отмена").arg(editTool_.draggedHandle().what);
+        if (editTool_.draggingHandle()) return QString(uiText("Kinetica", "Тяните: %1 коллайдера · Esc или ПКМ: отмена")).arg(editTool_.draggedHandle().what);
         if (hoveredHandle_ >= 0) {
             const ShapeHandle& h = handles_[size_t(hoveredHandle_)];
-            return QString("Тяните точку: %1 коллайдера%2").arg(h.what, h.both ? "" : " · противоположная грань стоит на месте");
+            return QString(uiText("Kinetica", "Тяните точку: %1 коллайдера%2")).arg(h.what, h.both ? "" : uiText("Kinetica", " · противоположная грань стоит на месте"));
         }
         if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
-            const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать" : gizmo_.mode() == GizmoMode::Scale ? "растянуть" : "двигать";
-            return QString("Тяните: %1 коллайдер, модель стоит · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);
+            const char* verb = gizmo_.mode() == GizmoMode::Rotate ? uiText("Kinetica", "вращать") : gizmo_.mode() == GizmoMode::Scale ? uiText("Kinetica", "растянуть") : uiText("Kinetica", "двигать");
+            return QString(uiText("Kinetica", "Тяните: %1 коллайдер, модель стоит · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось")).arg(verb);
         }
-        return "Коллайдер: точки — размер, гизмо — место и поворот (W E R) · модель не меняется · Esc — назад к телу";
+        return uiText("Kinetica", "Коллайдер: точки — размер, гизмо — место и поворот (W E R) · модель не меняется · Esc — назад к телу");
     }
     if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
-        const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать — отпустите у точки, и угол станет ровно 90°" :
-                           gizmo_.mode() == GizmoMode::Scale ? "масштабировать" : "двигать";
-        return QString("Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);
+        const char* verb = gizmo_.mode() == GizmoMode::Rotate ? uiText("Kinetica", "вращать — отпустите у точки, и угол станет ровно 90°") :
+                           gizmo_.mode() == GizmoMode::Scale ? uiText("Kinetica", "масштабировать") : uiText("Kinetica", "двигать");
+        return QString(uiText("Kinetica", "Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось")).arg(verb);
     }
     if (hoveredEntity_)
-        return QString("ЛКМ: выбрать · ") + (gizmo_.mode() == GizmoMode::Translate ? "тяните: двигать по полу · " : "Shift+тяните: двигать по полу · ") +
-               "Shift или Ctrl+ЛКМ: добавить / убрать · двойной клик: показать · " + cameraHint(scheme_);
-    return "ЛКМ: выбрать · тяните с пустого места: рамка · " + cameraHint(scheme_) + " · F: показать";
+        return QString(uiText("Kinetica", "ЛКМ: выбрать · ")) + (gizmo_.mode() == GizmoMode::Translate ? uiText("Kinetica", "тяните: двигать по полу · ") : uiText("Kinetica", "Shift+тяните: двигать по полу · ")) +
+               uiText("Kinetica", "Shift или Ctrl+ЛКМ: добавить / убрать · двойной клик: показать · ") + cameraHint(scheme_);
+    return uiText("Kinetica", "ЛКМ: выбрать · тяните с пустого места: рамка · ") + cameraHint(scheme_) + uiText("Kinetica", " · F: показать");
 }
 
 void Viewport::updateHint() {

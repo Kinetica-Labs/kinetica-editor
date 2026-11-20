@@ -2,6 +2,7 @@
 // click would put (the API's assembly_preview), the pie of the five elements, the click (assembly_preset) and
 // the two clicks that join two shapes (assembly_joint).
 #include "MagnetController.h"
+#include "UiLanguage.h"
 
 #include "Icons.h"
 
@@ -32,7 +33,7 @@ using ke::Vector3;
 
 namespace {
 
-const char* kAxisNames[] = {"ось поперёк грани", "ось поперёк, другая", "ось по нормали"};
+const char* kAxisNames[] = {QT_TRANSLATE_NOOP("Kinetica", "ось поперёк грани"), QT_TRANSLATE_NOOP("Kinetica", "ось поперёк, другая"), QT_TRANSLATE_NOOP("Kinetica", "ось по нормали")};
 
 QJsonArray json(const Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; }
 
@@ -87,13 +88,13 @@ std::vector<Vector3> ghostEdges(const ke::SceneGraph& g, const ke::Entity& e) {
 MagnetController::MagnetController(EditorOps* ops, SceneBuilder* builder, Viewport* view, QObject* parent)
     : QObject(parent), ops_(ops), builder_(builder), view_(view), pie_(new PieMenu(view)), pieTimer_(new QTimer(this)),
       animation_(new QTimer(this)) {
-    action_ = new QAction(magnetIcon(), "Магнит", this);
+    action_ = new QAction(magnetIcon(), uiText("Kinetica", "Магнит"), this);
     action_->setObjectName("magnetTool");
     action_->setCheckable(true);
-    action_->setToolTip("<b>Магнит</b>: готовое звено к грани, с сочленением.<br>"
+    action_->setToolTip(uiText("Kinetica", "<b>Магнит</b>: готовое звено к грани, с сочленением.<br>"
                         "Щелчок — подсказанное (★); зажать и вести — круговое меню;<br>"
                         "Ctrl+щелчок по двум деталям — соединить.<br>"
-                        "1–5 выбрать, 0 подсказка, A ось, Tab перевернуть, M зеркало, Esc выход");
+                        "1–5 выбрать, 0 подсказка, A ось, Tab перевернуть, M зеркало, Esc выход"));
     action_->setMenu(buildMenu());
     pieTimer_->setSingleShot(true);
     pieTimer_->setInterval(200); // held this long without a drag: the pie opens
@@ -118,7 +119,8 @@ QMenu* MagnetController::buildMenu() {
     auto* group = new QActionGroup(menu);
     for (int k = 0; k <= ke::kMagnetCount; ++k) { // the suggestion, then the five elements with their icons
         const ke::LinkPreset e = k == 0 ? ke::LinkPreset::Hinge : ke::kMagnetPresets[k - 1];
-        const QString text = k == 0 ? QString("0  ★ подсказка по месту") : QString("%1  %2").arg(k).arg(ke::presetName(e));
+        const QString text = k == 0 ? QString(uiText("Kinetica", "0  ★ подсказка по месту"))
+                                   : QString("%1  %2").arg(k).arg(uiText("Kinetica", ke::presetName(e)));
         presetActs_[k] = k == 0 ? menu->addAction(text) : menu->addAction(linkIcon(LinkIcon(k - 1), 24), text);
         presetActs_[k]->setObjectName(k == 0 ? QString("magnetSuggested") : QString("magnet_") + ke::presetWord(e));
         presetActs_[k]->setCheckable(true);
@@ -127,7 +129,7 @@ QMenu* MagnetController::buildMenu() {
     }
     presetActs_[0]->setChecked(true);
     menu->addSeparator();
-    const std::pair<const char*, int> toggles[] = {{"A  повернуть ось", Qt::Key_A}, {"Tab  перевернуть ось", Qt::Key_Tab}, {"M  зеркально", Qt::Key_M}};
+    const std::pair<const char*, int> toggles[] = {{uiText("Kinetica", "A  повернуть ось"), Qt::Key_A}, {uiText("Kinetica", "Tab  перевернуть ось"), Qt::Key_Tab}, {uiText("Kinetica", "M  зеркально"), Qt::Key_M}};
     for (const auto& [text, k] : toggles) {
         QAction* a = menu->addAction(text);
         a->setObjectName(QString("magnetKey_") + QChar(k == Qt::Key_Tab ? 'T' : char(k)));
@@ -139,7 +141,7 @@ QMenu* MagnetController::buildMenu() {
 void MagnetController::setActive(bool on) {
     if (on && !builder_->editing()) {
         action_->setChecked(false);
-        emit statusMessage("Магнит работает в режиме правки — остановите сцену");
+        emit statusMessage(uiText("Kinetica", "Магнит работает в режиме правки — остановите сцену"));
         return;
     }
     if (action_->isChecked() != on) action_->setChecked(on);
@@ -150,7 +152,7 @@ void MagnetController::setActive(bool on) {
     ghost_.clear();
     pressed_ = connectFrom_ = Place();
     if (on) view_->setFocus(); // the keys go to the view at once, no click needed first
-    emit statusMessage(on ? "Магнит: наведите на грань формы. Щелчок — подсказанное звено, зажать и вести — круговое меню" : QString());
+    emit statusMessage(on ? uiText("Kinetica", "Магнит: наведите на грань формы. Щелчок — подсказанное звено, зажать и вести — круговое меню") : QString());
 }
 
 MagnetController::Place MagnetController::placeAt(QPointF pos) const {
@@ -176,8 +178,8 @@ int MagnetController::suggestion(const Place& p) const {
 }
 
 QString MagnetController::choiceText(int preset) const {
-    return QString(pinned_ < 0 ? "★ " : "") + ke::presetName(ke::kMagnetPresets[preset]) + (axis_ < 0 ? QString() : QString(", ") + kAxisNames[axis_]) +
-           (flip_ ? ", ось перевёрнута" : "") + (mirror_ ? ", зеркально" : "");
+    return QString(pinned_ < 0 ? "★ " : "") + uiText("Kinetica", ke::presetName(ke::kMagnetPresets[preset])) + (axis_ < 0 ? QString() : QString(", ") + uiText("Kinetica", kAxisNames[axis_])) +
+           (flip_ ? uiText("Kinetica", ", ось перевёрнута") : "") + (mirror_ ? uiText("Kinetica", ", зеркально") : "");
 }
 
 // The API's preview of the preset: each new link's edges and its joint, which animate() then moves.
@@ -228,15 +230,15 @@ void MagnetController::preview(QPointF pos) {
     last_ = pos;
     hasLast_ = true;
     const Place p = placeAt(pos);
-    const QString connecting = connectFrom_.found ? "Соединить: Ctrl+щелчок по второй детали · " : "";
+    const QString connecting = connectFrom_.found ? uiText("Kinetica", "Соединить: Ctrl+щелчок по второй детали · ") : "";
     if (!p.found) {
         showPreview(p, 0);
-        return emit statusMessage(connecting + "Магнит: наведите на грань формы");
+        return emit statusMessage(connecting + uiText("Kinetica", "Магнит: наведите на грань формы"));
     }
     const int preset = suggestion(p);
     showPreview(p, preset);
-    emit statusMessage(connecting + QString("Магнит · %1 — щелчок ставит; зажать и вести — меню; Ctrl+щелчок ×2 — соединить; "
-                                            "1–5, 0, A ось, Tab, M зеркало, Esc").arg(choiceText(preset)));
+    emit statusMessage(connecting + QString(uiText("Kinetica", "Магнит · %1 — щелчок ставит; зажать и вести — меню; Ctrl+щелчок ×2 — соединить; "
+                                            "1–5, 0, A ось, Tab, M зеркало, Esc")).arg(choiceText(preset)));
 }
 
 void MagnetController::press(QPointF pos, Qt::KeyboardModifiers modifiers) {
@@ -254,7 +256,7 @@ void MagnetController::connectPress(const Place& p) {
     if (!p.found) return;
     if (!connectFrom_.found || connectFrom_.target == p.target) {
         connectFrom_ = p;
-        return emit statusMessage("Соединить: теперь Ctrl+щелчок по второй детали — сочленение встанет в первой точке");
+        return emit statusMessage(uiText("Kinetica", "Соединить: теперь Ctrl+щелчок по второй детали — сочленение встанет в первой точке"));
     }
     const ke::LinkPreset kind = ke::kMagnetPresets[std::max(pinned_, 0)];
     const char* type = kind == ke::LinkPreset::Linear ? "slider" : kind == ke::LinkPreset::Weld ? "weld" : kind == ke::LinkPreset::Ball ? "ball" : "hinge";
@@ -268,18 +270,18 @@ void MagnetController::connectPress(const Place& p) {
     const QJsonObject done = ops_->runNow("assembly_joint", {{"a", int(p.target)}, {"b", int(connectFrom_.target)}, {"type", type},
                                                              {"anchor", json(connectFrom_.point)}, {"axis", json(axis)}});
     connectFrom_ = Place();
-    static const QMap<QString, QString> words{{"hinge", "шарнир"}, {"weld", "сварка"}, {"slider", "ползун"}, {"ball", "шаровое"},
-                                              {"cylinder", "цилиндрическое"}, {"universal", "карданное"}, {"planar", "плоское"}};
+    static const QMap<QString, QString> words{{"hinge", uiText("Kinetica", "шарнир")}, {"weld", uiText("Kinetica", "сварка")}, {"slider", uiText("Kinetica", "ползун")}, {"ball", uiText("Kinetica", "шаровое")},
+                                              {"cylinder", uiText("Kinetica", "цилиндрическое")}, {"universal", uiText("Kinetica", "карданное")}, {"planar", uiText("Kinetica", "плоское")}};
     const QString note = done.value("note").toString();
-    emit statusMessage(done.value("ok").toBool() ? "Соединено: " + words.value(type, type) + (note.isEmpty() ? QString() : ". " + note)
-                                                 : "Соединить: " + done.value("error").toString());
+    emit statusMessage(done.value("ok").toBool() ? uiText("Kinetica", "Соединено: ") + words.value(type, type) + (note.isEmpty() ? QString() : ". " + note)
+                                                 : uiText("Kinetica", "Соединить: ") + done.value("error").toString());
 }
 
 void MagnetController::openPie() {
     if (!pressed_.found || pieOpen_) return;
     QStringList labels;
     QList<QPixmap> icons;
-    for (int k = 0; k < ke::kMagnetCount; ++k) labels << ke::presetName(ke::kMagnetPresets[k]), icons << linkPixmap(LinkIcon(k), 48);
+    for (int k = 0; k < ke::kMagnetCount; ++k) labels << uiText("Kinetica", ke::presetName(ke::kMagnetPresets[k])), icons << linkPixmap(LinkIcon(k), 48);
     pieOpen_ = true;
     pie_->open(pressPos_, labels, icons, suggestion(pressed_));
 }
@@ -307,7 +309,7 @@ void MagnetController::release(QPointF pos) {
 
 void MagnetController::put(const Place& p, int preset) {
     const QJsonObject done = ops_->runNow("assembly_preset", placeArgs(p, preset));
-    if (!done.value("ok").toBool()) return emit statusMessage("Магнит: " + done.value("error").toString());
+    if (!done.value("ok").toBool()) return emit statusMessage(uiText("Kinetica", "Магнит: ") + done.value("error").toString());
     const QJsonArray links = done.value("links").toArray();
     if (!links.isEmpty()) builder_->select(uint32_t(links[0].toObject().value("entity").toInt()));
 }

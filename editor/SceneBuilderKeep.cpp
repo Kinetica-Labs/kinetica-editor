@@ -8,8 +8,8 @@
 // object's. A fixed body never moves; an array's copies and glued groups are not kept (their poses
 // are not their own).
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
-#include "RuPlural.h"
 
 #include <QPointer>
 
@@ -66,6 +66,6 @@ void SceneBuilder::applyKeptPoses(const std::vector<KeptPose>& poses) {
             setWorldPose(*g, *o, k.position, k.rotation);
         }
     if (const SceneObject* o = selectedObject()) showTransform(*o);
-    emit statusMessage(QString("Сохранено из симуляции: %1 — после ■ Стоп останутся здесь (Ctrl+Z после Стоп вернёт)")
-                           .arg(ruPlural(static_cast<long long>(poses.size()), "объект", "объекта", "объектов")));
+    emit statusMessage(QString(uiText("Kinetica", "Сохранено из симуляции: %1 — после ■ Стоп останутся здесь (Ctrl+Z после Стоп вернёт)"))
+                           .arg(uiCount(static_cast<long long>(poses.size()), UiCount::Object)));
 }

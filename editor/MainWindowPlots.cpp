@@ -9,6 +9,7 @@
 //      the timeline to that moment;
 //   4. «Сохранить CSV»: the lines on the charts, to a file.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
@@ -47,12 +48,12 @@ QWidget* MainWindow::buildPlots() {
     bar->addSpacing(8);
     bar->addWidget(plots_->arrangementSwitch());
     bar->addStretch(1);
-    auto* clear = new QPushButton("Очистить");
-    clear->setToolTip("Стереть записанную историю; графики остаются");
+    auto* clear = new QPushButton(uiText("Kinetica", "Очистить"));
+    clear->setToolTip(uiText("Kinetica", "Стереть записанную историю; графики остаются"));
     connect(clear, &QPushButton::clicked, plots_, &PlotPanel::clear);
-    auto* csv = new QPushButton("Сохранить CSV");
+    auto* csv = new QPushButton(uiText("Kinetica", "Сохранить CSV"));
     csv->setObjectName("plotSaveCsv");
-    csv->setToolTip("Линии с графиков в файл: время и по столбцу на линию, с именем и единицей");
+    csv->setToolTip(uiText("Kinetica", "Линии с графиков в файл: время и по столбцу на линию, с именем и единицей"));
     connect(csv, &QPushButton::clicked, this, &MainWindow::saveVisibleCsv);
     bar->addWidget(clear);
     bar->addWidget(csv);
@@ -127,7 +128,7 @@ QString MainWindow::watchLabel(int object) const {
     for (const ke::ObjectRef& w : watched_)
         if (int(w.entity) == object) return QString::fromStdString(w.label);
     const uint32_t id = uint32_t(object);
-    QString label = QString("тело №%1").arg(object);
+    QString label = QString(uiText("Kinetica", "тело №%1")).arg(object);
     if (const ke::SceneObject* o = ke::findObject(builder_->graph(), id); o && !o->name.empty())
         label = QString::fromStdString(o->name);
     else if (const ke::SceneObject* a = ke::isArrayCopyId(id) ? ke::findObject(builder_->graph(), ke::arrayOfCopyId(id)) : nullptr)
@@ -178,27 +179,27 @@ bool MainWindow::watchArm() {
     ke::ChannelRequests asked;
     std::vector<PlotPanel::Chart> charts;
     std::vector<std::string> prefixes;
-    PlotPanel::Chart torques{"Моторы руки: момент", {}, {}, true};
+    PlotPanel::Chart torques{uiText("Kinetica", "Моторы руки: момент"), {}, {}, true};
     const std::vector<ke::IkLink> chain = ke::ikChain(g, goal->goalOf);
     for (const ke::IkLink& l : chain) {
         const ke::JointObject* j = ke::findJoint(g, l.joint);
-        const std::string label = j && !j->name.empty() ? j->name : "Шарнир " + std::to_string(l.joint), id = label + "/" + dofs[l.dof];
+        const std::string label = j && !j->name.empty() ? j->name : uiText("Kinetica", "Шарнир ") + std::to_string(l.joint), id = label + "/" + dofs[l.dof];
         asked.joints.push_back({l.joint, label});
-        charts.push_back({QString::fromStdString(label) + ": угол и цель сервы", {id + " coordinate", id + " target"}, {}, true});
+        charts.push_back({QString::fromStdString(label) + uiText("Kinetica", ": угол и цель сервы"), {id + " coordinate", id + " target"}, {}, true});
         torques.ids.push_back(id + " effort");
         prefixes.push_back(label + "/");
     }
     charts.push_back(torques);
     asked.goals.push_back({goal->id, goal->name});
-    charts.push_back({"Промах схвата до цели", {goal->name + "/miss"}, {}, true});
-    if (chain.size() >= 6) charts.push_back({"Промах поворота", {goal->name + "/turn miss"}, {}, true});
+    charts.push_back({uiText("Kinetica", "Промах схвата до цели"), {goal->name + "/miss"}, {}, true});
+    if (chain.size() >= 6) charts.push_back({uiText("Kinetica", "Промах поворота"), {goal->name + "/turn miss"}, {}, true});
     prefixes.push_back(goal->name + "/");
     const QString key = "arm " + QString::number(goal->id);
     if (plots_->objectKey() != key) // a goal newly selected: the plots come to the front of their dock, as a body's do
         if (auto* dock = findChild<QDockWidget*>("resultsDock"); dock && dock->isVisible()) dock->raise();
     armWatched_ = true;
     ctrl_->post([asked](ke::Simulation& sim) { sim.channels.joints = asked.joints, sim.channels.goals = asked.goals; });
-    plots_->showSection(key, "Рука: " + QString::fromStdString(goal->name), charts, prefixes);
+    plots_->showSection(key, uiText("Kinetica", "Рука: ") + QString::fromStdString(goal->name), charts, prefixes);
     return true;
 }
 
@@ -206,13 +207,13 @@ bool MainWindow::watchArm() {
 
 void MainWindow::saveVisibleCsv() {
     if (plots_->empty()) {
-        QMessageBox::information(this, "Сохранить CSV", "Нечего сохранять: графики появятся после ▶.");
+        QMessageBox::information(this, uiText("Kinetica", "Сохранить CSV"), uiText("Kinetica", "Нечего сохранять: графики появятся после ▶."));
         return;
     }
-    const QString path = QFileDialog::getSaveFileName(this, "Сохранить графики", "plots.csv", "CSV (*.csv)");
+    const QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Сохранить графики"), "plots.csv", "CSV (*.csv)");
     if (path.isEmpty()) return;
-    if (!plots_->writeVisibleCsv(path)) QMessageBox::warning(this, "Сохранить CSV", "Не удалось записать файл.");
-    else statusBar()->showMessage("Сохранено: " + path, 4000);
+    if (!plots_->writeVisibleCsv(path)) QMessageBox::warning(this, uiText("Kinetica", "Сохранить CSV"), uiText("Kinetica", "Не удалось записать файл."));
+    else statusBar()->showMessage(uiText("Kinetica", "Сохранено: ") + path, 4000);
 }
 
 // The plots' object: the one selected in the scene when the frame has it as a body of the physics engine (by the
@@ -235,7 +236,7 @@ void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
 // follows every change of the scene (an edit, an undo, a call of the API) and the mode; I keys the selection anywhere in
 // the window (a text field keeps it).
 void MainWindow::buildSequencerDock() {
-    auto* dock = new QDockWidget("Секвенсор", this);
+    auto* dock = new QDockWidget(uiText("Kinetica", "Секвенсор"), this);
     dock->setObjectName("sequencerDock");
     sequencer_ = new SequencerPanel(ops_, builder_, dock);
     dock->setWidget(sequencer_);
@@ -254,9 +255,9 @@ void MainWindow::buildSequencerDock() {
         if (name == "sim_record" || name == "scene_put") syncRecord(), sequencer_->sync(); // the take started or came in
     });
     if (auto* view = menuBar()->findChild<QMenu*>("viewMenu")) {
-        QAction* show = view->addAction("Секвенсор");
+        QAction* show = view->addAction(uiText("Kinetica", "Секвенсор"));
         show->setObjectName("actionSequencer");
-        show->setToolTip("Анимация объектов: секвенции, ключи, бегунок");
+        show->setToolTip(uiText("Kinetica", "Анимация объектов: секвенции, ключи, бегунок"));
         connect(show, &QAction::triggered, dock, [dock] {
             dock->show();
             dock->raise();

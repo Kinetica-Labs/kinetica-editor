@@ -1,5 +1,6 @@
 // The inspector's building blocks (see InspectorWidgets.h).
 #include "InspectorWidgets.h"
+#include "UiLanguage.h"
 
 #include <QBoxLayout>
 #include <QButtonGroup>
@@ -133,7 +134,7 @@ ComponentCard::ComponentCard(const QString& title, const QIcon& icon, QWidget* p
     remove_ = new QToolButton;
     remove_->setText(QString(QChar(0x2715))); // ✕
     remove_->setObjectName("cardRemove");
-    remove_->setToolTip("Убрать компонент «" + title + "»");
+    remove_->setToolTip(uiText("Kinetica", "Убрать компонент «") + title + "»");
     connect(remove_, &QToolButton::clicked, this, &ComponentCard::removeClicked);
     top->addWidget(header_, 1);
     top->addWidget(remove_);
@@ -387,7 +388,7 @@ void FieldForm::showMixed(Row& r, const std::vector<bool>& mixed) {
         else if (auto* s = qobject_cast<QDoubleSpinBox*>(r.widget)) ::showMixed(s);
         else if (auto* box = qobject_cast<QCheckBox*>(r.widget)) {
             box->setProperty("realText", box->text());
-            box->setText(box->text() + "  (—: у всех разное)");
+            box->setText(box->text() + uiText("Kinetica", "  (—: у всех разное)"));
             box->setChecked(false);
         } else if (auto* box = qobject_cast<QComboBox*>(r.widget)) {
             box->setCurrentIndex(-1);

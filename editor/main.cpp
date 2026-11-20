@@ -7,6 +7,7 @@
 #include "AgentInstanceGuard.h"
 #include "SelfTest.h"
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "core/Probe.h"
 
@@ -225,10 +226,15 @@ struct Options {
     QCommandLineOption galleryShot{"gallery-shot", "Make every picture of the examples gallery, save the gallery as a PNG, quit.", "file"};
     QCommandLineOption agentEval{"agent-eval", "Serve an isolated agent evaluation without showing windows or taking desktop input; use with --api."};
     QCommandLineOption api{"api", "Serve the editor's API on 127.0.0.1:<port> (JSON lines; tools/ke_editor.py).", "port"};
+    QCommandLineOption language{"language", "Override the editor language for this run (ru or en).", "code"};
+    QCommandLineOption resumeEditor{"resume-editor", "Restore the editor's scene after a restart.", "file"};
 
     void addTo(QCommandLineParser& cli) const {
         cli.addOptions({frames, shot, size, software, icons, window, scene, selfTest, shots, gizmoShots, edit, camera,
-                        firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval});
+                        firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval, language});
+        auto resume = resumeEditor;
+        resume.setFlags(QCommandLineOption::HiddenFromHelp);
+        cli.addOption(resume);
         QCommandLineOption noGrab{"nograb", "X11: never grab the desktop's pointer and keyboard (added to unattended runs)."};
         noGrab.setFlags(QCommandLineOption::HiddenFromHelp); // the X11 plugin removes it; other platforms leave it here
         cli.addOption(noGrab);
@@ -330,6 +336,7 @@ static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, 
     w.setScreenshotThroughCamera(cli.isSet(o.camera));
     w.setForceFirstStart(cli.isSet(o.firstStart));
     if (cli.isSet(o.scene)) w.setStartScene(cli.value(o.scene));
+    if (cli.isSet(o.resumeEditor)) w.setRestartFile(cli.value(o.resumeEditor));
     if (cli.isSet(o.galleryShot)) {
         w.startBuilder(false);
         w.runGalleryShot(cli.value(o.galleryShot));
@@ -353,6 +360,7 @@ static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, 
 int main(int argc, char** argv) {
     const bool software = wantsSoftwareGL(argc, argv);
     if (software) QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
+    QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
     const bool nobodyWatches = unattendedArgs(argc, argv);
     setSurfaceFormat(software, !nobodyWatches);
 
@@ -375,6 +383,14 @@ int main(int argc, char** argv) {
     const Options o;
     o.addTo(cli);
     cli.process(app);
+    const QString language = cli.isSet(o.language) ? cli.value(o.language)
+        : cli.isSet(o.selfTest) ? QString("ru") : UiLanguage::preference();
+    if (language != "ru" && language != "en") {
+        std::fprintf(stderr, "--language requires ru or en\n");
+        return 2;
+    }
+    const UiLanguage uiLanguage(app, language);
+    if (cli.isSet(o.selfTest) && UiLanguage::active() != language) return 2;
     if (cli.isSet(o.agentEval) && !cli.isSet(o.api)) {
         std::fprintf(stderr, "--agent-eval requires --api <port>\n");
         return 2;
@@ -384,6 +400,7 @@ int main(int argc, char** argv) {
         qputenv("KE_JOURNAL", (QDir::tempPath() + "/kinetica-journal-" + QString::number(QCoreApplication::applicationPid()) + ".jsonl").toUtf8());
 
     app.setProperty("keAgentEval", cli.isSet(o.agentEval));
+    app.setProperty("keInteractive", !unattended(cli, o));
     AgentInstanceGuard agentSlot;
     QString slotError;
     if (cli.isSet(o.agentEval) && !agentSlot.acquire(slotError)) {

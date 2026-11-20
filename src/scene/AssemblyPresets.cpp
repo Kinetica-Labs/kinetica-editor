@@ -16,6 +16,7 @@
 // the mirrored pair turns the other way about its flipped axis, so all four drive the same way. A car
 // carries its power: a 3S lithium pack and a driver per wheel, so the wheels run on what the pack gives.
 #include "scene/Assembly.h"
+#include "core/UiLabel.h"
 #include "scene/SceneOps.h"
 
 
@@ -26,7 +27,7 @@ namespace ke {
 
 namespace {
 
-const char* kNames[kLinkPresets] = {"Шарнир", "Колено", "Колесо", "Мотор-колесо", "Амортизатор", "Машина", "Сварка", "Шаровое", "Поворот", "Ход"};
+const char* kNames[kLinkPresets] = {KE_UI_LABEL("Kinetica", "Шарнир"), KE_UI_LABEL("Kinetica", "Колено"), KE_UI_LABEL("Kinetica", "Колесо"), KE_UI_LABEL("Kinetica", "Мотор-колесо"), KE_UI_LABEL("Kinetica", "Амортизатор"), KE_UI_LABEL("Kinetica", "Машина"), KE_UI_LABEL("Kinetica", "Сварка"), KE_UI_LABEL("Kinetica", "Шаровое"), KE_UI_LABEL("Kinetica", "Поворот"), KE_UI_LABEL("Kinetica", "Ход")};
 const char* kWords[kLinkPresets] = {"hinge", "elbow", "wheel", "motor_wheel", "shock", "car", "weld", "ball", "rotary", "linear"};
 
 

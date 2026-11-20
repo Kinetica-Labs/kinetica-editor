@@ -2,9 +2,11 @@
 // bubble that leads to the first falling cube, the "Примеры" gallery, and the window without panels
 // that makes the gallery's pictures.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 #include "Resources.h"
 
 #include "EditorOps.h"
+#include "EditorServer.h"
 #include "ExamplesGallery.h"
 #include "FirstStartHint.h"
 #include "RoleBar.h"
@@ -17,13 +19,18 @@
 #include <QCoreApplication>
 #include <QDir>
 #include <QDockWidget>
+#include <QFileInfo>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QJsonObject>
+#include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QProcess>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTimer>
+#include <QTemporaryFile>
 #include <QDateTime>
 #include <QToolBar>
 #include <QToolButton>
@@ -32,9 +39,99 @@ using namespace ke;
 
 namespace {
 const char* kFirstMinuteDone = "hints/firstMinuteDone";
+const char* kRestartPrefix = "kinetica-language-";
+
+QStringList restartArguments(const QStringList& arguments, const QString& snapshot) {
+    const QStringList replaced{"--language", "--resume-editor", "--scene", "--focus-object"};
+    QStringList result;
+    for (qsizetype i = 1; i < arguments.size(); ++i) {
+        const QString arg = arguments.at(i);
+        const QString option = arg.section('=', 0, 0);
+        if (replaced.contains(option)) {
+            if (arg == option) ++i;
+        } else if (option != "--play" && option != "--first-start" && option != "--physics") {
+            result << arg;
+        }
+    }
+    return result << "--resume-editor" << snapshot;
+}
 } // namespace
 
 QString MainWindow::examplesDir() { return resourceDir("examples"); }
+
+void MainWindow::changeLanguage(const QString& code) {
+    auto* menu = findChild<QMenu*>("languageMenu");
+    if (!menu || !menu->isEnabled() || !qApp->property("keInteractive").toBool()) return;
+    if (auto* action = menu->findChild<QAction*>("language_" + UiLanguage::active())) action->setChecked(true);
+    if (!builder_->editing() &&
+        QMessageBox::question(this, uiText("Kinetica", "Язык"),
+            uiText("Kinetica", "Сменить язык и остановить текущую симуляцию? Редактор откроет сцену в режиме правки."))
+            != QMessageBox::Yes) return;
+
+    menu->setEnabled(false);
+    if (ops_->recording()) {
+        ops_->run("sim_record", {{"on", false}}, [this, code](const QJsonObject&) {
+            restartForLanguage(code);
+        }, "ui");
+    } else {
+        builder_->stop();
+        restartForLanguage(code);
+    }
+}
+
+void MainWindow::restartForLanguage(const QString& code) {
+    auto failed = [this](const QString& error) {
+        if (auto* menu = findChild<QMenu*>("languageMenu")) menu->setEnabled(true);
+        QMessageBox::warning(this, uiText("Kinetica", "Язык"), error);
+    };
+    QTemporaryFile snapshot(QDir::temp().filePath(QString(kRestartPrefix) + "XXXXXX.json"));
+    QJsonObject saved = builder_->restartSnapshot();
+    saved.insert("kinetica_restart", 1);
+    saved.insert("geometry", QString::fromLatin1(saveGeometry().toBase64()));
+    const QByteArray bytes = QJsonDocument(saved).toJson(QJsonDocument::Compact);
+    if (!snapshot.open() || snapshot.write(bytes) != bytes.size() || !snapshot.flush())
+        return failed(uiText("Kinetica", "Не удалось сохранить текущую сцену для перезапуска."));
+    snapshot.close();
+
+    const QString previous = UiLanguage::preference();
+    if (!UiLanguage::setPreference(code))
+        return failed(uiText("Kinetica", "Не удалось сохранить выбор языка."));
+    const quint16 port = apiServer_ ? apiServer_->port() : 0;
+    delete apiServer_; // the new process can immediately reuse an explicitly requested port
+    apiServer_ = nullptr;
+    if (!QProcess::startDetached(QCoreApplication::applicationFilePath(),
+                                 restartArguments(QCoreApplication::arguments(), snapshot.fileName()))) {
+        UiLanguage::setPreference(previous);
+        if (port) startApi(port);
+        return failed(uiText("Kinetica", "Не удалось перезапустить редактор."));
+    }
+    snapshot.setAutoRemove(false);
+    qApp->quit();
+}
+
+bool MainWindow::resumeAfterRestart(QString& error) {
+    const QFileInfo info(restartFile_);
+    if (info.absolutePath() != QDir::temp().absolutePath() || info.isSymLink() ||
+        !info.fileName().startsWith(kRestartPrefix) || info.suffix() != "json") {
+        error = uiText("Kinetica", "Некорректный файл восстановления сцены.");
+        return false;
+    }
+    QFile file(info.absoluteFilePath());
+    if (!file.open(QIODevice::ReadOnly)) {
+        error = file.errorString();
+        return false;
+    }
+    const QJsonObject saved = QJsonDocument::fromJson(file.readAll()).object();
+    file.close();
+    if (saved.value("kinetica_restart").toInt() != 1 || !saved.value("scene").isString()) {
+        error = uiText("Kinetica", "Некорректный файл восстановления сцены.");
+        return false;
+    }
+    if (!builder_->restoreRestartSnapshot(saved, error)) return false;
+    restoreGeometry(QByteArray::fromBase64(saved.value("geometry").toString().toLatin1()));
+    file.remove();
+    return true;
+}
 
 // The builder's first scene: the file given on the command line; on the very first start (or with
 // --first-start) the UR5e with the first-minutes bubble; else an empty floor.
@@ -47,20 +144,28 @@ void MainWindow::startJournal() {
     ops_->startSession();
     if (!before.value("crashed").toBool() || before.value("edits").toInt() == 0) return;
     const QString when = QDateTime::fromString(before.value("start").toString(), Qt::ISODateWithMs).toLocalTime().toString("dd.MM HH:mm");
-    builder_->showBanner(QString("Прошлая сессия (%1, изменений: %2) закрылась сбоем. Её сцену можно вернуть.").arg(when).arg(before.value("edits").toInt()),
-                         "Восстановить", [this, session = before.value("session").toString()] {
+    builder_->showBanner(QString(uiText("Kinetica", "Прошлая сессия (%1, изменений: %2) закрылась сбоем. Её сцену можно вернуть.")).arg(when).arg(before.value("edits").toInt()),
+                         uiText("Kinetica", "Восстановить"), [this, session = before.value("session").toString()] {
         const QString why = ops_->restore(session, -1);
-        statusBar()->showMessage(why.isEmpty() ? "Сцена восстановлена по журналу (Ctrl+Z вернёт прежнюю)" : "Не восстановлено: " + why, 8000);
+        statusBar()->showMessage(why.isEmpty() ? uiText("Kinetica", "Сцена восстановлена по журналу (Ctrl+Z вернёт прежнюю)") : uiText("Kinetica", "Не восстановлено: ") + why, 8000);
     });
 }
 
 void MainWindow::startBuilder(bool interactive) {
     QString error;
-    const bool firstMinute = interactive && startScene_.isEmpty() &&
+    const bool resumed = !restartFile_.isEmpty() && resumeAfterRestart(error);
+    if (!error.isEmpty()) {
+        QMessageBox::warning(this, uiText("Kinetica", "Не удалось восстановить сцену"),
+                             error + "\n" + QDir::toNativeSeparators(restartFile_));
+        error.clear();
+    }
+    const bool firstMinute = interactive && restartFile_.isEmpty() && startScene_.isEmpty() &&
                              (forceFirstStart_ || !QSettings().value(kFirstMinuteDone, false).toBool());
     const QString scene = firstMinute ? examplesDir() + "/ur5e.kscene" : startScene_; // a robotics editor opens with a robot
-    if (!scene.isEmpty() && !builder_->openFile(scene, error)) QMessageBox::warning(this, "Открыть сцену", error);
-    if (scene.isEmpty() || !error.isEmpty()) builder_->newScene();
+    if (!resumed) {
+        if (!scene.isEmpty() && !builder_->openFile(scene, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);
+        if (scene.isEmpty() || !error.isEmpty()) builder_->newScene();
+    }
     if (firstMinute) QTimer::singleShot(0, this, [this] { // after the first layout: the robot close, the bubble at «Запись»
         for (const ke::JointObject& j : builder_->graph().joints) { // a robot's root: the group its links hang under
             const std::vector<uint32_t> chain = ke::ancestry(builder_->graph(), j.a);
@@ -103,20 +208,20 @@ void MainWindow::showFirstMinuteStep() {
     if (!hint_) return;
     if (hintStep_ == 0) {
         hint_->pointAt(createBar_->widgetForAction(recordAct_),
-                       "Это рука UR5e. Нажмите «Запись»: сцена оживёт, и всё, что сделает рука, запишется");
+                       uiText("Kinetica", "Это рука UR5e. Нажмите «Запись»: сцена оживёт, и всё, что сделает рука, запишется"));
     } else if (hintStep_ == 1) {
         hint_->pointAt(createBar_->widgetForAction(stopAct_),
-                       QString("Ведите руку клавишами: W S A D — по полу, R F — вверх-вниз, Z X — поворот, пробел — схват. "
-                               "Проще: щёлкните кубик и «Рука — к этому предмету» справа, потом F, пробел, R. %1")
-                           .arg(ops_->recording() ? "Хватит — «Стоп»" : "Записать — «Запись» рядом с «Пуском»"));
+                       QString(uiText("Kinetica", "Ведите руку клавишами: W S A D — по полу, R F — вверх-вниз, Z X — поворот, пробел — схват. "
+                               "Проще: щёлкните кубик и «Рука — к этому предмету» справа, потом F, пробел, R. %1"))
+                           .arg(ops_->recording() ? uiText("Kinetica", "Хватит — «Стоп»") : uiText("Kinetica", "Записать — «Запись» рядом с «Пуском»")));
     } else if (hintStep_ == 2) {
         if (auto* dock = findChild<QDockWidget*>("sequencerDock")) dock->show(), dock->raise();
         hint_->pointAt(findChild<QWidget*>("sequencerTimeline"),
-                       "Готово, это запись. Потяните бегунок по ленте — рука повторит. «▶ в Пуске» — Пуск сыграет её как анимацию");
+                       uiText("Kinetica", "Готово, это запись. Потяните бегунок по ленте — рука повторит. «▶ в Пуске» — Пуск сыграет её как анимацию"));
     } else {
         hint_->pointAt(findChild<QToolButton*>("sensorsButton"),
-                       "Дальше: «Датчик ▾» — глаза и чувство силы руке; «Примеры» — другие сцены. Каждое действие — строкой Python: "
-                       "Вид → Консоль API");
+                       uiText("Kinetica", "Дальше: «Датчик ▾» — глаза и чувство силы руке; «Примеры» — другие сцены. Каждое действие — строкой Python: "
+                       "Вид → Консоль API"));
         QTimer::singleShot(15000, this, [this] { if (hint_ && hintStep_ == 3) finishFirstMinute(); });
     }
 }
@@ -149,7 +254,7 @@ void MainWindow::openGallery() {
     ExamplesGallery gallery(examplesDir(), this);
     if (gallery.exec() != QDialog::Accepted || !gallery.chosen()) return;
     QString error;
-    if (!builder_->openFile(gallery.chosen()->sceneFile, error)) QMessageBox::warning(this, "Открыть сцену", error);
+    if (!builder_->openFile(gallery.chosen()->sceneFile, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);
 }
 
 // The gallery with every picture made, saved as a PNG; then the program quits (--gallery-shot).

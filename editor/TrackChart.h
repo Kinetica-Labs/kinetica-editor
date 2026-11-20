@@ -20,6 +20,7 @@
 //   - a legend entry: a click hides or shows its line, a double click shows it alone;
 //   - a right click: the panel's menu for this chart (menuRequested).
 #include "PlotSeries.h"
+#include "UiLanguage.h"
 
 #include <QColor>
 #include <QPoint>
@@ -118,7 +119,7 @@ private:
 
     std::vector<PlotTrack> tracks_;
     std::vector<std::pair<double, double>> own_; // each line's lowest and highest value in the window
-    QString title_, emptyText_ = "нет данных";
+    QString title_, emptyText_ = uiText("Kinetica", "нет данных");
     bool menu_ = true;
     bool normalized_ = false;
     bool timeAxis_ = true;
