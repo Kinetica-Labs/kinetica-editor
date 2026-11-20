@@ -133,6 +133,8 @@ void testGoalInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
     auto* plots = w.findChild<PlotPanel*>();
     const PlotSeries* elbow = plots ? plots->series("Шарнир 11/rx coordinate") : nullptr;
     const PlotSeries* miss = plots ? plots->series(entity(b, goal)->name + "/miss") : nullptr;
+    if (auto* more = w.findChild<QPushButton*>("ikMore"); more && !more->isChecked()) more->click(); // «Подробно»: the solver
+    pump(30);
     auto* ik = dynamic_cast<IkSolverView*>(w.findChild<QWidget*>("ikSolverView"));
     std::printf("  plots: «%s», %zu charts; the elbow's angle %s, the miss %s; the solver's card %s with %zu rounds\n",
                 plots ? plots->objectTitle().toStdString().c_str() : "?", plots ? plots->charts().size() : 0, elbow ? "recorded" : "missing",

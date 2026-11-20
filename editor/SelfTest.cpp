@@ -365,8 +365,8 @@ void testContextMenu(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     };
     QMenu* menu = mw->buildEditContextMenu();
     QAction* rotate = find(menu, "Вращение");
-    QAction* local = find(menu, "Локальная (Local)");
-    const bool complete = rotate && local && find(menu, "Глобальная (World)") && find(menu, "Удалить") && find(menu, "Дублировать");
+    QAction* local = find(menu, "Оси объекта");
+    const bool complete = rotate && local && find(menu, "Удалить") && find(menu, "Дублировать") && !find(menu, "Роль");
     if (rotate) rotate->trigger();
     if (local) local->trigger();
     auto* toolbarRotate = w.findChild<QAction*>("toolRotate");
@@ -374,7 +374,7 @@ void testContextMenu(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
             "the right-click menu switches the gizmo to rotation and local axes; the toolbar follows");
     delete menu;
     QMenu* again = mw->buildEditContextMenu();
-    if (QAction* world = find(again, "Глобальная (World)")) world->trigger();
+    if (QAction* axes = find(again, "Оси объекта")) axes->trigger(); // ticked: off again - world axes
     delete again;
     trigger(w, "toolMove");
     c.check(!v->gizmo().local() && v->gizmo().mode() == GizmoMode::Translate, "and back: world axes, the move tool");

@@ -311,13 +311,25 @@ void SceneBuilder::buildGeometryCard(QVBoxLayout* col) {
     grip_ = new QPushButton;
     grip_->setObjectName("gripToggle");
     grip_->setToolTip("Пальцы схвата этой цели: сжать — каждый палец едет до упора в предмет и жмёт с силой 2 Н, "
-                      "разжать — назад. Работает и в правке, и во время игры (команда assembly_grip)");
+                      "разжать — назад. Работает и в правке, и в «Пуске»");
     grip_->setVisible(false);
     connect(grip_, &QPushButton::clicked, this, &SceneBuilder::toggleGrip);
     f->addRow(grip_);
+    // The solver's formula and its rounds are a researcher's: folded under «Подробно» (they were the first thing a newcomer
+    // saw on clicking the goal).
+    ikMore_ = new QPushButton("Подробно: решатель IK ▸");
+    ikMore_->setObjectName("ikMore");
+    ikMore_->setCheckable(true);
+    ikMore_->setFlat(true);
+    ikMore_->setVisible(false);
+    f->addRow(ikMore_);
     ikView_ = new IkSolverView;
     ikView_->setVisible(false);
     f->addRow(ikView_);
+    connect(ikMore_, &QPushButton::toggled, this, [this](bool on) {
+        ikMore_->setText(on ? "Подробно: решатель IK ▾" : "Подробно: решатель IK ▸");
+        ikView_->setVisible(on && ikMore_->isVisible());
+    });
     modelFile_ = new QLabel;
     modelFile_->setObjectName("roleRowLabel");
     modelFile_->setWordWrap(true);
@@ -327,7 +339,8 @@ void SceneBuilder::buildGeometryCard(QVBoxLayout* col) {
 
 // How the surface looks: a texture and its relief - below the components, it changes nothing physical.
 void SceneBuilder::buildTextureCard(QVBoxLayout* col) {
-    col->addWidget(sectionTitle("Текстура"));
+    textureTitle_ = sectionTitle("Текстура");
+    col->addWidget(textureTitle_);
     texture_ = new TexturePanel;
     col->addWidget(texture_);
     connect(texture_, &TexturePanel::edited, this, &SceneBuilder::onDetailsEdited);
@@ -382,7 +395,7 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
     for (int k = 0; k <= int(ColliderKind::Cylinder); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, kColliderTips[k]});
     ComponentCard* card = componentCard(col, RoleIcon::Collider);
     shapeFields(card, &SceneBuilder::colliderFields_)->note([] { return QString("чем тело сталкивается; виден зелёным каркасом"); }).name("roleRowLabel")
-        .tip("Как в Houdini: геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"
+        .tip("Геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"
              "Физика двигает и поворачивает геометрию вместе с коллайдером, но саму геометрию не меняет.")
         .tiles(kinds, 28, c->kind).name("colliderButton")
         .note([this, c] {
@@ -471,10 +484,15 @@ void SceneBuilder::fillInspector() {
     Entity shown = own ? resolveInstance(graph_, *own) : Entity();
     if (!own) static_cast<SceneObject&>(shown) = *o;
     const bool shapes = own && selectedEntities().size() == selection_.size();
+    // An IK goal is the arm's intent, not matter: no body or collider tiles, no components, no texture on its card.
+    const bool goal = own && isHandle(*own);
     object_->setObject(shown);
+    showPlaceRows(o->id); // selected from the tree too, not only after an edit
     sizeRow_->setVisible(shapes);
     shapePart_->setVisible(shapes);
-    roleBar_->setVisible(shapes);
+    roleBar_->setVisible(shapes && !goal);
+    addComponent_->setVisible(!goal);
+    textureTitle_->setVisible(!goal), texture_->setVisible(!goal);
     if (shapes) {
         const QSignalBlocker quiet(shape_);
         shape_->setCurrentIndex(int(shown.shape));
@@ -535,11 +553,16 @@ void SceneBuilder::readDetails(Entity& e) const {
     e.size = size_->value();
 }
 
+// The place rows, unless the thing's place is another's: a sensor on a joint stands where the joint is.
+void SceneBuilder::showPlaceRows(uint32_t id) {
+    const SensorObject* sensor = sensorById(id);
+    object_->showPlace(!(sensor && findJoint(graph_, sensor->parent)));
+}
+
 void SceneBuilder::showTransform(const SceneObject& o) {
     filling_ = true;
     object_->setObject(o);
-    const SensorObject* sensor = sensorById(o.id);
-    object_->showPlace(!(sensor && findJoint(graph_, sensor->parent)));
+    showPlaceRows(o.id);
     if (const Entity* e = entityById(o.id)) size_->setValue(entityById(masterOf(e->id))->size);
     filling_ = false;
 }

@@ -215,7 +215,7 @@ void MainWindow::buildLayoutActions() {
                               "Выбранное тело показывает свой всегда");
     connect(collidersAct_, &QAction::toggled, builder_, &SceneBuilder::setShowAllColliders);
     collidersAct_->setChecked(true); // on from the start: what the physics collides with is seen (a person asked for it)
-    auto* hud = new QAction("Счётчик кадров", this);
+    auto* hud = new QAction("Производительность", this);
     hud->setObjectName("actionHud");
     hud->setCheckable(true);
     hud->setChecked(view_->showHud());
@@ -273,18 +273,12 @@ void MainWindow::showEditContextMenu(const QPointF& pos) {
 QMenu* MainWindow::buildEditContextMenu() {
     auto* menu = new QMenu(this);
     for (QAction* a : toolGroup_->actions()) menu->addAction(a); // the toolbar's own actions: one state
-    menu->addSection("Система координат");
-    auto* space = new QActionGroup(menu);
-    const struct { const char* text; bool local; } spaces[] = {{"Глобальная (World)", false}, {"Локальная (Local)", true}};
-    for (const auto& s : spaces) {
-        QAction* a = menu->addAction(s.text);
-        a->setCheckable(true);
-        a->setChecked(localAct_->isChecked() == s.local);
-        a->setShortcut(Qt::Key_L);
-        space->addAction(a);
-        const bool local = s.local;
-        connect(a, &QAction::triggered, this, [this, local] { localAct_->setChecked(local); });
-    }
+    // One switch, the shelf's «Глоб./Лок.» in words (it was a section of two with English in brackets).
+    QAction* local = menu->addAction("Оси объекта", this, [this](bool on) { localAct_->setChecked(on); });
+    local->setObjectName("menuLocalAxes");
+    local->setCheckable(true);
+    local->setChecked(localAct_->isChecked());
+    local->setShortcut(Qt::Key_L);
     if (builder_->selectedId()) addObjectActions(menu);
     return menu;
 }
@@ -295,24 +289,14 @@ void MainWindow::addObjectActions(QMenu* menu) {
     if (!o) return;
     const int n = int(builder_->selection().size());
     menu->addSection(n > 1 ? "Выбрано: " + ruPlural(n, "объект", "объекта", "объектов") : builder_->objectTitle(id));
-    menu->addAction("Показать", QKeySequence(Qt::Key_F), this, [this] { builder_->frameSelected(); });
+    menu->addAction("К выбранному", QKeySequence(Qt::Key_F), this, [this] { builder_->frameSelected(); }); // «Показать» was also «unhide»
     menu->addAction("Дублировать", duplicateAct_->shortcut(), this, [this] { builder_->duplicateSelected(); });
     menu->addAction("Удалить", deleteAct_->shortcut(), this, [this] { builder_->removeSelected(); });
     menu->addAction(o->visible ? "Скрыть" : "Показать объект", QKeySequence(Qt::Key_H), this, [this, id] { builder_->toggleVisible(id); });
     menu->addAction(o->locked ? "Разблокировать" : "Заблокировать", this, [this, id] { builder_->toggleLocked(id); });
     addManyActions(menu);
-    addSelectHelpers(menu);
-    const ke::Entity* e = nullptr;
-    for (const ke::Entity& x : builder_->graph().entities)
-        if (x.id == builder_->masterOf(id)) e = &x;
-    if (!e) return; // a group or an array has no components of its own
-    QMenu* roles = menu->addMenu(roleIcon(RoleIcon::Rigid, 20), "Роль");
-    for (int k = 0; k < int(RoleIcon::Count); ++k) {
-        const RoleIcon role = RoleIcon(k);
-        QAction* a = roles->addAction(roleIcon(role, 20), roleName(role), this, [this, role] { builder_->toggleRole(role); });
-        a->setCheckable(true);
-        a->setChecked(roleEnabled(*e, role));
-    }
+    // The selection helpers and the components stay where they are found once: «Правка» and the inspector (a fourth way to
+    // a component, «Роль ▸», did not open for a newcomer three times; the menu was twenty lines).
 }
 
 // The gizmo's tools: edit mode and pause; while the scene plays with an IK goal selected too - a handle, so

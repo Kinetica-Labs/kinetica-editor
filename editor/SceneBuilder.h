@@ -234,6 +234,7 @@ public:
     const std::vector<QAction*>& sensorActions();
     void updateSensorActions();
     void fillAddMenu(QMenu* menu); // the components the selection does not have yet: «+ Добавить компонент», menu «Сцена»
+    void showPlaceRows(uint32_t id); // «Где» and «Поворот» hidden where the place is another's (a sensor on a joint)
     // In the air over a free spot, named after its shape ("Куб 2"); `adjust` changes it before it joins.
     void addEntity(ke::ShapeKind shape, const std::function<void(ke::Entity&)>& adjust = {});
     void setRoleOfSelected(RoleIcon role, bool on); // the role bar's click with its outcome given
@@ -643,6 +644,8 @@ private:
     QPushButton* addComponent_ = nullptr;
     QMenu* addMenu_ = nullptr;
     QPushButton* colliderEditButton_ = nullptr; // «Править коллайдер в виде» (setColliderEdit)
+    QWidget* textureTitle_ = nullptr;           // «Текстура» over its panel: hidden with it on a goal's card
+    QPushButton* ikMore_ = nullptr;             // «Подробно: решатель IK»: the solver's view folded under it
     InlineBanner* noCollider_ = nullptr; // in the rigid card: a body without a collider falls through
     class FieldForm *rigidFields_ = nullptr, *colliderFields_ = nullptr;
     ke::Entity shapeDraft_; // the active shape's master, the rigid and collider cards' edits written here first

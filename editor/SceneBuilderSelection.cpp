@@ -389,13 +389,14 @@ void SceneBuilder::refreshIkView() {
     // Neither on a goal itself (its own button would lift it over itself) nor where no arm can take it.
     const Entity* selected = entityById(selectedId_);
     const bool link = selected && !ke::ikChain(graph_, selectedId_).empty();
-    const bool reach = selected && !link && !selected->goalOf && goalNear(selectedId_) != 0;
+    const bool movable = selected && selected->rigid.enabled && !selected->rigid.fixed; // a thing to take, not the floor or a table
+    const bool reach = selected && !link && !selected->goalOf && movable && goalNear(selectedId_) != 0;
     goalButton_->setVisible(link || reach);
-    goalButton_->setText(reach ? "Рука — к этому предмету" : "Цель IK — рука тянется сюда");
+    goalButton_->setText(reach ? "Рука — к этому предмету" : "Вести звено мышью (цель)"); // it said «рука тянется сюда» and did not
     goalButton_->setToolTip(reach ? "Цель руки встаёт на 10 см над предметом, рука идёт к ней. Дальше: опустить — F, сомкнуть схват — пробел "
-                                    "(во время игры; в правке — кнопка «Схват: сжать» у цели)"
+                                    "(в «Пуске»; в правке — кнопка «Схват: сжать» у цели)"
                                   : "Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
-                                    "инверсная кинематика ведёт сочленения (во время игры — сервоприводами)");
+                                    "инверсная кинематика ведёт сочленения (в «Пуске» — сервоприводами)");
     const Entity* goal = nullptr;
     for (const Entity& e : graph_.entities)
         if (e.id == selectedId_ && e.goalOf != 0 && selection_.size() == 1) goal = &e;
@@ -403,7 +404,8 @@ void SceneBuilder::refreshIkView() {
     const bool closed = goal && handClosed(graph_, goal->goalOf, fingers);
     grip_->setVisible(goal && fingers);
     grip_->setText(closed ? "Схват: разжать" : "Схват: сжать");
-    ikView_->setVisible(goal != nullptr);
+    ikMore_->setVisible(goal != nullptr);
+    ikView_->setVisible(goal && ikMore_->isChecked()); // folded under «Подробно» unless opened
     if (!goal) return;
     if (lastIkGoal_ != goal->id) { // not dragged yet: a solve from where its servos are sent, on a copy
         SceneGraph copy = graph_;

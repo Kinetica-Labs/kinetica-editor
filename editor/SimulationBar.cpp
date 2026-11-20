@@ -26,7 +26,7 @@ SimulationBar::SimulationBar(QWidget* parent, QAction* keep) : QFrame(parent) {
 }
 void SimulationBar::setState(bool playing, bool paused, bool canKeep) {
     const bool running = playing || paused;
-    mode_->setText(paused ? "Пауза" : playing ? "Игра" : "Правка");
+    mode_->setText(paused ? "Пауза" : playing ? "Пуск" : "Правка"); // the button's word: one name for the mode
     mode_->setStyleSheet(running ? "color: #ffd58a; font-weight: 600;" : "color: #b8c4d0; font-weight: 600;");
     hint_->setText(!running ? "Пуск запустит симуляцию." : !note_.isEmpty() ? note_ : canKeep ? "Стоп вернёт исходную сцену." : "Готовая сцена.");
     hint_->setStyleSheet(running && !note_.isEmpty() ? "color: #7cff9a;" : QString());

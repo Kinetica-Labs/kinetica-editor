@@ -446,7 +446,7 @@ private:
     QElapsedTimer frameClock_;                  // since the last painted frame
     std::array<float, 120> frameMs_{};          // the last 120 frames' intervals, a ring
     size_t frameAt_ = 0, frameCount_ = 0;
-    bool showHud_ = true;
+    bool showHud_ = false; // F3: off at first, as Unity's Stats and Godot's monitors - a corner of numbers was noise to a newcomer
     double realtime_ = 0, sceneAtSecond_ = -1;  // the scene's time when the last second began
     class QOpenGLTimeMonitor* gpuClock_[2] = {}; // two frames' marks in turn: one read while the other records
     bool gpuPending_[2] = {};

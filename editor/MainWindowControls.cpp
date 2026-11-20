@@ -65,9 +65,9 @@ void MainWindow::buildEditMenu() {
     connect(keyAction(menu, "actionMakeArray", "Сделать массивом…", {}), &QAction::triggered, builder_, &SceneBuilder::makeArrayOfSelected);
     addSelectHelpers(menu);
     menu->addSeparator();
-    connect(keyAction(menu, "actionFrameSelected", "Показать выбранное (без выбора — всё)", {QKeySequence(Qt::Key_F)}), &QAction::triggered, this,
+    connect(keyAction(menu, "actionFrameSelected", "К выбранному (без выбора — вся сцена)", {QKeySequence(Qt::Key_F)}), &QAction::triggered, this,
             [this] { builder_->frameSelected(); });
-    connect(keyAction(menu, "actionFrameAll", "Показать всю сцену", {QKeySequence(Qt::Key_Home)}), &QAction::triggered, this,
+    connect(keyAction(menu, "actionFrameAll", "Вся сцена", {QKeySequence(Qt::Key_Home)}), &QAction::triggered, this,
             [this] { builder_->frameAll(); });
     menu->addSeparator();
     auto* esc = keyAction(menu, "actionEscape", "Стоп / снять выделение", {QKeySequence(Qt::Key_Escape)});

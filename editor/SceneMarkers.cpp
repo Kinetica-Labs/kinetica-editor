@@ -46,6 +46,14 @@ void pointLines(const SceneMarker& m, std::vector<float>& solid, std::vector<flo
 
 void spotLines(const SceneMarker& m, std::vector<float>& solid, std::vector<float>& faint) {
     const Vector3 d = m.rotation.rotate(Vector3(0, -1, 0)), u = m.rotation.rotate(Vector3(1, 0, 0)), v = m.rotation.rotate(Vector3(0, 0, 1));
+    circle(solid, m.position, u, v, 0.05f, 16);
+    if (!m.selected) { // where it stands and where it shines; its cone only when selected - unselected it was the first frame's
+        const Vector3 tip = m.position + d * 0.25f;   // biggest noise (a newcomer: «что за большой жёлтый каркас-конус?»)
+        segment(solid, m.position, tip);
+        segment(solid, tip, tip - d * 0.06f + u * 0.04f);
+        segment(solid, tip, tip - d * 0.06f - u * 0.04f);
+        return;
+    }
     const float length = m.reach > 0 ? m.reach : std::clamp(m.range, 0.3f, 1.0f);
     const float outer = 0.5f * m.coneDeg * kDegToRad, inner = std::max(0.0f, 0.5f * m.coneDeg - m.softnessDeg) * kDegToRad;
     const Vector3 end = m.position + d * length;
@@ -56,7 +64,6 @@ void spotLines(const SceneMarker& m, std::vector<float>& solid, std::vector<floa
         segment(solid, m.position, end + (u * std::cos(a) + v * std::sin(a)) * r);
     }
     circle(faint, end, u, v, length * std::tan(std::min(inner, 1.45f)));
-    circle(solid, m.position, u, v, 0.05f, 16);
 }
 
 void cameraLines(const SceneMarker& m, float aspect, std::vector<float>& solid) {
