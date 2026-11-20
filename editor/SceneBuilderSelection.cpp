@@ -229,7 +229,9 @@ SceneBuilder::GizmoStep SceneBuilder::stepOf(const GizmoPose& pose) const {
     const Vector3 v(q.x, q.y, q.z);
     const float n = length(v);
     s.axis = n > 1e-12f ? v / n : Vector3(0.0f, 1.0f, 0.0f);
-    s.degrees = float(2.0 * std::atan2(double(n), double(q.w)) * (180.0 / 3.14159265358979323846));
+    // To a ten-thousandth of a degree: a quaternion of floats gives a quarter turn back as 90.00001 or 89.99999, and the
+    // line and the scene would carry that for ever; the hand applies the rounded angle, so the line still replays it.
+    s.degrees = float(std::round(2.0 * std::atan2(double(n), double(q.w)) * (180.0 / 3.14159265358979323846) * 1e4) / 1e4);
     for (int k = 0; k < 3; ++k)
         for (float sign : {1.0f, -1.0f})
             if (std::fabs(s.axis[k] * sign - 1.0f) < 1e-6f) s.axis = Vector3(0.0f), s.axis[k] = 1.0f, s.degrees *= sign;
