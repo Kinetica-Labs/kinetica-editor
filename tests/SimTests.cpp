@@ -199,6 +199,35 @@ void testSimLostBodiesLeaveTheWorld() {
     CHECK(without.bodies.size() == 3, "the frame holds %zu bodies: the one that left is still drawn where it was", without.bodies.size());
 }
 
+// A world of bodies alone - nothing of ours to do between the engine's substeps - is one step of the engine a frame, the
+// contacts searched once (RobotWorld::engineSteps); a world with a servo is a step a substep, as the servo's explicit
+// spring needs. Either way a resting box's contacts carry its weight: the channel divides the impulse by the engine
+// step's own length.
+void testSimBodiesAloneAreOneEngineStep() {
+    SceneGraph g;
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 0.1_r, 0}, false));
+    Simulation s;
+    s.load(g);
+    s.channels.objects.push_back({1, "Ящик"});
+    for (int k = 0; k < 15; ++k) s.stepFrame(); // at rest and still awake: asleep, the channel says m g without the contacts
+    double weight = 0;
+    for (const Measurement& m : s.measurements())
+        if (m.info.id == "Ящик/contact force") weight = m.value;
+    const BodyState box = s.physics()->state(s.robot()->bodyOf(1));
+    const Real mass = box.mass;
+    JointDrive d;
+    d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;
+    Simulation arm;
+    arm.load(armOnPost(d));
+    const int substeps = g.world.physics.substeps;
+    std::printf("  %d substeps a frame: a box alone - %d step(s) of the engine, a servo's arm - %d; the box's contacts carry %.3f N (m g = %.3f)\n",
+                substeps, s.robot()->engineSteps(substeps), arm.robot()->engineSteps(substeps), weight, double(mass) * 9.81);
+    CHECK(s.robot()->engineSteps(substeps) == 1 && arm.robot()->engineSteps(substeps) == substeps, "the engine steps %d and %d times a frame",
+          s.robot()->engineSteps(substeps), arm.robot()->engineSteps(substeps));
+    CHECK(box.awake && std::fabs(weight / (double(mass) * 9.81) - 1) < 0.02, "the contacts of the box (awake: %d) carry %f N, not the weight %f N",
+          int(box.awake), weight, double(mass) * 9.81);
+}
+
 void testSimServoHoldsAndDroops() {
     JointDrive d;
     d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;

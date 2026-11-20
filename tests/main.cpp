@@ -38,6 +38,7 @@ int main() {
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("world: the frame is the live scene flattened - a body, a child without one, a goal moved while it runs", testSimFrameFollowsTheLiveScene);
     run("world: a body fallen out of the world leaves the engine; the frame's contacts only when they are read", testSimLostBodiesLeaveTheWorld);
+    run("world: bodies alone are one step of the engine a frame, a servo's world a step a substep", testSimBodiesAloneAreOneEngineStep);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
     run("world: a DC motor spins up to U / K with the time constant I R / K^2", testSimDcMotorSpinsUp);
     run("world: a battery drives a motor through its driver - charge d J w / K, speed d E / K, a spent pack opens", testSimBatteryDrivesMotor);

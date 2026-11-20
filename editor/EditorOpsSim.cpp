@@ -181,7 +181,7 @@ QJsonObject liveState(const Simulation& s) {
     for (const JointObject& j : robot->graph().joints) joints.append(jointState(s, j));
     // The contact points of the last substep by the pair of entities they join (0: the floor), their normal
     // force (the impulse over that substep) and the deepest overlap.
-    const double h = double(s.frameDt) / std::max(1, robot->graph().world.physics.substeps);
+    const double h = double(s.frameDt) / robot->engineSteps(robot->graph().world.physics.substeps);
     struct Touch { int points = 0; double force = 0, depth = 0; };
     std::map<std::pair<uint32_t, uint32_t>, Touch> touches;
     for (const ContactPoint& c : physics->contacts()) {

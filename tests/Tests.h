@@ -43,6 +43,7 @@ void testPhysicsThreadsDeterministic();
 void testSimBoxRestsOnFloor();
 void testSimFrameFollowsTheLiveScene();
 void testSimLostBodiesLeaveTheWorld();
+void testSimBodiesAloneAreOneEngineStep();
 void testSimServoHoldsAndDroops();
 void testSimDcMotorSpinsUp();
 void testSimBatteryDrivesMotor();

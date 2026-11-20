@@ -479,7 +479,7 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     if (!controls_.empty()) driveControllers(physics, dt);
     leadGoals(physics, dt);
     physics.moveHand(grabJoint_, grabTarget_, dt);
-    const int n = std::max(substeps, 1);
+    const int n = engineSteps(substeps), inner = std::max(substeps, 1) / n;
     for (int s = 0; s < n; ++s) {
         {
             Probe::Timer timer("physics/drives ms");
@@ -495,7 +495,7 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
         }
         {
             Probe::Timer timer("physics/engine ms");
-            physics.step(dt / Real(n), 1);
+            physics.step(dt / Real(n), inner);
         }
         clockNs_ += std::llround(double(dt) / n * 1e9);
         Probe::Timer timer("physics/sensors ms");
@@ -505,6 +505,12 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     readPoses(physics);
     if (--framesToLostCheck_ < 0) framesToLostCheck_ = 29, dropLost(physics); // after the poses: the scene keeps where it was last
     if (recording_) sampleTake(physics);
+}
+
+int RobotWorld::engineSteps(int substeps) const {
+    const bool between = !drivers_.empty() || !sensors_.empty() || !animated_.empty() ||
+                         std::any_of(joints_.begin(), joints_.end(), [](const LiveJoint& j) { return j.ownDrive; });
+    return between ? std::max(substeps, 1) : 1;
 }
 
 void RobotWorld::dropLost(PhysicsWorld& physics) {

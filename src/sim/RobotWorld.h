@@ -46,6 +46,12 @@ public:
     bool recording() const { return recording_; }
     SequenceObject takeRecording(const std::string& name);
     void step(PhysicsWorld& physics, Real dt, int substeps);
+    // How many steps of the engine a frame of `substeps` substeps takes. Our code works between the engine's substeps
+    // only where something of ours lives there - a servo or a DC motor (an explicit drive: held over several substeps
+    // it runs away), a driver's electrics, a sensor's sampling, a sequence's bodies: then `substeps` steps of one
+    // substep each, the contacts searched before every one. A world of bodies alone - boxes, passive joints, the
+    // engine's own motors - is one step of `substeps` substeps: the contacts searched once a frame.
+    int engineSteps(int substeps) const;
     // `contacts`: the frame lists the contact points - a pass over every body, 12 ms a frame of ten thousand resting
     // cubes. Left out when no one reads them; the contact-points layer, when on, has them all the same.
     void fill(const PhysicsWorld& physics, Frame& out, bool contacts = true) const;

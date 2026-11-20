@@ -185,7 +185,7 @@ std::vector<Measurement> measureObject(const Simulation& sim, const ObjectRef& o
     // The normal force of its contacts: each point's impulse over the engine's last step - the frame's last
     // substep (RobotWorld::step drives the joints between substeps) - from a to b. A sleeping body is not
     // solved: sleep means the forces on it balance, so its contacts hold exactly its weight, -m g.
-    const double h = double(sim.frameDt) / std::max(1, sim.robot()->graph().world.physics.substeps);
+    const double h = double(sim.frameDt) / sim.robot()->engineSteps(sim.robot()->graph().world.physics.substeps);
     Double3 F;
     int points = 0;
     for (const ContactPoint& c : sim.robot()->contactsNow(*physics)) {

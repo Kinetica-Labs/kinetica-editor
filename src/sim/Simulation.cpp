@@ -37,7 +37,7 @@ void Simulation::stepFrame() {
     time_ += frameDt;
     ++frame_;
     Probe::set("physics/time s", double(time_));
-    robot_->drawLayers(*physics_, frameDt / Real(std::max(1, robot_->graph().world.physics.substeps)));
+    robot_->drawLayers(*physics_, frameDt / Real(robot_->engineSteps(robot_->graph().world.physics.substeps)));
     if (channels.empty()) measurements_.clear();
     else measurements_ = measureAll(*this, channels);
 }
