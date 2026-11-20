@@ -155,11 +155,8 @@ def shape_of(link, base, materials, notes):
             if g.find("mesh") is not None:
                 name = g.find("mesh").get("filename", "")
                 path = resolve(name, base)
-                if path is None:
-                    notes.append(f"нет файла {name}")
-                    continue
-                if not path.lower().endswith((".stl", ".obj")):
-                    notes.append(f"{os.path.basename(path)}: формат не читается, взята форма столкновений")
+                if path is None or not path.lower().endswith((".stl", ".obj")):  # a DAE, or no file: the next geometry
+                    notes.append(f"{tag} {os.path.splitext(name)[1].lower() or name}")
                     continue
                 s = numbers(g.find("mesh").get("scale"), 3, 1.0)
                 lo, hi, volume = read_mesh(path)
@@ -285,6 +282,11 @@ def load(scene, path):
                 text = re.sub(r"^(  link .*)$", lambda m: m.group(1) + "\n" + line, text, count=1, flags=re.M)
             ed.scene_put(block=text)
     ed.selection_set(ids=[group])
+    gave_way = [n for n in notes if n.startswith("visual ")]  # "visual .dae": drawn by its collision mesh instead
+    notes = [n for n in notes if not n.startswith("visual ")] + (
+        [f"{plural(len(gave_way), 'меш', 'меша', 'мешей')} {', '.join(sorted({n[7:] for n in gave_way}))} не читаются или нет файла — "
+         "показаны формы столкновений"] if gave_way else [])
+    notes = [("нет меша " + n[10:]) if n.startswith("collision ") else n for n in notes]
     said = f"«{root.get('name', 'робот')}»: {plural(len(entity), 'звено', 'звена', 'звеньев')}, {plural(made, 'сустав', 'сустава', 'суставов')}"
     return {"group": group, "links": len(entity), "joints": made, "note": said + ("; " + "; ".join(sorted(set(notes))) if notes else "")}
 
