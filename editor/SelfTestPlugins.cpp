@@ -20,6 +20,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonObject>
+#include <QSettings>
+#include <QJsonDocument>
 #include <QApplication>
 #include <QKeyEvent>
 #include <QToolBar>
@@ -37,27 +39,26 @@ using namespace selftest;
 
 namespace {
 
-const char* kLifter = R"py(from kinetica.plugin import command, field, run, show, ui
+const char* kLifter = R"py(from kinetica.plugin import command, field, show, ui
 
 
 @command(label="WORDS", key="Ctrl+Shift+U")
 def lift(scene, height: float = field(0.1, unit="м", range=(-1.0, 1.0), label="На сколько")):
-    ids = scene.client.call("selection_get")["ids"]
+    ids = scene.ed.selection_get()["ids"]
     for i in ids:  # an edit an object: still one undo step
-        scene.client.call("scene_move", ids=[i], by=[0, height, 0])
+        scene.ed.scene_move(ids=[i], by=[0, height, 0])
     show(moved=len(ids))
     return {"moved": len(ids)}
 
 
 @command(label="Ошибка")
 def broken(scene):
-    scene.client.call("scene_add", shape="box")  # half built when it falls: the call taken back whole
+    scene.ed.scene_add(shape="box")  # half built when it falls: the call taken back whole
     return 1 / 0
 
 
 ui.panel("Подъём", ui.section("Выделенное", ui.number("height", 0.3, unit="м", range=(-1.0, 1.0), label="На сколько"),
                               ui.button(lift, "Поднять")), ui.value("moved", "Поднято", 0))
-run()
 )py";
 
 void write(const QString& file, const QString& text) {
@@ -516,6 +517,39 @@ class Watcher:
     QDir(folder + "/wave").removeRecursively();
 }
 
+// A plugin's folder made while the editor runs is not seen by itself: plugin_scan starts it. With a folder - a plugins'
+// repository - that folder is added to the ones looked through and remembered (the test puts the settings back);
+// a folder there is not is refused. plugin_list says where plugins are looked for.
+void testScan(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
+    const char* hello = "from kinetica.plugin import command\n\n\n@command(label=\"Привет\")\ndef hello(scene):\n    return {\"said\": True}\n";
+    QDir().mkpath(folder + "/late");
+    write(folder + "/late/plugin.py", hello);
+    pump(600);
+    const bool unseen = action(w, "plugin:late_hello") == nullptr;
+    const QJsonObject looked = ops->runNow("plugin_scan", {});
+    const bool came = waitUntil([&] { return action(w, "plugin:late_hello") != nullptr; }, 10000);
+    QTemporaryDir repository;
+    QDir().mkpath(repository.path() + "/extra");
+    write(repository.path() + "/extra/plugin.py", hello);
+    const QVariant remembered = QSettings().value("plugins/folders");
+    const QJsonObject added = ops->runNow("plugin_scan", {{"folder", repository.path()}});
+    const bool extra = waitUntil([&] { return action(w, "plugin:extra_hello") != nullptr; }, 10000);
+    const bool kept = host->folders().contains(repository.path());
+    if (remembered.isValid()) QSettings().setValue("plugins/folders", remembered); // the person's own folders, as they were
+    else QSettings().remove("plugins/folders");
+    const QString none = ops->runNow("plugin_scan", {{"folder", repository.path() + "/нет"}}).value("error").toString();
+    const QJsonArray where = ops->runNow("plugin_list", {}).value("folders").toArray();
+    std::printf("  a folder made while running: seen by itself %s; plugin_scan started %s; a repository added: started %s, remembered %s; "
+                "no such folder: %s; looked through: %lld folder(s)\n", unseen ? "no" : "yes",
+                qPrintable(QJsonDocument(looked.value("started").toArray()).toJson(QJsonDocument::Compact)),
+                qPrintable(QJsonDocument(added.value("started").toArray()).toJson(QJsonDocument::Compact)), kept ? "yes" : "no", qPrintable(none),
+                static_cast<long long>(where.size()));
+    c.check(unseen && came && looked.value("started").toArray().contains("late"), "plugin_scan starts a plugin whose folder was made while the editor runs");
+    c.check(extra && kept && added.value("started").toArray().contains("extra") && none.contains("нет папки") && where.contains(folder),
+            "plugin_scan with a folder adds a plugins' repository and remembers it; a folder there is not is refused; plugin_list says where plugins are looked for");
+    QDir(folder + "/late").removeRecursively();
+}
+
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     auto* host = w.findChild<PluginHost*>();
@@ -626,7 +660,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     c.check(reloaded, "a saved plugin.py restarts its plugin with the new words");
 
     // Fallen over at its line 3: a banner says where; the editor goes on.
-    write(file, "from kinetica.plugin import run\n\nraise RuntimeError(\"сломано\")\nrun()\n");
+    write(file, "from kinetica.plugin import command\n\nraise RuntimeError(\"сломано\")\n");
     QString banner;
     const bool said = waitUntil([&] {
         if (auto* x = w.findChild<QLabel*>("pluginNoticeText"); x && x->isVisible() && x->text().contains("plugin.py:3")) banner = x->text();
@@ -642,6 +676,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
+    testScan(c, w, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

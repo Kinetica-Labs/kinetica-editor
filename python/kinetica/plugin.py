@@ -7,7 +7,7 @@
                  gap: float = field(0.12, unit="м", range=(0.05, 1.0), label="Шаг")):
         \"\"\"A row of cubes in front of the robot.\"\"\"
         for k in range(count):
-            scene.add("box", position=(0.4 + k * gap, 0.05, 0.3))
+            scene.add("box", position=(0.4 + k * gap, 0.05, 0.3), role="rigid")
         return {"made": count}
 
 Put it as ``plugin.py`` in a folder of the editor's plugins (Плагины → Папка моих плагинов, or Плагины → Новый плагин…):
@@ -18,10 +18,10 @@ call it makes is shown in the console as a Python line. Save the file: the edito
 An error points at your line: the editor shows ``plugin.py:12: ...`` on a banner, and goes on.
 
 ``scene`` is the same object model as the editor's console (``kinetica.Scene``): ``scene.objects["Куб 1"]``,
-``scene.add("box")``, ``scene.editor.selection``, and ``scene.ed.<operation>(**args)`` for any operation - the
-console's ``ed``, so a line tried there is pasted here as it is (``ops_list`` names them all). ``print`` goes to the
-editor's API console. The editor starts the file itself (``python -m kinetica.plugin plugin.py``): no ``run()`` at its
-end is needed - an old file's ``run()`` does nothing. Only the Python standard library is used.
+``scene.add("box")``, ``scene.editor.selection`` - and ``scene.ed.<operation>(**args)`` for any operation it has no
+word for: the console's ``ed``, so a line tried there is pasted here as it is (``ops_list`` names them all). These two
+are the way to the scene; there is no other. ``print`` goes to the editor's API console. The editor starts the file
+itself (``python -m kinetica.plugin plugin.py``). Only the Python standard library is used.
 """
 import inspect
 import json
@@ -328,10 +328,6 @@ def _where(error):
     at = frames[-1] if frames else None
     place = f"{os.path.basename(at.filename)}:{at.lineno}: " if at else ""
     return f"{place}{type(error).__name__}: {error}"
-
-
-def run():
-    """Kept for files written before the runner: the editor serves the file itself now, so this does nothing."""
 
 
 def _serve(file):

@@ -162,8 +162,9 @@ void MainWindow::buildPlugins() {
     connect(add, &QAction::triggered, this, [this] {
         const QString dir = QFileDialog::getExistingDirectory(this, "Папка плагинов", QDir::homePath());
         if (dir.isEmpty()) return;
-        plugins_->addFolder(dir);
-        statusBar()->showMessage("Плагины из " + dir + " запущены; папка запомнена", 8000);
+        ops_->run("plugin_scan", {{"folder", dir}}, [this, dir](const QJsonObject& r) {
+            statusBar()->showMessage(r.value("ok").toBool() ? "Плагины из " + dir + " запущены; папка запомнена" : r.value("error").toString(), 8000);
+        }, "ui");
     });
     QAction* folder = menu->addAction("Папка моих плагинов");
     folder->setToolTip("Каждая папка с plugin.py в ней — плагин");
@@ -172,7 +173,10 @@ void MainWindow::buildPlugins() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(plugins_->userFolder()));
     });
     QAction* again = menu->addAction("Перезапустить плагины");
+    again->setToolTip("Каждый плагин запускается заново; папки плагинов просматриваются ещё раз — новая папка с plugin.py подхватывается");
     connect(again, &QAction::triggered, this, [this] {
-        for (const QString& name : plugins_->names()) ops_->run("plugin_reload", {{"name", name}}, [](const QJsonObject&) {}, "ui");
+        const QStringList known = plugins_->names(); // the ones a scan starts now are fresh already
+        ops_->run("plugin_scan", {}, [](const QJsonObject&) {}, "ui");
+        for (const QString& name : known) ops_->run("plugin_reload", {{"name", name}}, [](const QJsonObject&) {}, "ui");
     });
 }

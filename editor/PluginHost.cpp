@@ -196,12 +196,18 @@ PluginHost::Plugin* PluginHost::authorised(const QJsonObject& a, QJsonObject& re
     return p;
 }
 
+// The folders plugins are looked for in, in this order: KE_PLUGINS; then, in a person's window, the editor's own (URDF,
+// as Blender's add-ons), the added ones (a plugins' repository, kinetica-plugins: Плагины → Добавить папку…), the user's.
+QStringList PluginHost::lookedThrough() const {
+    QStringList out;
+    if (const QString given = qEnvironmentVariable("KE_PLUGINS"); !given.isEmpty()) out << given;
+    if (!onlyGiven_) out << resourceDir("plugins") << folders() << userFolder();
+    return out;
+}
+
 void PluginHost::start(bool onlyGiven) {
-    if (const QString given = qEnvironmentVariable("KE_PLUGINS"); !given.isEmpty()) scan(given);
-    if (onlyGiven) return;
-    scan(resourceDir("plugins")); // the plugins that come with the editor (URDF), as Blender's add-ons
-    for (const QString& folder : folders()) scan(folder); // a plugins' repository, kinetica-plugins (Плагины → Добавить папку…)
-    scan(userFolder());
+    onlyGiven_ = onlyGiven;
+    for (const QString& folder : lookedThrough()) scan(folder);
 }
 
 QStringList PluginHost::folders() const { return QSettings().value("plugins/folders").toStringList(); }
@@ -292,7 +298,7 @@ void PluginHost::launch(Plugin& p) {
     p.state = "запускается";
     p.stderrTail.clear();
     if (!p.since.isValid()) p.since.start();
-    p.process->start(pythonInterpreter(), {"-u", "-m", "kinetica.plugin", p.file}); // the runner serves the file: no run() in it
+    p.process->start(pythonInterpreter(), {"-u", "-m", "kinetica.plugin", p.file}); // the runner serves the file
 }
 
 void PluginHost::forget(const QString& file) {
@@ -713,11 +719,11 @@ void PluginHost::addOps() {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
         if (!p) return reply(refusal);
-        if (!p->panel) return reply(EditorOps::error("the plugin has no panel (ui.panel(...) before run())"));
+        if (!p->panel) return reply(EditorOps::error("the plugin has no panel (ui.panel(...) in its file)"));
         p->panel->setValues(a.value("values").toObject());
         reply(EditorOps::ok());
     });
-    ops_->addOp("plugin_wait", "A plugin's next call, held until there is one (its kinetica.plugin.run loop)", "{name: str, token: str}",
+    ops_->addOp("plugin_wait", "A plugin's next call, held until there is one (kinetica.plugin's loop)", "{name: str, token: str}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
@@ -740,7 +746,8 @@ void PluginHost::addOps() {
         else answer(EditorOps::ok(a.value("result").toObject()));
         reply(EditorOps::ok());
     });
-    ops_->addOp("plugin_list", "The plugins: name, file, state (работает, запускается, упал, остановлен), last error, commands", "{}",
+    ops_->addOp("plugin_list", "The plugins: name, file, state (работает, запускается, упал, остановлен), last error, commands; folder - "
+                               "where plugin_new makes one, folders - where plugins are looked for (plugin_scan looks again)", "{}",
                 [this](const QJsonObject&, const EditorOps::Reply& reply) {
         QJsonArray list;
         for (const auto& p : plugins_) {
@@ -748,7 +755,22 @@ void PluginHost::addOps() {
             for (const Command& c : p->commands) commands.append(QJsonObject{{"op", c.op}, {"label", c.label}, {"key", c.key}});
             list.append(QJsonObject{{"name", p->name}, {"file", p->file}, {"state", p->state}, {"error", p->error}, {"commands", commands}});
         }
-        reply(EditorOps::ok({{"plugins", list}, {"folder", userFolder()}}));
+        reply(EditorOps::ok({{"plugins", list}, {"folder", userFolder()}, {"folders", QJsonArray::fromStringList(lookedThrough())}}));
+    });
+    ops_->addOp("plugin_scan", "The plugins' folders looked through again: a folder with a plugin.py that came since they were is started (a "
+                               "saved plugin.py restarts its plugin by itself, a deleted one is forgotten by itself). With folder - that "
+                               "plugins' folder first added to them and remembered for the next starts: every folder in it with a plugin.py "
+                               "is a plugin (a repository's checkout), as «Плагины → Добавить папку плагинов…»",
+                "{folder?: str}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
+        const QString folder = a.value("folder").toString();
+        if (a.contains("folder") && !QFileInfo(folder).isDir()) return reply(EditorOps::error("нет папки «" + folder + "»"));
+        const QStringList before = names();
+        if (a.contains("folder")) addFolder(QFileInfo(folder).absoluteFilePath());
+        start(onlyGiven_);
+        QJsonArray started;
+        for (const QString& name : names())
+            if (!before.contains(name)) started.append(name);
+        reply(EditorOps::ok({{"started", started}, {"folders", QJsonArray::fromStringList(lookedThrough())}}));
     });
     ops_->addOp("plugin_new", "A new plugin from a template in the user's plugins' folder, started: kind command (a command with a field, "
                               "a button in «Плагины»), controller (a robot's on_tick: its sensors in, joint commands out) or world (an "

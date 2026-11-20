@@ -19,7 +19,8 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; e
 ## Steps
 
 1. **Make it**: `plugin_new {"name": "<snake_case>"}` (MCP tool or `python3 tools/ke_editor.py plugin_new '{"name": "x"}'`).
-   The answer has the file's path; the template is already running with one command.
+   The answer has the file's path; the template is already running with one command. A folder with a `plugin.py` put
+   into a plugins' folder by hand (`plugin_list` names them in `folders`) is started by `plugin_scan`.
 2. **Find the operations you need**: `ops_list` (names, help, arguments). Prefer one operation over many
    (`scene_batch`, `scene_move` with `ids`). Read the state with `scene_list`, `selection_get`, `sim_state`.
 3. **Write the file** with your file tools. Shape:
@@ -33,7 +34,9 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; e
        print("seen", len(objects))                # print() goes to the editor's API console
        return {"done": True}                      # a dict, shown to the caller
    ```
-   No `run()` at the end: the editor starts the file itself. A `key="Ctrl+Shift+X"` is optional; a key already taken
+   The editor starts the file itself: nothing to call at its end. Use the object model where it has a word
+   (`scene.add("box", role="rigid")`, `scene.move(...)`, `scene.objects[...]`) and `scene.ed.<op>(...)` for the rest -
+   there is no other way to the scene. A `key="Ctrl+Shift+X"` is optional; a key already taken
    is not given (the console says whose it is).
    An argument that is an object of the scene: `joint=field(ref="joint", label="Сустав")` - the form lists the scene's
    joints by name, a call gives the id, the function gets the object (`joint.drive(target=0.5)`); the word is a kind of

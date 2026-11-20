@@ -40,6 +40,7 @@ public:
     ~PluginHost() override;
     // Every plugin of the folders started: the added ones and the user's - or, given (a test), only KE_PLUGINS.
     void start(bool onlyGiven);
+    QStringList lookedThrough() const;        // the folders that start looks through, in its order
     QStringList folders() const;              // the plugins' folders added (a repository's checkout)
     void addFolder(const QString& folder);    // kept for the next starts, its plugins started now
     QString userFolder() const;                         // where «Новый плагин…» makes one
@@ -121,4 +122,5 @@ private:
     QString noticeFor_;
     std::vector<std::unique_ptr<Plugin>> plugins_;
     int nextCall_ = 0;
+    bool onlyGiven_ = true; // the last start's: plugin_scan looks through the same folders
 };

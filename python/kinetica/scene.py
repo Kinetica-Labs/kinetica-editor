@@ -172,14 +172,14 @@ class Operations:
 
 class Scene:
     def __init__(self, client):
-        self.client = client
+        self._client = client  # the wire (client.py): a call goes through an operation's own method or `ed`, never past them
         self.objects = Objects(self)
         self.world = World(self)
         self.editor = Editor(self)
         self.ed = Operations(self)
 
     def _call(self, op, py=None, **args):
-        return self.client.call(op, py, **args)
+        return self._client.call(op, py, **args)
 
     def _live(self, part, id):
         state = self._call("sim_state")
@@ -220,18 +220,6 @@ class Scene:
         """An object from its block of the scene file (new, or the one of its id replaced): the object."""
         return self.objects[self._call("scene_put", block=block)["id"]]
 
-    def add_box(self, name, size=(0.2, 0.2, 0.2), position=(0, 0.5, 0), shape="box", fixed=False, density=1000.0,
-                color=(0.7, 0.7, 0.72)):
-        """A rigid shape (box, sphere, cylinder, cone) with a collider; its body."""
-        v = lambda t: " ".join(str(x) for x in t)
-        block = (f'entity {json.dumps(name, ensure_ascii=False)}\n  object id 0 visible 1 locked 0\n'
-                 f'  shape {shape} size {v(size)} position {v(position)} rotation 0 0 0 color {v(color)}\n'
-                 f'  rigid density {density} friction 0.5 restitution 0.2 fixed {int(fixed)} velocity 0 0 0 spin 0 0 0\n'
-                 f'  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0\nend\n')
-        py = f"scene.add_box({json.dumps(name, ensure_ascii=False)}, size={tuple(size)}, position={tuple(position)}" + \
-             (f", shape={shape!r}" if shape != "box" else "") + (", fixed=True" if fixed else "") + ")"
-        return self.objects[self._call("scene_put", py, block=block)["id"]]
-
     def _objects(self, ids):
         return [self.objects[id] for id in ids]
 
@@ -239,13 +227,15 @@ class Scene:
     def _refs(objects):
         return ", ".join(o.ref for o in objects)
 
-    def add(self, shape="box", name=None, position=None, size=None):
-        """A shape as the toolbar's button adds it - in the air over a free spot, named "Куб 2" - or with
-        what is given: its body (no role yet: ``.roles.add("rigid")`` makes it fall)."""
-        args = {k: v for k, v in (("name", name), ("position", position), ("size", size)) if v is not None}
-        shown = "".join(f", {k}={_q(v) if k == 'name' else tuple(v)}" for k, v in args.items())
+    def add(self, shape="box", name=None, position=None, size=None, role=None, fixed=None):
+        """A shape as the toolbar's button adds it - in the air over a free spot, named "Куб 2" - or with what is given:
+        its body. No role: geometry that stands where it is put; role="rigid": a body that falls (fixed=True: held still
+        in the world); role="collider": an obstacle."""
+        given = {k: v for k, v in (("name", name), ("position", position), ("size", size), ("role", role), ("fixed", fixed)) if v is not None}
+        show = {"name": _q, "role": _q, "fixed": repr}  # the rest are three numbers
+        shown = "".join(f", {k}={show.get(k, tuple)(v)}" for k, v in given.items())
         return self.objects[self._call("scene_add", f"scene.add({_q(shape)}{shown})", shape=shape,
-                                       **{k: list(v) if k != "name" else v for k, v in args.items()})["id"]]
+                                       **{k: v if k in show else list(v) for k, v in given.items()})["id"]]
 
     def add_light(self, kind="sun", at=None, position=None, target=None):
         """The sun high at a slant, a lamp ("point") or a spot ("spot") over `at` - else over the selected
