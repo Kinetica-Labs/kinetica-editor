@@ -28,12 +28,19 @@ void EditorServer::accept() {
             continue;
         }
         sockets_.insert(socket);
-        socket->setReadBufferSize(1024 * 1024 + 1);
+        socket->setSocketOption(QAbstractSocket::LowDelayOption, 1); // an answer goes at once: several in a row waited 40 ms
+        socket->setReadBufferSize(1024 * 1024 + 1);                  // for the first one's acknowledgement (Nagle)
         connect(socket, &QTcpSocket::disconnected, this, [this, socket] { sockets_.remove(socket); });
         connect(socket, &QTcpSocket::readyRead, this, [this, socket] { readLines(socket); });
         connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
     }
 }
+
+// A client that calls in a row - a plugin's command, a script's loop - is answered in a row: its next call is on the wire a
+// fraction of a millisecond after an answer, and going back to the event loop first would paint the window before
+// reading it - a painted frame a call (half of an API edit's time, 37 of 70 samples). So after an answer the socket is
+// listened to for a millisecond; 16 calls a turn at most (readLines), then the window paints.
+static bool nextInARow(QTcpSocket* socket) { return socket->waitForReadyRead(1) && socket->canReadLine(); }
 
 // Every whole line is one request; a line not yet ended waits for the rest. The answer goes back to
 // the socket that asked, if it is still there when an operation that waits is done.
@@ -43,7 +50,8 @@ void EditorServer::readLines(QTcpSocket* socket) {
     QPointer<QTcpSocket> alive(socket);
     constexpr qint64 maxLine = 1024 * 1024;
     int remaining = 16;
-    while (alive && alive->canReadLine() && remaining-- > 0) {
+    bool atOnce = true; // every request of this turn was answered before the next was read
+    while (alive && remaining-- > 0 && (alive->canReadLine() || (atOnce && remaining < 15 && nextInARow(alive)))) {
         const QByteArray raw = alive->readLine(maxLine + 1);
         if (raw.size() > maxLine || !raw.endsWith('\n')) { alive->disconnectFromHost(); return; }
         const QByteArray line = raw.trimmed();
@@ -78,11 +86,14 @@ void EditorServer::readLines(QTcpSocket* socket) {
         if (!waits) ++pendingRequests_;
         if (stopping) stopPending_ = true; // a reserved ninth slot keeps stop available under load
         QPointer<EditorServer> owner(this);
+        const quint64 answered = answers_;
         ops_->run(request.value("op").toString(), request.value("args").toObject(), [owner, stopping, waits, reply](const QJsonObject& answer) {
             if (owner && !waits) --owner->pendingRequests_;
             if (owner && stopping) owner->stopPending_ = false;
+            if (owner) ++owner->answers_;
             reply(answer);
         }, console ? QString("console") : plugin ? src : QString("api"));
+        atOnce = answers_ != answered;
     }
     if (!alive) return;
     if (!alive->canReadLine() && alive->bytesAvailable() >= maxLine) {

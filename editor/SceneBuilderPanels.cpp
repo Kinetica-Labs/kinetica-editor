@@ -127,6 +127,7 @@ void SceneBuilder::buildSceneList() {
     list_->setRootIsDecorated(true); // groups open and shut
     list_->setObjectName("sceneList");
     list_->setIconSize(QSize(22, 22));
+    list_->setUniformRowHeights(true); // every row is one line with an icon: no measuring of each at every refresh
     list_->header()->setStretchLastSection(false);
     list_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     for (int c : {1, 2}) {

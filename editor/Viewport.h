@@ -143,7 +143,10 @@ public:
     void setOverlayVisible(bool on) { overlayVisible_ = on; update(); }
     // While an agent drives the editor through the API the gizmo is not drawn: nobody takes its handles then, and its
     // arrows stood over the hand the agent moved, hiding what it did.
-    void setAgentDriving(bool driving) { agentDriving_ = driving, update(); }
+    void setAgentDriving(bool driving) { // said at every call of an agent: a paint only when it changes - a paint a call
+        if (agentDriving_ == driving) return; // made every call wait for the one before it to be drawn (7 ms, not 0.05)
+        agentDriving_ = driving, update();
+    }
     // The Laboratory (ViewportLab.cpp). While it is open a click - a press and a release without a
     // drag - is reported as labClicked, besides what the click does anyway; the thing its card shows
     // gets a ring in the view; and the words the debug layers write (Probe labels) are drawn.

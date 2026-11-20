@@ -120,7 +120,7 @@ void SceneBuilder::apiCallStarted() {
 
 void SceneBuilder::apiCallFinished() {
     apiDepth_ = std::max(0, apiDepth_ - 1);
-    if (apiDepth_ == 0) coded_ = graph_, codedSelection_ = orderedSelection(); // the call's edits are its own line already
+    if (apiDepth_ == 0) codeSynced(), codedSelection_ = orderedSelection(); // the call's edits are its own line already
 }
 
 std::vector<uint32_t> SceneBuilder::orderedSelection() const {
@@ -163,6 +163,7 @@ QString SceneBuilder::gizmoLine(QString& op, QJsonObject& args) const {
 // A drag or a typed number is many small edits: their line comes once they rest (0.4 s), as one change.
 void SceneBuilder::scheduleCode() {
     if (!reportCode_) return;
+    codePending_ = true;
     if (!codeTimer_) {
         codeTimer_ = new QTimer(this);
         codeTimer_->setSingleShot(true);
@@ -179,13 +180,15 @@ void SceneBuilder::flushCode() {
     if (reportCode_ && apiDepth_ == 0 && selected != codedSelection_)
         reportCode_("selection_set", {{"ids", jsonIds(selected)}, {"_py", "editor.select(" + codeRefs(selected) + ")"}});
     codedSelection_ = selected;
-    if (reportCode_ && apiDepth_ == 0)
+    // Compared only after a hand's edit: every API call starts here, and writing both scenes out as text to find
+    // nothing took a quarter of its time (16 of 70 samples of scene_move).
+    if (reportCode_ && apiDepth_ == 0 && codePending_)
         for (const GraphEdit& e : diffEdits(coded_, graph_)) {
             QString op;
             const QJsonObject args = callOf(e, coded_, graph_, op);
             reportCode_(op, args);
         }
-    coded_ = graph_;
+    codeSynced();
 }
 
 QString SceneBuilder::codeRefs(const std::vector<uint32_t>& ids) const {
@@ -204,6 +207,6 @@ void SceneBuilder::codeAction(const QString& op, const QString& py, QJsonObject 
         args["_py"] = py;
         reportCode_(op, args);
     }
-    coded_ = graph_;
+    codeSynced();
     codedSelection_ = orderedSelection(); // what an action selects is part of what it does
 }

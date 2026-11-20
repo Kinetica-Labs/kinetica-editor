@@ -754,7 +754,7 @@ bool SceneBuilder::restoreSnapshot(const QString& text, const QString& baseDirec
     refreshList();
     fillInspector();
     refreshView();
-    coded_ = graph_; // the restored scene is said by the journal's line, not as edits by hand
+    codeSynced(); // the restored scene is said by the journal's line, not as edits by hand
     return true;
 }
 

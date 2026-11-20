@@ -3,6 +3,7 @@
 // and a gentle shadow sits under every shape so it reads as a solid thing standing on a floor.
 #include "Icons.h"
 
+#include <QCoreApplication>
 #include <QDir>
 #include <QLinearGradient>
 #include <QPainter>
@@ -11,6 +12,8 @@
 
 #include <cmath>
 #include <functional>
+#include <map>
+#include <tuple>
 
 namespace {
 
@@ -28,11 +31,20 @@ QPixmap render(int size, qreal scale, const Draw& draw) {
     return pm;
 }
 
-QIcon makeIcon(int size, const Draw& draw) {
-    QIcon icon;
-    icon.addPixmap(render(size, 1.0, draw));
-    icon.addPixmap(render(size, 2.0, draw));
-    return icon;
+// An icon of a family (the functions below), painted once and kept: the scene's list asks for the same dozen at every
+// refresh, and painting them anew was a sixth of an API edit's time (7 of 40 samples of scene_move).
+enum class Family { Scene, Device, Object, Shape, Role, Control, Collider, Link };
+
+QIcon makeIcon(Family family, int kind, int size, const Draw& draw) {
+    static std::map<std::tuple<Family, int, int>, QIcon> kept;
+    static const bool cleared = (qAddPostRoutine([] { kept.clear(); }), true); // the pixmaps go before the application does
+    (void)cleared;
+    const auto [it, fresh] = kept.try_emplace({family, kind, size});
+    if (fresh) {
+        it->second.addPixmap(render(size, 1.0, draw));
+        it->second.addPixmap(render(size, 2.0, draw));
+    }
+    return it->second;
 }
 
 QColor shade(const QColor& c, int factor) { return factor >= 100 ? c.lighter(factor) : c.darker(200 - factor); }
@@ -886,21 +898,21 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
 } // namespace
 
 QIcon sceneIcon(SceneIcon kind, int size) {
-    return makeIcon(size, [kind](QPainter& p) { drawSceneIcon(p, kind); });
+    return makeIcon(Family::Scene, int(kind), size, [kind](QPainter& p) { drawSceneIcon(p, kind); });
 }
 
 QIcon deviceIcon(DeviceIcon kind, int size) {
-    return makeIcon(size, [kind](QPainter& p) { drawDeviceIcon(p, kind); });
+    return makeIcon(Family::Device, int(kind), size, [kind](QPainter& p) { drawDeviceIcon(p, kind); });
 }
 
 QIcon objectIcon(ObjectIcon kind, int size) {
-    return makeIcon(size, [kind](QPainter& p) { drawObjectIcon(p, kind); });
+    return makeIcon(Family::Object, int(kind), size, [kind](QPainter& p) { drawObjectIcon(p, kind); });
 }
 
-QIcon shapeIcon(ke::ShapeKind shape, int size) { return makeIcon(size, shapeDraw(shape)); }
-QIcon roleIcon(RoleIcon role, int size) { return makeIcon(size, roleDraw(role)); }
+QIcon shapeIcon(ke::ShapeKind shape, int size) { return makeIcon(Family::Shape, int(shape), size, shapeDraw(shape)); }
+QIcon roleIcon(RoleIcon role, int size) { return makeIcon(Family::Role, int(role), size, roleDraw(role)); }
 QIcon controlIcon(ControlIcon control, int size) {
-    return makeIcon(size, [control](QPainter& p) { drawControl(p, control); });
+    return makeIcon(Family::Control, int(control), size, [control](QPainter& p) { drawControl(p, control); });
 }
 QIcon layoutIcon(LayoutIcon kind, int size) {
     QIcon icon;
@@ -911,8 +923,8 @@ QIcon layoutIcon(LayoutIcon kind, int size) {
     return icon;
 }
 QPixmap rolePixmap(RoleIcon role, int size) { return render(size, 2.0, roleDraw(role)); }
-QIcon colliderIcon(ke::ColliderKind kind, int size) { return makeIcon(size, colliderDraw(kind)); }
-QIcon linkIcon(LinkIcon kind, int size) { return makeIcon(size, linkDraw(kind)); }
+QIcon colliderIcon(ke::ColliderKind kind, int size) { return makeIcon(Family::Collider, int(kind), size, colliderDraw(kind)); }
+QIcon linkIcon(LinkIcon kind, int size) { return makeIcon(Family::Link, int(kind), size, linkDraw(kind)); }
 QPixmap linkPixmap(LinkIcon kind, int size) { return render(size, 2.0, linkDraw(kind)); }
 
 int dumpIcons(const QString& dir, int size) {

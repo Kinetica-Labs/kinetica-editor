@@ -699,6 +699,8 @@ private:
     QString codeCall(const QString& method, const std::vector<uint32_t>& ids) const;
     QString codeRefs(const std::vector<uint32_t>& ids) const; // scene.objects["Куб 1"], scene.objects["Шар 1"]
     ke::SceneGraph coded_;                      // the scene as the lines of code so far make it
+    bool codePending_ = false;                  // a hand's edit since then (scheduleCode): only then the two are compared
+    void codeSynced() { coded_ = graph_, codePending_ = false; } // the lines so far make the scene as it is
     std::vector<uint32_t> codedSelection_;      // the selection as they make it (the active one last)
     QTimer* codeTimer_ = nullptr;
     int apiDepth_ = 0;

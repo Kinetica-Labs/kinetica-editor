@@ -28,6 +28,7 @@ class Client:
     def __init__(self, host="127.0.0.1", port=None, timeout=120.0, src=None):
         self._sock = socket.create_connection((host, port or DEFAULT_PORT), timeout=timeout)
         self._sock.settimeout(None)  # the reader waits as long as the connection lives; each call keeps its own limit
+        self._sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # a call goes at once, not with the next one
         self._timeout = timeout
         self._file = self._sock.makefile("rb")
         self._send = threading.Lock()
