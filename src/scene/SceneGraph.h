@@ -450,7 +450,8 @@ uint32_t arrayCopyId(uint32_t arrayId, int copy);
 bool isArrayCopyId(uint32_t id);
 uint32_t arrayOfCopyId(uint32_t id);
 // Every entity the simulation builds, in the world: the graph's entities (instances resolved,
-// parents composed, visibility inherited) followed by the copies of every array.
+// parents composed, visibility inherited) followed by the copies of every array. worldEntity: one of them.
+Entity worldEntity(const SceneGraph& g, const Entity& e);
 std::vector<Entity> worldEntities(const SceneGraph& g);
 // A fresh id: the largest over the objects and the joints, plus one.
 uint32_t nextId(const SceneGraph& g);

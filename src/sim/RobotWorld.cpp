@@ -283,6 +283,7 @@ void RobotWorld::setGoals(const std::vector<Entity>& goals) {
                           g->entities.end());
         g->entities.insert(g->entities.end(), goals.begin(), goals.end());
     }
+    drawnKnown_ = false;
 }
 
 bool RobotWorld::coordinates(const PhysicsWorld& physics, const LiveJoint& j, Real c[6]) const {
@@ -592,29 +593,18 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
     out.domain = AABB(Vector3(-0.5_r * graph_.world.size.x, 0, -0.5_r * graph_.world.size.z),
                       Vector3(0.5_r * graph_.world.size.x, graph_.world.size.y, 0.5_r * graph_.world.size.z));
     out.engine = physics.engine();
-    for (const Entity& source : worldEntities(live_)) {
-        if (!source.visible) continue;
-        Frame::Body b;
-        b.object = source.id;
-        b.body = bodyOf(source.id);
-        b.mesh = meshOf(source);
-        b.color = source.color;
-        b.texture = source.texture;
-        for (std::string* file : {&b.texture.file, &b.texture.heightFile}) // a relative picture: from the scene file's folder
-            if (!file->empty() && !std::filesystem::u8path(*file).is_absolute() && !graph_.baseDirectory.empty())
-                *file = (std::filesystem::u8path(graph_.baseDirectory) / std::filesystem::u8path(*file)).u8string();
-        b.marker = isHandle(source);
-        b.robot = robotOf_.count(source.id) > 0;
-        b.opacity = source.goalOf ? 0.1_r : source.targetOf ? 0.35_r : 1;
-        b.smooth = source.shape == ShapeKind::Sphere;
+    if (!drawnKnown_) findDrawn();
+    out.bodies.reserve(drawn_.size());
+    for (const Drawn& d : drawn_) {
+        Frame::Body b = d.body;
         if (b.body >= 0 && physics.alive(b.body)) {
             const BodyState s = physics.state(b.body);
             b.pos = s.position, b.rot = s.rotation;
             b.sleeping = !s.awake;
             b.movable = s.mass > 0;
-        } else {
+        } else if (d.entity != SIZE_MAX) { // no body of its own: where the scene has it now - a goal dragged, a parent moved
+            const Entity source = worldEntity(live_, live_.entities[d.entity]);
             b.pos = source.position, b.rot = entityRotation(source);
-            b.movable = false;
         }
         out.bodies.push_back(std::move(b));
     }
@@ -628,6 +618,37 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
     describeLights(live_, out);
     for (const std::string& n : notes_) out.info.push_back({"Не построено", n});
     out.grips = grips(physics);
+}
+
+// The frame's entities in the scene's order - the visible ones of worldEntities(live_) - with all a frame says of them
+// that a run does not change. A body's pose comes from the engine every frame; an entity without one is posed from
+// the scene every frame (fill).
+void RobotWorld::findDrawn() const {
+    drawn_.clear();
+    const std::vector<Entity> world = worldEntities(live_);
+    for (size_t k = 0; k < world.size(); ++k) {
+        const Entity& source = world[k];
+        if (!source.visible) continue;
+        Drawn d;
+        Frame::Body& b = d.body;
+        b.object = source.id;
+        b.body = bodyOf(source.id);
+        b.mesh = meshOf(source);
+        b.color = source.color;
+        b.texture = source.texture;
+        for (std::string* file : {&b.texture.file, &b.texture.heightFile}) // a relative picture: from the scene file's folder
+            if (!file->empty() && !std::filesystem::u8path(*file).is_absolute() && !graph_.baseDirectory.empty())
+                *file = (std::filesystem::u8path(graph_.baseDirectory) / std::filesystem::u8path(*file)).u8string();
+        b.marker = isHandle(source);
+        b.robot = robotOf_.count(source.id) > 0;
+        b.opacity = source.goalOf ? 0.1_r : source.targetOf ? 0.35_r : 1;
+        b.smooth = source.shape == ShapeKind::Sphere;
+        b.pos = source.position, b.rot = entityRotation(source);
+        b.movable = false;
+        if (k < live_.entities.size()) d.entity = k; // worldEntities: the graph's entities in their order, then the arrays' copies
+        drawn_.push_back(std::move(d));
+    }
+    drawnKnown_ = true;
 }
 
 // Each IK goal's gripper - the sliders on its effector driven as servos - as the gripper reports it: closing when its

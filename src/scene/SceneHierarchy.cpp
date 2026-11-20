@@ -227,22 +227,24 @@ std::vector<Entity> expandArray(const SceneGraph& g, const ArrayObject& a) {
 
 // A root keeps its pose exactly as written (no round trip through a quaternion), so a flat scene
 // builds bit for bit as it did before hierarchies existed.
+Entity worldEntity(const SceneGraph& g, const Entity& e) {
+    Entity w = resolveInstance(g, e);
+    if (e.parent != 0 && findObject(g, e.parent)) {
+        Vector3 p;
+        Quaternion q;
+        worldPose(g, e, p, q);
+        w.position = p;
+        w.rotationDeg = eulerDegrees(q);
+    }
+    w.parent = 0;
+    w.visible = effectivelyVisible(g, e);
+    return w;
+}
+
 std::vector<Entity> worldEntities(const SceneGraph& g) {
     std::vector<Entity> out;
     out.reserve(g.entities.size());
-    for (const Entity& e : g.entities) {
-        Entity w = resolveInstance(g, e);
-        if (e.parent != 0 && findObject(g, e.parent)) {
-            Vector3 p;
-            Quaternion q;
-            worldPose(g, e, p, q);
-            w.position = p;
-            w.rotationDeg = eulerDegrees(q);
-        }
-        w.parent = 0;
-        w.visible = effectivelyVisible(g, e);
-        out.push_back(std::move(w));
-    }
+    for (const Entity& e : g.entities) out.push_back(worldEntity(g, e));
     for (const ArrayObject& a : g.arrays) {
         std::vector<Entity> copies = expandArray(g, a);
         out.insert(out.end(), copies.begin(), copies.end());

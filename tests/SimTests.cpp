@@ -5,7 +5,8 @@
 // and the scene's lights. The channels the plots draw read the engine's own numbers (energy, height,
 // speed, the weight on the contacts, a joint's coordinate and effort); a servo's new target is taken
 // while the world runs; the mouse's hand holds a body under its target; the probe's debug layers draw
-// what is on and nothing else; a stiff servo on a light link reaches its IK target (its damper implicit).
+// what is on and nothing else; a stiff servo on a light link reaches its IK target (its damper implicit). The frame
+// is the live scene flattened, every frame, though what a run does not change is found once.
 #include "TestRunner.h"
 
 #include "physics/HullPoints.h"
@@ -18,6 +19,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <cstring>
 #include <sstream>
 #include <fstream>
 #include <cstdio>
@@ -72,6 +74,86 @@ void testSimBoxRestsOnFloor() {
                 double(box.position.y), f.bodies.size(), f.contacts.size(), f.engine.c_str());
     CHECK(std::fabs(box.position.y - 0.1_r) < 0.006_r, "the box rests at %f, not on the floor at 0.1", double(box.position.y));
     CHECK(f.bodies.size() == 1 && f.contacts.size() >= 3 && !f.engine.empty(), "the frame does not hold the box and its contacts");
+}
+
+// The frame's entities are the visible ones of the live scene flattened, in its order (worldEntities): a body where the
+// engine has it; a shape without one where the scene has it now - a child of a falling box follows it, a goal made and
+// moved while the world runs is drawn where it was put. RobotWorld::fill finds once what a run does not change (the
+// scene flattened and every mesh keyed again was 122 ms a frame of ten thousand cubes): the frame is the same.
+void testSimFrameFollowsTheLiveScene() {
+    SceneGraph g;
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 0.6_r, 0}, false));
+    Entity sign; // geometry only, hung on the box
+    sign.id = 2, sign.name = "Вывеска", sign.size = Vector3(0.05_r), sign.position = {0, 0.2_r, 0}, sign.parent = 1;
+    g.entities.push_back(sign);
+    Entity hidden = solid(3, "Образец", Vector3(0.1_r), {1, 0.5_r, 0}, false); // a template: not drawn, its copies are
+    hidden.visible = false;
+    g.entities.push_back(hidden);
+    ArrayObject row;
+    row.id = 4, row.name = "Ряд", row.templateId = 3, row.count[0] = 3, row.step = {0.3_r, 0, 0}, row.position = {1, 0.3_r, 1};
+    g.arrays.push_back(row);
+    Simulation s;
+    s.load(g);
+    const auto expected = [&s] { // the long way: the live scene flattened anew
+        std::vector<Frame::Body> out;
+        for (const Entity& e : worldEntities(s.robot()->live())) {
+            if (!e.visible) continue;
+            Frame::Body b;
+            b.object = e.id, b.body = s.robot()->bodyOf(e.id), b.marker = isHandle(e);
+            if (b.body >= 0 && s.physics()->alive(b.body)) {
+                const BodyState at = s.physics()->state(b.body);
+                b.pos = at.position, b.rot = at.rotation, b.sleeping = !at.awake, b.movable = at.mass > 0;
+            } else {
+                b.pos = e.position, b.rot = entityRotation(e), b.movable = false;
+            }
+            out.push_back(b);
+        }
+        return out;
+    };
+    const auto same = [&] {
+        Frame f;
+        s.fill(f);
+        const std::vector<Frame::Body> want = expected();
+        bool ok = f.bodies.size() == want.size();
+        for (size_t k = 0; ok && k < want.size(); ++k) {
+            const Frame::Body &a = f.bodies[k], &b = want[k];
+            ok = a.object == b.object && a.body == b.body && std::memcmp(&a.pos, &b.pos, sizeof a.pos) == 0 &&
+                 std::memcmp(&a.rot, &b.rot, sizeof a.rot) == 0 && a.sleeping == b.sleeping && a.movable == b.movable && a.marker == b.marker && a.mesh;
+        }
+        return ok;
+    };
+    const auto drawn = [&s](uint32_t object) {
+        Frame f;
+        s.fill(f);
+        for (const Frame::Body& b : f.bodies)
+            if (b.object == object) return b;
+        return Frame::Body();
+    };
+    bool every = same();
+    for (int k = 0; k < 20; ++k) s.stepFrame(), every = every && same();
+    Frame f;
+    s.fill(f);
+    const Frame::Body box = drawn(1), child = drawn(2);
+    std::printf("  the frame of a box, a sign hung on it, a hidden template and its 3 copies: %zu drawn; after 20 frames the box at y = %.4f m, "
+                "its sign at %.4f m (0.2 above); the same as the scene flattened anew every frame: %s\n", f.bodies.size(), double(box.pos.y),
+                double(child.pos.y), every ? "yes" : "no");
+    CHECK(every, "the frame is not the live scene flattened");
+    CHECK(f.bodies.size() == 5 && drawn(3).object == 0, "the frame holds %zu entities, not the box, its sign and three copies", f.bodies.size());
+    CHECK(child.body < 0 && box.pos.y < 0.6_r && std::fabs(child.pos.y - box.pos.y - 0.2_r) < 1e-3_r, "the sign at %f does not follow its box at %f",
+          double(child.pos.y), double(box.pos.y));
+    Entity goal; // made while the world runs, then moved: a mark where it was put
+    goal.id = 9, goal.name = "Цель", goal.goalOf = 1, goal.size = Vector3(0.05_r), goal.position = {0.5_r, 1, 0};
+    s.robot()->setGoals({goal});
+    s.stepFrame();
+    const bool made = same() && drawn(9).marker;
+    goal.position = {0.7_r, 1.2_r, 0};
+    s.robot()->setGoals({goal});
+    s.stepFrame();
+    const Vector3 put = drawn(9).pos;
+    std::printf("  a goal made while it runs: in the frame %s; moved to (0.7, 1.2, 0): drawn at (%.2f, %.2f, %.2f)\n", made ? "yes" : "no", double(put.x),
+                double(put.y), double(put.z));
+    CHECK(made, "a goal made while the world runs is not in the frame");
+    CHECK(same() && std::memcmp(&put, &goal.position, sizeof put) == 0, "a goal moved while the world runs is drawn where it was");
 }
 
 void testSimServoHoldsAndDroops() {

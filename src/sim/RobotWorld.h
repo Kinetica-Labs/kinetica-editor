@@ -53,6 +53,7 @@ public:
     void drawLayers(const PhysicsWorld& physics, Real substepDt) const;
 
     const SceneGraph& graph() const { return graph_; }
+    const std::vector<Entity>& built() const { return flat_; } // worldEntities(graph()) as the world was built from them
     const SceneGraph& live() const { return live_; }
     uint32_t objectIdOfBody(int body) const; // the entity a body is (0: none)
     int bodyOf(uint32_t entity) const;       // -1: none
@@ -195,8 +196,18 @@ private:
     void sampleTake(const PhysicsWorld& physics);
     void leadAnimation(PhysicsWorld& physics, Real time, Real h);
     std::shared_ptr<const TriMesh> meshOf(const Entity& e) const;
+    void findDrawn() const;
 
     SceneGraph graph_, live_;
+    // What a frame says of each entity besides where its body is now - its mesh, colour, texture, marks: found once
+    // and kept until the goals change. Found a frame, it was the scene flattened and every mesh keyed again: 12 µs an
+    // entity, 122 ms a frame of ten thousand cubes.
+    struct Drawn {
+        Frame::Body body;
+        size_t entity = SIZE_MAX; // its place in live_.entities; none: an array's copy, drawn where the array put it
+    };
+    mutable std::vector<Drawn> drawn_;
+    mutable bool drawnKnown_ = false;
     std::vector<Entity> flat_;                       // worldEntities(graph_): world poses, instances, array copies
     std::unordered_map<uint32_t, int> bodyOfEntity_; // entity id -> body
     std::vector<uint32_t> entityOfBody_;             // body -> entity id (0: none)

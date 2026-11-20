@@ -149,7 +149,7 @@ std::vector<Measurement> measureScene(const Simulation& sim) {
     if (!physics || !sim.robot()) return out;
     Totals t;
     const Vector3 g = gravityOf(sim);
-    for (const Entity& e : worldEntities(sim.robot()->graph())) t += bodyTotals(*physics, bodyOfEntity(sim, e.id), g);
+    for (const Entity& e : sim.robot()->built()) t += bodyTotals(*physics, bodyOfEntity(sim, e.id), g); // not flattened a frame again
     const Double3 L = t.angularAboutOrigin - cross(t.centre(), t.momentum);
     const double mechanical = t.translational + t.rotational + t.potential;
     double deepest = 0;
