@@ -214,6 +214,7 @@ void MainWindow::buildLayoutActions() {
     collidersAct_->setToolTip("Чем сталкивается каждое тело — то, что видит физика: зелёный каркас поверх модели (серый — у неподвижных). "
                               "Выбранное тело показывает свой всегда");
     connect(collidersAct_, &QAction::toggled, builder_, &SceneBuilder::setShowAllColliders);
+    collidersAct_->setChecked(true); // on from the start: what the physics collides with is seen (a person asked for it)
     auto* hud = new QAction("Счётчик кадров", this);
     hud->setObjectName("actionHud");
     hud->setCheckable(true);

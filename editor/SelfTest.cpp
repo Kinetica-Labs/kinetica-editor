@@ -17,6 +17,7 @@
 #include "Viewport.h"
 
 #include <QAction>
+#include <QCheckBox>
 #include <QCoreApplication>
 #include <QDir>
 #include <QElapsedTimer>
@@ -599,6 +600,15 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
         return c.failures;
     }
     pump(400); // the window gets its size, the viewport its first frame
+    // Every body's collider is drawn from the start (a person asked for it), the Laboratory's checkbox with it; the checks
+    // below count and look at their own drawings, so the wireframes go off for them.
+    auto* colliders = w.findChild<QAction*>("actionColliders");
+    QCheckBox* labRow = w.findChild<QCheckBox*>("labActionRow");
+    c.check(colliders && colliders->isChecked() && labRow && labRow->isChecked(),
+            "every body's collider is drawn from the start, «Коллайдеры всех тел» ticked in the Laboratory");
+    if (labRow) labRow->click();
+    pump(30);
+    c.check(colliders && !colliders->isChecked(), "the Laboratory's «Коллайдеры всех тел» switches them off");
     // KE_OPS_LIST=file: every operation of the window written there, for an API reference.
     if (const QString file = qEnvironmentVariable("KE_OPS_LIST"); !file.isEmpty())
         if (EditorOps* ops = dynamic_cast<MainWindow&>(w).operators()) {
