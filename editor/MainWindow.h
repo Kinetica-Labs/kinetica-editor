@@ -7,6 +7,7 @@
 #include "Gizmo.h"
 #include "SimController.h"
 
+#include <atomic>
 #include <map>
 #include <QMainWindow>
 #include <QStringList>
@@ -46,8 +47,7 @@ public:
     void setForceFirstStart(bool on) { forceFirstStart_ = on; }
     QString firstMinuteText() const; // what the bubble says now (empty: gone)
     void startPlugins();
-    void syncControllers();                          // the plugins' on_play / on_tick / on_stop follow ▶ and Stop
-    void tickControllers(const QJsonObject& packet); // one stepped frame to their on_tick, their commands back             // a person's window: the editor's and the user's plugins (MainWindowPlugins.cpp)
+    void syncControllers(); // the plugins' on_play / on_tick / on_stop follow ▶ and Stop (MainWindowPlugins.cpp)
     // "Примеры": the gallery of every ready-made scene; a click opens one.
     void openGallery();
     void runGalleryShot(const QString& file); // the gallery with all its pictures as a PNG, then quit
@@ -222,6 +222,8 @@ private:
     QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
     class ControllerKeys* controllerKeys_ = nullptr; // a person's keys to the scene's panels while it plays
     class PluginHost* plugins_ = nullptr;            // plugins as processes (MainWindowPlugins.cpp)
+    std::unique_ptr<class RunHooks> runHooks_;       // their hooks of a run: a wire and a thread apart from this one's
+    std::shared_ptr<std::atomic<bool>> runLive_;     // this run's commands still have a world to go to (false at Stop)
     bool runSeen_ = false; // the plugins' hooks were told a run started (and not yet that it stopped)
     bool commandWarned_ = false; // a tick's command that did nothing was said this run
     void buildPlugins();

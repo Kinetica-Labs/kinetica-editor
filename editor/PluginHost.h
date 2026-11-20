@@ -2,8 +2,9 @@
 // Plugins as processes (docs/contracts/editor-plugin.md, «Плагин-процесс»; the Python side: python/kinetica/plugin.py).
 // A folder with a plugin.py in a plugins' folder - a plugins' repository added once (the project's kinetica-plugins:
 // Плагины → Добавить папку плагинов…), the user's own (<app data>/plugins), KE_PLUGINS - is started as a Python process
-// of its own, given the API's port and a token. The editor brings no plugin of its own: plugins live in their repository. It registers its commands
-// (plugin_register) and waits for calls (plugin_wait), answering each (plugin_reply). A command is then an operation of
+// of its own, given the API's port and a token; plugins/ of the editor itself holds the ones that come with it (URDF). It
+// registers its commands (plugin_register) and waits for calls (plugin_wait), answering each (plugin_reply); its hooks of a
+// run - on_play, on_tick, on_stop - go over their own wire, apart from the window's thread (RunHooks.h). A command is then an operation of
 // the editor like any: a button in the «Плагины» menu with its key, a line in Ctrl+K, a call from the console and from a
 // script, a tool of an AI agent over MCP; its fields make the form the button opens. What it changes through the API
 // is one undo step. A saved plugin.py restarts its process - the loop of an edit, about a second; a plugin that falls
@@ -26,13 +27,15 @@ class QFileSystemWatcher;
 class QMenu;
 class QProcess;
 class QWidget;
+class RunHooks;
 class SceneBuilder;
 
 class PluginHost : public QObject {
     Q_OBJECT
 public:
     // `place`: a plugin's panel put into the window (true) or taken out (false) - a tab of the inspector or the bottom.
-    PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, QMenu* menu, std::function<quint16()> apiPort,
+    // `hooks`: the run's wire (RunHooks.h) - the window's, alive as long as this host starts and stops plugins.
+    PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, QMenu* menu, RunHooks* hooks, std::function<quint16()> apiPort,
                std::function<void(class PluginPanel*, bool)> place);
     ~PluginHost() override;
     // Every plugin of the folders started: the added ones and the user's - or, given (a test), only KE_PLUGINS.
@@ -44,11 +47,8 @@ public:
     // on_tick: sensors in, commands out), "world" (an extension of the physics: bodies in, forces out).
     QString create(const QString& name, QString& error, const QString& kind = "command");
     QStringList names() const;
-    // The plugins' on_play / on_tick / on_stop (python/kinetica/plugin.py): an event to every running plugin that has a
-    // hook for it - "play", "tick" {time, dt, frame, sensors}, "stop" - and `done` once all have answered or failed, with
-    // their commands merged ({id: {target | velocity | duty}}); none to tell: done at once.
     bool ticking(bool world = false) const; // a plugin ticks (world: one that extends the physics, it gets the bodies)
-    void broadcast(const QString& event, const QJsonObject& args, std::function<void(QJsonObject commands)> done);
+    void runStarted();                      // ▶: a hook's error is said again, once a run
     // A plugin's tool (@command(tool=True)) used in the view: its command with the click's point, normal and object, and
     // the values of its panel the command has (the tool's options); its shelf button lit while it is the view's tool.
     void useTool(const QString& op, const QJsonObject& click);
@@ -87,7 +87,6 @@ private:
         bool reloaded = false;   // started again after a save: its registering says how long it took
         class PluginPanel* panel = nullptr; // its panel (PluginPanel.h), while it runs
         QJsonObject panelValues;            // what its panel held when it stopped: given back when it comes again
-        QStringList hooks;                  // its on_play / on_tick / on_stop: "play", "tick", "stop"
         QString hookError;                  // a hook's last error, said once a run
     };
     void addOps();
@@ -100,6 +99,8 @@ private:
     void call(Plugin& p, const QString& command, const QJsonObject& args, const EditorOps::Reply& reply);
     void deliver(Plugin& p);
     void invoke(const QString& plugin, const Command& c); // a button: the form of its fields, then the call
+    void hookDrew(const QString& plugin, const QString& event, const QJsonArray& pictures); // a hook's answer, after the fact:
+    void hookFailed(const QString& plugin, const QString& event, const QString& error);     // its pictures, its error (RunHooks.h)
     Plugin* find(const QString& name);
     Plugin* authorised(const QJsonObject& a, QJsonObject& refusal);
     void notice(const QString& plugin, const QString& text); // a fall on the window's status bar, with «Перезапустить»; empty: gone
@@ -108,6 +109,7 @@ private:
     SceneBuilder* builder_;
     QWidget* window_;
     QMenu* menu_;
+    RunHooks* hooks_;
     QAction* commandsEnd_ = nullptr; // the menu's separator: the commands above it
     std::function<quint16()> apiPort_;
     std::function<void(class PluginPanel*, bool)> place_;

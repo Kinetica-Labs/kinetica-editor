@@ -41,6 +41,7 @@ public:
     // frame waits for release(), at most `patienceMs`, running the commands posted meanwhile (the controllers' answers
     // and their questions: an API call they make while answering). Empty: no lockstep. late(): frames that went on
     // without an answer.
+    // Once it returns, the `onFrame` it replaced is not running and will not run again: what that one used may go.
     void setLockstep(std::function<void(ke::Simulation&)> onFrame, int patienceMs = 500);
     void release(uint64_t frame); // the answer to that frame: a late one (another frame handed since) releases nothing
     int late() const { return late_; }
@@ -65,11 +66,12 @@ public:
     static constexpr size_t kReadingsKept = 20000;
 
     // Where a frame's wall time goes, over the last kTimingFrames stepped frames: the posted commands (API calls,
-    // the window's queries), the step itself, the snapshot's publication. A scene runs slower than the wall clock
+    // the window's queries), the wait for the controllers' answer to the frame before (the lockstep), the step itself,
+    // the snapshot's publication. A scene runs slower than the wall clock
     // exactly when their sum passes the frame's dt; this says which part does it.
     struct Timing {
         int frames = 0;
-        double commandsMs = 0, stepMs = 0, publishMs = 0, stepMaxMs = 0, frameDtMs = 0;
+        double commandsMs = 0, controllersMs = 0, stepMs = 0, publishMs = 0, stepMaxMs = 0, frameDtMs = 0;
         double commandsPerFrame = 0, slowestCommandMs = 0; // over the same frames
         std::string slowestCommand;                       // its label
     };
@@ -95,6 +97,8 @@ private:
     bool awaiting_ = false;                        // a frame was handed to the controllers, not answered (under mtx_)
     uint64_t handed_ = 0;                          // which (under mtx_)
     std::atomic<int> late_{0};
+    std::mutex handMtx_;     // held while a frame is handed over (taken before mtx_)
+    void handOver();         // the frame just stepped to the controllers, on the simulation's thread
     void awaitControllers(); // the lockstep's wait, serving the commands posted meanwhile
 
     mutable std::mutex snapMtx_;
@@ -103,7 +107,7 @@ private:
     std::deque<std::shared_ptr<const ke::Frame>> published_; // not yet taken (under snapMtx_)
     std::deque<Reading> readings_;                                      // not yet taken (under snapMtx_)
     std::atomic<uint64_t> serial_{0};
-    struct FrameCost { double commands, step, publish; int count; double slowest; const char* label; };
+    struct FrameCost { double commands, controllers, step, publish; int count; double slowest; const char* label; };
     std::deque<FrameCost> costs_; // the last kTimingFrames stepped frames (under snapMtx_)
     double frameDtMs_ = 0;        // under snapMtx_
 };

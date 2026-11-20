@@ -5,6 +5,8 @@
 // (keys, mouse schemes, many objects), MainWindowToolbar.cpp (the top bar) and MainWindowPlay.cpp
 // (the simulation status row, K, Ctrl+K, the white-window check).
 #include "MainWindow.h"
+
+#include "RunHooks.h"
 #include "PluginHost.h"
 #include "EditorOps.h"
 #include "RuPlural.h"
@@ -126,6 +128,8 @@ void MainWindow::connectViewport() {
 MainWindow::~MainWindow() {
     timer_->stop();
     leftBarAct_ = nullptr; // the docks hide as the window closes: the layout buttons stop following them
+    ctrl_->setLockstep(nullptr); // no frame handed to the plugins' hooks any more, so their wire may go:
+    runHooks_.reset();           // its thread ends here, and with it the answers that reach for the simulation
     ctrl_.reset(); // stop the simulation thread before the widgets go away
 }
 

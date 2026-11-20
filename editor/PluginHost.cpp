@@ -2,6 +2,8 @@
 // operations and buttons, its calls held for it and answered, a saved file restarting it, a fall said on a banner.
 #include "PluginHost.h"
 
+#include "RunHooks.h"
+
 #include "PluginPanel.h"
 #include "Resources.h"
 #include "PythonRuntime.h"
@@ -123,10 +125,12 @@ QString argsHelp(const QJsonObject& args, const QJsonArray& order) {
 
 } // namespace
 
-PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, QMenu* menu, std::function<quint16()> apiPort,
-                       std::function<void(PluginPanel*, bool)> place)
-    : QObject(window), ops_(ops), builder_(builder), window_(window), menu_(menu), apiPort_(std::move(apiPort)), place_(std::move(place)),
-      watcher_(new QFileSystemWatcher(this)) {
+PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, QMenu* menu, RunHooks* hooks,
+                       std::function<quint16()> apiPort, std::function<void(PluginPanel*, bool)> place)
+    : QObject(window), ops_(ops), builder_(builder), window_(window), menu_(menu), hooks_(hooks), apiPort_(std::move(apiPort)),
+      place_(std::move(place)), watcher_(new QFileSystemWatcher(this)) {
+    connect(hooks_, &RunHooks::drew, this, &PluginHost::hookDrew);
+    connect(hooks_, &RunHooks::failed, this, &PluginHost::hookFailed);
     ops_->setUnknownHint([this](const QString& op) -> QString { // a command of a plugin that is down: why, and what to do
         for (const auto& p : plugins_) {
             if (!op.startsWith(p->name + "_")) continue;
@@ -237,6 +241,8 @@ void PluginHost::launch(Plugin& p) {
     QProcessEnvironment env = pythonEnvironment(port);
     env.insert("KE_PLUGIN_NAME", p.name);
     env.insert("KE_PLUGIN_TOKEN", p.token);
+    env.insert("KE_RUN_PORT", QString::number(hooks_->port())); // its on_play / on_tick / on_stop: their own wire (RunHooks.h)
+    hooks_->expect(p.name, p.token);
     p.process->setProcessEnvironment(env);
     p.process->setWorkingDirectory(QFileInfo(p.file).absolutePath());
     p.process->setProcessChannelMode(QProcess::MergedChannels); // its prints and its traceback, one tail
@@ -287,6 +293,7 @@ void PluginHost::forget(const QString& file) {
         unregister(p);
         for (auto& [id, reply] : p.open) reply(EditorOps::error("плагин «" + p.name + "» удалён"));
         if (noticeFor_ == p.name) notice(p.name, {});
+        hooks_->expect(p.name, {});
         plugins_.erase(it);
         emit changed();
         return;
@@ -308,6 +315,7 @@ void PluginHost::onExit(Plugin& p, int code) {
     for (auto& [id, reply] : p.open) reply(EditorOps::error("плагин «" + p.name + "» остановился"));
     p.open.clear(), p.queued.clear(), p.waiting = nullptr;
     if (p.restarting) return p.restarting = false, launch(p); // once: a plugin falling at its start falls, it does not loop
+    hooks_->expect(p.name, {});
     p.state = code == 0 ? "остановлен" : "упал";
     p.error = code == 0 ? QString() : lastError(p.stderrTail);
     if (code != 0) notice(p.name, "Плагин «" + p.name + "» упал: " + (p.error.isEmpty() ? QString("код %1").arg(code) : p.error));
@@ -382,52 +390,29 @@ void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args
     });
 }
 
-bool PluginHost::ticking(bool world) const {
-    for (const auto& p : plugins_)
-        if (p->process && p->hooks.contains(world ? "tick:world" : "tick")) return true;
-    return false;
+bool PluginHost::ticking(bool world) const { return hooks_->ticking(world); }
+
+void PluginHost::runStarted() {
+    for (auto& p : plugins_) p->hookError.clear();
 }
 
-void PluginHost::broadcast(const QString& event, const QJsonObject& args, std::function<void(QJsonObject commands)> done) {
-    struct Round {
-        int waiting = 0;
-        QJsonObject commands;
-        std::function<void(QJsonObject)> done;
-    };
-    auto round = std::make_shared<Round>();
-    round->done = std::move(done);
-    std::vector<Plugin*> told;
-    for (auto& p : plugins_)
-        if (p->process && p->state == "работает" && p->hooks.contains(event)) told.push_back(p.get());
-    round->waiting = int(told.size());
-    if (told.empty()) return round->done({});
-    if (event == "play")
-        for (Plugin* p : told) p->hookError.clear();
-    for (Plugin* p : told) {
-        const int id = ++nextCall_;
-        p->open[id] = [this, round, name = p->name, event](const QJsonObject& r) {
-            if (r.value("ok").toBool()) {
-                const QJsonObject c = r.value("commands").toObject();
-                for (auto it = c.begin(); it != c.end(); ++it) round->commands.insert(it.key(), it.value());
-                for (const QJsonValue& d : event == "tick" && builder_->editing() ? QJsonArray() : r.value("draw").toArray()) // its frame's pictures (a late one after Stop: none)
-                    ops_->run("view_draw", d.toObject(), [this, name](const QJsonObject& a) {
-                        Plugin* q = find(name);
-                        if (a.value("ok").toBool() || !q || !q->hookError.isEmpty()) return;
-                        q->hookError = "draw: " + a.value("error").toString();
-                        emit output(name, q->hookError);
-                    }, "plugin:" + name);
-            } else if (Plugin* q = find(name); q && q->hookError.isEmpty()) { // said once a run, not sixty times a second
-                q->hookError = r.value("error").toString();
-                emit output(name, "on_" + event + ": " + q->hookError);
-                notice(name, "Плагин «" + name + "»: ошибка в on_" + event + " — " + q->hookError);
-            }
-            if (--round->waiting == 0) round->done(round->commands);
-        };
-        QJsonObject given = args; // the truth of the bodies only to a physics plugin; a controller sees its sensors
-        if (!p->hooks.contains("tick:world")) given.remove("bodies");
-        p->queued.push_back({id, {"@" + event, given}});
-        deliver(*p);
-    }
+void PluginHost::hookDrew(const QString& name, const QString& event, const QJsonArray& pictures) {
+    if (event == "tick" && builder_->editing()) return; // a late frame's pictures after Stop: none
+    for (const QJsonValue& d : pictures)
+        ops_->run("view_draw", d.toObject(), [this, name](const QJsonObject& a) {
+            Plugin* q = find(name);
+            if (a.value("ok").toBool() || !q || !q->hookError.isEmpty()) return;
+            q->hookError = "draw: " + a.value("error").toString();
+            emit output(name, q->hookError);
+        }, "plugin:" + name);
+}
+
+void PluginHost::hookFailed(const QString& name, const QString& event, const QString& error) {
+    Plugin* q = find(name);
+    if (!q || !q->hookError.isEmpty()) return; // said once a run, not sixty times a second
+    q->hookError = error;
+    emit output(name, "on_" + event + ": " + error);
+    notice(name, "Плагин «" + name + "»: ошибка в on_" + event + " — " + error);
 }
 
 void PluginHost::deliver(Plugin& p) {
@@ -436,8 +421,6 @@ void PluginHost::deliver(Plugin& p) {
     p.queued.erase(p.queued.begin());
     const EditorOps::Reply waiting = std::move(p.waiting);
     p.waiting = nullptr;
-    if (what.first.startsWith('@')) // an event of the run, not a command: its hook answers
-        return waiting(EditorOps::ok({{"call", id}, {"event", what.first.mid(1)}, {"args", what.second}}));
     waiting(EditorOps::ok({{"call", id}, {"command", what.first}, {"args", what.second}}));
 }
 
@@ -571,14 +554,12 @@ void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
                                    "(python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
-                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), hooks?: [str], components?: [{}]}",
+                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), components?: [{}]}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
         if (!p) return reply(refusal);
         unregister(*p);
-        p->hooks.clear();
-        for (const QJsonValue& h : a.value("hooks").toArray()) p->hooks << h.toString();
         builder_->setPluginComponents(p->name, a.value("components").toArray()); // its components: cards, «+ Добавить компонент», points
         QJsonArray made;
         for (const QJsonValue& v : a.value("commands").toArray()) {

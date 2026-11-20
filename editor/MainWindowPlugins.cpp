@@ -9,6 +9,7 @@
 #include "PluginHost.h"
 #include "Viewport.h"
 #include "PluginPanel.h"
+#include "RunHooks.h"
 #include "sim/Simulation.h"
 #include <QPointer>
 #include "SceneBuilder.h"
@@ -37,48 +38,46 @@ void MainWindow::startPlugins() {
     if (plugins_) plugins_->start(false);
 }
 
-// The plugins' controllers follow the run (PluginHost::broadcast): ▶ from the edit - «play» to each, and the lockstep of
-// Webots' controllers: every stepped frame's sensors, as the robot reads them (no truth), to their on_tick, its commands
-// into the running world before the next frame; Stop - «stop», no lockstep. A pause steps nothing, so ticks nothing.
+// The plugins' hooks follow the run, over their own wire (RunHooks.h): ▶ from the edit - «play» to each, and the lockstep
+// of Webots' controllers: every stepped frame's sensors, as the robot reads them (no truth), to their on_tick, its
+// commands into the running world before the next frame; Stop - «stop», no lockstep. A pause steps nothing, so ticks
+// nothing. A frame goes from the simulation's thread to the wire's and its answer straight back: this window's thread
+// is not in the loop, so a paint that waits for the screen holds no tick.
 void MainWindow::syncControllers() {
     if (!plugins_) return;
     const bool running = !builder_->editing();
     const bool started = running && !runSeen_, stopped = !running && runSeen_;
     runSeen_ = running;
     if (stopped) {
-        ctrl_->setLockstep(nullptr);
-        plugins_->broadcast("stop", {}, [](QJsonObject) {});
+        ctrl_->setLockstep(nullptr); // the last frame handed is on the wire before «stop»
+        if (runLive_) runLive_->store(false);
+        runHooks_->send("stop");
     }
     if (!started) return;
     commandWarned_ = false;
-    plugins_->broadcast("play", {}, [](QJsonObject) {});
-    if (!plugins_->ticking()) return;
+    plugins_->runStarted();
+    runHooks_->send("play");
+    if (!runHooks_->ticking()) return;
     QPointer<MainWindow> self(this);
-    const bool world = plugins_->ticking(true); // the bodies' truth gathered only when a physics plugin takes it
-    ctrl_->setLockstep([self, world](ke::Simulation& s) {
+    RunHooks* hooks = runHooks_.get();
+    SimController* ctrl = ctrl_.get();
+    const auto live = runLive_ = std::make_shared<std::atomic<bool>>(true);
+    const bool world = runHooks_->ticking(true); // the bodies' truth gathered only when a physics plugin takes it
+    ctrl_->setLockstep([self, hooks, ctrl, live, world](ke::Simulation& s) {
         QJsonObject packet{{"time", double(s.time())}, {"dt", double(s.frameDt)}, {"frame", double(s.frame())}, {"sensors", sensorReadings(s)}};
         if (world) packet.insert("bodies", bodyStates(s));
-        QMetaObject::invokeMethod(self, [self, packet] {
-            if (self) self->tickControllers(packet);
-        }, Qt::QueuedConnection);
-    });
-}
-
-void MainWindow::tickControllers(const QJsonObject& packet) {
-    const uint64_t frame = uint64_t(packet.value("frame").toDouble());
-    plugins_->broadcast("tick", packet, [this, frame](QJsonObject commands) {
-        if (builder_->editing()) return; // stopped meanwhile: the world is gone
-        if (!commands.isEmpty()) {
-            QPointer<MainWindow> self(this);
-            ctrl_->post([self, commands](ke::Simulation& s) {
-                const QString why = applyCommands(s, commands);
-                if (!why.isEmpty()) // a command that did nothing is said, once a run - not sixty times a second
-                    QMetaObject::invokeMethod(self, [self, why] {
-                        if (self && !self->commandWarned_) self->commandWarned_ = true, emit self->plugins_->output("такт", "команда не выполнена: " + why);
-                    }, Qt::QueuedConnection);
-            }, "controllers");
-        }
-        ctrl_->release(frame);
+        hooks->send("tick", packet, [self, ctrl, live, frame = s.frame()](QJsonObject commands) { // on the wire's thread
+            if (!commands.isEmpty() && live->load())
+                ctrl->post([self, live, commands](ke::Simulation& s) {
+                    if (!live->load()) return; // stopped meanwhile: the world is gone
+                    const QString why = applyCommands(s, commands);
+                    if (!why.isEmpty()) // a command that did nothing is said, once a run - not sixty times a second
+                        QMetaObject::invokeMethod(self, [self, why] {
+                            if (self && !self->commandWarned_) self->commandWarned_ = true, emit self->plugins_->output("такт", "команда не выполнена: " + why);
+                        }, Qt::QueuedConnection);
+                }, "controllers");
+            ctrl->release(frame);
+        });
     });
 }
 
@@ -87,7 +86,8 @@ void MainWindow::buildPlugins() {
     menu->setObjectName("pluginsMenu");
     menu->setToolTipsVisible(true);
     menuBar()->insertMenu(menuBar()->findChild<QMenu*>("helpMenu")->menuAction(), menu);
-    plugins_ = new PluginHost(ops_, builder_, this, menu, [this] { return apiPort(); }, [this](PluginPanel* panel, bool add) {
+    runHooks_ = std::make_unique<RunHooks>();
+    plugins_ = new PluginHost(ops_, builder_, this, menu, runHooks_.get(), [this] { return apiPort(); }, [this](PluginPanel* panel, bool add) {
         // A plugin's panel: a tab of the inspector (right) or of the bottom panel; taken out when the plugin stops.
         if (panel->place() == "bottom") {
             if (!add) return delete panel->parentWidget(); // its dock

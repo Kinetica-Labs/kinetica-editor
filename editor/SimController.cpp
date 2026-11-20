@@ -46,22 +46,26 @@ void SimController::requestStep() {
 }
 
 void SimController::setLockstep(std::function<void(ke::Simulation&)> onFrame, int patienceMs) {
+    std::lock_guard<std::mutex> hand(handMtx_); // a frame being handed over is handed first: none after an empty one is set
     {
         std::lock_guard<std::mutex> lk(mtx_);
         onFrame_ = std::move(onFrame);
         patienceMs_ = patienceMs;
         awaiting_ = false;
         if (onFrame_) // the frame the run starts from is the first one handed over: the controllers answer it before the first
-            queue_.emplace_back([this](ke::Simulation& s) { // step (a force applied from the first frame on, not the second)
-                std::function<void(ke::Simulation&)> handOver;
-                {
-                    std::lock_guard<std::mutex> lock(mtx_);
-                    handOver = onFrame_, awaiting_ = bool(onFrame_), handed_ = s.frame();
-                }
-                if (handOver) handOver(s);
-            }, "lockstep");
+            queue_.emplace_back([this](ke::Simulation&) { handOver(); }, "lockstep"); // step (a force from the first frame on)
     }
     cv_.notify_all();
+}
+
+void SimController::handOver() {
+    std::lock_guard<std::mutex> hand(handMtx_);
+    std::function<void(ke::Simulation&)> onFrame;
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        onFrame = onFrame_, awaiting_ = bool(onFrame_), handed_ = sim_->frame();
+    }
+    if (onFrame) onFrame(*sim_);
 }
 
 void SimController::release(uint64_t frame) {
@@ -154,26 +158,18 @@ void SimController::loop() {
             if (ms > slowest) slowest = ms, slowLabel = c.second;
         }
         if (!doStep && cmds.empty() && !finishSteps) continue;
+        const auto w0 = clock::now();
         if (doStep) awaitControllers(); // the last frame answered (or given up on) before the next is stepped
 
         auto t0 = clock::now();
         if (doStep) sim_->stepFrame();
         const auto t1 = clock::now();
         publish(doStep);
-        if (doStep) {
-            std::function<void(ke::Simulation&)> handOver;
-            {
-                std::lock_guard<std::mutex> lk(mtx_);
-                handOver = onFrame_;
-                awaiting_ = bool(onFrame_);
-                handed_ = sim_->frame();
-            }
-            if (handOver) handOver(*sim_);
-        }
+        if (doStep) handOver();
         if (doStep) {
             const auto ms = [](clock::duration d) { return std::chrono::duration<double, std::milli>(d).count(); };
             std::lock_guard<std::mutex> lk(snapMtx_);
-            costs_.push_back({ms(t0 - c0), ms(t1 - t0), ms(clock::now() - t1), int(cmds.size()), slowest, slowLabel});
+            costs_.push_back({ms(w0 - c0), ms(t0 - w0), ms(t1 - t0), ms(clock::now() - t1), int(cmds.size()), slowest, slowLabel});
             if (costs_.size() > size_t(kTimingFrames)) costs_.pop_front();
             frameDtMs_ = 1000.0 * sim_->frameDt;
         }
@@ -201,12 +197,12 @@ SimController::Timing SimController::timing() const {
     t.frames = int(costs_.size());
     t.frameDtMs = frameDtMs_;
     for (const auto& c : costs_) {
-        t.commandsMs += c.commands, t.stepMs += c.step, t.publishMs += c.publish;
+        t.commandsMs += c.commands, t.controllersMs += c.controllers, t.stepMs += c.step, t.publishMs += c.publish;
         t.stepMaxMs = std::max(t.stepMaxMs, c.step);
         t.commandsPerFrame += c.count;
         if (c.slowest > t.slowestCommandMs) t.slowestCommandMs = c.slowest, t.slowestCommand = c.label;
     }
     if (t.frames) t.commandsPerFrame /= t.frames;
-    if (t.frames) t.commandsMs /= t.frames, t.stepMs /= t.frames, t.publishMs /= t.frames;
+    if (t.frames) t.commandsMs /= t.frames, t.controllersMs /= t.frames, t.stepMs /= t.frames, t.publishMs /= t.frames;
     return t;
 }

@@ -11,6 +11,7 @@
 #include "Resources.h"
 
 #include <QAction>
+#include <QDateTime>
 #include <QDialog>
 #include <QDir>
 #include <QDoubleSpinBox>
@@ -26,6 +27,7 @@
 #include <QMenu>
 #include <QPushButton>
 #include <QTemporaryDir>
+#include <QThread>
 #include <QTimer>
 
 using namespace ke;
@@ -71,8 +73,9 @@ QAction* action(QMainWindow& w, const QString& name) {
 
 // A run's hooks (on_tick): a plugin that extends the physics holds a cube in the air - m g up over every frame -, a robot's
 // controller turns a servo to 0.5 rad by robot_command's path; it ticks once a frame, before the next is stepped (the
-// lockstep), sees its encoder's reading and no truth; Stop leaves the scene as authored and the journal without a line
-// of what the ticks did.
+// lockstep), sees its encoder's reading and no truth; the ticks are answered while the window's thread sleeps - the
+// lockstep is the simulation's and the plugin's, over their own wire (RunHooks.h); Stop leaves the scene as authored and
+// the journal without a line of what the ticks did.
 void testRunHooks(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
     b.newScene();
     const auto id = [ops](const char* op, QJsonObject args) { return uint32_t(ops->runNow(op, args).value("id").toInt()); };
@@ -85,9 +88,12 @@ void testRunHooks(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host,
     const float authored = float(findJoint(b.graph(), joint) ? findJoint(b.graph(), joint)->dof[DofRx].drive.target : -1);
     const QString file = folder + "/ticker/plugin.py";
     QDir().mkpath(folder + "/ticker");
-    write(file, QString(R"py(from kinetica.plugin import on_play, on_stop, on_tick
+    write(file, QString(R"py(import time
+
+from kinetica.plugin import on_play, on_stop, on_tick
 
 ticks = 0
+last = 0  # when the last tick was answered, ms of the wall clock
 
 
 @on_play
@@ -103,8 +109,9 @@ def hold(scene, dt, bodies):
 
 @on_tick
 def control(scene, dt, sensors):
-    global ticks
+    global ticks, last
     ticks += 1
+    last = int(time.time() * 1000)
     if ticks == 5:
         kinds = sorted(s["kind"] for s in sensors.values())
         print("seen", kinds, "truth" in str(sensors))
@@ -114,16 +121,19 @@ def control(scene, dt, sensors):
 @on_stop
 def stop(scene):
     print("ticks", ticks)
+    print("last", last)
 )py").replace("CUBE", QString::number(cube)).replace("JOINT", QString::number(joint)));
     QStringList printed;
     const auto heard = QObject::connect(host, &PluginHost::output, [&printed](const QString&, const QString& line) { printed << line; });
     host->start(true);
     waitUntil([&] { return host->ticking(); }, 10000);
-    const auto journal = [ops] { return ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray().size(); };
-    const qsizetype lines0 = journal();
+    const auto journal = [ops] { return ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray(); };
+    const QJsonArray journalWas = journal();
     const float y0 = findObject(b.graph(), cube)->position.y;
     QJsonObject stepped;
     ops->run("sim_step", {{"frames", 60}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+    QThread::msleep(800); // the window's thread asleep, as in a paint that waits for the screen: the frames go on without it
+    const qint64 awake = QDateTime::currentMSecsSinceEpoch();
     waitUntil([&] { return !stepped.isEmpty(); }, 20000);
     QJsonObject state;
     ops->run("sim_state", {}, [&state](const QJsonObject& r) { state = r; }, "ui");
@@ -134,19 +144,29 @@ def stop(scene):
     for (const QJsonValue& v : state.value("joints").toArray())
         if (uint32_t(v.toObject().value("id").toInt()) == joint) angle = float(v.toObject().value("angle").toDouble());
     b.stop();
-    const bool told = waitUntil([&] { return printed.filter("ticks").size() > 0; }, 5000);
+    const bool told = waitUntil([&] { return printed.filter("last ").size() > 0; }, 5000);
     QObject::disconnect(heard);
     const QString seen = printed.filter("seen").value(0), counted = printed.filter("ticks").value(0);
-    const qsizetype added = journal() - lines0;
-    const bool lines = added <= 2; // at most sim_stop (sim_step is the window's time): nothing of the ticks
+    const qint64 last = printed.filter("last ").value(0).mid(5).toLongLong();
+    // The lines the run added - those after the last one seen before it (the journal shows its last 500, so their
+    // number says nothing once it is full): the run's own time, the window's selection and the journal's own snapshot
+    // after a stop - nothing of the ticks.
+    const QJsonArray journalNow = journal();
+    qsizetype from = journalWas.isEmpty() ? 0 : journalNow.size();
+    while (from > 0 && journalNow.at(from - 1) != journalWas.last()) --from;
+    QStringList added;
+    for (qsizetype k = from; k < journalNow.size(); ++k) added << journalNow.at(k).toObject().value("op").toString();
+    const bool lines = std::all_of(added.begin(), added.end(), [](const QString& op) { return op == "sim_step" || op == "sim_stop" || op.startsWith("selection_") || op.startsWith("journal_"); });
     const float after = float(findJoint(b.graph(), joint)->dof[DofRx].drive.target);
     std::printf("  60 frames with the run's hooks: the cube %.4f -> %.4f m (held), the joint at %.3f rad (commanded 0.5); %s; %s; "
-                "the journal +%lld lines; the servo's authored target %.3f -> %.3f\n", double(y0), double(y), double(angle),
-                qPrintable(seen), qPrintable(counted), static_cast<long long>(added), double(authored), double(after));
+                "the last tick answered %lld ms before the window's thread woke; the journal + %s; the servo's authored "
+                "target %.3f -> %.3f\n", double(y0), double(y), double(angle), qPrintable(seen), qPrintable(counted),
+                static_cast<long long>(awake - last), qPrintable(added.join(", ")), double(authored), double(after));
     c.check(std::fabs(y - y0) < 0.01f, "a physics plugin's on_tick(world=True) pushes a body every frame: m g up holds a cube in the air");
     c.check(std::fabs(angle - 0.5f) < 0.05f && seen.contains("encoder") && seen.endsWith("False"),
             "a controller's on_tick sees its encoder's reading, not the truth, and turns the servo by its command");
     c.check(told && counted == "ticks 61", "the lockstep: one tick a frame - the starting one too -, before the next is stepped");
+    c.check(last > 0 && last <= awake, "the lockstep does not pass through the window's thread: every tick answered while it slept");
     c.check(lines && std::fabs(after - authored) < 1e-6f, "Stop: the scene as authored, no journal line of what the ticks did");
     QDir(folder + "/ticker").removeRecursively();
 }

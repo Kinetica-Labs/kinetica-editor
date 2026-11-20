@@ -24,8 +24,10 @@ editor's API console. The editor starts the file itself (``python -m kinetica.pl
 end is needed - an old file's ``run()`` does nothing. Only the Python standard library is used.
 """
 import inspect
+import json
 import os
 import runpy
+import socket
 import sys
 import threading
 import traceback
@@ -37,6 +39,7 @@ _commands = {}
 _hooks = {"play": [], "tick": [], "stop": []}  # the run's hooks: (function, world)
 _panel = None
 _link = {}  # the editor's client, name and token once serving: show() speaks through it
+_busy = threading.Lock()  # the author's code runs one piece at a time: a command, or a hook of the run
 
 
 class field:
@@ -319,8 +322,9 @@ def run():
 
 
 def _serve(file):
-    """Register the file's commands with the editor that started it, then answer its calls until it stops us - all of it
-    over one connection (the client hands each answer to the call that asked, from any thread)."""
+    """Register the file's commands with the editor that started it, then answer its calls until it stops us - over one
+    connection of the API (the client hands each answer to the call that asked, from any thread). The hooks of a run
+    answer on their own wire (_run_wire)."""
     name, token = os.environ.get("KE_PLUGIN_NAME"), os.environ.get("KE_PLUGIN_TOKEN")
     port = int(os.environ.get("KE_EDITOR_PORT", "47801"))
     if not name:
@@ -337,33 +341,64 @@ def _serve(file):
         commands.append({"name": n, "label": c["label"], "key": c["key"], "tool": c["tool"], "opens": c["opens"], "help": (inspect.getdoc(c["fn"]) or "").strip(),
                          "args": args, "order": [k for k in args if not (c["tool"] and k in _CLICK)]})
     _link.update(client=control, name=name, token=token)
-    hooks = [event for event, fns in _hooks.items() if fns] + (["tick:world"] if any(w for _, w in _hooks["tick"]) else [])
     components = [{"name": m["name"], "label": m["label"], "help": m["help"], "order": list(m["fields"]),
                    "fields": {k: f.schema(k) for k, f in m["fields"].items()}} for m in (c._kinetica for c in _components.values())]
-    control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands, hooks=hooks,
+    if os.environ.get("KE_RUN_PORT"):  # the hooks answer on their own wire, taken before the editor is told of the plugin
+        _run_wire(scene, int(os.environ["KE_RUN_PORT"]), name, token)
+    control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands,
                  components=components, **({"panel": _panel} if _panel else {}))
     while True:
         call = control.call("plugin_wait", name=name, token=token)
-        if "event" in call:  # ▶, a frame, Стоп: the run's hooks; a tick's commands merged into one answer
-            _frame.draws = []
-            try:
-                result = {"commands": _run_hooks(scene, call["event"], call.get("args", {})), "draw": _frame.draws}
-                _frame.draws = None
-                control.call("plugin_reply", name=name, token=token, call=call["call"], event=True, result=result)
-            except Exception as error:  # the author's mistake, with its line; the run goes on
-                _frame.draws = None
-                control.call("plugin_reply", name=name, token=token, call=call["call"], event=True, error=_where(error))
-            continue
         fn = _commands.get(call["command"], {}).get("fn")
         try:
             given = call.get("args", {})
             values = {}  # what the call gave, else the field's default - never a `field` itself
             for arg, p in list(inspect.signature(fn).parameters.items())[1:] if fn else []:
                 values[arg] = given[arg] if arg in given else p.default.default if isinstance(p.default, field) else p.default
-            result = fn(scene, **values) if fn else None
+            with _busy:
+                result = fn(scene, **values) if fn else None
             control.call("plugin_reply", name=name, token=token, call=call["call"], result=result if isinstance(result, dict) else {})
         except Exception as error:  # the author's mistake goes back to the editor with its line, the plugin lives on
             control.call("plugin_reply", name=name, token=token, call=call["call"], error=_where(error))
+
+
+def _run_wire(scene, port, name, token):
+    """The run's hooks - on_play, on_tick, on_stop - on a wire and a thread of their own (editor/RunHooks.h): the
+    simulation waits for a tick's answer, and this wire takes it there without the editor's window in between. One JSON
+    line each way an event, in order: play, every tick, stop. No hooks: no wire. Returns the thread, or None."""
+    hooks = [event for event, fns in _hooks.items() if fns] + (["tick:world"] if any(w for _, w in _hooks["tick"]) else [])
+    if not hooks:
+        return None
+    wire = socket.create_connection(("127.0.0.1", port))
+    wire.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)  # an answer goes at once: the simulation waits for it
+    lines = wire.makefile("rb")
+
+    def say(what):
+        wire.sendall((json.dumps(what, ensure_ascii=False) + "\n").encode("utf-8"))
+
+    say({"name": name, "token": token, "hooks": hooks})
+    taken = json.loads(lines.readline() or b"{}")
+    if not taken.get("ok"):
+        sys.exit(f"kinetica.plugin: the run's wire refused the plugin: {taken.get('error', 'closed')}")
+
+    def answer():
+        try:
+            for line in lines:
+                call = json.loads(line)
+                _frame.draws = []
+                try:
+                    with _busy:
+                        commands = _run_hooks(scene, call["event"], call.get("args", {}))
+                    say({"call": call["call"], "commands": commands, "draw": _frame.draws})
+                except Exception as error:  # the author's mistake, with its line; the run goes on
+                    say({"call": call["call"], "error": _where(error)})
+                _frame.draws = None
+        except OSError:  # the editor closed the wire: the plugin is being stopped
+            pass
+
+    thread = threading.Thread(target=answer, name="kinetica-run", daemon=True)
+    thread.start()
+    return thread
 
 
 def _run_hooks(scene, event, args):
