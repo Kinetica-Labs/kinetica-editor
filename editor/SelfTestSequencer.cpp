@@ -2,7 +2,8 @@
 // sequence with its first key at 0 s; a click on the timeline's ruler puts the playhead at 2 s (one edit, sequence_seek);
 // the gizmo moves the cube 1 m and «◆ Ключ» keys it there; a drag of the playhead to the middle shows the cube half way
 // (the preview) and leaves it there on release, one undo step that takes it back; a click on the second diamond and
-// Delete remove that key; in play the playhead follows the world's time. «⏺ Запись» on a cube dropped from 1 m plays the
+// Delete remove that key; Space over the timeline plays the sequence and stops it where it is; in play the playhead
+// follows the world's time. «⏺ Запись» on a cube dropped from 1 m plays the
 // scene and records it; pressed again, the scene stops - the cube back where it stood - and the take is a new active
 // sequence «Запись 1» whose end has the cube on the floor; one undo takes the take away. With a directory, the pictures
 // sequencer.png and sequencer-take.png.
@@ -114,6 +115,29 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     b.undoAction()->trigger();
     pump(60);
     c.check(removed && activeSequence(b.graph())->tracks[0].keys.size() == 2, "a diamond clicked and Delete remove that key; undo brings it back");
+
+    // Space over the timeline plays the sequence and stops it where it is, as a video editor's timeline does; the scene
+    // stays in edit (over the 3D view Space is «Пуск»).
+    clickAt(0);
+    auto* playButton = w.findChild<QToolButton*>("sequencerPlay");
+    const auto space = [timeline] {
+        QKeyEvent over(QEvent::ShortcutOverride, Qt::Key_Space, Qt::NoModifier, " ");
+        over.ignore();
+        QCoreApplication::sendEvent(timeline, &over);
+        QKeyEvent press(QEvent::KeyPress, Qt::Key_Space, Qt::NoModifier, " ");
+        QCoreApplication::sendEvent(timeline, &press);
+        return over.isAccepted();
+    };
+    const bool taken = space();
+    const bool started = taken && playButton && playButton->isChecked() && b.editing();
+    pump(600);
+    space();
+    pump(60);
+    const double stoppedAt = double(activeSequence(b.graph())->time);
+    const bool stopped = playButton && !playButton->isChecked() && stoppedAt > 0.2 && b.editing();
+    std::printf("  Space over the timeline: taken from «Пуск» %s, plays %s; Space again: stopped at %.2f s, the scene in edit %s\n",
+                taken ? "yes" : "no", started ? "yes" : "no", stoppedAt, b.editing() ? "yes" : "no");
+    c.check(started && stopped, "Space over the Sequencer plays its sequence and stops it where it is; the scene stays in edit");
 
     // In play the world plays the sequence: the playhead follows its time.
     clickAt(0);

@@ -46,7 +46,13 @@ public:
     uint32_t pickedObject() const;  // the key picked on the tracks (0: none)
     void addBarAction(QAction* a, const QString& text); // a window's action as a button of the bar (⇔ the whole width)
 
+protected:
+    // Space over the Sequencer plays its sequence and stops it where it is, as a video editor's timeline does; over the 3D
+    // view it is «Пуск» still - the keys go to what the mouse is over (DaVinci's viewers). Nothing to play: «Пуск» too.
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
+    bool spacePlays() const; // the sequence has keys to play in edit mode, or it is playing
     void togglePreview(bool on);
     void showCurves(bool on);
 

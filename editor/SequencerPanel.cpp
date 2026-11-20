@@ -8,9 +8,11 @@
 #include "SequencerViews.h"
 #include "scene/Animation.h"
 
+#include <QApplication>
 #include <QComboBox>
 #include <QHBoxLayout>
 #include <QJsonObject>
+#include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
 #include <QMenu>
@@ -44,7 +46,8 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     plays_ = button("▶ в Пуске", "Пуск играет эту секвенцию: её тела идут по дорожкам как анимация и толкают встречное. Выключено — "
                                  "секвенция только для просмотра, физика тел своя (так приходит запись физики)", "sequencerPlays", true);
     start_ = button("⇤", "Бегунок в начало", "sequencerStart");
-    play_ = button("▶ Просмотр", "Проиграть секвенцию в правке: объекты едут по дорожкам", "sequencerPlay", true);
+    play_ = button("▶ Просмотр", "Проиграть секвенцию в правке: объекты едут по дорожкам. Пробел над секвенсором — проиграть и "
+                                 "остановить, бегунок остаётся, где остановили", "sequencerPlay", true);
     loop_ = button("↻ Петля", "После последнего ключа — сначала", "sequencerLoop", true);
     key_ = button("◆ Ключ", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)", "sequencerKey");
     record_ = button("⏺ Запись", "Записать физику: сцена играет, каждое свободное тело пишется каждый кадр; ещё раз или «Стоп» — "
@@ -97,6 +100,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     connect(add_, &QToolButton::clicked, this, [this] { run("sequence_add", QJsonObject{{"active", true}}); });
     connect(start_, &QToolButton::clicked, this, [this] { seek(0); });
     connect(play_, &QToolButton::toggled, this, &SequencerPanel::togglePreview);
+    for (QWidget* view : {static_cast<QWidget*>(timeline_), static_cast<QWidget*>(curvesView_)}) view->installEventFilter(this);
     connect(loop_, &QToolButton::clicked, this, [this](bool on) { run("sequence_set", QJsonObject{{"loop", on}}); });
     connect(plays_, &QToolButton::clicked, this, [this](bool on) { run("sequence_set", QJsonObject{{"play", on}}); });
     connect(key_, &QToolButton::clicked, this, &SequencerPanel::keySelected);
@@ -152,6 +156,23 @@ void SequencerPanel::endScrub() {
     if (!builder_->editing()) return;
     builder_->endSequencePreview();
     seek(scrubTime_);
+}
+
+bool SequencerPanel::spacePlays() const {
+    const ke::SequenceObject* q = ke::activeSequence(builder_->graph());
+    return previewTimer_->isActive() || (builder_->editing() && q && !q->tracks.empty());
+}
+
+bool SequencerPanel::eventFilter(QObject* watched, QEvent* event) {
+    auto* view = static_cast<QWidget*>(watched);
+    if (event->type() == QEvent::Enter && window()->isActiveWindow() && !QApplication::activePopupWidget())
+        view->setFocus(Qt::MouseFocusReason); // the keys follow the mouse, as into the 3D view
+    const bool space = (event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress) &&
+                       static_cast<QKeyEvent*>(event)->key() == Qt::Key_Space && static_cast<QKeyEvent*>(event)->modifiers() == Qt::NoModifier;
+    if (!space || !spacePlays()) return QWidget::eventFilter(watched, event);
+    event->accept(); // before the window's «Пуск»
+    if (event->type() == QEvent::KeyPress && !static_cast<QKeyEvent*>(event)->isAutoRepeat()) play_->toggle();
+    return true;
 }
 
 void SequencerPanel::togglePreview(bool on) {
