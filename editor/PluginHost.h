@@ -52,6 +52,11 @@ public:
     // A plugin's tool (@command(tool=True)) used in the view: its command with the click's point, normal and object, and
     // the values of its panel the command has (the tool's options); its shelf button lit while it is the view's tool.
     void useTool(const QString& op, const QJsonObject& click);
+    // The files plugins open (@command(opens=".urdf")): the file dialog's filters ("URDF — робот (*.urdf)"), the command
+    // that opens a file (its extension; empty: none), and the call with its path - an import is one undo step.
+    QStringList formats() const;
+    QString openerFor(const QString& file) const;
+    void openFile(const QString& op, const QString& path);
     void setToolChecked(const QString& op);
 
 signals:
@@ -63,6 +68,7 @@ private:
     struct Command {
         QString name, label, key, help, op;
         bool tool = false; // a tool of the shelf: a click in the view calls it
+        QStringList opens; // the file extensions it opens (".urdf"): «Файл → Импорт…», a file dropped on the view
         QJsonObject args; // field -> {type, default, label, unit, minimum, maximum, enum}
         QJsonArray order; // the fields as the function lists them (the form's rows)
         QAction* action = nullptr;

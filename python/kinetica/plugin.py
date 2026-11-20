@@ -68,7 +68,7 @@ class field:
         return out
 
 
-def command(label=None, key=None, tool=False):
+def command(label=None, key=None, tool=False, opens=None):
     """A function of this file made a command of the editor: ``label`` on its button, ``key`` its shortcut.
 
     ``tool=True`` makes it a tool of the shelf at the left of the view (an orange button): a click in the view calls it
@@ -78,10 +78,19 @@ def command(label=None, key=None, tool=False):
         @command(label="Дерево", tool=True)
         def plant(scene, point, normal, object, height=field(2.0, unit="м")):
             scene.add_cylinder(position=point, ...)
+
+    ``opens=".urdf"`` (or a list) makes it how the editor opens such files: «Файл → Импорт…» lists the format, a file
+    dropped on the view goes to it; it is called with ``path``, and all it builds is one undo step::
+
+        @command(label="URDF — робот", opens=".urdf")
+        def load(scene, path):
+            ...
     """
 
     def make(fn):
-        _commands[fn.__name__] = {"fn": fn, "label": label or fn.__name__, "key": key or "", "tool": bool(tool)}
+        given = [opens] if isinstance(opens, str) else list(opens or [])
+        _commands[fn.__name__] = {"fn": fn, "label": label or fn.__name__, "key": key or "", "tool": bool(tool),
+                                  "opens": [e if e.startswith(".") else "." + e for e in given]}
         return fn
 
     return make
@@ -323,7 +332,9 @@ def _serve(file):
         args = _args(c["fn"])
         if c["tool"]:  # the click's three: given by the view, not a field of a form
             args.update({k: v for k, v in _CLICK.items() if k in args})
-        commands.append({"name": n, "label": c["label"], "key": c["key"], "tool": c["tool"], "help": (inspect.getdoc(c["fn"]) or "").strip(),
+        if c["opens"] and "path" in args:  # the file to open: given by «Импорт…» or a drop
+            args["path"] = {"type": "string", "label": "Файл"}
+        commands.append({"name": n, "label": c["label"], "key": c["key"], "tool": c["tool"], "opens": c["opens"], "help": (inspect.getdoc(c["fn"]) or "").strip(),
                          "args": args, "order": [k for k in args if not (c["tool"] and k in _CLICK)]})
     _link.update(client=control, name=name, token=token)
     hooks = [event for event, fns in _hooks.items() if fns] + (["tick:world"] if any(w for _, w in _hooks["tick"]) else [])

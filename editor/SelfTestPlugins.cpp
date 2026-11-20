@@ -8,6 +8,7 @@
 #include "EditorOps.h"
 #include "MainWindow.h"
 #include "PluginHost.h"
+#include "Resources.h"
 
 #include <QAction>
 #include <QDialog>
@@ -310,6 +311,88 @@ def mark(scene, dt, sensors):
                                                   "pictures go with it");
 }
 
+// A robot from URDF (plugins/urdf, the editor's own plugin; examples/robot-arm.urdf): «Импорт…» lists the format, the
+// import is one undo step - six links in a group, five joints, the root fixed, z up turned to y up (the upper arm's centre
+// 0.4 m over the floor), the shoulder's limit written; Play, and the motors hold the arm up. A mesh found by package://
+// stands where URDF puts its points: a 0.1 m cube from 0 to 0.1 on each axis has its centre at 0.05, 0.05, -0.05.
+void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/urdf");
+    QFile::copy(resourceDir("plugins") + "/urdf/plugin.py", folder + "/urdf/plugin.py");
+    QDir().mkpath(folder + "/kpkg/meshes");
+    { // a binary STL: a cube from 0 to 0.1 m, twelve triangles
+        QFile f(folder + "/kpkg/meshes/block.stl");
+        f.open(QIODevice::WriteOnly);
+        QByteArray head(80, 0);
+        f.write(head);
+        const int corner[8][3] = {{0, 0, 0}, {1, 0, 0}, {1, 1, 0}, {0, 1, 0}, {0, 0, 1}, {1, 0, 1}, {1, 1, 1}, {0, 1, 1}};
+        const int faces[12][3] = {{0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7}, {0, 1, 5}, {0, 5, 4}, {2, 3, 7}, {2, 7, 6}, {1, 2, 6}, {1, 6, 5}, {0, 4, 7}, {0, 7, 3}};
+        const quint32 n = 12;
+        f.write(reinterpret_cast<const char*>(&n), 4);
+        for (const auto& t : faces) {
+            float v[12] = {0};
+            for (int i = 0; i < 3; ++i)
+                for (int k = 0; k < 3; ++k) v[3 + 3 * i + k] = 0.1f * float(corner[t[i]][k]);
+            f.write(reinterpret_cast<const char*>(v), 48);
+            f.write("\0\0", 2);
+        }
+    }
+    write(folder + "/kpkg/block.urdf", R"(<robot name="block"><link name="block"><visual><geometry><mesh filename="package://kpkg/meshes/block.stl"/></geometry></visual><inertial><mass value="1"/></inertial></link></robot>)");
+    host->start(true);
+    waitUntil([&] { return !host->openerFor("x.urdf").isEmpty(); }, 10000);
+    const bool listed = host->formats().contains("URDF — робот (*.urdf)") && host->openerFor("/a/B.URDF") == "urdf_load";
+    b.newScene();
+    const size_t steps = b.undoSteps();
+    const auto load = [&](const QString& path) { // a plugin's command answers when the plugin has
+        QJsonObject answer;
+        ops->run("urdf_load", {{"path", path}}, [&answer](const QJsonObject& r) { answer = r; }, "ui");
+        waitUntil([&] { return !answer.isEmpty(); }, 20000);
+        return answer;
+    };
+    const QJsonObject made = load(resourceDir("examples") + "/robot-arm.urdf");
+    const auto named = [&](const char* n) -> const Entity* {
+        for (const Entity& e : b.graph().entities)
+            if (e.name == n) return &e;
+        return nullptr;
+    };
+    const Entity *base = named("base_link"), *upper = named("upper_arm"), *forearm = named("forearm");
+    const SceneObject* up = upper ? findObject(b.graph(), upper->id) : nullptr;
+    const Vector3 at = up ? up->position : Vector3(-9.0f);
+    QString limits;
+    for (const QJsonValue& v : ops->runNow("scene_get", {}).value("text").toString().split('\n'))
+        if (v.toString().contains("limit ")) limits += v.toString().trimmed() + "; ";
+    const bool built = made.value("links").toInt() == 6 && made.value("joints").toInt() == 5 && b.undoSteps() == steps + 1 && base &&
+                       base->rigid.fixed && forearm && !forearm->rigid.fixed && std::fabs(at.y - 0.4f) < 1e-3f && std::fabs(at.x) < 1e-3f &&
+                       std::fabs(at.z) < 1e-3f && limits.contains("limit rx lower -1.5 upper 1.5") && limits.contains("limit tx lower 0 upper 0.03");
+    std::printf("  URDF: %s; listed %s; %d links, %d joints, %zu undo step; the upper arm at %.3f %.3f %.3f; %s\n",
+                qPrintable(made.value("note").toString(made.value("error").toString())), listed ? "yes" : "no", made.value("links").toInt(),
+                made.value("joints").toInt(), b.undoSteps() - steps, double(at.x), double(at.y), double(at.z), qPrintable(limits));
+    c.check(listed && built, "a URDF arm: «Импорт…» lists the format; one undo step - six links in a group, five joints, the root fixed, "
+                             "z up turned to y up, the limits written");
+    QJsonObject stepped;
+    ops->run("sim_step", {{"frames", 120}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+    waitUntil([&] { return !stepped.isEmpty(); }, 30000);
+    QJsonObject state;
+    ops->run("sim_state", {}, [&state](const QJsonObject& r) { state = r; }, "ui");
+    waitUntil([&] { return !state.isEmpty(); }, 5000);
+    float held = -1;
+    for (const QJsonValue& v : state.value("shapes").toArray())
+        if (forearm && uint32_t(v.toObject().value("id").toInt()) == forearm->id) held = float(v.toObject().value("position").toArray().at(1).toDouble());
+    b.stop();
+    pump(100);
+    std::printf("  2 s of Play: the forearm's centre %.3f m (made at 0.750)\n", double(held));
+    c.check(std::fabs(held - 0.75f) < 0.02f, "the imported arm holds itself up: its motors keep the pose it was made in");
+    b.newScene();
+    const QJsonObject block = load(folder + "/kpkg/block.urdf");
+    const Entity* cube = named("block");
+    const SceneObject* o = cube ? findObject(b.graph(), cube->id) : nullptr;
+    const Vector3 p = o ? o->position : Vector3(-9.0f);
+    std::printf("  a mesh by package://: %s; its centre %.3f %.3f %.3f, size %.3f\n", qPrintable(block.value("note").toString(block.value("error").toString())),
+                double(p.x), double(p.y), double(p.z), cube ? double(cube->size.x) : -1.0);
+    c.check(o && std::fabs(p.x - 0.05f) < 1e-3f && std::fabs(p.y - 0.05f) < 1e-3f && std::fabs(p.z + 0.05f) < 1e-3f && std::fabs(cube->size.x - 0.1f) < 1e-3f,
+            "a URDF mesh (package://, binary STL) stands where its points are, at its own size");
+    QDir(folder + "/urdf").removeRecursively();
+}
+
 } // namespace
 
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
@@ -436,6 +519,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testRunHooks(c, b, ops, host, dir.path());
     testComponents(c, w, b, v, ops, host, dir.path());
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
+    testUrdf(c, w, b, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

@@ -116,6 +116,7 @@ public:
     void setHoveredHandle(int i);
     // The IK goals' paths (Entity::path): segments, x y z 0 per point - drawn over the scene, faint where hidden.
     void setPathLines(std::vector<float> lines) { pathLines_ = std::move(lines), update(); }
+    void setOpensFile(std::function<bool(const QString&)> opens) { opensFile_ = std::move(opens); } // which dropped files are fileDropped
     // A picture over the view (view_draw): a plugin's or an agent's lines, points and words, in world metres, by key - the
     // same key again replaces it. Drawn while the scene plays: gone at Stop, as everything of a run.
     struct Drawing {
@@ -252,6 +253,7 @@ signals:
     void created(CreateWhat what, ke::Vector3 position, ke::Vector3 size, ke::Vector3 target);
     // Edit mode: an image file dropped on an object (ViewportTextureDrop.cpp) - its texture.
     void imageDropped(uint32_t id, QString file);
+    void fileDropped(QString file); // a file the window opens (setOpensFile): a model, a robot (URDF)...
     // The Laboratory is open and the left button was clicked here (pressed and released within 4 px).
     void labClicked(QPointF pos);
 
@@ -411,6 +413,8 @@ private:
     void drawOverlayLines(const QMatrix4x4& vp);
     void drawOverlayMarks(QPainter& p);
     QString draggedImage_;                  // an image file being dragged over the view
+    QString draggedFile_;                   // ... or a file the window opens
+    std::function<bool(const QString&)> opensFile_;
     bool labInspect_ = false;               // the Laboratory is open: clicks are reported (labClicked)
     bool labMarker_ = false;                // the ring round what the Laboratory's card shows
     ke::Vector3 labMarkerAt_{0.0f};

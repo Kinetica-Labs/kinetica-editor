@@ -48,6 +48,7 @@ MCP для агентов.
 | Компонент | `@component` класса с `field`: «+ Добавить компонент», карточка из полей, строка `component <плагин>.<имя> ключ значение…` в блоке объекта; без плагина — карточка «не запущен», слова хранятся; `Тип.instances(scene)`; API `component_set` / `component_remove` / `component_list` | `SceneBuilderComponents.cpp`, `SceneOpsActions.cpp` |
 | Инструмент | `@command(tool=True)`: оранжевая кнопка на полке инструментов; щелчок в виде вызывает команду с `point`, `normal`, `object` и значениями панели плагина; один щелчок — один шаг отмены; Esc — выход | `Viewport::setPluginTool`, `PluginHost::useTool` |
 | Рисование | `draw.line / segments / points / label / clear` и операция `view_draw`: по ключу, метры мира; из `on_tick` — вместе с ответом такта, исчезает на «Стопе»; не правка: без отмены и журнала | `Viewport::setDrawing`, `EditorOpsInput.cpp` |
+| Импорт | `@command(opens=".urdf")`: формат в «Файл → Импорт…» и перетаскивание файла в вид; команда получает `path`, всё построенное — один шаг отмены; URDF — плагин, который поставляется с редактором | `PluginHost::openFile`, `MainWindow::importFile`, `plugins/urdf/plugin.py` |
 | Ручки | `field(..., handle="radius" \| "length" \| "point")` — оранжевые точки на выбранной фигуре (Cinema 4D): тащит общая механика ручек ядра (подсветка, значение у курсора, Esc), отпустили — одна `component_set` | `ColliderGuides.h ShapeHandle`, `ViewportTools.cpp` |
 | Заготовки | `plugin_new {name, kind: command \| controller \| world}` — каждая сразу делает что-то в сцене | `python/kinetica/plugin_template*.py` |
 
@@ -96,7 +97,7 @@ ui.panel("Подъём", ui.section("Выделенное", ui.number("height", 
 1. ~~Такт контроллера~~ — **сделан** (см. «Что есть сейчас»).
 2. ~~Компонент~~ — **сделан**. 3. ~~Ручки = поля~~ — **сделаны** («radius», «length», «point»; «dial» и «box» — дальше).
 4. ~~Инструмент = команда~~ — **сделан**. 5. ~~Рисование поверх вида~~ — **сделано** (см. «Что есть сейчас»).
-6. **Импорт:** `@command(opens=".urdf")` — пункт «Импорт», перетаскивание файла в окно.
+6. ~~Импорт~~ — **сделан**; первый формат — URDF, плагин, который поставляется с редактором (`plugins/urdf`).
 7. **Поле-ссылка** на объект сцены (`kind="encoder" | "joint" | "body"`) — выбор из сцены, а не id руками.
 
 Так будет выглядеть первый робототехнический плагин:

@@ -3,6 +3,7 @@
 #include "PluginHost.h"
 
 #include "PluginPanel.h"
+#include "Resources.h"
 #include "PythonRuntime.h"
 #include "SceneBuilder.h"
 
@@ -33,6 +34,7 @@
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QTimer>
+#include <QFileDialog>
 #include <QIcon>
 #include <QPixmap>
 #include <QPainter>
@@ -183,6 +185,7 @@ PluginHost::Plugin* PluginHost::authorised(const QJsonObject& a, QJsonObject& re
 void PluginHost::start(bool onlyGiven) {
     if (const QString given = qEnvironmentVariable("KE_PLUGINS"); !given.isEmpty()) scan(given);
     if (onlyGiven) return;
+    scan(resourceDir("plugins")); // the plugins that come with the editor (URDF), as Blender's add-ons
     for (const QString& folder : folders()) scan(folder); // a plugins' repository, kinetica-plugins (Плагины → Добавить папку…)
     scan(userFolder());
 }
@@ -527,6 +530,37 @@ void PluginHost::useTool(const QString& op, const QJsonObject& click) {
         }
 }
 
+QStringList PluginHost::formats() const {
+    QStringList out;
+    for (const auto& p : plugins_)
+        for (const Command& c : p->commands) {
+            if (c.opens.isEmpty()) continue;
+            QStringList masks;
+            for (const QString& ext : c.opens) masks << "*" + ext;
+            out << c.label + " (" + masks.join(' ') + ")";
+        }
+    return out;
+}
+
+QString PluginHost::openerFor(const QString& file) const {
+    const QString lower = file.toLower();
+    for (const auto& p : plugins_)
+        for (const Command& c : p->commands)
+            for (const QString& ext : c.opens)
+                if (lower.endsWith(ext)) return c.op;
+    return {};
+}
+
+void PluginHost::openFile(const QString& op, const QString& path) {
+    ops_->run(op, {{"path", path}}, [this, path](const QJsonObject& r) {
+        auto* w = qobject_cast<QMainWindow*>(window_);
+        if (!w) return;
+        if (!r.value("ok").toBool()) return w->statusBar()->showMessage(r.value("error").toString(), 12000);
+        const QString note = r.value("note").toString();
+        w->statusBar()->showMessage(QFileInfo(path).fileName() + (note.isEmpty() ? QString(" открыт") : ": " + note), 12000);
+    }, "ui");
+}
+
 void PluginHost::setToolChecked(const QString& op) {
     for (const auto& p : plugins_)
         for (const Command& c : p->commands)
@@ -553,6 +587,7 @@ void PluginHost::addOps() {
             cmd.name = c.value("name").toString(), cmd.label = c.value("label").toString(cmd.name), cmd.key = c.value("key").toString();
             cmd.help = c.value("help").toString(), cmd.args = c.value("args").toObject(), cmd.order = c.value("order").toArray();
             cmd.tool = c.value("tool").toBool();
+            for (const QJsonValue& x : c.value("opens").toArray()) cmd.opens << x.toString().toLower();
             cmd.op = p->name + "_" + slug(cmd.name);
             const QString plugin = p->name, command = cmd.name;
             ops_->addPluginOp(cmd.op, QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ",
@@ -564,6 +599,7 @@ void PluginHost::addOps() {
                 call(*q, command, args, r);
             }, jsonSchema(cmd.args));
             cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() || cmd.tool ? QString() : "…"), window_);
+            if (!cmd.opens.isEmpty()) cmd.action->setText(cmd.label + "…");
             if (cmd.tool) { // on the shelf at the left of the view, under the gizmo's tools: orange, its first letter
                 cmd.action->setCheckable(true);
                 cmd.action->setIcon(toolIcon(cmd.label));
@@ -593,6 +629,12 @@ void PluginHost::addOps() {
                     for (const Command& x : q->commands) {
                         if (x.op != op) continue;
                         if (x.tool) return emit toolPicked(x.action->isChecked() ? op : QString(), x.label); // pressed again: left
+                        if (!x.opens.isEmpty()) { // a format it opens: the file first
+                            QStringList masks;
+                            for (const QString& ext : x.opens) masks << "*" + ext;
+                            const QString path = QFileDialog::getOpenFileName(window_, x.label, QString(), x.label + " (" + masks.join(' ') + ")");
+                            return path.isEmpty() ? void() : openFile(op, path);
+                        }
                         return invoke(plugin, x);
                     }
             });

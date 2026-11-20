@@ -133,7 +133,8 @@ private:
     void togglePlay();
 
     // File operations
-    void importModel(); // an OBJ / STL model as a new object of the builder
+    void importModel(); // «Импорт…»: an OBJ / STL model as a new object, or a file a plugin opens (URDF)
+    void importFile(const QString& path); // ... that file: by its extension
     void exportCsv();
     void screenshot();
     void showHelp();

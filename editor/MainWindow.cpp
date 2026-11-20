@@ -5,6 +5,7 @@
 // (keys, mouse schemes, many objects), MainWindowToolbar.cpp (the top bar) and MainWindowPlay.cpp
 // (the simulation status row, K, Ctrl+K, the white-window check).
 #include "MainWindow.h"
+#include "PluginHost.h"
 #include "EditorOps.h"
 #include "RuPlural.h"
 
@@ -163,9 +164,9 @@ void MainWindow::buildRunActions() {
 
 // The menu bar: Файл (import, export, screenshot), Симуляция, Вид (filled later), Справка.
 void MainWindow::buildMenus() {
-    auto* importAct = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "Импорт модели…", this);
+    auto* importAct = new QAction(style()->standardIcon(QStyle::SP_DialogOpenButton), "Импорт…", this);
     importAct->setShortcut(QKeySequence("Ctrl+I")); // Ctrl+O opens a scene (menu "Сцена")
-    importAct->setToolTip("Модель OBJ или STL как новый объект сцены");
+    importAct->setToolTip("Модель OBJ или STL как новый объект, робот URDF и форматы плагинов; файл можно и перетащить в вид");
     connect(importAct, &QAction::triggered, this, &MainWindow::importModel);
     auto* shotAct = new QAction("Скриншот…", this);
     shotAct->setShortcut(QKeySequence("Ctrl+P"));
@@ -449,6 +450,11 @@ void MainWindow::connectSceneBuilder() {
         return ke::Vector3(e.x(), e.y(), e.z());
     });
     connect(view_, &Viewport::imageDropped, builder_, &SceneBuilder::assignImage);
+    connect(view_, &Viewport::fileDropped, this, &MainWindow::importFile); // a model or a robot dropped on the view
+    view_->setOpensFile([this](const QString& file) {
+        const QString lower = file.toLower();
+        return lower.endsWith(".obj") || lower.endsWith(".stl") || (plugins_ && !plugins_->openerFor(file).isEmpty());
+    });
     connect(view_, &Viewport::bodyClicked, builder_, &SceneBuilder::selectBody);
     connect(view_, &Viewport::goalDragged, builder_, &SceneBuilder::dragGoal);
     connect(view_, &Viewport::sensorClicked, builder_, [this](uint32_t id) { builder_->select(id); });
@@ -621,9 +627,17 @@ void MainWindow::runAutomation(int frames, const QString& shot) {
 // ---------------------------------------------------------------------------
 // File operations
 // ---------------------------------------------------------------------------
+// «Импорт…»: a model (OBJ, STL) as a shape, or a file a plugin opens (a robot's URDF) - one dialog, the format by the file.
 void MainWindow::importModel() {
-    const QString path = QFileDialog::getOpenFileName(this, "Модель как форма", examplesDir() + "/models", "3D-модели (*.obj *.stl)");
-    if (path.isEmpty()) return;
+    QStringList filters{"3D-модели (*.obj *.stl)"}, masks{"*.obj", "*.stl"};
+    for (const QString& f : plugins_->formats()) filters << f, masks << f.section('(', 1).chopped(1).split(' ');
+    filters.prepend("Всё, что откроется (" + masks.join(' ') + ")");
+    const QString path = QFileDialog::getOpenFileName(this, "Импорт", examplesDir(), filters.join(";;"));
+    if (!path.isEmpty()) importFile(path);
+}
+
+void MainWindow::importFile(const QString& path) {
+    if (const QString op = plugins_->openerFor(path); !op.isEmpty()) return plugins_->openFile(op, path);
     QString error;
     if (!builder_->importModel(path, error)) QMessageBox::warning(this, "Модель", "Не удалось загрузить модель:\n" + error);
 }
