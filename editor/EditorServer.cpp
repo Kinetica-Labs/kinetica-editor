@@ -52,7 +52,11 @@ void EditorServer::readLines(QTcpSocket* socket) {
         const QJsonObject request = QJsonDocument::fromJson(line, &parseError).object();
         const QString src = request.value("src").toString();
         const bool console = src == "console", plugin = src.startsWith("plugin:");
-        if (onActivity_ && !console && !plugin) onActivity_(); // the editor's own console and its plugins are not an agent driving
+        // The editor's own console and its plugins are not an agent driving, nor a hand and an eye (ui_*, view_*): a tester
+        // acting as a person through them saw the plate and lost the gizmo, which a person never does.
+        const QString op = request.value("op").toString();
+        const bool hand = op.startsWith("ui_") || op == "view_screenshot" || op == "view_project";
+        if (onActivity_ && !console && !plugin && !hand) onActivity_();
         const QJsonValue id = request.value("id");
         QPointer<QTcpSocket> to(socket);
         auto reply = [to, id](const QJsonObject& answer) {

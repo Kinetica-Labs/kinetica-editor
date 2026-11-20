@@ -185,11 +185,12 @@ void EditTool::startFloorDrag(Viewport& v, QMouseEvent* e) {
     moveGizmo(v, e);
 }
 
-// The left button went 4 px from where it was pressed: on an object with Shift a floor slide, from
+// The left button went 4 px from where it was pressed: on an object a floor slide - with the move tool on as with Shift, as
+// Blender's move tool takes an object by its body (a newcomer dragged the IK goal by its body and nothing moved) - from
 // empty space the selection box.
 void EditTool::startLeftDrag(Viewport& v, QMouseEvent* e) {
     clickPending_ = false;
-    if (pressedEntity_ && (e->modifiers() & Qt::ShiftModifier)) startFloorDrag(v, e);
+    if (pressedEntity_ && ((e->modifiers() & Qt::ShiftModifier) || v.gizmo().mode() == GizmoMode::Translate)) startFloorDrag(v, e);
     else if (!pressedEntity_) box_ = true;
 }
 

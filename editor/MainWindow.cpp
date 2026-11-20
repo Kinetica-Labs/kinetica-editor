@@ -35,6 +35,7 @@
 #include <QTabWidget>
 #include <QTimer>
 #include <QToolBar>
+#include <QToolButton>
 #include <QVBoxLayout>
 
 #include <algorithm>
@@ -487,16 +488,40 @@ void MainWindow::buildSceneMenu() {
         if (!builder_->saveFile(path, error)) return void(QMessageBox::warning(this, "Сохранить сцену", error));
         statusBar()->showMessage("Сохранено: " + QDir::toNativeSeparators(path), 8000);
     });
+    // New, open and save live in Файл; Сцена is what goes into the scene - a newcomer found it a copy of Файл and no
+    // joint in it. The toolbar's lists and the inspector's «+ Добавить компонент» are the same actions here.
     auto* file = menuBar()->findChild<QMenu*>("fileMenu");
     const char* names[] = {"sceneNew", "sceneOpen", "sceneSave"};
-    // The same actions appear in File and Scene: one shortcut and one implementation each.
-    const auto sceneActions = menu->actions(); const auto anchor = file->actions().front();
+    const auto sceneActions = menu->actions();
+    const auto anchor = file->actions().front();
     for (int i = 0; i < 3; ++i) {
-        sceneActions[i]->setObjectName(names[i]); file->insertAction(anchor, sceneActions[i]);
+        sceneActions[i]->setObjectName(names[i]);
+        menu->removeAction(sceneActions[i]);
+        file->insertAction(anchor, sceneActions[i]);
     }
+    auto* gallery = new QAction("Примеры…", file);
+    connect(gallery, &QAction::triggered, this, &MainWindow::openGallery);
+    file->insertAction(anchor, gallery);
     file->insertSeparator(anchor);
-    menu->addSeparator();
-    menu->addAction("Примеры…", this, &MainWindow::openGallery);
+    menu->addSection("Добавить");
+    const std::pair<const char*, const char*> lists[] = {{"shapesButton", "Фигура"}, {"lightsButton", "Свет"},
+                                                         {"camerasButton", "Камера"}, {"sensorsButton", "Датчик на выбранное"}};
+    for (const auto& [button, title] : lists)
+        if (auto* b = findChild<QToolButton*>(button); b && b->menu()) {
+            QMenu* sub = menu->addMenu(b->icon(), title);
+            sub->setToolTipsVisible(true);
+            connect(sub, &QMenu::aboutToShow, this, [sub, b] { // the same actions, as the list under the button has them now
+                emit b->menu()->aboutToShow();
+                sub->clear();
+                sub->addActions(b->menu()->actions());
+            });
+        }
+    QMenu* component = menu->addMenu("Компонент выбранного: сочленение, датчик…");
+    component->setToolTipsVisible(true);
+    connect(component, &QMenu::aboutToShow, this, [this, component] {
+        builder_->fillAddMenu(component);
+        if (component->isEmpty()) component->addAction("Сначала выберите тело (с Ctrl — второе: сочленение между ними)")->setEnabled(false);
+    });
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     menuBar()->insertMenu(viewMenu->menuAction(), menu);
 }
@@ -617,6 +642,10 @@ void MainWindow::showHelp() {
         "<b>Ctrl+K</b> — найти команду.<br>"
         "Камера: <b>зажатое колесо</b> — вращение, <b>Shift+колесо</b> или ПКМ — сдвиг, прокрутка — масштаб "
         "(схема — в «Вид → Управление»).<br>"
+        "В правке: <b>щелчок</b> — выбрать (ещё щелчок там же — то, что глубже: датчик, деталь внутри), "
+        "<b>тяните тело</b> при инструменте «Перемещение» — едет по полу, стрелки гизмо — по оси.<br>"
+        "Добавить в сцену — меню «Сцена»: фигура, свет, камера, датчик, сочленение между двумя выбранными "
+        "(движется выбранное последним).<br>"
         "<b>ЛКМ</b> во время игры — рука мыши: тело тянется к курсору пружиной.<br>"
         "Рука UR5e: <b>W S A D</b> — по полу, <b>R F</b> — вверх-вниз, <b>Z X</b> — поворот, <b>пробел</b> — схват; "
         "или щёлкните предмет и нажмите «Рука — к этому предмету» справа.<br><br>"

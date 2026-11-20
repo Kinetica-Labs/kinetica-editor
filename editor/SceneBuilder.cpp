@@ -629,14 +629,15 @@ uint32_t SceneBuilder::entityOfBody(int body) const {
 // ---------------------------------------------------------------------------
 // The mouse in the viewport
 // ---------------------------------------------------------------------------
-// Each hit is what a click there selects (a group before its members; a sensor's glyph, the sensor:
-// it is all of it there is to click, and its body is clicked on the body), each thing once, nearest first.
+// Each hit is what a click there selects (a group before its members), each thing once, nearest first - the things one
+// sees before the sensors' glyphs: a click on a gripper chose the force-torque sensor in its flange, which a newcomer did
+// not see there (a trial). A glyph is the first only where nothing else is; a second click at the spot takes it.
 std::vector<PickHit> SceneBuilder::pickAll(const Ray& ray) {
     if (!editing()) return {};
     std::vector<PickHit> hits, all = editView_.pickAll(graph_, ray);
     for (const PickHit& h : pickMarkers(ray)) all.push_back(h); // lights and cameras: their wireframes
     std::sort(all.begin(), all.end(), [](const PickHit& a, const PickHit& b) { return a.t < b.t; });
-    std::stable_partition(all.begin(), all.end(), [this](const PickHit& h) { return sensorById(h.id) != nullptr; }); // drawn over everything
+    std::stable_partition(all.begin(), all.end(), [this](const PickHit& h) { return sensorById(h.id) == nullptr; });
     for (PickHit h : all) {
         h.id = sensorById(h.id) ? h.id : clickTarget(h.id);
         if (h.id == 0 || std::any_of(hits.begin(), hits.end(), [&](const PickHit& o) { return o.id == h.id; })) continue;

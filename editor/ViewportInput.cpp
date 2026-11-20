@@ -487,7 +487,9 @@ QString Viewport::mouseHint() const {
         const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать" : gizmo_.mode() == GizmoMode::Scale ? "масштабировать" : "двигать";
         return QString("Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);
     }
-    if (hoveredEntity_) return "ЛКМ: выбрать · Shift или Ctrl+ЛКМ: добавить / убрать · двойной клик: показать · " + cameraHint(scheme_);
+    if (hoveredEntity_)
+        return QString("ЛКМ: выбрать · ") + (gizmo_.mode() == GizmoMode::Translate ? "тяните: двигать по полу · " : "Shift+тяните: двигать по полу · ") +
+               "Shift или Ctrl+ЛКМ: добавить / убрать · двойной клик: показать · " + cameraHint(scheme_);
     return "ЛКМ: выбрать · тяните с пустого места: рамка · " + cameraHint(scheme_) + " · F: показать";
 }
 

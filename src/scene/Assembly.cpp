@@ -45,6 +45,15 @@ const char* jointLabel(JointType t) {
     }
 }
 
+// A new joint's name: its kind's word and the first number no other joint has with it - "Шарнир 1" in a scene of two
+// bodies, not its id ("Шарнир 59", which a newcomer took for a count).
+std::string freeJointName(const SceneGraph& g, const std::string& label) {
+    for (int n = 1;; ++n) {
+        const std::string name = label + " " + std::to_string(n);
+        if (std::none_of(g.joints.begin(), g.joints.end(), [&](const JointObject& j) { return j.name == name; })) return name;
+    }
+}
+
 // A joint holds bodies: an entity made of nothing (only drawn) becomes rigid, with its collider.
 void makeBody(Entity& e) {
     if (e.rigid.enabled) return;
@@ -154,7 +163,7 @@ static int freeMask(const JointObject& j) {
 uint32_t addJoint(SceneGraph& g, JointType type, uint32_t a, uint32_t b, const Vector3& worldAnchor, const Vector3& worldAxis) {
     JointObject j;
     j.id = nextId(g);
-    j.name = std::string(jointLabel(type)) + " " + std::to_string(j.id);
+    j.name = freeJointName(g, jointLabel(type));
     setJointKind(j, type);
     j.a = a;
     j.b = b;
@@ -241,15 +250,17 @@ const char* jointKindWord(const JointObject& j) {
     return "generic";
 }
 
-// The kind's freedoms; a joint still called by its old kind's label and its id is renamed by the new.
+// The kind's freedoms; a joint still called by its old kind's word and a number is renamed by the new, the number kept.
 bool setJointKind(JointObject& j, const std::string& word) {
     std::string old = "Сочленение";
     for (const KindWord& k : kKinds)
         if (k.free == freeMask(j)) old = k.label;
+    const std::string number = j.name.size() > old.size() + 1 && j.name.compare(0, old.size() + 1, old + " ") == 0 ? j.name.substr(old.size() + 1) : "";
+    const bool named = !number.empty() && std::all_of(number.begin(), number.end(), [](char c) { return c >= '0' && c <= '9'; });
     for (const KindWord& k : kKinds)
         if (word == k.word) {
             for (int d = 0; d < 6; ++d) j.dof[d].motion = (k.free >> d) & 1 ? JointMotion::Free : JointMotion::Locked;
-            if (j.name == old + " " + std::to_string(j.id)) j.name = std::string(k.label) + " " + std::to_string(j.id);
+            if (named) j.name = std::string(k.label) + " " + number;
             return true;
         }
     return false;

@@ -200,7 +200,10 @@ void testWorldAndKindEdits() {
                 double(other.world.gravity.z), double(other.world.physics.jointHertz), refused ? "yes" : "no", link.joint, hinge.c_str(),
                 slider.c_str(), j.name.c_str());
     CHECK(both && put && length(other.world.gravity) == 0 && other.world.physics.jointHertz == 120 && refused, "the world's edits: %s", error.c_str());
-    CHECK(slider == "Призматическое " + std::to_string(link.joint) && j.name == "Мой шарнир", "the kind's label: %s, %s", slider.c_str(), j.name.c_str());
+    // A new joint is its kind's word and the first free number (not its id: "Шарнир 59" in a scene of two bodies), and keeps
+    // the number when its kind changes.
+    CHECK(hinge == "Шарнир 1" && slider == "Призматическое 1" && j.name == "Мой шарнир", "the kind's label: %s, %s, %s", hinge.c_str(),
+          slider.c_str(), j.name.c_str());
 }
 
 // A stereo camera with its housing (CameraHousing.h). Free, a box housing at (0, 1, 0) looking at (1, 0, 0): its +x

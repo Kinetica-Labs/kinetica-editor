@@ -367,7 +367,11 @@ static bool handClosed(const SceneGraph& g, uint32_t hand, bool& fingers) {
 void SceneBuilder::refreshIkView() {
     // On an arm's link the button makes its IK goal; on any other thing, with an arm in the scene, it sends the arm there
     // - a newcomer asked it to "reach here" for a cube and was told to pick an arm's link.
-    const bool reach = entityById(selectedId_) && ke::ikChain(graph_, selectedId_).empty() && goalNear(selectedId_) != 0;
+    // Neither on a goal itself (its own button would lift it over itself) nor where no arm can take it.
+    const Entity* selected = entityById(selectedId_);
+    const bool link = selected && !ke::ikChain(graph_, selectedId_).empty();
+    const bool reach = selected && !link && !selected->goalOf && goalNear(selectedId_) != 0;
+    goalButton_->setVisible(link || reach);
     goalButton_->setText(reach ? "Рука — к этому предмету" : "Цель IK — рука тянется сюда");
     goalButton_->setToolTip(reach ? "Цель руки встаёт на 10 см над предметом, рука идёт к ней. Дальше: опустить — F, сомкнуть схват — пробел "
                                     "(во время игры; в правке — кнопка «Схват: сжать» у цели)"
@@ -465,7 +469,7 @@ uint32_t SceneBuilder::goalNear(uint32_t object) const {
 // arm's link: «Рука — к этому предмету» - the nearest IK goal 10 cm over the thing's top, its turn kept (assembly_goal_pose).
 void SceneBuilder::addGoalToSelected() {
     const uint32_t effector = selectedId_;
-    if (const uint32_t goal = goalNear(effector); entityById(effector) && ke::ikChain(graph_, effector).empty() && goal) {
+    if (const uint32_t goal = goalNear(effector); entityById(effector) && !entityById(effector)->goalOf && ke::ikChain(graph_, effector).empty() && goal) {
         const ke::AABB box = ke::objectBounds(graph_, effector);
         if (!box.valid()) return;
         const Vector3 over(box.center().x, box.hi.y + 0.10f, box.center().z);

@@ -226,22 +226,17 @@ struct Options {
     }
 };
 
-// A run nobody watches - the self-test, the pictures, automation - never shows a window, so that
-// nobody takes it for their own editor, and never takes the keyboard from the program in front:
-//   - the main window stays on the screen, because Windows paints only what is on a screen (the 3D
-//     view draws in its paint, and some checks watch what the paint does), but it is fully
-//     transparent, has no taskbar button, is never activated and lets every click through;
-//   - any other window of it (a menu, a popup, a tooltip) that would land on a screen is moved off
-//     it before it is shown - the Show event comes before the window is put on the screen - or as
-//     soon as it moves onto one (a tooltip placed again, a popup that places itself);
-//   - an open popup (a menu, a combo box's list) holds no grab of the desktop's pointer and keyboard:
-//     see withoutDesktopGrab.
-// A number typed with either decimal mark. Qt's number fields take only the locale's - ',' on a Russian desktop - and a
-// '.' vanished without a word: "0.1" became 1 (a newcomer's trial). The other mark becomes the field's own on its way in.
-class DecimalMarks : public QObject {
+// The number fields as a hand expects them (a newcomer's trials):
+//   - a number typed with either decimal mark. Qt's fields take only the locale's - ',' on a Russian desktop - and a '.'
+//     vanished without a word: "0.1" became 1. The other mark becomes the field's own on its way in;
+//   - a number typed is applied when the hand goes elsewhere. Qt applies it on Enter or when the field loses the keyboard,
+//     and a press on what takes no keyboard (Пуск, the toolbar, the 3D view in play) or a shortcut (Ctrl+S) left it
+//     shown in the field and not applied - the field lied.
+class NumberFields : public QObject {
 public:
     using QObject::QObject;
     bool eventFilter(QObject* to, QEvent* e) override {
+        if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::Shortcut) applyTyped(qobject_cast<QWidget*>(to));
         if (e->type() != QEvent::KeyPress) return false;
         auto* box = qobject_cast<QDoubleSpinBox*>(to);
         if (!box && to->parent()) box = qobject_cast<QDoubleSpinBox*>(to->parent()); // its line edit
@@ -253,8 +248,27 @@ public:
         QCoreApplication::sendEvent(to, &own);
         return true;
     }
+
+private:
+    // The field with the keyboard - the application's, and the pressed window's own (an inactive window keeps its own) -
+    // takes what was typed in it, unless the press is on that field.
+    static void applyTyped(QWidget* pressed) {
+        for (QWidget* focus : {QApplication::focusWidget(), pressed ? pressed->window()->focusWidget() : nullptr})
+            if (auto* box = qobject_cast<QAbstractSpinBox*>(focus); box && pressed != box && !box->isAncestorOf(pressed))
+                box->interpretText();
+    }
 };
 
+// A run nobody watches - the self-test, the pictures, automation - never shows a window, so that
+// nobody takes it for their own editor, and never takes the keyboard from the program in front:
+//   - the main window stays on the screen, because Windows paints only what is on a screen (the 3D
+//     view draws in its paint, and some checks watch what the paint does), but it is fully
+//     transparent, has no taskbar button, is never activated and lets every click through;
+//   - any other window of it (a menu, a popup, a tooltip) that would land on a screen is moved off
+//     it before it is shown - the Show event comes before the window is put on the screen - or as
+//     soon as it moves onto one (a tooltip placed again, a popup that places itself);
+//   - an open popup (a menu, a combo box's list) holds no grab of the desktop's pointer and keyboard:
+//     see withoutDesktopGrab.
 class OffscreenGuard : public QObject {
 public:
     using QObject::QObject;
@@ -350,7 +364,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "%s\n", qPrintable(slotError));
         return 3;
     }
-    app.installEventFilter(new DecimalMarks(&app));
+    app.installEventFilter(new NumberFields(&app));
     MainWindow w;
     const QStringList wh = cli.value(o.size).split('x');
     w.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1600, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 950);

@@ -13,6 +13,7 @@
 #include <QKeyEvent>
 #include <QKeySequence>
 #include <QMouseEvent>
+#include <QPointer>
 #include <QWheelEvent>
 #include <QWindow>
 #include <qpa/qwindowsysteminterface.h>
@@ -39,11 +40,43 @@ void send(QWidget* to, QEvent::Type type, const QPointF& at, Qt::MouseButton b, 
     QCoreApplication::sendEvent(to, &e);
 }
 
+// The window the keyboard goes to: a modal dialog over the editor, else the editor's window.
+QWidget* keyWindow(QWidget* main) {
+    QWidget* modal = QApplication::activeModalWidget();
+    return modal && modal->isVisible() ? modal : main;
+}
+
+// What has the keyboard: an open popup, else the key window's own focus - not QApplication::focusWidget(), which an
+// inactive window (the unattended editor's) leaves at whatever had it last: a combo box's list after its popup closed,
+// so the digits typed into a field went into a closed list.
+QWidget* keyFocus(QWidget* main) {
+    if (QWidget* popup = uiPopupWindow(main)) return popup;
+    return keyWindow(main)->focusWidget();
+}
+
+// The focus moved inside a window as a hand moves it: Qt sends the focus-out and focus-in events only in the active window,
+// and the unattended editor's is never made active - a field left by Tab kept its typed number unapplied (a spin box
+// applies it on focus-out) and the next was not selected (it selects all on a Tab focus-in). Here they are sent by hand.
+class FocusMove {
+public:
+    explicit FocusMove(QWidget* window) : window_(window), was_(window->focusWidget()) {}
+    void done(Qt::FocusReason why) {
+        QWidget* now = window_->focusWidget();
+        if (window_->isActiveWindow() || now == was_) return; // Qt sent them itself, or nothing moved
+        if (was_) { QFocusEvent out(QEvent::FocusOut, why); QCoreApplication::sendEvent(was_, &out); }
+        if (now) { QFocusEvent in(QEvent::FocusIn, why); QCoreApplication::sendEvent(now, &in); }
+    }
+private:
+    QWidget* window_;
+    QPointer<QWidget> was_;
+};
+
 // A press gives the keyboard to what was pressed, as Qt does for a real one (only for real ones: an event sent by a program
 // does not move the focus) - the nearest widget up from it that takes focus by a click.
 void focusByClick(QWidget* pressed) {
+    FocusMove move(pressed->window());
     for (QWidget* w = pressed; w; w = w->isWindow() ? nullptr : w->parentWidget())
-        if (w->isEnabled() && (w->focusPolicy() & Qt::ClickFocus)) return w->setFocus(Qt::MouseFocusReason);
+        if (w->isEnabled() && (w->focusPolicy() & Qt::ClickFocus)) return w->setFocus(Qt::MouseFocusReason), move.done(Qt::MouseFocusReason);
 }
 
 // A key as the window system hands it to the application - the path a real key takes: the window's shortcuts are
@@ -137,8 +170,7 @@ void EditorOps::addInputOps() {
             "{text: str}", [this](const QJsonObject& a) {
         // The window's own focus: the editor is not made the active window (that would take the keyboard from the user's
         // other programs), and Qt names no application focus for an inactive window.
-        QWidget* focus = uiPopupWindow(window_);
-        if (!focus) focus = QApplication::focusWidget() ? QApplication::focusWidget() : window_->focusWidget();
+        QWidget* focus = keyFocus(window_);
         if (!focus) return error("nothing has the keyboard focus: click a field first");
         for (const QChar ch : a.value("text").toString()) {
             const int key = ch.isDigit() || (ch.unicode() < 128 && ch.isLetter()) ? ch.toUpper().unicode() : int(Qt::Key_unknown);
@@ -150,7 +182,8 @@ void EditorOps::addInputOps() {
         return ok({{"focus", focus->metaObject()->className()}});
     });
     addSync("ui_key", "A key pressed and released in the 3D view: 'A', '1', 'Escape', 'Delete'... - in an open popup menu first, "
-            "where Escape closes it; action 'press' holds it down until a 'release' (W A S D fly the view while the right button is held). "
+            "where Escape closes it; a key the view does not take goes on to the window's shortcuts (F frames the selection), as a real one does; "
+            "action 'press' holds it down until a 'release' (W A S D fly the view while the right button is held). "
             "window: as the window system delivers a real key - the window's shortcuts first, then whatever has the focus "
             "(not the view forced); layout 'ru': the key on that QWERTY place typed with the Russian layout on",
             "{key: str, action?: 'tap'|'press'|'release', window?: bool, layout?: 'us'|'ru'}", [this](const QJsonObject& a) {
@@ -161,18 +194,27 @@ void EditorOps::addInputOps() {
         QWidget* popup = uiPopupWindow(window_);
         if (a.value("window").toBool() || popup) { // an open visible popup always takes keys first
             const QString name = a.value("key").toString();
-            QWidget* modal = QApplication::activeModalWidget();
-            windowKey(popup ? popup : modal ? modal : window_, name.size() == 1 ? name[0] : QChar(), k.key(), k.keyboardModifiers(),
+            FocusMove move(keyWindow(window_));
+            windowKey(popup ? popup : keyWindow(window_), name.size() == 1 ? name[0] : QChar(), k.key(), k.keyboardModifiers(),
                       a.value("layout").toString() == "ru", action != "release", action != "press", popup);
-            QWidget* focus = uiPopupWindow(window_);
-            if (!focus) focus = QApplication::focusWidget() ? QApplication::focusWidget() : window_->focusWidget();
+            const bool back = k.key() == Qt::Key_Backtab || (k.key() == Qt::Key_Tab && (k.keyboardModifiers() & Qt::ShiftModifier));
+            if (!popup) move.done(back ? Qt::BacktabFocusReason : k.key() == Qt::Key_Tab ? Qt::TabFocusReason : Qt::OtherFocusReason);
+            QWidget* focus = keyFocus(window_);
             return ok({{"focus", focus ? focus->metaObject()->className() : "none"}});
         }
+        FocusMove move(window_);
         view_->setFocus();
+        move.done(Qt::OtherFocusReason);
         QKeyEvent over(QEvent::ShortcutOverride, k.key(), k.keyboardModifiers(), a.value("key").toString());
         QCoreApplication::sendEvent(view_, &over);
         QKeyEvent press(QEvent::KeyPress, k.key(), k.keyboardModifiers()), release(QEvent::KeyRelease, k.key(), k.keyboardModifiers());
         if (action != "release") QCoreApplication::sendEvent(view_, &press);
+        if (action != "release" && !press.isAccepted()) { // not the view's key: the window's shortcut, as a hand's F frames the selection
+            const QString name = a.value("key").toString();
+            windowKey(window_, name.size() == 1 ? name[0] : QChar(), k.key(), k.keyboardModifiers(), a.value("layout").toString() == "ru",
+                      true, action != "press");
+            return ok();
+        }
         if (action != "press") QCoreApplication::sendEvent(view_, &release);
         return ok();
     });

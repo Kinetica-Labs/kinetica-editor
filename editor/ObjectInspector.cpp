@@ -51,7 +51,7 @@ ObjectInspector::ObjectInspector(QWidget* parent) : QWidget(parent) {
     top->addWidget(colour_);
     col->addLayout(top);
 
-    auto* form = new QFormLayout;
+    auto* form = form_ = new QFormLayout;
     form->setSpacing(6);
     position_ = new Vec3Row(-50, 50, 0.05, 3); // millimetres: a 1 cm gap is 0.045, not 0.04
     rotation_ = new Vec3Row(-360, 360, 5, 0);
@@ -81,6 +81,11 @@ void ObjectInspector::setObject(const ke::SceneObject& o) {
     position_->setValue(o.position);
     rotation_->setValue(o.rotationDeg);
     updateToggleIcons();
+}
+
+void ObjectInspector::showPlace(bool shown) {
+    form_->setRowVisible(position_, shown);
+    form_->setRowVisible(rotation_, shown);
 }
 
 void ObjectInspector::writeTo(ke::SceneObject& o) const {

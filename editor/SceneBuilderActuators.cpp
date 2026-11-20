@@ -14,18 +14,26 @@
 
 using namespace ke;
 
-void SceneBuilder::fillJointMenu(const Entity& e) {
+void SceneBuilder::fillJointMenu(const Entity& e, QMenu* menu) {
     if (!findSceneOp("assembly_actuator")) return;
     const uint32_t other = selection_.size() == 2 ? (selection_[0] == e.id ? selection_[1] : selection_[0]) : 0;
     const SceneObject* to = other ? findObject(graph_, other) : nullptr;
-    addMenu_->addSection(to ? "Сочленение с приводом — к «" + QString::fromStdString(to->name) + "»" : "Сочленение с приводом — к миру");
+    // Which one moves is the selection's order, said where it is chosen (a newcomer found it nowhere): the active one - the
+    // last selected - hangs on the other.
+    const QString moving = QString::fromStdString(e.name);
+    menu->addSection(to ? "Сочленение с приводом: «" + moving + "» на «" + QString::fromStdString(to->name) + "»"
+                        : "Сочленение с приводом: «" + moving + "» на мире");
+    const QString order = to ? "\nДвижется «" + moving + "», «" + QString::fromStdString(to->name) +
+                                   "» — опора. Наоборот: выберите их в другом порядке, опору последней"
+                             : QString("\nВторое тело с Ctrl — сочленение между ними");
     static const char* const turns[] = {"Поворот вокруг X", "Поворот вокруг вертикали (Y)", "Поворот вокруг Z"};
     static const char* const slides[] = {"Ход вдоль X", "Ход вдоль вертикали (Y)", "Ход вдоль Z"};
     for (int kind = 0; kind < 2; ++kind)
         for (int axis = 0; axis < 3; ++axis) {
-            QAction* a = addMenu_->addAction(kind == 0 ? turns[axis] : slides[axis]);
-            a->setToolTip(kind == 0 ? "Шарнир с сервоприводом, настроенным под то, что он несёт: держит позу, цель — угол в карточке сочленения"
-                                    : "Ползун с сервоприводом, настроенным под то, что он несёт: держит место, цель — ход в карточке сочленения");
+            QAction* a = menu->addAction(kind == 0 ? turns[axis] : slides[axis]);
+            a->setToolTip(QString(kind == 0 ? "Шарнир с сервоприводом, настроенным под то, что он несёт: держит позу, цель — угол в карточке сочленения"
+                                            : "Ползун с сервоприводом, настроенным под то, что он несёт: держит место, цель — ход в карточке сочленения") +
+                          order);
             connect(a, &QAction::triggered, this, [this, link = e.id, other, kind, axis] { addActuator(link, other, kind == 0, axis); });
         }
 }

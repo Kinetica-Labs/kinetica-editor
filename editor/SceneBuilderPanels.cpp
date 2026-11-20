@@ -399,25 +399,25 @@ void SceneBuilder::buildAddComponent(QVBoxLayout* col) {
     addComponent_->setObjectName("addComponent");
     addMenu_ = new QMenu(addComponent_);
     addMenu_->setObjectName("addComponentMenu");
-    connect(addMenu_, &QMenu::aboutToShow, this, &SceneBuilder::fillAddMenu);
+    connect(addMenu_, &QMenu::aboutToShow, this, [this] { fillAddMenu(addMenu_); });
     addComponent_->setMenu(addMenu_);
     col->addWidget(addComponent_);
 }
 
-void SceneBuilder::fillAddMenu() {
-    addMenu_->clear();
+void SceneBuilder::fillAddMenu(QMenu* menu) {
+    menu->clear();
     const Entity* e = selectedEntity();
     if (!e) return;
     const std::vector<RoleIcon> all = commonRoles(); // several selected: added to every one of them
     for (RoleIcon role : {RoleIcon::Rigid, RoleIcon::Collider}) {
         if (std::find(all.begin(), all.end(), role) != all.end()) continue;
-        QAction* a = addMenu_->addAction(roleIcon(role, 24), roleTitle(role));
+        QAction* a = menu->addAction(roleIcon(role, 24), roleTitle(role));
         a->setToolTip(roleTip(role));
         connect(a, &QAction::triggered, this, [this, role] { toggleRole(role); });
     }
-    if (!addMenu_->isEmpty()) addMenu_->addSeparator();
-    if (selection_.size() <= 2) fillJointMenu(*e); // to the world, or between the two selected
-    if (selection_.size() == 1) fillSensorMenu(*e);
+    if (!menu->isEmpty()) menu->addSeparator();
+    if (selection_.size() <= 2) fillJointMenu(*e, menu); // to the world, or between the two selected
+    if (selection_.size() == 1) fillSensorMenu(*e, menu);
 }
 
 // ---------------------------------------------------------------------------
@@ -507,6 +507,8 @@ void SceneBuilder::readDetails(Entity& e) const {
 void SceneBuilder::showTransform(const SceneObject& o) {
     filling_ = true;
     object_->setObject(o);
+    const SensorObject* sensor = sensorById(o.id);
+    object_->showPlace(!(sensor && findJoint(graph_, sensor->parent)));
     if (const Entity* e = entityById(o.id)) size_->setValue(entityById(masterOf(e->id))->size);
     filling_ = false;
 }

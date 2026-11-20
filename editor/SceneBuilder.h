@@ -226,6 +226,7 @@ public:
     // it hangs on; updateSensorActions greys out what does not fit and says why.
     const std::vector<QAction*>& sensorActions();
     void updateSensorActions();
+    void fillAddMenu(QMenu* menu); // the components the selection does not have yet: «+ Добавить компонент», menu «Сцена»
     // In the air over a free spot, named after its shape ("Куб 2"); `adjust` changes it before it joins.
     void addEntity(ke::ShapeKind shape, const std::function<void(ke::Entity&)>& adjust = {});
     void setRoleOfSelected(RoleIcon role, bool on); // the role bar's click with its outcome given
@@ -322,7 +323,6 @@ private:
     void buildColliderCard(QVBoxLayout* col);
     void buildAddComponent(QVBoxLayout* col);      // "+ Добавить компонент" and its menu
     void buildManyCards(QVBoxLayout* col);         // "Группа", "Массив" and the instance's link
-    void fillAddMenu();                            // the components the object does not have yet
     ComponentCard* componentCard(QVBoxLayout* col, RoleIcon role);
     class FieldForm* shapeFields(ComponentCard* card, class FieldForm* SceneBuilder::*slot); // over the selected shapes' masters
     class FieldForm* arrayFields();
@@ -379,8 +379,8 @@ private:
     // the scene plays. The electrics (SceneBuilderDevices.cpp): batteries and their drivers as rows of
     // the scene list and their cards - a driver's duty set by hand while the car drives.
     void addSensor(ke::SensorKind kind);
-    void fillSensorMenu(const ke::Entity& e);   // the "Датчики" part of "+ Добавить компонент"
-    void fillJointMenu(const ke::Entity& e);    // its «Сочленение с приводом» part (SceneBuilderActuators.cpp)
+    void fillSensorMenu(const ke::Entity& e, QMenu* menu); // the "Датчики" part of "+ Добавить компонент"
+    void fillJointMenu(const ke::Entity& e, QMenu* menu);  // its «Сочленение с приводом» part (SceneBuilderActuators.cpp)
     void addActuator(uint32_t link, uint32_t other, bool rotary, int axis); // assembly_actuator about / along a world axis
     void buildSensorCard(QVBoxLayout* col);
     void fillSensorCard(const ke::SceneObject& o);

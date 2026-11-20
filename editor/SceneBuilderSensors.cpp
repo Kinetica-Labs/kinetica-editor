@@ -178,13 +178,13 @@ void SceneBuilder::updateSensorActions() {
 }
 
 // The "Датчики" part of "+ Добавить компонент" for the selected shape.
-void SceneBuilder::fillSensorMenu(const Entity& e) {
-    addMenu_->addSection("Электрика");
+void SceneBuilder::fillSensorMenu(const Entity& e, QMenu* menu) {
+    menu->addSection("Электрика");
     uint32_t motor = 0;
     for (const JointObject& j : graph_.joints)
         for (int k = 0; k < 6 && j.a == e.id && !motor; ++k)
             if (j.dof[k].drive.enabled && j.dof[k].drive.constant > 0) motor = j.id;
-    QAction* power = addMenu_->addAction(deviceIcon(DeviceIcon::Driver, 24), "Питание от батареи");
+    QAction* power = menu->addAction(deviceIcon(DeviceIcon::Driver, 24), "Питание от батареи");
     power->setEnabled(motor != 0);
     power->setToolTip(motor ? "Драйвер мотора от батареи сцены (нет батареи — появится 3S): ШИМ, ток и заряд вместо идеального источника"
                             : "Нужен мотор постоянного тока на сочленении тела — заготовка «Мотор-колесо»");
@@ -197,7 +197,7 @@ void SceneBuilder::fillSensorMenu(const Entity& e) {
             emit statusMessage("Мотор питается от батареи: ШИМ — в карточке драйвера, двигается и на ходу");
         }
     });
-    addMenu_->addSection("Датчики");
+    menu->addSection("Датчики");
     const bool joint = jointOfLink(graph_, e.id) != 0;
     const char* tips[] = {"Квадратурный энкодер на сочленение, которым держится это тело: фронты A/B/Z и счёт",
                           "Акселерометр и гироскоп: частота, диапазон, шум и смещения — из паспорта модели (data/sensors/imu.csv)",
@@ -207,7 +207,7 @@ void SceneBuilder::fillSensorMenu(const Entity& e) {
                           "Сила или момент мотора сочленения, как датчик тока сервы: чем тело давит, сколько держит"};
     for (int k = 0; k < kSensorKinds; ++k) { // SensorKind: an encoder, a wrench and an effort need the joint the body hangs on
         const bool onJoint = k == 0 || k == 4 || k == 5;
-        QAction* a = addMenu_->addAction(deviceIcon(DeviceIcon(k), 24), kSensorNames[k]);
+        QAction* a = menu->addAction(deviceIcon(DeviceIcon(k), 24), kSensorNames[k]);
         a->setToolTip(onJoint && !joint ? "У тела нет сочленения: датчику нечего мерить" : tips[k]);
         a->setEnabled(!onJoint || joint);
         const SensorKind kind = SensorKind(k);
