@@ -117,6 +117,37 @@ void testSceneOpsRegistry() {
     findSceneOp("scene_list")->query(g, Value::map(), list, error);
     CHECK(list["objects"].size() == 1 && list["objects"].items()[0]["kind"].text() == "entity" && list["objects"].items()[0]["name"].text() == "Сфера 1",
           "scene_list: the sphere, its kind and name");
+    {   // By kind - what a plugin's field of a scene object chooses from: a row's kind, a sensor's own, "body".
+        SceneGraph k;
+        const auto made = [&k, &error](const char* op, const Value& a) {
+            Value r = Value::map();
+            return findSceneOp(op)->edit(k, a, r, error) ? uint32_t(r["id"].integer()) : 0u;
+        };
+        Value fixed = Value::map(), loose = Value::map(), hinge = Value::map(), counter = Value::map();
+        fixed.set("shape", "box"), fixed.set("role", "rigid");
+        loose.set("shape", "sphere");
+        const uint32_t base = made("scene_add", fixed), ball = made("scene_add", loose);
+        const auto of = [&k, &error](const char* kind) {
+            Value a = Value::map(), r = Value::map();
+            a.set("kind", kind);
+            std::string ids;
+            if (!findSceneOp("scene_list")->query(k, a, r, error)) return std::string("refused");
+            for (const Value& o : r["objects"].items()) ids += std::to_string(o["id"].integer()) + " ";
+            return ids;
+        };
+        const std::string bodies = of("body"), shapes = of("entity");
+        hinge.set("a", int(ball)), hinge.set("b", int(base));
+        const uint32_t joint = made("assembly_actuator", hinge);
+        counter.set("joint", int(joint));
+        const uint32_t encoder = made("assembly_encoder", counter);
+        const std::string one = std::to_string(encoder) + " ";
+        CHECK(bodies == std::to_string(base) + " " && shapes == bodies + std::to_string(ball) + " " && of("joint") == std::to_string(joint) + " " &&
+              of("encoder") == one && of("sensor") == one && of("imu").empty(),
+              "scene_list by kind: a body is an entity with the rigid role, an encoder a sensor of its own kind (%s| %s| %s)", bodies.c_str(),
+              shapes.c_str(), one.c_str());
+        CHECK(of("teapot") == "refused" && error.find("encoder") != std::string::npos && error.find("body") != std::string::npos,
+              "scene_list of a kind there is not is refused, naming the kinds: %s", error.c_str());
+    }
     Value batch = Value::map(), steps = Value::list(), add = Value::map(), role = Value::map(), roleArgs = Value::map();
     add.set("op", "scene_add"), add.set("args", Value::map());
     roleArgs.set("ids", idsValue({g.entities[0].id})), roleArgs.set("role", "teapot");

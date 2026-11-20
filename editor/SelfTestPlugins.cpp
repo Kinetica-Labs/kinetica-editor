@@ -3,6 +3,7 @@
 // cubes with two edits and one Ctrl+Z takes both back; its button opens the form of its field and runs with the value
 // given; its panel - a tab of the inspector - runs it with the panel's field and shows the value it set; an error in a command answers with the author's file and line; the file saved, the plugin is back within a
 // few seconds with its new words; a plugin that falls over at its line 3 says so on the status bar - and the editor goes on.
+// A field that is an object of the scene - in a command's form, on a component's card -, and the controller's template.
 #include "SelfTestSupport.h"
 
 #include "EditorOps.h"
@@ -11,6 +12,7 @@
 #include "Resources.h"
 
 #include <QAction>
+#include <QComboBox>
 #include <QDateTime>
 #include <QDialog>
 #include <QDir>
@@ -415,6 +417,105 @@ void testUrdf(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, con
 
 } // namespace
 
+// A field that is an object of the scene (field(ref="joint")): the tool an agent gets says the kind and that the field must
+// be said; a call without it, or with an object of another kind, is refused - the second naming the joints there are;
+// with a joint's id the command gets the joint itself; the button's form offers the scene's joints by name. On a
+// component such a field is a list on its card: the encoder chosen there is kept as its id, one undo step.
+// And «Контроллер робота» as «Новый плагин…» gives it: a servo with an encoder follows its wave by what the encoder reads.
+void testSceneFields(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+    b.newScene();
+    const auto id = [ops](const char* op, QJsonObject args) { return uint32_t(ops->runNow(op, args).value("id").toInt()); };
+    const uint32_t base = id("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}, {"size", QJsonArray{0.2, 0.2, 0.2}},
+                                           {"role", "rigid"}, {"fixed", true}});
+    const uint32_t arm = id("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.3, 0.5, 0.0}}, {"size", QJsonArray{0.4, 0.05, 0.05}}, {"role", "rigid"}});
+    const uint32_t joint = id("assembly_actuator", {{"kind", "rotary"}, {"a", int(arm)}, {"b", int(base)}, {"axis", QJsonArray{0.0, 0.0, 1.0}}});
+    const uint32_t encoder = id("assembly_encoder", {{"joint", int(joint)}, {"reference", 0.0}});
+    const QString jointName = QString::fromStdString(findJoint(b.graph(), joint)->name);
+    QDir().mkpath(folder + "/picker");
+    write(folder + "/picker/plugin.py", R"py(from kinetica.plugin import command, component, field
+
+
+@command(label="Чей сустав")
+def whose(scene, joint=field(ref="joint", label="Сустав"), by: float = field(0.2, unit="рад")):
+    """Says what it was given."""
+    return {"given": type(joint).__name__, "id": joint.id, "servo": joint.servo}
+
+
+@component(label="Следит")
+class Watcher:
+    encoder = field(ref="encoder", label="Энкодер")
+)py");
+    host->start(true);
+    const bool came = waitUntil([&] { return action(w, "plugin:picker_whose") != nullptr && !b.componentType("picker.watcher").isEmpty(); }, 10000);
+    QJsonObject schema;
+    for (const QJsonValue& o : ops->runNow("ops_list", {}).value("ops").toArray())
+        if (o.toObject().value("name") == "picker_whose") schema = o.toObject().value("schema").toObject();
+    const QJsonObject said = schema.value("properties").toObject().value("joint").toObject();
+    const bool told = said.value("type") == "integer" && !said.contains("default") && said.value("description").toString().contains("kind joint") &&
+                      schema.value("required").toArray().contains("joint");
+    const auto call = [&](const QJsonObject& args) {
+        QJsonObject r;
+        ops->run("picker_whose", args, [&r](const QJsonObject& a) { r = a; }, "ui");
+        waitUntil([&] { return !r.isEmpty(); }, 5000);
+        return r;
+    };
+    const QString none = call({}).value("error").toString(), other = call({{"joint", int(arm)}}).value("error").toString();
+    const QJsonObject right = call({{"joint", int(joint)}});
+    QString offered;
+    int chosen = 0;
+    QTimer::singleShot(400, [&w, &offered, &chosen] {
+        for (QDialog* d : w.findChildren<QDialog*>("pluginForm")) {
+            if (auto* box = d->findChild<QComboBox*>("pluginField_joint")) offered = QString("%1 of %2").arg(box->currentText()).arg(box->count()), chosen = box->currentData().toInt();
+            d->reject();
+        }
+    });
+    if (QAction* button = action(w, "plugin:picker_whose")) button->trigger();
+    std::printf("  a field of a scene object: the tool says «%s», required %s; no joint: %s; a body for a joint: %s; the joint: %s %d; "
+                "the form offers «%s»\n", qPrintable(said.value("description").toString()), told ? "yes" : "no", qPrintable(none), qPrintable(other),
+                qPrintable(right.value("given").toString()), right.value("id").toInt(), qPrintable(offered));
+    c.check(came && told && none.contains("joint") && other.contains("не «joint»") && other.contains(jointName) && right.value("ok").toBool() &&
+            right.value("given").toString() == "Joint" && right.value("id").toInt() == int(joint) && right.value("servo").toBool(),
+            "a field of a scene object: its kind in the tool's schema, a call without it or with another kind refused naming the joints, the command gets the joint itself");
+    c.check(offered == jointName + " of 1" && chosen == int(joint), "its form offers the scene's joints by name and sends the chosen one's id");
+
+    // On a component: a list on the card, «—» until one is chosen; the encoder chosen is kept as its id.
+    b.select(arm);
+    ops->runNow("component_set", {{"id", int(arm)}, {"type", "picker.watcher"}});
+    b.select(arm);
+    pump(100);
+    auto* card = w.findChild<QWidget*>("pluginComponent:picker.watcher");
+    auto* list = card ? card->findChild<QComboBox*>() : nullptr;
+    const QString items = list ? QString("%1 | %2").arg(list->itemText(0), list->count() > 1 ? list->itemText(1) : QString()) : QString("no list");
+    const size_t steps = b.undoTaken();
+    if (list && list->count() > 1) list->setCurrentIndex(1);
+    pump(150);
+    const QJsonObject kept = ops->runNow("component_list", {{"type", "picker.watcher"}}).value("components").toArray().at(0).toObject().value("values").toObject();
+    std::printf("  on a component's card: «%s»; chosen: encoder %d kept (the scene's is %u), %zu undo step(s)\n", qPrintable(items),
+                kept.value("encoder").toInt(), encoder, b.undoTaken() - steps);
+    c.check(list && list->count() == 2 && list->itemText(0) == "—" && kept.value("encoder").toInt() == int(encoder) && b.undoTaken() == steps + 1,
+            "a component's field of a scene object is a list of them on its card; the one chosen is kept as its id, one undo step");
+    QDir(folder + "/picker").removeRecursively();
+
+    // The controller's template, as plugin_new writes it: the joint follows 0.3 sin(t) by its encoder.
+    QFile source(resourceDir("python") + "/kinetica/plugin_template_controller.py");
+    source.open(QIODevice::ReadOnly);
+    QDir().mkpath(folder + "/wave");
+    write(folder + "/wave/plugin.py", QString::fromUtf8(source.readAll()).replace("PLUGIN_NAME", "wave"));
+    host->start(true);
+    const bool ticks = waitUntil([&] { return host->ticking(); }, 10000);
+    QJsonObject stepped;
+    ops->run("sim_step", {{"frames", 180}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+    waitUntil([&] { return !stepped.isEmpty(); }, 20000);
+    double angle = 0;
+    for (const QJsonValue& j : stepped.value("joints").toArray())
+        if (uint32_t(j.toObject().value("id").toInt()) == joint) angle = j.toObject().value("angle").toDouble();
+    const double wave = 0.3 * std::sin(stepped.value("time").toDouble());
+    b.stop();
+    std::printf("  the controller's template, 3 s: the joint at %.3f rad, its wave at %.3f\n", angle, wave);
+    c.check(ticks && std::fabs(angle - wave) < 0.05, "«Контроллер робота» as it is made: a servo with an encoder follows its wave by what the encoder reads");
+    QDir(folder + "/wave").removeRecursively();
+}
+
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     auto* host = w.findChild<PluginHost*>();
@@ -540,6 +641,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testComponents(c, w, b, v, ops, host, dir.path());
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
+    testSceneFields(c, w, b, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

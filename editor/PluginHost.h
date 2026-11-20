@@ -99,6 +99,8 @@ private:
     void call(Plugin& p, const QString& command, const QJsonObject& args, const EditorOps::Reply& reply);
     void deliver(Plugin& p);
     void invoke(const QString& plugin, const Command& c); // a button: the form of its fields, then the call
+    QJsonArray refObjects(const QString& kind, QString* why = nullptr) const; // a field of a scene object: what it may be
+    QString refProblem(const QJsonObject& fields, const QJsonObject& args) const;
     void hookDrew(const QString& plugin, const QString& event, const QJsonArray& pictures); // a hook's answer, after the fact:
     void hookFailed(const QString& plugin, const QString& event, const QString& error);     // its pictures, its error (RunHooks.h)
     Plugin* find(const QString& name);

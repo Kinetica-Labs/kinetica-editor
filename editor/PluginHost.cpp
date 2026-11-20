@@ -97,28 +97,38 @@ QIcon toolIcon(const QString& label) {
     return QIcon(pix);
 }
 
+// A field that is an object of the scene (kinetica.plugin.field(ref="joint")) and has no default must be said.
+bool mustBeSaid(const QJsonObject& f) { return f.contains("ref") && !f.contains("default"); }
+
 QJsonObject jsonSchema(const QJsonObject& args) {
     QJsonObject properties;
+    QJsonArray required;
     for (auto it = args.begin(); it != args.end(); ++it) {
-        QJsonObject f = it.value().toObject(), p{{"type", f.value("type")}, {"default", f.value("default")}};
+        QJsonObject f = it.value().toObject(), p{{"type", f.value("type")}};
         if (f.value("type") == "vector") // a point, a direction: three numbers
-            p = {{"type", "array"}, {"items", QJsonObject{{"type", "number"}}}, {"minItems", 3}, {"maxItems", 3}, {"default", f.value("default")}};
+            p = {{"type", "array"}, {"items", QJsonObject{{"type", "number"}}}, {"minItems", 3}, {"maxItems", 3}};
+        if (f.contains("default")) p.insert("default", f.value("default"));
         QString about = f.value("label").toString();
         if (f.contains("unit")) about += ", " + f.value("unit").toString();
+        if (f.contains("ref")) about += QString(": the id of a scene object of kind %1 (scene_list {kind: \"%1\"} lists them)").arg(f.value("ref").toString());
         if (f.contains("help")) about += ". " + f.value("help").toString();
         p.insert("description", about);
         for (const char* k : {"minimum", "maximum", "enum"})
             if (f.contains(k)) p.insert(k, f.value(k));
         properties.insert(it.key(), p);
+        if (mustBeSaid(f)) required.append(it.key());
     }
-    return {{"type", "object"}, {"properties", properties}, {"additionalProperties", false}};
+    QJsonObject schema{{"type", "object"}, {"properties", properties}, {"additionalProperties", false}};
+    if (!required.isEmpty()) schema.insert("required", required);
+    return schema;
 }
 
 QString argsHelp(const QJsonObject& args, const QJsonArray& order) {
     QStringList parts;
     for (const QJsonValue& n : order) {
         const QJsonObject f = args.value(n.toString()).toObject();
-        parts << n.toString() + "?: " + f.value("type").toString() + (f.contains("unit") ? " " + f.value("unit").toString() : QString());
+        const QString type = f.contains("ref") ? "int (a " + f.value("ref").toString() + "'s id)" : f.value("type").toString();
+        parts << n.toString() + (mustBeSaid(f) ? ": " : "?: ") + type + (f.contains("unit") ? " " + f.value("unit").toString() : QString());
     }
     return "{" + parts.join(", ") + "}";
 }
@@ -392,6 +402,36 @@ void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args
 
 bool PluginHost::ticking(bool world) const { return hooks_->ticking(world); }
 
+// What a field of a scene object may be: the scene's objects of its kind, as scene_list lists them - the form offers
+// these, a call is checked against these. `why`: the kind's word is not one scene_list knows.
+QJsonArray PluginHost::refObjects(const QString& kind, QString* why) const {
+    const QJsonObject listed = ops_->runNow("scene_list", {{"kind", kind}});
+    if (why && !listed.value("ok").toBool()) *why = listed.value("error").toString();
+    return listed.value("objects").toArray();
+}
+
+// A call's objects of the scene are of the kinds its fields ask for; else what is wrong, with the objects there are.
+QString PluginHost::refProblem(const QJsonObject& fields, const QJsonObject& args) const {
+    for (auto it = fields.begin(); it != fields.end(); ++it) {
+        const QString kind = it.value().toObject().value("ref").toString();
+        if (kind.isEmpty() || !args.contains(it.key())) continue;
+        QString why;
+        const QJsonArray objects = refObjects(kind, &why);
+        if (!why.isEmpty()) return it.key() + ": " + why;
+        const int id = args.value(it.key()).toInt();
+        QStringList there;
+        bool found = false;
+        for (const QJsonValue& o : objects) {
+            found = found || o.toObject().value("id").toInt() == id;
+            if (there.size() < 8) there << QString("%1 «%2»").arg(o.toObject().value("id").toInt()).arg(o.toObject().value("name").toString());
+        }
+        if (!found)
+            return QString("%1: объект %2 — не «%3»; в сцене: %4").arg(it.key()).arg(id).arg(kind, objects.isEmpty() ? QString("таких нет")
+                                                                    : there.join(", ") + (objects.size() > there.size() ? " …" : ""));
+    }
+    return QString();
+}
+
 void PluginHost::runStarted() {
     for (auto& p : plugins_) p->hookError.clear();
 }
@@ -448,7 +488,19 @@ void PluginHost::invoke(const QString& plugin, const Command& c) {
         const QJsonValue start = args.contains(name) ? args.value(name) : f.value("default");
         const QString type = f.value("type").toString(), unit = f.value("unit").toString();
         QWidget* w = nullptr;
-        if (f.contains("enum")) {
+        if (f.contains("ref")) { // an object of the scene: chosen by its name, sent as its id; the selected one first
+            auto* box = new QComboBox;
+            for (const QJsonValue& o : refObjects(f.value("ref").toString()))
+                box->addItem(o.toObject().value("name").toString(), o.toObject().value("id").toInt());
+            const int selected = box->findData(int(builder_->selectedId()));
+            box->setCurrentIndex(std::max(0, selected >= 0 ? selected : box->findData(start.toInt())));
+            if (box->count() == 0) box->addItem("в сцене нет: " + f.value("ref").toString()), box->setEnabled(false);
+            read.push_back([&args, name, box] {
+                if (box->isEnabled()) args.insert(name, box->currentData().toInt());
+                else args.remove(name);
+            });
+            w = box;
+        } else if (f.contains("enum")) {
             auto* box = new QComboBox;
             for (const QJsonValue& e : f.value("enum").toArray()) box->addItem(e.toVariant().toString(), e.toVariant());
             box->setCurrentIndex(std::max(0, box->findData(start.toVariant())));
@@ -570,13 +622,20 @@ void PluginHost::addOps() {
             cmd.tool = c.value("tool").toBool();
             for (const QJsonValue& x : c.value("opens").toArray()) cmd.opens << x.toString().toLower();
             cmd.op = p->name + "_" + slug(cmd.name);
+            for (auto f = cmd.args.begin(); f != cmd.args.end(); ++f) // a field of a scene object whose kind is no kind: said at once
+                if (const QString kind = f.value().toObject().value("ref").toString(); !kind.isEmpty()) {
+                    QString why;
+                    refObjects(kind, &why);
+                    if (!why.isEmpty()) emit output(p->name, "поле «" + f.key() + "» команды «" + cmd.name + "»: " + why);
+                }
             const QString plugin = p->name, command = cmd.name;
             ops_->addPluginOp(cmd.op, QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ",
                                                                 QString("(plugin %1)").arg(plugin)),
                               argsHelp(cmd.args, c.value("order").toArray()),
-                              [this, plugin, command](const QJsonObject& args, const EditorOps::Reply& r) {
+                              [this, plugin, command, fields = cmd.args](const QJsonObject& args, const EditorOps::Reply& r) {
                 Plugin* q = find(plugin);
                 if (!q || !q->process) return r(EditorOps::error("плагин «" + plugin + "» не запущен"));
+                if (const QString why = refProblem(fields, args); !why.isEmpty()) return r(EditorOps::error(why));
                 call(*q, command, args, r);
             }, jsonSchema(cmd.args));
             cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() || cmd.tool ? QString() : "…"), window_);

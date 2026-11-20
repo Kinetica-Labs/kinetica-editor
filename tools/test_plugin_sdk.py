@@ -59,6 +59,11 @@ class PluginSdk(unittest.TestCase):
         self.assertEqual(args["solid"], {"type": "boolean", "default": True, "label": "solid"})
         self.assertEqual(args["colour"]["enum"], ["red", "blue"])
 
+    def test_field_of_a_scene_object(self):
+        said = field(ref="joint", label="Сустав", help="what to turn").schema("joint")
+        self.assertEqual(said, {"type": "integer", "ref": "joint", "label": "Сустав", "help": "what to turn"})  # no default: it must be said
+        self.assertEqual(field(7, ref="encoder").schema("encoder")["default"], 7)
+
     def test_error_points_at_author(self):
         try:
             row(None, count="x") + 1  # a dict plus an int: the author's own line

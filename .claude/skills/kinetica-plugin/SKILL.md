@@ -35,7 +35,10 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; e
    ```
    No `run()` at the end: the editor starts the file itself. A `key="Ctrl+Shift+X"` is optional; a key already taken
    is not given (the console says whose it is).
-   Labels and words people see are Russian; code and comments English. Every argument after `scene` needs a
+   An argument that is an object of the scene: `joint=field(ref="joint", label="Сустав")` - the form lists the scene's
+   joints by name, a call gives the id, the function gets the object (`joint.drive(target=0.5)`); the word is a kind of
+   `scene_list {kind}` (`joint`, `body`, `encoder`, `sensor`, `camera`...). It has no default: the call must say it.
+   Labels and words people see are Russian; code and comments English. Every other argument after `scene` needs a
    default (a `field` or a plain value). Return a dict.
 4. **Saving restarts it** (about 0.2 s). Check `plugin_list`: its state must be `работает`; otherwise `error`
    says `plugin.py:<line>: <exception>` - fix that line.

@@ -144,7 +144,22 @@ void SceneBuilder::fillPluginCards() {
             const QJsonValue now = valueIn(c, name, f.value("default"));
             const double lo = f.value("minimum").toDouble(-1e6), hi = f.value("maximum").toDouble(1e6);
             const QString kind = f.value("type").toString();
-            if (f.contains("enum")) {
+            if (f.contains("ref")) { // an object of the scene, chosen by its name: the component keeps its id (0: none)
+                Value listed = Value::map(), of = Value::map();
+                std::string why;
+                of.set("kind", f.value("ref").toString().toStdString());
+                findSceneOp("scene_list")->query(graph_, of, listed, why);
+                QStringList items{"—"};
+                QJsonArray ids{0};
+                for (const Value& o : listed["objects"].items())
+                    items << QString::fromStdString(o["name"].text()), ids.append(int(o["id"].integer()));
+                const int kept = now.toInt();
+                int at = 0;
+                for (int k = 1; k < ids.size(); ++k)
+                    if (ids.at(k).toInt() == kept) at = k;
+                if (kept && !at) items << QString("нет объекта %1").arg(kept), ids.append(kept), at = int(ids.size()) - 1; // gone from the scene: said, kept
+                form->choice(label, items, [at] { return double(at); }, [pending, name, ids](double k) { pending->insert(name, ids.at(int(k))); });
+            } else if (f.contains("enum")) {
                 QStringList items;
                 const QJsonArray choices = f.value("enum").toArray();
                 for (const QJsonValue& x : choices) items << x.toVariant().toString();

@@ -45,13 +45,26 @@ _busy = threading.Lock()  # the author's code runs one piece at a time: a comman
 class field:
     """A command's argument or a component's value as the editor shows it: its default, unit, range, the words of its label,
     its choices - and, on a component, its handle in the view (Cinema 4D's orange point on the shape): "radius" (along the
-    shape's x), "length" (along `axis`, "y" if none) or "point" (a place in the shape's frame; a 3-number default)."""
+    shape's x), "length" (along `axis`, "y" if none) or "point" (a place in the shape's frame; a 3-number default).
 
-    def __init__(self, default, unit=None, range=None, label=None, choices=None, help=None, handle=None, axis=None):
+    `ref` makes it an object of the scene instead of a number typed by hand: ``joint=field(ref="joint")``. Its word is a
+    kind ``scene_list`` knows - "joint", "body", "encoder" and the other sensors' own kinds, "sensor", "camera", "light",
+    "driver"... The form offers the scene's objects of that kind by name (the selected one first), a call gives its id -
+    one of another kind is refused, naming those there are -, and the command gets the object itself, as
+    ``scene.objects[id]`` gives it. A component keeps the id."""
+
+    def __init__(self, default=None, unit=None, range=None, label=None, choices=None, help=None, handle=None, axis=None, ref=None):
         self.default, self.unit, self.range, self.label, self.choices, self.help = default, unit, range, label, choices, help
-        self.handle, self.axis = handle, axis
+        self.handle, self.axis, self.ref = handle, axis, ref
 
     def schema(self, name, annotation=inspect.Parameter.empty):
+        if self.ref:  # an id of the scene; no default: the call must say which
+            out = {"type": "integer", "ref": self.ref, "label": self.label or name}
+            if self.default is not None:
+                out["default"] = int(self.default)
+            if self.help:
+                out["help"] = self.help
+            return out
         kind = annotation if annotation is not inspect.Parameter.empty else type(self.default)
         vector = isinstance(self.default, (list, tuple))
         out = {"type": "vector" if vector else {bool: "boolean", int: "integer", float: "number", str: "string"}.get(kind, "number"),
@@ -355,6 +368,8 @@ def _serve(file):
             values = {}  # what the call gave, else the field's default - never a `field` itself
             for arg, p in list(inspect.signature(fn).parameters.items())[1:] if fn else []:
                 values[arg] = given[arg] if arg in given else p.default.default if isinstance(p.default, field) else p.default
+                if isinstance(p.default, field) and p.default.ref and values[arg] is not None:
+                    values[arg] = scene.objects[values[arg]]  # the object, not its number: joint.drive(...), encoder.angle
             with _busy:
                 result = fn(scene, **values) if fn else None
             control.call("plugin_reply", name=name, token=token, call=call["call"], result=result if isinstance(result, dict) else {})

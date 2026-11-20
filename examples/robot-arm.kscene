@@ -69,3 +69,23 @@ joint "Шарнир 10"
   free rx
   drive rx stiffness 200 damping 14 target 0.5 velocity 0 force 50
 end
+sensor "Энкодер 1"
+  object id 13 visible 1 locked 0 parent 4
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  encoder lines 500 dof rx reference 0
+end
+sensor "Энкодер 2"
+  object id 14 visible 1 locked 0 parent 6
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  encoder lines 500 dof rx reference 0
+end
+sensor "Энкодер 3"
+  object id 15 visible 1 locked 0 parent 8
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  encoder lines 500 dof rx reference 0
+end
+sensor "Энкодер 4"
+  object id 16 visible 1 locked 0 parent 10
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  encoder lines 500 dof rx reference 0
+end

@@ -6,6 +6,7 @@
 #include "scene/Assembly.h"
 #include "scene/Describe.h"
 #include "scene/SceneEdits.h"
+#include "scene/SensorSpec.h"
 
 #include <algorithm>
 
@@ -20,10 +21,33 @@ const char* kindOf(const SceneGraph& g, uint32_t id) {
          : in(g.controllers) ? "controller" : findJoint(g, id) ? "joint" : "";
 }
 
-Value objectList(const SceneGraph& g) {
-    Value out = Value::list();
+// The words scene_list's `kind` takes: a row's kind, a sensor's own ("encoder", "imu"...: SensorSpec.h), and "body" - an
+// entity with the rigid role, what physics moves.
+const char* const kListKinds[] = {"entity", "body", "group", "array", "light", "camera", "joint", "battery", "driver", "sensor", "wheel", "controller"};
+
+bool isOfKind(const SceneGraph& g, uint32_t id, const std::string& word) {
+    if (word == kindOf(g, id)) return true;
+    for (const SensorObject& s : g.sensors)
+        if (s.id == id) return word == sensorKindKey(s.kind);
+    for (const Entity& e : g.entities)
+        if (e.id == id) return word == "body" && resolveInstance(g, e).rigid.enabled;
+    return false;
+}
+
+// Empty word: every object. A word no object can be: false, and the words there are.
+bool objectList(const SceneGraph& g, const std::string& word, Value& out, std::string& error) {
+    out = Value::list();
+    bool known = word.empty() || std::any_of(std::begin(kListKinds), std::end(kListKinds), [&](const char* k) { return word == k; });
+    for (int k = 0; k <= int(SensorKind::Stereo) && !known; ++k) known = word == sensorKindKey(SensorKind(k));
+    if (!known) {
+        error = "kind '" + word + "' is not one of:";
+        for (const char* k : kListKinds) error += std::string(" ") + k;
+        for (int k = 0; k <= int(SensorKind::Stereo); ++k) error += std::string(" ") + sensorKindKey(SensorKind(k));
+        return false;
+    }
     auto add = [&](const auto& objects) {
         for (const auto& o : objects) {
+            if (!word.empty() && !isOfKind(g, o.id, word)) continue;
             Value row = Value::map();
             row.set("id", o.id), row.set("kind", kindOf(g, o.id)), row.set("name", o.name);
             out.push(row);
@@ -31,7 +55,7 @@ Value objectList(const SceneGraph& g) {
     };
     add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras), add(g.joints), add(g.batteries), add(g.drivers);
     add(g.sensors), add(g.wheels), add(g.controllers);
-    return out;
+    return true;
 }
 
 SceneOp query(const char* name, const char* help, const char* args, SceneOp::Query run) { return {name, help, args, std::move(run), {}, false}; }
@@ -39,8 +63,13 @@ SceneOp edit(const char* name, const char* help, const char* args, SceneOp::Edit
 
 std::vector<SceneOp> readOps() {
     return {
-        query("scene_list", "The objects of the scene: id, kind, name", "{}", [](const SceneGraph& g, const Value&, Value& r, std::string&) {
-            return r.set("objects", objectList(g)), true;
+        query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
+              "camera, joint, battery, driver, sensor, wheel, controller), a sensor's own (encoder, imu, sonar, touch, wrench, effort, "
+              "stereo), or body - an entity with the rigid role. What a plugin's field of a scene object chooses from",
+              "{kind?: str}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
+            Value objects;
+            if (!objectList(g, a["kind"].text(""), objects, e)) return false;
+            return r.set("objects", objects), true;
         }),
         query("scene_get", "One object's block of the scene file, or the whole file without an id", "{id?: int}",
               [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
