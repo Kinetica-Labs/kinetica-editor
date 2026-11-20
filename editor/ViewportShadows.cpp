@@ -181,14 +181,16 @@ bool Viewport::renderDistanceCube(int slot, const LightInfo& light) {
 // Everything that casts a shadow, drawn with `program` (it needs uModel; the light's matrix is set):
 // every opaque body from its mesh (see-through ones, an IK goal's mark, cast none).
 void Viewport::drawShadowCasters(QOpenGLShaderProgram& program) {
+    const int uModel = program.uniformLocation("uModel");
+    const GpuMesh* bound = nullptr; // a run of bodies of one mesh binds it once (drawBodies)
     for (const Frame::Body& b : snap_->bodies) {
         if (!b.mesh || b.opacity < 1) continue;
-        GpuMesh& g = gpuMesh(b.mesh, b.smooth);
-        program.setUniformValue("uModel", modelMatrix(b));
-        g.vao->bind();
+        const GpuMesh& g = gpuMesh(b.mesh, b.smooth);
+        program.setUniformValue(uModel, modelMatrix(b));
+        if (&g != bound) g.vao->bind(), bound = &g;
         glDrawArrays(GL_TRIANGLES, 0, g.count);
-        g.vao->release();
     }
+    if (bound) bound->vao->release();
 }
 
 // ---------------------------------------------------------------------------

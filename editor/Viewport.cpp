@@ -517,23 +517,29 @@ void Viewport::drawBackground() {
 }
 
 // Every opaque body from its mesh at its pose, in its colour (a model's own colours where it has
-// them) and with its surface; the see-through ones wait for drawSeeThrough.
+// them) and with its surface; the see-through ones wait for drawSeeThrough. In the frame's order, and what a body
+// shares with the one before it - its surface, its mesh - is not set again: ten thousand cubes of one kind set a
+// surface's seven uniforms and bind a mesh once, not ten thousand times (it was 14 ms of a 20 ms paint).
 void Viewport::drawBodies(const QMatrix4x4& view, const QMatrix4x4& proj) {
     meshProg_.bind();
     meshProg_.setUniformValue("uView", view);
     meshProg_.setUniformValue("uProj", proj);
     meshProg_.setUniformValue("uAlpha", 1.0f);
+    const int uModel = meshProg_.uniformLocation("uModel"), uColor = meshProg_.uniformLocation("uColor"), uVertexColor = meshProg_.uniformLocation("uVertexColor");
+    const ke::SurfaceTexture* surface = nullptr;
+    const GpuMesh* bound = nullptr;
+    int coloured = -1;
     for (const ke::Frame::Body& b : snap_->bodies) {
         if (!b.mesh || b.opacity < 1) continue;
-        setSurfaceTexture(b.texture);
-        meshProg_.setUniformValue("uModel", modelMatrix(b));
-        meshProg_.setUniformValue("uColor", qv(b.color) * sleepDim(b));
-        meshProg_.setUniformValue("uVertexColor", b.mesh->coloured() ? 1 : 0);
-        GpuMesh& g = gpuMesh(b.mesh, b.smooth);
-        g.vao->bind();
+        if (!surface || !(b.texture == *surface)) setSurfaceTexture(b.texture), surface = &b.texture;
+        meshProg_.setUniformValue(uModel, modelMatrix(b));
+        meshProg_.setUniformValue(uColor, qv(b.color) * sleepDim(b));
+        if (const int c = b.mesh->coloured() ? 1 : 0; c != coloured) meshProg_.setUniformValue(uVertexColor, coloured = c);
+        const GpuMesh& g = gpuMesh(b.mesh, b.smooth);
+        if (&g != bound) g.vao->bind(), bound = &g;
         glDrawArrays(GL_TRIANGLES, 0, g.count);
-        g.vao->release();
     }
+    if (bound) bound->vao->release();
     meshProg_.setUniformValue("uVertexColor", 0);
 }
 

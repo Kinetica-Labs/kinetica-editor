@@ -2,6 +2,7 @@
 // Rendering-only material coordinates. They follow the object and are inherited by fragments;
 // contact, mass, friction and all physics equations remain independent of this descriptor.
 #include "math/Matrix3x3.h"
+#include <cstring>
 #include <string>
 
 namespace ke {
@@ -19,4 +20,9 @@ struct SurfaceTexture {
     Matrix3x3 frame;
     Vector3 offset;
 };
+// The same in every word: a run of bodies of one surface is one state of the renderer, set once.
+inline bool operator==(const SurfaceTexture& a, const SurfaceTexture& b) {
+    return a.kind == b.kind && a.repeats == b.repeats && a.bumpHeight == b.bumpHeight && a.file == b.file && a.heightFile == b.heightFile &&
+           std::memcmp(&a.frame, &b.frame, sizeof a.frame) == 0 && std::memcmp(&a.offset, &b.offset, sizeof a.offset) == 0;
+}
 } // namespace ke
