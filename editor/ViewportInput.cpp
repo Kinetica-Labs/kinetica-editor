@@ -406,6 +406,17 @@ float Viewport::reachAlong(const ShapeHandle& h, const QPointF& pos) const {
     return (b * ke::dot(ray.dir, w) - ke::dot(h.axis, w)) / across;
 }
 
+Vector3 Viewport::handlePoint(const ShapeHandle& h, const QPointF& pos) const {
+    if (!h.free) return h.centre + h.axis * reachAlong(h, pos);
+    const Vector3 at = h.centre + h.axis * h.reach;
+    const QVector3D f = camera_.forward();
+    const Vector3 n(f.x(), f.y(), f.z());
+    const Ray ray = camera_.screenRay(pos, size());
+    const float across = ke::dot(ray.dir, n);
+    if (std::fabs(across) < 1e-4f) return at;
+    return ray.at(ke::dot(at - ray.origin, n) / across);
+}
+
 void Viewport::setHoveredHandle(int i) {
     if (i == hoveredHandle_) return;
     hoveredHandle_ = i;
@@ -530,6 +541,10 @@ QString Viewport::mouseHint() const {
         return "Клонирование: отпустите — спросим, сколько копий · X / Y / Z: ось · Ctrl: шаг · Esc или ПКМ: отмена";
     if (gizmo_.dragging()) return "X / Y / Z: только по оси · Shift+X / Y / Z: в плоскости · Ctrl: шаг · Shift: точнее · Esc или ПКМ: отмена";
     if (editTool_.boxSelecting()) return "Отпустите — выбрать всё в рамке · Shift: добавить · Ctrl: убрать";
+    if (!handles_.empty() && !colliderMode()) { // a plugin's orange points: what they are, in its words
+        if (editTool_.draggingHandle()) return QString("Тяните: %1 · Esc или ПКМ: отмена").arg(editTool_.draggedHandle().label);
+        if (hoveredHandle_ >= 0) return QString("Тяните точку: %1").arg(handles_[size_t(hoveredHandle_)].label);
+    }
     if (colliderMode()) { // the collider's points before the gizmo's words: they are what the mode is for
         if (editTool_.draggingHandle()) return QString("Тяните: %1 коллайдера · Esc или ПКМ: отмена").arg(editTool_.draggedHandle().what);
         if (hoveredHandle_ >= 0) {

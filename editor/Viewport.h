@@ -107,9 +107,10 @@ public:
     // along its line - the press, the moves, the release and Esc reported as shapeHandleDragged.
     void setShapeHandles(std::vector<ShapeHandle> handles);
     const std::vector<ShapeHandle>& shapeHandles() const { return handles_; }
-    bool colliderMode() const { return !handles_.empty(); }
+    bool colliderMode() const { return !handles_.empty() && !handles_.front().plugin; } // the points are a collider's
     int shapeHandleAt(const QPointF& pos) const;                   // the point within 9 px of the pixel (-1: none)
     float reachAlong(const ShapeHandle& h, const QPointF& pos) const; // where the mouse ray passes nearest its line
+    ke::Vector3 handlePoint(const ShapeHandle& h, const QPointF& pos) const; // where the mouse takes it: on its line, or (free) in the plane facing the eye
     QPointF pixelOf(const ke::Vector3& world, bool* inFront = nullptr) const;
     void setHoveredHandle(int i);
     // The IK goals' paths (Entity::path): segments, x y z 0 per point - drawn over the scene, faint where hidden.
@@ -199,7 +200,7 @@ signals:
     void gizmoMoved(const GizmoPose& pose);           // where it has taken the object so far
     void gizmoFinished();                             // confirmed: one step of the undo history
     void gizmoCancelled();                            // Esc / right button: put the object back
-    void shapeHandleDragged(int index, float reach, int phase); // a collider point: 0 pressed, 1 moved, 2 released, 3 Esc
+    void shapeHandleDragged(int index, ke::Vector3 point, int phase); // a point taken: 0 pressed, 1 moved, 2 released, 3 Esc
     void cloneDragStarted();                          // Shift was held when the handle drag began
     void cloneDragFinished(QPointF pos);              // ... and it ended here: ask how many copies
     void editContextMenu(QPointF pos);                // edit mode: a right click without a drag

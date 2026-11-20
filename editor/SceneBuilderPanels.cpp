@@ -439,6 +439,9 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
 
 // "+ Добавить компонент": the components the object does not have yet, with their icons.
 void SceneBuilder::buildAddComponent(QVBoxLayout* col) {
+    pluginCards_ = new QVBoxLayout; // the plugins' component cards, over the button that adds one
+    pluginCards_->setContentsMargins(0, 0, 0, 0);
+    col->addLayout(pluginCards_);
     addComponent_ = new QPushButton("+ Добавить компонент");
     addComponent_->setObjectName("addComponent");
     addMenu_ = new QMenu(addComponent_);
@@ -462,6 +465,7 @@ void SceneBuilder::fillAddMenu(QMenu* menu) {
     if (!menu->isEmpty()) menu->addSeparator();
     if (selection_.size() <= 2) fillJointMenu(*e, menu); // to the world, or between the two selected
     if (selection_.size() == 1) fillSensorMenu(*e, menu);
+    if (selection_.size() == 1) addPluginComponentsTo(menu, *masterById(selectedId_));
 }
 
 // ---------------------------------------------------------------------------
@@ -509,6 +513,7 @@ void SceneBuilder::fillInspector() {
     fillManyCards(*o);
     fillLightCards(*o);
     fillSensorCard(*o);
+    fillPluginCards();
     shown_ = shown;
     if (selection_.size() > 1) markMixed();
     shown_ = readWidgets(); // what the widgets show, "—" included: an edit is what differs from it

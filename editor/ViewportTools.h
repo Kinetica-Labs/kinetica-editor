@@ -101,6 +101,7 @@ public:
     bool draggingHandle() const { return handle_ >= 0; }
     int draggedIndex() const { return handle_; }
     const ShapeHandle& draggedHandle() const { return handleStart_; }
+    ke::Vector3 draggedTo() const { return handleAt_; } // where it is now (the value next to the cursor)
     void cancelHandle(Viewport& v);
 
 private:
@@ -111,9 +112,9 @@ private:
     void hover(Viewport& v, QMouseEvent* e);
     void startFloorDrag(Viewport& v, QMouseEvent* e);
 
-    int handle_ = -1;                         // a collider point pressed: the drag reports its reach (Viewport::reachAlong)
-    ShapeHandle handleStart_;                 // ... its line as it was when pressed: the collider moves under it, the line not
-    float handleReach_ = 0;
+    int handle_ = -1;                         // a point pressed: the drag reports where the mouse takes it (Viewport::handlePoint)
+    ShapeHandle handleStart_;                 // ... its line as it was when pressed: the thing moves under it, the line not
+    ke::Vector3 handleAt_;
     GizmoHandle pending_ = GizmoHandle::None; // a handle pressed; the drag starts after 3 px
     bool floorDrag_ = false;                  // Shift+drag of an object (Shift is not "fine" then)
     bool pressShift_ = false;                 // Shift was down at the left press

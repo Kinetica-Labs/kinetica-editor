@@ -147,9 +147,90 @@ def stop(scene):
     QDir(folder + "/ticker").removeRecursively();
 }
 
+// A plugin's component as a built-in one (Cinema 4D's orange handles): it comes in «+ Добавить компонент», is added with its
+// defaults in one undo step, draws its card from the plugin's fields and shows its handled fields as orange points on the
+// shape; the radius point dragged by the mouse to 2 m sets the value - one edit, one journal line; the plugin gone, the
+// card says so and the scene keeps the component's words to the bit.
+void testComponents(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/turbines");
+    write(folder + "/turbines/plugin.py", R"py(from kinetica.plugin import component, field
+
+
+@component(label="Ветряк")
+class Turbine:
+    radius = field(1.0, unit="м", range=(0.1, 5.0), label="Радиус", handle="radius")
+    hub = field((0.0, 0.5, 0.0), label="Ступица", handle="point")
+    power = field(100.0, unit="Вт", range=(0.0, 1000.0), label="Мощность")
+)py");
+    host->start(true);
+    const bool declared = waitUntil([&] { return !b.componentType("turbines.turbine").isEmpty(); }, 10000);
+    b.newScene();
+    const uint32_t cube = uint32_t(ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}}).value("id").toInt());
+    b.select(cube);
+    pump(50);
+    QMenu menu;
+    b.fillAddMenu(&menu);
+    QAction* add = nullptr;
+    for (QAction* a : menu.actions())
+        if (a->text() == "Ветряк") add = a;
+    const size_t steps = b.undoSteps();
+    if (add) add->trigger();
+    pump(100);
+    const Entity* e = findEntity(b.graph(), cube);
+    const bool added = add && e && e->components.size() == 1 && e->components[0].type == "turbines.turbine" && b.undoSteps() == steps + 1;
+    auto* card = w.findChild<QWidget*>("pluginComponent:turbines.turbine");
+    std::vector<ShapeHandle> points = v->shapeHandles();
+    int radius = -1;
+    for (size_t i = 0; i < points.size(); ++i)
+        if (points[i].plugin && points[i].label == "Радиус") radius = int(i);
+    const bool shown = card && card->isVisibleTo(&w) && points.size() == 2 && radius >= 0;
+    c.check(declared && added && shown, "a plugin's component comes in «+ Добавить компонент», is added in one undo step, draws its card "
+                                        "and shows its handled fields as orange points");
+    if (radius < 0) return;
+    v->setFocusBox(AABB(Vector3(-3, -1, -3), Vector3(3, 2, 3)));
+    v->frameScene();
+    pump(100);
+    points = v->shapeHandles();
+    const ShapeHandle h = points[size_t(radius)];
+    const QPointF from = v->pixelOf(h.centre + h.axis * h.reach), to = v->pixelOf(h.centre + h.axis * 2.0f);
+    const size_t before = b.undoSteps();
+    const auto setLines = [ops] {
+        int n = 0;
+        for (const QJsonValue& l : ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray()) n += l.toObject().value("op").toString() == "component_set";
+        return n;
+    };
+    const int lines0 = setLines();
+    sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+    pump(100);
+    const int lines = setLines() - lines0;
+    const QJsonObject listed = ops->runNow("component_list", {{"type", "turbines.turbine"}});
+    const double now = listed.value("components").toArray().at(0).toObject().value("values").toObject().value("radius").toDouble();
+    std::printf("  the orange radius point dragged to 2 m: radius %.3f m, %zu undo step(s), %d component_set line(s)\n", now,
+                b.undoSteps() - before, lines);
+    c.check(std::fabs(now - 2.0) < 0.03 && b.undoSteps() == before + 1 && lines == 1,
+            "an orange point dragged sets its field: one edit, one undo step, one journal line");
+    QDir(folder + "/turbines").removeRecursively();
+    waitUntil([&] { return b.componentType("turbines.turbine").isEmpty(); }, 5000);
+    b.select(0), b.select(cube);
+    pump(100);
+    QString note;
+    if (auto* gone = w.findChild<QWidget*>("pluginComponent:turbines.turbine"))
+        for (QLabel* l : gone->findChildren<QLabel*>()) note += l->text();
+    const std::string text = b.graph().save();
+    ke::SceneGraph back;
+    std::string error;
+    const size_t line = text.find("component turbines.turbine ");
+    const bool kept = line != std::string::npos && text.find(" radius 2", line) < text.find('\n', line) && back.load(text, error) && back.save() == text;
+    std::printf("  the plugin gone: «%s»; the scene keeps its words %s\n", qPrintable(note.left(80)), kept ? "yes" : "no");
+    c.check(note.contains("не запущен") && kept, "its plugin gone, the card says so and the scene keeps the component to the bit");
+}
+
 } // namespace
 
-int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
+int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     auto* host = w.findChild<PluginHost*>();
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
@@ -271,6 +352,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
     std::printf("  its command called now: %s\n", qPrintable(gone));
     c.check(gone.contains("упал") && gone.contains("plugin.py:3"), "a fallen plugin's command, called, says the plugin fell and where - not «no operation»");
     testRunHooks(c, b, ops, host, dir.path());
+    testComponents(c, w, b, v, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

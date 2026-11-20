@@ -39,15 +39,23 @@ _link = {}  # the editor's client, name and token once serving: show() speaks th
 
 
 class field:
-    """A command's argument as the editor shows it: its default, unit, range, the words of its label, its choices."""
+    """A command's argument or a component's value as the editor shows it: its default, unit, range, the words of its label,
+    its choices - and, on a component, its handle in the view (Cinema 4D's orange point on the shape): "radius" (along the
+    shape's x), "length" (along `axis`, "y" if none) or "point" (a place in the shape's frame; a 3-number default)."""
 
-    def __init__(self, default, unit=None, range=None, label=None, choices=None, help=None):
+    def __init__(self, default, unit=None, range=None, label=None, choices=None, help=None, handle=None, axis=None):
         self.default, self.unit, self.range, self.label, self.choices, self.help = default, unit, range, label, choices, help
+        self.handle, self.axis = handle, axis
 
-    def schema(self, name, annotation):
+    def schema(self, name, annotation=inspect.Parameter.empty):
         kind = annotation if annotation is not inspect.Parameter.empty else type(self.default)
-        out = {"type": {bool: "boolean", int: "integer", float: "number", str: "string"}.get(kind, "number"), "default": self.default,
-               "label": self.label or name}
+        vector = isinstance(self.default, (list, tuple))
+        out = {"type": "vector" if vector else {bool: "boolean", int: "integer", float: "number", str: "string"}.get(kind, "number"),
+               "default": list(self.default) if vector else self.default, "label": self.label or name}
+        if self.handle:
+            out["handle"] = self.handle
+        if self.axis:
+            out["axis"] = self.axis
         if self.unit:
             out["unit"] = self.unit
         if self.range:
@@ -67,6 +75,39 @@ def command(label=None, key=None):
         return fn
 
     return make
+
+
+_components = {}  # name -> the class
+
+
+def component(label=None, help=None):
+    """A class made a component of shapes: its `field` attributes its values. The editor draws its card in the inspector,
+    offers it in «+ Добавить компонент», writes it in the scene file, shows its handles as points on the shape::
+
+        @component(label="Ветряк")
+        class Turbine:
+            radius = field(1.0, unit="м", range=(0.1, 5.0), label="Радиус", handle="radius")
+            power = field(100.0, unit="Вт", label="Мощность")
+
+    ``Turbine.instances(scene)`` - every shape that has it, with its values: ``[(id, {"radius": 1.0, ...}), ...]``."""
+
+    def make(cls):
+        name = "".join("_" + ch.lower() if ch.isupper() else ch for ch in cls.__name__).lstrip("_")
+        cls._kinetica = {"name": name, "label": label or cls.__name__, "help": help or (inspect.getdoc(cls) or "").strip(),
+                         "fields": {k: v for k, v in vars(cls).items() if isinstance(v, field)}}
+        cls.instances = classmethod(_instances)
+        _components[name] = cls
+        return cls
+
+    return make
+
+
+def _instances(cls, scene):
+    """The shapes that have this component, with its values (a field the scene does not say: its default)."""
+    meta = cls._kinetica
+    rows = scene.ed.component_list(type=f"{_link.get('name', '')}.{meta['name']}")["components"]
+    defaults = {k: (list(f.default) if isinstance(f.default, (list, tuple)) else f.default) for k, f in meta["fields"].items()}
+    return [(row["id"], {**defaults, **row["values"]}) for row in rows]
 
 
 def on_play(fn):
@@ -215,8 +256,10 @@ def _serve(file):
                  "order": list(_args(c["fn"]))} for n, c in _commands.items()]
     _link.update(client=control, name=name, token=token)
     hooks = [event for event, fns in _hooks.items() if fns] + (["tick:world"] if any(w for _, w in _hooks["tick"]) else [])
+    components = [{"name": m["name"], "label": m["label"], "help": m["help"], "order": list(m["fields"]),
+                   "fields": {k: f.schema(k) for k, f in m["fields"].items()}} for m in (c._kinetica for c in _components.values())]
     control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands, hooks=hooks,
-                 **({"panel": _panel} if _panel else {}))
+                 components=components, **({"panel": _panel} if _panel else {}))
     while True:
         call = control.call("plugin_wait", name=name, token=token)
         if "event" in call:  # ▶, a frame, Стоп: the run's hooks; a tick's commands merged into one answer

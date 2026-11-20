@@ -130,7 +130,7 @@ void SceneBuilder::emitShapeHandles() {
         colliderEdit_ = 0, colliderDrag_ = false;
         emit colliderEditChanged(false);
     }
-    emit shapeHandles(colliderEdit_ ? handlesOf(heldNow(*e)) : std::vector<ShapeHandle>());
+    emit shapeHandles(colliderEdit_ ? handlesOf(heldNow(*e)) : componentHandles()); // else a plugin's orange points
 }
 
 void SceneBuilder::setColliderEdit(bool on) {
@@ -177,12 +177,13 @@ void SceneBuilder::showCollider(const ColliderRole& c) {
 }
 
 // A point: a face moves and the far one stays (the centre goes half the way), a diameter or a height grows both ways.
-void SceneBuilder::onShapeHandle(int index, float reach, int phase) {
-    if (!colliderEdit_) return;
+void SceneBuilder::onShapeHandle(int index, Vector3 point, int phase) {
+    if (!colliderEdit_) return onComponentHandle(index, point, phase); // a plugin's field's point
     if (phase == 0) return beginColliderDrag();
     if (!colliderDrag_ || index < 0 || index >= int(colliderHandles_.size())) return;
     if (phase == 3) return finishColliderDrag(true);
     const ShapeHandle& h = colliderHandles_[size_t(index)];
+    const float reach = dot(point - h.centre, h.axis);
     ColliderRole c = colliderStart_;
     const float minimum = 0.005f;
     if (h.both) {

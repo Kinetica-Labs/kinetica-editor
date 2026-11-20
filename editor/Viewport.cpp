@@ -319,6 +319,13 @@ void Viewport::drawGizmo(const QMatrix4x4& vp) {
 // shape being drawn.
 void Viewport::drawEditLabel(QPainter& p) {
     QString text = createMode_ ? createTool_.sizeText(createWhat_) : gizmo_.dragging() ? QString::fromStdString(gizmo_.dragLabel()) : QString();
+    if (editTool_.draggingHandle()) { // a point's value as it goes, by the cursor (Cinema 4D's HUD)
+        const ShapeHandle& h = editTool_.draggedHandle();
+        const Vector3 at = editTool_.draggedTo();
+        const QString name = h.plugin ? h.label : QString(h.what);
+        text = h.free ? QString("%1 %2 %3 %4").arg(name).arg(double(at.x), 0, 'f', 3).arg(double(at.y), 0, 'f', 3).arg(double(at.z), 0, 'f', 3)
+                      : QString("%1 %2 м").arg(name).arg(double(ke::dot(at - h.centre, h.axis)) * (h.both ? 2.0 : 1.0), 0, 'f', 3);
+    }
     if (text.isEmpty()) return;
     if (!typed_.isEmpty()) text = "= " + typed_ + "   " + text;
     const QFontMetrics fm(p.font());
@@ -738,7 +745,7 @@ void Viewport::drawShapeHandles(QPainter& p) {
         if (!front) continue;
         const bool lit = int(i) == hoveredHandle_ || int(i) == dragged;
         p.setPen(QPen(QColor(18, 40, 24), 1.5));
-        p.setBrush(lit ? QColor(255, 214, 90) : QColor(110, 232, 130));
+        p.setBrush(lit ? QColor(255, 214, 90) : handles_[i].plugin ? QColor(255, 146, 40) : QColor(110, 232, 130)); // a plugin's: C4D's orange
         p.drawEllipse(at, lit ? 7.5 : 6.0, lit ? 7.5 : 6.0);
     }
     p.restore();

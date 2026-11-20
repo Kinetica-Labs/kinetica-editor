@@ -4,6 +4,7 @@
 // copies, the group - so a client with a window shows the same as after the button.
 #include "scene/SceneOps.h"
 
+#include "core/Format.h"
 #include "scene/Collider.h"
 #include "scene/Kinematics.h"
 #include "scene/SceneActions.h"
@@ -216,6 +217,92 @@ bool colliderOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     return true;
 }
 
+// A plugin's components (SceneGraph.h PluginComponent): a value as one word of the scene file - a number, a vector
+// "x,y,z", a flag 1/0, a word - and back. The core keeps them word for word; the plugin's schema says what they mean.
+std::string componentWord(const Value& v) {
+    if (v.type() == Value::Type::List) {
+        std::string out;
+        for (const Value& x : v.items()) out += (out.empty() ? "" : ",") + numberText(x.number());
+        return out;
+    }
+    if (v.type() == Value::Type::Bool) return v.truth() ? "1" : "0";
+    if (v.type() == Value::Type::Number) return numberText(v.number());
+    return v.text("");
+}
+
+Value componentValue(const std::string& word) {
+    Real x = 0;
+    if (parseNumber(word, x)) return Value(double(x));
+    if (word.find(',') != std::string::npos) {
+        Value list = Value::list();
+        size_t at = 0;
+        while (at <= word.size()) {
+            const size_t comma = std::min(word.find(',', at), word.size());
+            Real part = 0;
+            if (!parseNumber(word.substr(at, comma - at), part)) return Value(word);
+            list.push(double(part));
+            at = comma + 1;
+        }
+        return list;
+    }
+    return Value(word);
+}
+
+Entity* entityById(SceneGraph& g, uint32_t id) {
+    for (Entity& e : g.entities)
+        if (e.id == id) return &e;
+    return nullptr;
+}
+
+bool componentSetOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    Entity* body = entityById(g, masterOf(g, uint32_t(a["id"].integer()))); // an instance's are its master's, as its roles
+    const std::string type = a["type"].text("");
+    if (!body) return e = "no shape " + std::to_string(a["id"].integer()), false;
+    if (type.find('.') == std::string::npos || type.find(' ') != std::string::npos)
+        return e = "type is <plugin>.<component>, e.g. turbines.turbine", false;
+    auto it = std::find_if(body->components.begin(), body->components.end(), [&](const PluginComponent& c) { return c.type == type; });
+    if (it == body->components.end()) body->components.push_back({type, {}}), it = body->components.end() - 1;
+    const Value& given = a["values"];
+    for (size_t k = 0; k < given.keys().size(); ++k) {
+        const std::string& key = given.keys()[k];
+        const Value& v = given.at(k);
+        if (key.empty() || key.find(' ') != std::string::npos) return e = "a value's key is one word: " + key, false;
+        auto at = std::find_if(it->values.begin(), it->values.end(), [&](const auto& kv) { return kv.first == key; });
+        if (at == it->values.end()) it->values.push_back({key, componentWord(v)});
+        else at->second = componentWord(v);
+    }
+    r.set("id", body->id), r.set("type", type);
+    return true;
+}
+
+bool componentRemoveOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    Entity* body = entityById(g, masterOf(g, uint32_t(a["id"].integer())));
+    const std::string type = a["type"].text("");
+    if (!body) return e = "no shape " + std::to_string(a["id"].integer()), false;
+    const auto before = body->components.size();
+    body->components.erase(std::remove_if(body->components.begin(), body->components.end(), [&](const PluginComponent& c) { return c.type == type; }),
+                           body->components.end());
+    if (body->components.size() == before) return e = "«" + body->name + "» has no component " + type, false;
+    r.set("id", body->id);
+    return true;
+}
+
+bool componentListOp(const SceneGraph& g, const Value& a, Value& r, std::string&) {
+    const std::string type = a["type"].text("");
+    Value list = Value::list();
+    for (const Entity& x : g.entities)
+        for (const PluginComponent& c : x.components) {
+            if (!type.empty() && c.type != type) continue;
+            Value values = Value::map();
+            for (const auto& [key, word] : c.values) values.set(key, componentValue(word));
+            Value row = Value::map();
+            row.set("id", x.id), row.set("type", c.type), row.set("values", values);
+            list.push(row);
+        }
+    r.set("components", list);
+    return true;
+}
+
 // An inverse kinematics goal among `ids` moved or turned: its arm's servos get the new coordinates (Kinematics.h).
 void followGoals(SceneGraph& g, const std::vector<uint32_t>& ids) {
     for (uint32_t id : ids)
@@ -276,6 +363,12 @@ std::vector<SceneOp> actionSceneOps() {
          [](SceneGraph& g, const Value&, Value&, std::string&) { return showAll(g), true; }},
         {"scene_role", "A role given to the shapes or taken from them, as the role bar does; no `on`: switched as a click",
          "{ids, role: rigid|collider, on?: bool}", {}, roleOp, true},
+        {"component_set", "A plugin's component on a shape - added if it has none - with these values (a number, [x, y, z], a flag, a "
+                          "word); the plugin's schema says what they mean and draws its card. One undo step",
+         "{id: int, type: str, values?: {}}", {}, componentSetOp, true},
+        {"component_remove", "A plugin's component taken off a shape", "{id: int, type: str}", {}, componentRemoveOp, true},
+        {"component_list", "Every plugin component in the scene (of one type: <plugin>.<component>): its shape and values", "{type?: str}",
+         componentListOp, {}, false},
         {"scene_collider", "A shape's collider by numbers, apart from what it looks like: the kind; a box's size, a sphere's diameter, a "
                            "capsule's or a cylinder's diameter and height; its centre (offset) and turn (rotation) on the shape, in the shape's "
                            "frame. What is not given stays as the collider is now (a fitted one's numbers from the geometry); fitting is off after",

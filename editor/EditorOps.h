@@ -43,6 +43,7 @@ class Viewport;
 class EditorRuntime;
 
 QJsonObject coreAnswerJson(const ke::Value& answer); // a core answer as the API's: its keys and ok true (EditorOpsCore.cpp)
+ke::Value coreValue(const QJsonValue& v);            // a JSON value as the core's arguments take it
 
 class EditorOps : public QObject {
 public:

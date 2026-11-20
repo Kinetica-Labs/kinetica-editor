@@ -311,3 +311,42 @@ void testSequenceInterp() {
     CHECK(held == 0 && std::fabs(after - 1) < 1e-6_r, "a step key holds to the next");
     CHECK(moved && refused && file, "sequence_key_set moves and sets a key, refuses a collision; the file keeps it: %s", error.c_str());
 }
+
+// A plugin's component on a shape (SceneGraph.h PluginComponent), the core keeping it word for word: component_set adds it
+// with typed values (a number, a vector, a flag, a word with a space), a second call changes one value in place; the scene
+// file carries it and comes back the same to the bit, whether or not the plugin is there; component_list gives the
+// values back typed; component_remove takes it off.
+void testPluginComponents() {
+    SceneGraph g;
+    const uint32_t cube = addShape(g, ShapeKind::Box);
+    std::string error;
+    Value answer;
+    const auto run = [&](const char* op, Value a) { answer = Value::map(); return findSceneOp(op)->edit(g, a, answer, error); };
+    Value values = Value::map(), offset = Value::list();
+    for (double v : {0.0, 0.5, 0.0}) offset.push(v);
+    values.set("radius", 1.5), values.set("offset", offset), values.set("on", true), values.set("label", "Ветряк A");
+    Value set = Value::map();
+    set.set("id", cube), set.set("type", "turbines.turbine"), set.set("values", values);
+    const bool added = run("component_set", set);
+    Value radius = Value::map(), again = Value::map();
+    radius.set("radius", 2.0);
+    again.set("id", cube), again.set("type", "turbines.turbine"), again.set("values", radius);
+    const bool changed = run("component_set", again);
+    const std::string text = g.save();
+    SceneGraph back;
+    const bool loaded = back.load(text, error) && back.save() == text;
+    const bool line = text.find("component turbines.turbine radius 2 offset 0,0.5,0 on 1 label \"Ветряк A\"") != std::string::npos;
+    Value listed;
+    findSceneOp("component_list")->query(back, Value::map(), listed, error);
+    const Value& row = listed["components"].items().empty() ? Value() : listed["components"].items()[0];
+    const bool typed = row["values"]["radius"].number() == 2.0 && row["values"]["offset"].items().size() == 3 &&
+                       row["values"]["offset"].items()[1].number() == 0.5 && row["values"]["label"].text("") == "Ветряк A";
+    Value off = Value::map();
+    off.set("id", cube), off.set("type", "turbines.turbine");
+    const bool removed = run("component_remove", off) && g.entities[0].components.empty();
+    std::printf("  component_set %s, changed %s; the line %s; back to the bit %s; listed typed %s; removed %s (%s)\n", added ? "yes" : "no",
+                changed ? "yes" : "no", line ? "written" : "MISSING", loaded ? "yes" : "no", typed ? "yes" : "no", removed ? "yes" : "no",
+                error.c_str());
+    CHECK(added && changed && line && loaded, "a plugin's component: added, a value changed in place, the scene file to the bit");
+    CHECK(typed && removed, "component_list gives its values typed; component_remove takes it off");
+}

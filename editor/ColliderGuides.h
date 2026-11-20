@@ -14,6 +14,8 @@
 #include "math/Math.h"
 #include "physics/PhysicsWorld.h"
 
+#include <QString>
+
 #include <map>
 #include <string>
 #include <vector>
@@ -46,6 +48,8 @@ private:
 // A point of the collider mode (Godot's shape handles): on the collider's surface, dragged along the line from the
 // collider's centre through it. A box has one on each face (the far face stays), a round collider one on its rim (the
 // diameter) and a capsule or a cylinder one on each end (the height, both ends at once).
+// The same points carry a plugin's fields (Cinema 4D's orange handles on a parametric object: a radius, a length, a point
+// dragged where it is seen): a line handle moves along its line, a free one in the plane facing the eye.
 struct ShapeHandle {
     ke::Vector3 centre, axis; // the world line it moves on: the collider's centre, outward
     float reach = 0;          // where it is on that line, metres from the centre
@@ -53,6 +57,9 @@ struct ShapeHandle {
     int side = 1;             // the face's side (+1, -1)
     bool both = false;        // both sides at once (a diameter, a height); otherwise the far side stays
     const char* what = "";    // said in the status bar: "грань +X", "диаметр", "высота"
+    bool free = false;        // a point: dragged in the plane facing the eye, not along the line (centre + axis * reach is it)
+    bool plugin = false;      // a plugin's field: orange, as Cinema 4D's; a collider's: green
+    QString label;            // a plugin's field's words (what overrides `what`)
 };
 
 // The guide lines of one shape kind in the shape's frame (pairs of points).

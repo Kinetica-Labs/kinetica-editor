@@ -174,6 +174,13 @@ bool fail(std::string& bad, const std::string& what) {
 // ---------------------------------------------------------------------------
 // Saving
 // ---------------------------------------------------------------------------
+static std::string quoted(const std::string& name) {
+    std::string n = name;
+    for (char& c : n)
+        if (c == '"') c = '\'';
+    return "\"" + n + "\"";
+}
+
 // The collider role, a line of its own with every field (written only when the role is on).
 static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
     o << "  collider kind " << kColliderNames[int(c.kind)] << " fit " << (c.fitToGeometry ? 1 : 0) << " size " << vec(c.size)
@@ -288,6 +295,11 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
           << " spin " << vec(e.rigid.angularVelocity) << "\n";
     }
     if (e.collider.enabled) saveCollider(o, e.collider);
+    for (const PluginComponent& c : e.components) {
+        o << "  component " << c.type;
+        for (const auto& [key, word] : c.values) o << " " << key << " " << (word.find(' ') != std::string::npos || word.empty() ? quoted(word) : word);
+        o << "\n";
+    }
     o << "end\n";
 }
 
@@ -321,13 +333,6 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
     for (int k = 0; k < 6; ++k) saveFreedom(o, k, j.dof[k]);
     if (j.collide) o << "  collide\n";
     o << "end\n";
-}
-
-static std::string quoted(const std::string& name) {
-    std::string n = name;
-    for (char& c : n)
-        if (c == '"') c = '\'';
-    return "\"" + n + "\"";
 }
 
 static void saveBattery(std::ostringstream& o, const BatteryObject& b) {
@@ -572,6 +577,14 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
         if (!point || (w.size() == 8 && !turned) || (turned ? e.pathTurns.size() != e.path.size() : !e.pathTurns.empty())) return fail(bad, what);
         e.path.push_back(p);
         if (turned) e.pathTurns.push_back(t);
+        return true;
+    }
+    if (what == "component") { // "component <plugin>.<name> key value key value…": a plugin's, kept as it is
+        if (w.size() < 2 || w.size() % 2 != 0) return fail(bad, what);
+        PluginComponent c;
+        c.type = w[1];
+        for (size_t i = 2; i + 1 < w.size(); i += 2) c.values.push_back({w[i], w[i + 1]});
+        e.components.push_back(std::move(c));
         return true;
     }
     LineReader r(w, 1);

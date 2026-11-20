@@ -122,7 +122,7 @@ if(Qt6_FOUND)
     editor/PluginHost.h editor/PluginHost.cpp editor/PluginPanel.h editor/PluginPanel.cpp editor/MainWindowPlugins.cpp editor/PythonRuntime.h editor/Resources.h editor/ArgsSchema.h editor/ArgsSchema.cpp editor/SequencerPanel.h editor/SequencerPanel.cpp
     editor/SequencerViews.h editor/SequencerTimeline.cpp editor/SequencerCurves.cpp
     editor/SceneBuilderSelection.cpp editor/SceneBuilderApi.cpp editor/SceneBuilderCode.cpp
-    editor/SceneBuilderColliders.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
+    editor/SceneBuilderColliders.cpp editor/SceneBuilderComponents.cpp editor/SceneBuilderJoints.cpp editor/SceneBuilderActuators.cpp
     editor/SceneBuilderSensors.cpp editor/SceneBuilderDevices.cpp
     editor/SceneBuilderControllers.cpp
     editor/ObjectInspector.h editor/ObjectInspector.cpp

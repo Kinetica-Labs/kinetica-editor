@@ -173,7 +173,13 @@ public:
     // no mode, a word why.
     void setColliderEdit(bool on);
     bool colliderEditing() const { return colliderEdit_ != 0; }
-    void onShapeHandle(int index, float reach, int phase); // a point dragged: 0 pressed, 1 moved, 2 released, 3 Esc
+    void onShapeHandle(int index, ke::Vector3 point, int phase); // a point dragged: 0 pressed, 1 moved, 2 released, 3 Esc
+    // The plugins' components (SceneBuilderComponents.cpp): the types a running plugin declares ({name, label, help,
+    // fields: {name: schema with handle?}, order}) - set again when it registers, emptied when it goes.
+    void setPluginComponents(const QString& plugin, const QJsonArray& types);
+    QJsonObject componentType(const std::string& type) const; // {} : no running plugin declares it
+    void setComponent(uint32_t id, const QString& type, const QJsonObject& values); // one component_set from the window
+    void removeComponent(uint32_t id, const QString& type);
     // A line of the window said for what lives outside the builder (the tool shelf: the gizmo's tool).
     void sayAction(const QString& op, const QString& py, QJsonObject args = {}) { codeAction(op, py, std::move(args)); }
     void onCloneDragStarted(); // Shift was held when the drag began: the drag moves copies (SceneBuilderClone.cpp)
@@ -572,6 +578,16 @@ private:
     void showCollider(const ke::ColliderRole& c);                  // the numbers in, the wireframe and the points after them
     void finishColliderDrag(bool cancelled);
     QString colliderLine(QJsonObject& args) const;                 // ed.scene_collider(...) of what the drag made
+    std::map<QString, QJsonObject> componentTypes_;                // "<plugin>.<name>" -> its schema
+    struct ComponentHandleField { QString type, field, kind; };
+    std::vector<ComponentHandleField> componentHandleFields_;      // what each orange point is (componentHandles' order)
+    ke::SceneGraph componentGraph_;                                // the scene when a point was taken (Esc, and its one edit)
+    bool componentDragging_ = false;
+    QVBoxLayout* pluginCards_ = nullptr;                           // the cards of the shape's plugin components
+    void fillPluginCards();
+    void addPluginComponentsTo(QMenu* menu, const ke::Entity& e);
+    std::vector<ShapeHandle> componentHandles();
+    void onComponentHandle(int index, ke::Vector3 point, int phase);
 
     // The gizmo: the active object it drags, every dragged object's world pose when the drag began,
     // and the whole graph then (Esc puts it back; a scale is always from the start sizes).

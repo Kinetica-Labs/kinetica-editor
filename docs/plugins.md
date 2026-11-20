@@ -106,10 +106,38 @@ def wind(scene, dt, bodies):            # bodies: {id: {"position", "velocity", 
 - `@on_play` и `@on_stop` — один раз на «Пуск» и «Стоп».
 - Те же два пути есть и в API: `sensor_read` (показания без истины) и `robot_command` (команды и силы).
 
+## 5. Компонент на объекте и оранжевые ручки (как в Cinema 4D)
+
+```python
+from kinetica.plugin import component, field, on_tick
+
+
+@component(label="Ветряк")
+class Turbine:
+    radius = field(1.0, unit="м", range=(0.1, 5.0), label="Радиус", handle="radius")   # точка вдоль x объекта
+    hub = field((0.0, 0.5, 0.0), label="Ступица", handle="point")                    # точка в системе объекта
+    power = field(100.0, unit="Вт", range=(0, 1000), label="Мощность")
+
+
+@on_tick(world=True)
+def blow(scene, dt, bodies):
+    for shape, values in Turbine.instances(scene):   # [(id, {"radius": 1.0, ...}), ...]
+        ...
+```
+
+- «Ветряк» появляется в **«+ Добавить компонент»** любой фигуры; карточка в инспекторе рисуется из полей; правка —
+  один шаг отмены и строка `ed.component_set(...)` в журнале. Строка в файле сцены:
+  `component turbines.turbine power 100 radius 1 hub 0,0.5,0`.
+- Поля с `handle=` — **оранжевые точки** на выбранной фигуре: `"radius"` (вдоль x), `"length"` (вдоль `axis`, по
+  умолчанию y), `"point"` (тащится в плоскости экрана). Подсветка до щелчка, значение у курсора, Esc — отмена; щелчок
+  по точке никогда не меняет выделение.
+- Плагин не запущен — карточка говорит «не запущен», значения хранятся как есть (как Missing Script в Unity).
+- В API: `component_set {id, type, values}`, `component_remove`, `component_list {type?}`.
+
 ## Чего пока нет
 
-Своих компонентов с карточкой в инспекторе, ручек на гизмо, инструментов в виде, рисования поверх вида и импорта
-файлов пока нет — они в работе ([editor-plugin](contracts/editor-plugin.md), «Дальше»).
+Инструментов в виде, рисования поверх вида и импорта файлов пока нет — они в работе
+([editor-plugin](contracts/editor-plugin.md), «Дальше»).
 
 ## Плагин руками ИИ-агента
 

@@ -315,6 +315,7 @@ void PluginHost::notice(const QString& plugin, const QString& text) {
 }
 
 void PluginHost::unregister(Plugin& p) {
+    builder_->setPluginComponents(p.name, {}); // its components' cards say the plugin is not running; their words stay
     if (p.panel) { // its values kept for its return; the panel out of the window
         p.panelValues = p.panel->values();
         place_(p.panel, false);
@@ -483,7 +484,7 @@ void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
                                    "(python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
-                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), hooks?: [str]}",
+                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), hooks?: [str], components?: [{}]}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
@@ -491,6 +492,7 @@ void PluginHost::addOps() {
         unregister(*p);
         p->hooks.clear();
         for (const QJsonValue& h : a.value("hooks").toArray()) p->hooks << h.toString();
+        builder_->setPluginComponents(p->name, a.value("components").toArray()); // its components: cards, «+ Добавить компонент», points
         QJsonArray made;
         for (const QJsonValue& v : a.value("commands").toArray()) {
             const QJsonObject c = v.toObject();

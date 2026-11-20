@@ -76,6 +76,7 @@ void testTargetCamera();
 void testSequence();
 void testSequenceInterp();
 void testSceneColliderNumbers();
+void testPluginComponents();
 // AssemblyTests.cpp
 void testSceneJointsRoundTrip();
 void testSnapToFace();

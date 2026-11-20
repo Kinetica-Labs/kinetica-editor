@@ -127,6 +127,14 @@ struct ArrayObject : SceneObject {
 // A shape in the scene with its roles: a rigid body, a collider, or both (a moving body); a collider
 // alone is a static obstacle. With no role at all it is geometry only: drawn, but no body, no
 // collision, no part in the simulation.
+// A plugin's component on an entity (docs/contracts/editor-plugin.md): its type, "<plugin>.<name>", and its values as the
+// scene file has them - a key and one word each (a number, a vector "x,y,z", a word). Kept word for word whether or not
+// the plugin is there (Unity's Missing Script): a scene opens and saves the same without it.
+struct PluginComponent {
+    std::string type;
+    std::vector<std::pair<std::string, std::string>> values;
+};
+
 struct Entity : SceneObject {
     // An instance shares the geometry and the roles of its master (the entity with this id): change
     // the density, the collider or the shape of one and all change (as 3ds Max's Instance). Only the
@@ -155,6 +163,7 @@ struct Entity : SceneObject {
     SurfaceTexture texture;
     RigidRole rigid;
     ColliderRole collider;
+    std::vector<PluginComponent> components; // the plugins' («component <type> key value…» lines)
 };
 
 // One freedom of a joint (JointModel.h): locked, limited or free, and what drives it - a spring-

@@ -153,7 +153,7 @@ void EditTool::cancelHandle(Viewport& v) {
     if (handle_ < 0) return;
     const int h = handle_;
     handle_ = -1;
-    emit v.shapeHandleDragged(h, handleStart_.reach, 3);
+    emit v.shapeHandleDragged(h, handleStart_.centre + handleStart_.axis * handleStart_.reach, 3);
 }
 
 bool EditTool::pressTransform(Viewport& v, QMouseEvent* e) {
@@ -177,8 +177,8 @@ void EditTool::pressLeft(Viewport& v, QMouseEvent* e) {
     pressPos_ = boxEnd_ = e->position();
     pressShift_ = e->modifiers() & Qt::ShiftModifier;
     if (const int h = v.shapeHandleAt(e->position()); h >= 0) { // a collider point: before the gizmo, it sits on the collider
-        handle_ = h, handleStart_ = v.shapeHandles()[size_t(h)], handleReach_ = handleStart_.reach;
-        emit v.shapeHandleDragged(h, handleReach_, 0);
+        handle_ = h, handleStart_ = v.shapeHandles()[size_t(h)], handleAt_ = handleStart_.centre + handleStart_.axis * handleStart_.reach;
+        emit v.shapeHandleDragged(h, handleAt_, 0);
         return;
     }
     if (v.gizmoShown()) {
@@ -242,8 +242,8 @@ bool EditTool::moveGizmo(Viewport& v, QMouseEvent* e) {
 
 void EditTool::move(Viewport& v, QMouseEvent* e) {
     if (handle_ >= 0) {
-        handleReach_ = v.reachAlong(handleStart_, e->position());
-        emit v.shapeHandleDragged(handle_, handleReach_, 1);
+        handleAt_ = v.handlePoint(handleStart_, e->position());
+        emit v.shapeHandleDragged(handle_, handleAt_, 1);
         return;
     }
     if (moveGizmo(v, e)) return;
@@ -281,7 +281,7 @@ void EditTool::release(Viewport& v, QMouseEvent* e) {
     if (handle_ >= 0 && e->button() == Qt::LeftButton) {
         const int h = handle_;
         handle_ = -1;
-        emit v.shapeHandleDragged(h, handleReach_, 2);
+        emit v.shapeHandleDragged(h, handleAt_, 2);
         return;
     }
     camera_.release(v, e);
@@ -291,10 +291,9 @@ void EditTool::release(Viewport& v, QMouseEvent* e) {
         return;
     }
     if (e->button() != Qt::LeftButton) return;
-    if (pending_ != GizmoHandle::None) { // pressed and released on a handle without moving: a click through it -
-        pending_ = GizmoHandle::None;    // the gizmo sits on the selection, so clicking there again walks the ray on
-        if (!(e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))) v.clickSelect(e->position(), false);
-        return;
+    if (pending_ != GizmoHandle::None) { // pressed and released on a handle without moving: nothing - a handle never changes
+        pending_ = GizmoHandle::None;    // the selection (Cinema 4D's rule: the cursor on a freedom takes that freedom, no
+        return;                          // accidental click; it walked the ray on to what stood behind the gizmo)
     }
     if (v.gizmo().dragging() && !v.gizmo().modal()) {
         v.gizmo().end();
