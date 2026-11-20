@@ -16,12 +16,21 @@ build/ke_tests                                   # ядро; KE_TEST=<подст
 build/kinetica --self-test                       # окно: жмёт кнопки, тащит гизмо; KE_EDITOR_TEST=<группа>
 cd tools && python3 -m unittest test_agent_eval test_plugin_sdk   # стенд испытателей и SDK плагинов, без окна
 build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; клиент tools/ke_editor.py
+build/kinetica --scene examples/ur5e.kscene --api 47801                # окно человеку; с --api к нему ходят MCP ke-editor (.mcp.json) и клиент
+python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
+build/kinetica --scene examples/ur5e.kscene --frames 120 --window --screenshot /tmp/ur5e.png   # снимок без показа окна после N кадров игры; --edit — сцена как написана
 ```
 
 Код выхода тестов = число ошибок. Тест ядра: функция в `tests/*Tests.cpp`, строка в `tests/Tests.h`,
 `run(...)` в `tests/main.cpp`. Группы самотеста — `runBuilderSelfTest()` в `editor/SelfTest.cpp`.
 CI (`.github/workflows/ci.yml`) ещё проверяет абляцию: словарь нежёсткой физики есть только в
-`tests/AblationTests.cpp`, Box3D подключён только в `plugins/physics/box3d/`, в `src/` нет Qt.
+`tests/AblationTests.cpp`, Box3D подключён только в `plugins/physics/box3d/`, в `src/` нет Qt. Это три `git grep`
+задачи `ablation` — они же запускаются локально, пустой вывод = чисто. Словарь ищется подстрокой без учёта
+регистра и в комментариях, справке операций, докстрингах Python: «a gas's flow», «smoke test», «cloth» роняют CI.
+
+Файлы в `CMakeLists.txt` перечислены поимённо, без glob: новый файл — в список `kecore`, `kinetica` или `ke_tests`,
+шейдер — в `qt_add_resources`. Программа из `build/` берёт `examples/`, `data/`, `python/`, `plugins/` из дерева
+исходников (`editor/Resources.h`): правка Python и CSV пересборки не требует.
 
 ## Устройство
 
@@ -30,15 +39,28 @@ CI (`.github/workflows/ci.yml`) ещё проверяет абляцию: сло
   IK `Kinematics`), `physics` (контракт движка), `sim` (`RobotWorld` — живой мир робота, `Simulation`, `Frame`).
 - **`plugins/physics/box3d/`** — единственное место с `box3d.h`.
 - **`plugins/<имя>/plugin.py`** — плагины на Python, которые поставляются с редактором (`plugins/urdf` — импорт URDF):
-  хост сканирует эту папку при обычном запуске, самотест копирует нужный плагин во временную папку.
+  хост сканирует эту папку при обычном запуске, самотест копирует нужный плагин во временную папку. Плагин —
+  отдельный процесс Python, клиент того же API. Остальные плагины проекта — в репозитории kinetica-plugins; хост
+  читает ещё папки, добавленные в окне, `<app data>/plugins` и `KE_PLUGINS`.
 - **`editor/` — окно `kinetica`** (Qt 6), клиент API операций. `MainWindow*`, `Viewport*`, `SceneBuilder*`
   разрезаны по темам: метод ищется по теме файла. Симуляция крутится в потоке `SimController`; окно шлёт
-  команды `post()` и читает неизменяемые `Frame`. Карточка инспектора — список полей `FieldForm`
+  команды `post()` и читает неизменяемые `Frame`. Такт плагинов (`RunHooks`) ходит между потоком симуляции и
+  плагином своим потоком, мимо окна: через поток окна не идёт ничего, чего ждёт шаг. Карточка инспектора — список полей `FieldForm`
   (`InspectorWidgets.h`) над черновиком объекта; правку пишет в сцену общий `commitDraft`.
 - **API = UI.** Любое действие — операция (ядро `SceneOps`, окно `EditorOps`) с JSON-ответом; кнопка, консоль,
   Python и агент по сети (`--api`, MCP `tools/ke_editor_mcp.py`) зовут одни и те же операции. Правка — шаг
-  отмены и строка в журнале JSON lines, который только дописывается. Новая возможность сначала операция,
-  потом кнопка.
+  отмены и строка в журнале JSON lines, который только дописывается (`<app data>/ops-journal.jsonl`, на Linux
+  `~/.local/share/Kinetica/Kinetica/`; другой файл — `KE_JOURNAL`). Новая возможность сначала операция, потом кнопка.
+- **Операция.** Ядра — `SceneOp` в `src/scene/SceneOps*.cpp`: видит только граф; выделение, время, отмена и файлы —
+  у клиента. Окна — `add`/`addSync` в `editor/EditorOps*.cpp`. Строка `args` — и справка, и схема
+  (`editor/ArgsSchema.h`): поле, которое код читает, обязано в ней быть, вызов с лишним полем отвергается.
+  Имена операций не переименовываются — это контракт с агентами и MCP.
+- **Правка и Пуск.** В «Правке» окно рисует граф сцены как он написан (`EditView`) и ничего не считает: роль только
+  помечает объект. «Пуск» один раз строит из графа `RobotWorld`, «Стоп» выбрасывает его — сцена снова как до пуска,
+  правки в игре не сохраняются.
+- **Python** (только стандартная библиотека): `python/kinetica` — объектная модель поверх операций для консоли окна
+  и скриптов (`import kinetica as ke`) и SDK плагинов (`plugin.py`); `tools/` — клиент `ke_editor.py`, сервер MCP,
+  стенд испытателей `agent_eval.py`.
 - **Датчик = композиция:** крепление + зонд физики (`sim/LiveSensors`, только через `PhysicsWorld`) + сигнальная цепочка
   паспорта (`devices/Signal.h`) + выход. Вид — рецепт, модель — строка таблицы `data/sensors/<вид>.csv`
   (поля и ключи — `scene/SensorSpec.h`); датчик хранит свой паспорт в сцене. Новая модель — строка CSV, не код.
@@ -56,10 +78,14 @@ CI (`.github/workflows/ci.yml`) ещё проверяет абляцию: сло
 - Интерфейс, документация и коммиты на русском; код и комментарии — на английском. Коммит начинается с
   области: «Ядро: …», «Физика: …», «Окно: …», «Рука: …».
 - Каждый файл начинается с абзаца: что в нём и где остальное.
-- Только стандартный C++17 и Qt, без `#ifdef _WIN32`. `ke::sin` и др. из `math/ElementaryFunctions.h`, не `std::`.
+- Только стандартный C++17 и Qt, без `#ifdef _WIN32`.
+- Один результат на любом компиляторе: `ke::sin` и др. из `math/ElementaryFunctions.h`, не `std::`; случайность —
+  `core/Random.h`, не `std::*_distribution`; шаг мира не зависит от настенных часов и порядка обхода `unordered_*`.
+  Вещественное ядра — `ke::Real` (float, с `-DKE_DOUBLE=ON` double), литералы `1.5_r`.
+- СИ, правая система, Y вверх, радианы; в `*.kscene` углы — градусы Эйлера.
 - Числа в файлы — через `core/Format.h`: Qt на Linux включает локаль, и `printf` пишет `0,120`.
 - Запуски без человека (`--self-test`, `--agent-eval`, снимки) окон не показывают; новый такой ключ — в
-  `unattended()` и `withoutDesktopGrab()` в `editor/main.cpp`.
+  `unattended()` и `unattendedArgs()` в `editor/main.cpp`; такой запуск не ждёт экрана (он может спать).
 
 ## Конституция и путь
 
