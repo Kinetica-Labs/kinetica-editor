@@ -169,31 +169,37 @@ static bool wantsSoftwareGL(int argc, char** argv) {
 // client's grab answers AlreadyGrabbed with a list open). Released after the fact, the grab closes the popup. So such a run asks the X11 plugin never to grab ("--nograb", the option Qt
 // takes under a debugger): popups work inside the application, and the rig's hand sends its events to the
 // widgets directly. The plugin removes the argument; elsewhere the parser takes it as a hidden option.
-static std::vector<char*> withoutDesktopGrab(int argc, char** argv) {
+static std::vector<char*> withoutDesktopGrab(int argc, char** argv, bool unattended) {
     static char noGrab[] = "--nograb";
     std::vector<char*> args(argv, argv + argc);
-    for (int i = 1; i < argc; ++i)
-        for (const char* option : {"--agent-eval", "--self-test", "--gizmo-shots", "--screenshot", "--gallery-shot",
-                                   "--thumbnail"}) // the options of unattended() below, also as --option=value
-            if (const size_t n = std::strlen(option); std::strncmp(argv[i], option, n) == 0 && (!argv[i][n] || argv[i][n] == '=')) {
-                args.push_back(noGrab);
-                args.push_back(nullptr);
-                return args;
-            }
+    if (unattended) args.push_back(noGrab);
     args.push_back(nullptr);
     return args;
 }
 
-static void setSurfaceFormat(bool software) {
+// A run nobody watches, known before the application object exists: the options of unattended() below, also as
+// --option=value.
+static bool unattendedArgs(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i)
+        for (const char* option : {"--agent-eval", "--self-test", "--gizmo-shots", "--screenshot", "--gallery-shot", "--thumbnail"})
+            if (const size_t n = std::strlen(option); std::strncmp(argv[i], option, n) == 0 && (!argv[i][n] || argv[i][n] == '=')) return true;
+    return false;
+}
+
+static void setSurfaceFormat(bool software, bool watched) {
     QSurfaceFormat fmt;
     fmt.setVersion(3, 3);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
     fmt.setDepthBufferSize(24);
     fmt.setSamples(software ? 0 : 4); // multisampling is costly on the CPU
-    // KE_NO_VSYNC=1: a swap waits for no vertical blank - a monitor asleep (DPMS) sends none, and a view drawn in a
-    // window nobody watched crawled at ~1 frame a second (an env var such as __GL_SYNC_TO_VBLANK is overridden by the
-    // interval set here).
-    fmt.setSwapInterval(qEnvironmentVariableIntValue("KE_NO_VSYNC") != 0 ? 0 : 1);
+    // A swap waits for the screen only in a window a person watches. A run nobody watches is not held to a screen: one
+    // asleep or locked (DPMS off, the person away - just when an agent works) sends no frame, and every paint of the
+    // hidden window then waited up to a second - an API edit took 49 ms instead of 1.2, timed checks of the self-test
+    // failed (measured, GNOME on X11, Mesa). The interval asks any driver; vblank_mode asks Mesa, whose presentation
+    // waits for the compositor whatever the interval says. KE_NO_VSYNC=1: the same for a watched window.
+    const bool waits = watched && qEnvironmentVariableIntValue("KE_NO_VSYNC") == 0;
+    if (!waits && qEnvironmentVariableIsEmpty("vblank_mode")) qputenv("vblank_mode", "0");
+    fmt.setSwapInterval(waits ? 1 : 0);
     QSurfaceFormat::setDefaultFormat(fmt);
 }
 
@@ -347,9 +353,10 @@ static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, 
 int main(int argc, char** argv) {
     const bool software = wantsSoftwareGL(argc, argv);
     if (software) QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
-    setSurfaceFormat(software);
+    const bool nobodyWatches = unattendedArgs(argc, argv);
+    setSurfaceFormat(software, !nobodyWatches);
 
-    std::vector<char*> args = withoutDesktopGrab(argc, argv);
+    std::vector<char*> args = withoutDesktopGrab(argc, argv, nobodyWatches);
     int count = int(args.size()) - 1; // QApplication keeps both: they live as long as main
     QApplication app(count, args.data());
     QApplication::setApplicationName("Kinetica");
