@@ -57,7 +57,7 @@ public:
     void run(const QString& name, const QJsonObject& args, const Reply& reply, const QString& source = "api");
     // An operation that answers at once (every edit and query), called by the user interface: its answer.
     QJsonObject runNow(const QString& name, const QJsonObject& args);
-    QJsonArray list() const; // name, help, args of every operation
+    QJsonArray list(const QStringList& families = {}) const; // name, help, args, schema, kind of every operation (of these families only)
     // What brings the window up to the simulation's newest frame (MainWindow sets it).
     void setRefresh(std::function<void()> refresh) { refresh_ = std::move(refresh); }
     bool recording() const { return recording_; } // a take runs (sim_record)
@@ -79,6 +79,14 @@ public:
     void setUnknownHint(std::function<QString(const QString&)> hint) { unknownHint_ = std::move(hint); }
     static bool isQuery(const QString& name); // EditorJournal.cpp
     static bool windowOnly(const QString& name); // the window's state or time, no change of the scene (EditorJournal.cpp)
+    // What an operation is to the one who calls it (ops_list says it; an agent's client marks its tools by it):
+    //   "query"  reads - nothing a person would see changes;
+    //   "edit"   changes the scene: one undo step takes it back;
+    //   "window" the window's own state and time - the selection, the gizmo, the view and what is drawn over it, play,
+    //            pause, a step, a hand's input -, never the scene as it is authored;
+    //   "action" the rest: a file written, the journal's way back, the program stopped - and a plugin's command, which
+    //            may do any of these.
+    QString kind(const QString& name) const;
     // A plugin process's own wiring (plugin_register, _wait, _reply, _panel_set with its token): no one's action - out of
     // ops_list, the console's log and the journal, as MCP leaves it out of its tools (a person saw ed.plugin_register(…)).
     static bool wiring(const QString& name) {

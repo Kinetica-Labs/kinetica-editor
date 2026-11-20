@@ -578,6 +578,17 @@ void handSession(QMainWindow& w, SceneBuilder& b, EditorOps& ops, uint32_t& cube
 // the same scene to the bit. Undo's button is scene.undo().
 void testWindowAsCode(Checker& c, QMainWindow& w, SceneBuilder& b) {
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    // What an operation is to its caller, as ops_list says it - an agent's client marks its tools by it (MCP) - and the
+    // list of chosen families only.
+    std::map<QString, QString> kind;
+    for (const QJsonValue& o : ops->runNow("ops_list", {}).value("ops").toArray()) kind[o.toObject().value("name").toString()] = o.toObject().value("kind").toString();
+    int foreign = 0, simulation = 0;
+    for (const QJsonValue& o : ops->runNow("ops_list", {{"families", QJsonArray{"sim"}}}).value("ops").toArray())
+        o.toObject().value("name").toString().startsWith("sim_") ? ++simulation : ++foreign;
+    c.check(kind["scene_list"] == "query" && kind["scene_add"] == "edit" && kind["edit_undo"] == "edit" && kind["selection_set"] == "window" &&
+            kind["sim_stop"] == "window" && kind["ui_pointer"] == "window" && kind["scene_save"] == "action" && kind["app_quit"] == "action",
+            "ops_list says what each operation is: a query, an edit of the scene, the window's own state, or an action");
+    c.check(simulation >= 6 && foreign == 0, "ops_list of chosen families gives those operations only");
     std::vector<std::pair<QString, QJsonObject>> lines;
     b.setCodeReporter([&lines](const QString& op, const QJsonObject& args) { lines.push_back({op, args}); });
     pump(500);

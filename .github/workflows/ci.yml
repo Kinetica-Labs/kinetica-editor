@@ -32,8 +32,8 @@ jobs:
         run: cmake --build build --parallel 4 # without a number make starts every compile at once and runs out of memory
       - name: Tests
         run: ctest --test-dir build --output-on-failure
-      - name: Python - стенд испытателей и SDK плагинов
-        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk
+      - name: Python - стенд испытателей, SDK плагинов и сервер MCP
+        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp
       - name: Самотест окна (программный OpenGL)
         timeout-minutes: 20
         env:

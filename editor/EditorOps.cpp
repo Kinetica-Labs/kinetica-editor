@@ -33,8 +33,13 @@ EditorOps::EditorOps(SceneBuilder* builder, Viewport* view, SimController* ctrl,
     addInputOps();
     addJournalOps();
     addStateOps();
-    addSync("ops_list", "Every operation of the editor: name, help, arguments", "{}", [this](const QJsonObject&) {
-        return ok({{"ops", list()}});
+    addSync("ops_list", "Every operation of the editor: name, help, arguments, their JSON Schema, and kind - query (reads), edit (the "
+                        "scene, one undo step), window (the selection, the view, play and pause: never the authored scene) or "
+                        "action (files, plugins, the program). families: only the operations whose names begin so - "
+                        "[\"scene\", \"sim\"] gives scene_* and sim_*", "{families?: [str]}", [this](const QJsonObject& a) {
+        QStringList families;
+        for (const QJsonValue& f : a.value("families").toArray()) families << f.toString();
+        return ok({{"ops", list(families)}});
     });
 }
 
@@ -107,11 +112,12 @@ QJsonObject EditorOps::runNow(const QString& name, const QJsonObject& args) {
     return answer;
 }
 
-QJsonArray EditorOps::list() const {
+QJsonArray EditorOps::list(const QStringList& families) const {
     QJsonArray out;
     for (const auto& [name, op] : ops_) {
         if (wiring(name)) continue; // a plugin process's own, not an operation anyone calls
-        QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}};
+        if (!families.isEmpty() && !families.contains(name.section('_', 0, 0))) continue;
+        QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}, {"kind", kind(name)}};
         entry.insert("schema", op.schema); // JSON Schema: a plugin's fields, or the core's line of arguments read (ArgsSchema.h)
         out.append(entry);
     }

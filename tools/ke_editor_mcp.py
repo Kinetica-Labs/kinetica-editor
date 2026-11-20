@@ -10,7 +10,13 @@ becomes a tool, listed from the running editor; three tools are always there:
 
 Each operation's arguments come as its JSON Schema (ops_list: a plugin's fields, the core's line of arguments read):
 a call with a field the operation has not is refused, naming the fields. An answer ``{"ok": false}`` is an MCP error
-(``isError``). When the operations change - a plugin started, fell or was saved - the server says so
+(``isError``). Each tool carries MCP's annotations from the operation's kind, as the editor says it (ops_list): a query
+is read-only; an edit of the scene and a change of the window's state are not destructive - an edit is one undo step;
+an action (a file written, the program stopped, a plugin's command) is left as it may be.
+
+A profile: ``KE_MCP_FAMILIES=scene,assembly,sim`` offers as tools only the operations of those families (the first word
+of a name) - a hundred tools are some 50 KB in an agent's context at every start. The rest stay one call away:
+``editor_call`` reaches any operation, and ``ops_list {families: [...]}`` describes them. When the operations change - a plugin started, fell or was saved - the server says so
 (``notifications/tools/list_changed``). The plugins' own wiring (plugin_register, plugin_wait, plugin_reply,
 plugin_panel_set: a plugin process with its token) is not offered as tools. ``view_screenshot`` answers with the
 picture itself, so the agent sees what the editor shows.
@@ -33,9 +39,14 @@ LOCAL_TOOLS = [
     {"name": "editor_launch", "description": "Start the editor with its API (if it is not running) and wait for it. "
      "scene: a .kscene file to open.",
      "inputSchema": {"type": "object", "properties": {"scene": {"type": "string"}}}},
-    {"name": "editor_call", "description": "Call any editor operation by name (editor_ops lists them) with its arguments.",
+    {"name": "editor_call", "description": "Call any editor operation by name with its arguments - also one that is not a tool here. "
+     "The operation ops_list names them all with their arguments ({families: [\"scene\"]}: one family).",
      "inputSchema": {"type": "object", "properties": {"op": {"type": "string"}, "args": OPEN}, "required": ["op"]}},
 ]
+FAMILIES = [f for f in os.environ.get("KE_MCP_FAMILIES", "").replace(" ", "").split(",") if f]  # the profile: none - every family
+# An operation's kind (ops_list) as MCP's annotations of its tool.
+HINTS = {"query": {"readOnlyHint": True}, "edit": {"readOnlyHint": False, "destructiveHint": False},
+         "window": {"readOnlyHint": False, "destructiveHint": False}, "action": {"readOnlyHint": False}}
 
 _editor = None
 _names = None  # the operations' names at the last list: a change is said to the client
@@ -67,17 +78,22 @@ def remote_tools():
     if not ke_editor.reachable():
         return []
     global _names
-    tools = [{"name": op["name"], "description": op["help"], "inputSchema": op.get("schema", OPEN)}
-             for op in editor().ops_list()["ops"] if op["name"] not in WIRING]
+    tools = [{"name": op["name"], "description": op["help"], "inputSchema": op.get("schema", OPEN), "annotations": HINTS.get(op.get("kind"), {})}
+             for op in listed() if op["name"] not in WIRING]
     _names = {t["name"] for t in tools}
     return tools
+
+
+def listed():
+    """The editor's operations this server offers as tools: all of them, or the profile's families."""
+    return editor().ops_list(**({"families": FAMILIES} if FAMILIES else {}))["ops"]
 
 
 def tools_changed():
     """Whether the editor's operations are no longer those of the last list (a plugin came, went or fell)."""
     if _names is None or not ke_editor.reachable():
         return False
-    return {op["name"] for op in editor().ops_list()["ops"] if op["name"] not in WIRING} != _names
+    return {op["name"] for op in listed() if op["name"] not in WIRING} != _names
 
 
 def content(answer, op):
@@ -105,7 +121,9 @@ def call_tool(name, args):
 def handle(msg):
     method, params = msg.get("method"), msg.get("params", {})
     if method == "initialize":
-        return {"protocolVersion": params.get("protocolVersion", PROTOCOL), "capabilities": {"tools": {"listChanged": True}}, "instructions": INSTRUCTIONS,
+        profile = (" Only the families " + ", ".join(FAMILIES) + " are tools here; any other operation: editor_call (ops_list names them)."
+                   if FAMILIES else "")
+        return {"protocolVersion": params.get("protocolVersion", PROTOCOL), "capabilities": {"tools": {"listChanged": True}}, "instructions": INSTRUCTIONS + profile,
                 "serverInfo": {"name": "ke-editor", "version": "1"}}
     if method == "tools/list":
         return {"tools": LOCAL_TOOLS + remote_tools()}

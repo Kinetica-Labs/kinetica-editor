@@ -44,6 +44,16 @@ bool EditorOps::windowOnly(const QString& name) {
            name == "session_end";
 }
 
+QString EditorOps::kind(const QString& name) const {
+    if (pluginOps_.count(name)) return "action";
+    if (name == "view_draw" || name == "console_note" || (name.startsWith("ui_") && name != "ui_actions")) return "window"; // no journal line, yet not a look
+    if (isQuery(name)) return "query";
+    const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
+    if ((core && core->edit) || name == "scene_new" || name == "scene_open" || name == "edit_undo" || name == "edit_redo") return "edit";
+    if (name == "scene_save" || name.startsWith("journal_") || name.startsWith("runtime_")) return "action";
+    return windowOnly(name) || name.startsWith("sim_") ? "window" : "action";
+}
+
 bool EditorOps::isQuery(const QString& name) {
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
     return name == "runtime_status" || name == "view_draw" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_list" || name == "plugin_panel_set" || queries().count(name) > 0 ||

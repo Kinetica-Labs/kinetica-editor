@@ -14,7 +14,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOM
 cmake --build build -j
 build/ke_tests                                   # ядро; KE_TEST=<подстрока> — выборочно
 build/kinetica --self-test                       # окно: жмёт кнопки, тащит гизмо; KE_EDITOR_TEST=<группа>
-cd tools && python3 -m unittest test_agent_eval test_plugin_sdk   # стенд испытателей и SDK плагинов, без окна
+cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp   # стенд испытателей, SDK плагинов, сервер MCP - без окна
 build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; клиент tools/ke_editor.py
 build/kinetica --scene examples/ur5e.kscene --api 47801                # окно человеку; с --api к нему ходят MCP ke-editor (.mcp.json) и клиент
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
