@@ -20,6 +20,7 @@
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <cfenv>
 #include <cmath>
 #include <unordered_map>
 
@@ -374,7 +375,13 @@ void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
     const QPointF at = e->position();
     const Axis ruler = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
     const double time = ruler.time(at.x());
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) std::fprintf(stderr, "TRACE move scrubs to %.3f\n", time), std::fflush(stderr);
+    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) {
+        const double by = (at.x() - kNames - kPad) * ruler.span / std::max(1, ruler.width - kNames - 2 * kPad);
+        std::fprintf(stderr, "TRACE move scrubs to %.3f: point %.3f %.3f, ruler width %d span %.3f; by hand %.6f, clamped %.6f, time(261.8) %.3f, "
+                             "time(x) again %.3f, rounding %d\n", time, at.x(), at.y(), ruler.width, ruler.span, by, std::clamp(by, 0.0, ruler.span),
+                     ruler.time(261.8), ruler.time(at.x()), std::fegetround());
+        std::fflush(stderr);
+    }
     panel_->scrub(time);
 }
 
