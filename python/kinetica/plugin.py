@@ -128,14 +128,14 @@ _CLICK = {"point": {"type": "vector", "label": "Точка щелчка", "unit"
 
 
 class _Draw:
-    """Lines, points and words over the 3D view, in world metres: what the plugin wants seen - a gas's flow, a planned
+    """Lines, points and words over the 3D view, in world metres: what the plugin wants seen - a sensor's ray, a planned
     path, a force, a reading. Each drawing has a key: the same key again replaces it. Drawn from on_tick, it goes with the
     frame's answer and is gone at Стоп; drawn from a command, it stays until cleared or the plugin stops. No undo step,
     no journal line::
 
         draw.line("путь", [(0, 0, 0), (1, 0.5, 0), (2, 0, 0)])        # a line through the points
-        draw.segments("поток", [a0, a1, b0, b1])                       # pairs: a field's arrows
-        draw.points("частицы", points, colour="#33ccff", size=4)
+        draw.segments("силы", [a0, a1, b0, b1])                        # pairs: the arrows of forces
+        draw.points("метки", points, colour="#33ccff", size=4)
         draw.label("v", (0, 1.2, 0), "3.2 м/с")
         draw.circle("зона", (0, 0, 0), 0.8)                            # about the world's y; axis="x", or a direction
         draw.box("габарит", (0, 0.5, 0), (1, 1, 2))                    # its twelve edges
@@ -244,7 +244,7 @@ def on_tick(fn=None, *, world=False):
         def control(scene, dt, sensors):            # sensors: {id: {"kind": "encoder", "reading": 0.41, ...}}
             return {7: {"target": 0.8}}             # a joint's target / velocity, a driver's duty: no undo step, no journal
 
-    A plugin that extends the physics (a gas, water, wind) sees the bodies as the engine has them and pushes them::
+    A plugin that extends the physics (wind, a magnet, a thruster) sees the bodies as the engine has them and pushes them::
 
         @on_tick(world=True)
         def wind(scene, dt, bodies):                # bodies: {id: {"position", "velocity", "spin", "mass"}}

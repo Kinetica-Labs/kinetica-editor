@@ -137,7 +137,7 @@ void MainWindow::buildPlugins() {
         const std::pair<const char*, const char*> kinds[] = {
             {"command", "Команда — кнопка, строка Ctrl+K и инструмент агента: сделать что-то со сценой"},
             {"controller", "Контроллер робота — каждый кадр Пуска: датчики → команды суставам"},
-            {"world", "Физика мира — каждый кадр Пуска: тела → силы (газ, вода, ветер…)"}};
+            {"world", "Физика мира — каждый кадр Пуска: тела → силы (ветер, магнит, тяга…)"}};
         auto* group = new QButtonGroup(&ask);
         for (const auto& [key, words] : kinds) {
             auto* option = new QRadioButton(words);

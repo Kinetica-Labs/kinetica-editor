@@ -776,7 +776,7 @@ void PluginHost::addOps() {
     });
     ops_->addOp("plugin_new", "A new plugin from a template in the user's plugins' folder, started: kind command (a command with a field, "
                               "a button in «Плагины»), controller (a robot's on_tick: its sensors in, joint commands out) or world (an "
-                              "extension of the physics: the bodies in, forces out - a gas, water, wind)",
+                              "extension of the physics: the bodies in, forces out - wind, a magnet, a thruster)",
                 "{name: str, kind?: 'command'|'controller'|'world'}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QString error;
         const QString file = create(a.value("name").toString(), error, a.value("kind").toString("command"));

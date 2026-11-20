@@ -1,5 +1,5 @@
-"""PLUGIN_NAME - an extension of the physics (Плагины → Новый плагин… → «Физика мира» made this file): a gas, water,
-wind - anything the engine does not do itself.
+"""PLUGIN_NAME - an extension of the physics (Плагины → Новый плагин… → «Физика мира» made this file): wind, a magnet,
+a thruster - a force the engine does not make itself.
 
 While the scene runs (▶), on_tick(world=True) is called every frame before the next one is stepped - the simulation
 waits for it. It gets the moving bodies as the engine has them (position, velocity, spin, mass) and answers the forces

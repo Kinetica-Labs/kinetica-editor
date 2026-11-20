@@ -154,8 +154,8 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
 } // namespace
 
 void EditorOps::addInputOps() {
-    addSync("view_draw", "Lines, points and words over the 3D view in world metres - a plugin's or an agent's picture (a gas's flow, "
-                         "a planned path, a force, a label), by key: the same key again replaces it, clear takes it off (a key ending "
+    addSync("view_draw", "Lines, points and words over the 3D view in world metres - a plugin's or an agent's picture (a planned "
+                         "path, a force, a sensor's ray, a label), by key: the same key again replaces it, clear takes it off (a key ending "
                          "in / - all under it; none - all). circle {centre: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
                          "about the axis; box {centre: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
                          "ring and bounds. Drawn while the scene plays: gone at Stop. Not a scene edit: no undo, no journal",

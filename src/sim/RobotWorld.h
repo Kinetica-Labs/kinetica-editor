@@ -106,7 +106,7 @@ public:
     // again, the command forgotten. False and why: no such joint or driver, no such word, no drive for it.
     bool command(PhysicsWorld& physics, uint32_t id, const std::string& what, Real value, std::string& error);
     // A force and a torque on a body over the next frame (N, N m; world), at its centre of mass, at every substep, then
-    // forgotten - how a plugin extends the physics (a gas, water, wind: Unity's AddForce in FixedUpdate). Given again it
+    // forgotten - how a plugin extends the physics (wind, a magnet, a thruster: Unity's AddForce in FixedUpdate). Given again it
     // adds up within the frame. False and why: the entity has no moving body.
     bool push(const PhysicsWorld& physics, uint32_t entity, const Vector3& force, const Vector3& torque, std::string& error);
 

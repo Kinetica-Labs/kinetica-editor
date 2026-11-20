@@ -108,7 +108,7 @@ def control(scene, dt, sensors):        # sensors: {id: {"kind": "encoder", "rea
 
 @on_tick(world=True)
 def wind(scene, dt, bodies):            # bodies: {id: {"position", "velocity", "spin", "mass"}} - истина движка
-    return {i: {"force": [2.0, 0, 0]} for i in bodies}   # Н за кадр, в центре масс (газ, вода, ветер…)
+    return {i: {"force": [2.0, 0, 0]} for i in bodies}   # Н за кадр, в центре масс (ветер, магнит, тяга…)
 ```
 
 - Контроллер видит **только датчики** — истины ему не дают (контракт наблюдаемости). Расширение физики
@@ -160,9 +160,9 @@ from kinetica.plugin import draw, on_tick
 
 
 @on_tick(world=True)
-def flow(scene, dt, bodies):
-    draw.segments("поток", arrows)                 # пары точек: стрелки поля скоростей
-    draw.points("частицы", points, colour="#33ccff", size=4)
+def forces(scene, dt, bodies):
+    draw.segments("силы", arrows)                  # пары точек: стрелки сил на телах
+    draw.points("метки", points, colour="#33ccff", size=4)
     draw.label("v", (0, 1.2, 0), "3.2 м/с")
 ```
 
