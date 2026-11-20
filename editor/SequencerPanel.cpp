@@ -30,7 +30,12 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     auto* col = new QVBoxLayout(this);
     col->setContentsMargins(4, 4, 4, 4);
     col->setSpacing(4);
-    auto* bar = new QHBoxLayout;
+    // The bar's buttons do not set the window's least width (they made it 1552 px, wider than a laptop's screen): a
+    // panel narrower than the bar cuts the bar's right end.
+    auto* strip = new QWidget(this);
+    strip->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
+    auto* bar = new QHBoxLayout(strip);
+    bar->setContentsMargins(0, 0, 0, 0);
     const auto button = [this, bar](const QString& text, const QString& tip, const char* name, bool checkable = false) {
         auto* b = new QToolButton(this);
         b->setText(text), b->setToolTip(tip), b->setObjectName(name), b->setCheckable(checkable);
@@ -66,7 +71,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     time_ = new QLabel(this);
     time_->setObjectName("sequencerTime");
     bar->addWidget(time_);
-    col->addLayout(bar);
+    col->addWidget(strip);
 
     auto* tracks = new QWidget(this);
     auto* row = new QHBoxLayout(tracks);
@@ -130,7 +135,7 @@ void SequencerPanel::addBarAction(QAction* a, const QString& text) {
     b->setDefaultAction(a);
     b->setText(text);
     b->setObjectName(a->objectName() + "Button");
-    static_cast<QHBoxLayout*>(static_cast<QVBoxLayout*>(layout())->itemAt(0)->layout())->insertWidget(9, b); // after «〰 Кривые»
+    static_cast<QHBoxLayout*>(layout()->itemAt(0)->widget()->layout())->insertWidget(9, b); // after «〰 Кривые»
 }
 
 void SequencerPanel::run(const QString& name, const QJsonObject& args) {
