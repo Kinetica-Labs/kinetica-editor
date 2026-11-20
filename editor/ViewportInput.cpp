@@ -631,7 +631,8 @@ QString Viewport::mouseHint() const {
         return "Коллайдер: точки — размер, гизмо — место и поворот (W E R) · модель не меняется · Esc — назад к телу";
     }
     if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
-        const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать" : gizmo_.mode() == GizmoMode::Scale ? "масштабировать" : "двигать";
+        const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать — отпустите у точки, и угол станет ровно 90°" :
+                           gizmo_.mode() == GizmoMode::Scale ? "масштабировать" : "двигать";
         return QString("Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);
     }
     if (hoveredEntity_)

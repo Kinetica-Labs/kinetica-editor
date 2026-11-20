@@ -296,6 +296,8 @@ void EditTool::release(Viewport& v, QMouseEvent* e) {
         return;                          // accidental click; it walked the ray on to what stood behind the gizmo)
     }
     if (v.gizmo().dragging() && !v.gizmo().modal()) {
+        if (GizmoPose quarter; !(e->modifiers() & Qt::ShiftModifier) && v.gizmo().settle(quarter)) // a turn let go near a quarter
+            emit v.gizmoMoved(quarter);                                                             // of one: completed (Shift: as it is)
         v.gizmo().end();
         floorDrag_ = false;
         const bool cloned = cloning_;

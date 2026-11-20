@@ -137,6 +137,31 @@ void testRingTurn(Checker& c) {
     c.check(std::fabs(g.dragAngleDeg() - 90.0f) < 0.5f && std::fabs(euler.y - 90.0f) < 0.5f, "a quarter turn of the ring is +90 degrees about Y");
     g.drag(v, centre + Vector2(std::cos(a0 + 0.4f), -std::sin(a0 + 0.4f)) * r, true);
     c.check(std::fabs(g.dragAngleDeg() / 15.0f - std::round(g.dragAngleDeg() / 15.0f)) < 1e-3f, "Ctrl snaps a turn to 15 degrees");
+    // The hints of a quarter turn: the turn is free while it is dragged - 86 degrees is 86 -, and let go there it is
+    // completed to 90; let go far from a quarter, or nearly back at the start, it stays as the hand left it.
+    const auto turnedTo = [&](float degrees) {
+        g.end();
+        g.setTarget(start, Quaternion());
+        g.begin(GizmoHandle::AxisY, v, m0);
+        for (int i = 1; i <= 10; ++i) {
+            const float a = a0 + degToRad(degrees) * float(i) / 10;
+            g.drag(v, centre + Vector2(std::cos(a), -std::sin(a)) * r, false);
+        }
+        return g.dragAngleDeg();
+    };
+    GizmoPose settled;
+    const float free = turnedTo(86.0f);
+    const bool taken = g.settle(settled);
+    const float completed = g.dragAngleDeg(), yaw = eulerDegFromQuaternion(settled.rotation).y;
+    const float far = turnedTo(60.0f);
+    const bool left = !g.settle(settled);
+    const float back = turnedTo(3.0f);
+    const bool small = !g.settle(settled);
+    std::printf("  a turn let go at %.1f degrees: completed to %.1f (yaw %.2f); at %.1f: left; at %.1f: left\n", double(free), double(completed),
+                double(yaw), double(far), double(back));
+    c.check(std::fabs(free - 86.0f) < 0.6f && taken && completed == 90.0f && std::fabs(yaw - 90.0f) < 1e-3f,
+            "a turn is free while dragged; let go within 6 degrees of a quarter, it is completed to the quarter exactly");
+    c.check(left && small && std::fabs(far - 60.0f) < 0.6f, "a turn let go away from a quarter - or a small one, near its start - stays as the hand left it");
     g.end();
 }
 
