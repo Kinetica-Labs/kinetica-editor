@@ -9,7 +9,6 @@
 #include "SequencerViews.h"
 #include "scene/Animation.h"
 
-#include <cstdio>
 #include <QApplication>
 #include <QComboBox>
 #include <QHBoxLayout>
@@ -152,9 +151,6 @@ void SequencerPanel::seek(double time) {
 }
 
 void SequencerPanel::scrub(double time) {
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ"))
-        std::fprintf(stderr, "TRACE scrub(%.3f) editing %d sequence %d scrubbing %d\n", time, int(builder_->editing()),
-                     int(ke::activeSequence(builder_->graph()) != nullptr), int(scrubbing_)), std::fflush(stderr);
     if (!builder_->editing() || !ke::activeSequence(builder_->graph())) return; // a run is not gone back over: nothing of it is kept
     if (!scrubbing_) builder_->beginSequencePreview(), scrubbing_ = true;
     scrubTime_ = time;
@@ -162,7 +158,6 @@ void SequencerPanel::scrub(double time) {
 }
 
 void SequencerPanel::endScrub() {
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) std::fprintf(stderr, "TRACE endScrub at %.3f\n", scrubTime_), std::fflush(stderr);
     scrubbing_ = false;
     if (!builder_->editing()) return;
     builder_->endSequencePreview();

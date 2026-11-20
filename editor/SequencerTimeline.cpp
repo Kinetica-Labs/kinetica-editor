@@ -10,7 +10,6 @@
 #include "SequencerPanel.h"
 #include "scene/Animation.h"
 
-#include <cstdio>
 #include <QContextMenuEvent>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -20,13 +19,18 @@
 #include <QWheelEvent>
 
 #include <algorithm>
-#include <cfenv>
 #include <cmath>
 #include <unordered_map>
 
 namespace sequencer {
 
-double Axis::time(double x) const { return std::clamp((x - kNames - kPad) * span / std::max(1, width - kNames - 2 * kPad), 0.0, span); }
+// By value at every step. Written as std::clamp over temporaries - it returns a reference to one of its arguments -
+// this gave 0 s for any point of a drag in the program MSVC built (Windows 10: the playhead could be clicked, not
+// dragged), the right time under GCC, and the right time under MSVC too once the code around the call changed.
+double Axis::time(double x) const {
+    const double t = (x - kNames - kPad) * span / double(std::max(1, width - kNames - 2 * kPad));
+    return t < 0 ? 0 : t > span ? span : t;
+}
 
 Axis axisOf(const ke::SequenceObject* q, int width, double atLeast) {
     return {width, std::max({5.0, std::ceil(double(q ? q->length() : 0) + 1), atLeast})};
@@ -333,9 +337,6 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
 }
 
 void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ"))
-        std::fprintf(stderr, "TRACE press button %d buttons %d at %.1f %.1f width %d spont %d\n", int(e->button()), int(e->buttons()), e->position().x(),
-                     e->position().y(), width(), int(e->spontaneous())), std::fflush(stderr);
     if (e->button() != Qt::LeftButton) return;
     const QPointF at = e->position();
     const int r = rowAt(at.y());
@@ -362,31 +363,10 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
 }
 
 void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) {
-        const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
-        std::fprintf(stderr, "TRACE move buttons %d at %.1f %.1f width %d span %.3f atLeast %.3f -> time %.3f scrubbing %d spont %d\n", int(e->buttons()),
-                     e->position().x(), e->position().y(), width(), a.span, panel_->atLeast(), a.time(e->position().x()), int(panel_->scrubbing()),
-                     int(e->spontaneous())), std::fflush(stderr);
-    }
-    if (!panel_->scrubbing()) return;
-    // The point and the ruler by name, as the press has them. Written as one expression on a temporary ruler this line
-    // gave 0 s for any point under MSVC (Windows 10: the playhead could be clicked, not dragged) and the right time
-    // under GCC; the trace beside it, with a named ruler, gave the right time on both.
-    const QPointF at = e->position();
-    const Axis ruler = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
-    const double time = ruler.time(at.x());
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) {
-        const double by = (at.x() - kNames - kPad) * ruler.span / std::max(1, ruler.width - kNames - 2 * kPad);
-        std::fprintf(stderr, "TRACE move scrubs to %.3f: point %.3f %.3f, ruler width %d span %.3f; by hand %.6f, clamped %.6f, time(261.8) %.3f, "
-                             "time(x) again %.3f, rounding %d\n", time, at.x(), at.y(), ruler.width, ruler.span, by, std::clamp(by, 0.0, ruler.span),
-                     ruler.time(261.8), ruler.time(at.x()), std::fegetround());
-        std::fflush(stderr);
-    }
-    panel_->scrub(time);
+    if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
 }
 
 void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {
-    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) std::fprintf(stderr, "TRACE release scrubbing %d\n", int(panel_->scrubbing())), std::fflush(stderr);
     if (panel_->scrubbing()) panel_->endScrub();
 }
 
