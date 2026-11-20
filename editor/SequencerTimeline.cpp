@@ -10,6 +10,7 @@
 #include "SequencerPanel.h"
 #include "scene/Animation.h"
 
+#include <cstdio>
 #include <QContextMenuEvent>
 #include <QJsonObject>
 #include <QKeyEvent>
@@ -331,6 +332,9 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
 }
 
 void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
+    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ"))
+        std::fprintf(stderr, "TRACE press button %d buttons %d at %.1f %.1f width %d spont %d\n", int(e->button()), int(e->buttons()), e->position().x(),
+                     e->position().y(), width(), int(e->spontaneous())), std::fflush(stderr);
     if (e->button() != Qt::LeftButton) return;
     const QPointF at = e->position();
     const int r = rowAt(at.y());
@@ -357,10 +361,17 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
 }
 
 void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
+    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) {
+        const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
+        std::fprintf(stderr, "TRACE move buttons %d at %.1f %.1f width %d span %.3f atLeast %.3f -> time %.3f scrubbing %d spont %d\n", int(e->buttons()),
+                     e->position().x(), e->position().y(), width(), a.span, panel_->atLeast(), a.time(e->position().x()), int(panel_->scrubbing()),
+                     int(e->spontaneous())), std::fflush(stderr);
+    }
     if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
 }
 
 void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {
+    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) std::fprintf(stderr, "TRACE release scrubbing %d\n", int(panel_->scrubbing())), std::fflush(stderr);
     if (panel_->scrubbing()) panel_->endScrub();
 }
 
