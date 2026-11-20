@@ -176,6 +176,11 @@ void MainWindow::buildMenus() {
     scriptAct->setObjectName("actionRunScript");
     scriptAct->setToolTip(uiText("Kinetica", "Файл Python, который строит или меняет сцену: пример кодом. Всё, что он сделал, — один шаг отмены"));
     connect(scriptAct, &QAction::triggered, this, &MainWindow::runScript);
+    auto* stopScriptAct = new QAction(uiText("Kinetica", "Остановить скрипт"), this);
+    stopScriptAct->setObjectName("actionStopScript");
+    stopScriptAct->setToolTip(uiText("Kinetica", "Прервать скрипт, который сейчас идёт: всё, что он успел сделать, отменяется"));
+    stopScriptAct->setEnabled(false); // lit while a script runs (ScriptRunner::running)
+    connect(stopScriptAct, &QAction::triggered, this, [this] { ops_->run("script_stop", {}, [](const QJsonObject&) {}, "ui"); });
     auto* shotAct = new QAction(uiText("Kinetica", "Скриншот…"), this);
     shotAct->setShortcut(QKeySequence("Ctrl+P"));
     connect(shotAct, &QAction::triggered, this, &MainWindow::screenshot);
@@ -188,6 +193,7 @@ void MainWindow::buildMenus() {
     file->setObjectName("fileMenu");
     file->addAction(importAct);
     file->addAction(scriptAct);
+    file->addAction(stopScriptAct);
     file->addAction(csvAct);
     file->addAction(shotAct);
     file->addSeparator();

@@ -111,6 +111,7 @@ void MainWindow::buildPlugins() {
         inspectorTabs_->addTab(scrolled(panel), panel->title());
     });
     scripts_ = new ScriptRunner(ops_, builder_, [this] { return apiPort(); }, this);
+    if (auto* stop = findChild<QAction*>("actionStopScript")) connect(scripts_, &ScriptRunner::running, stop, &QAction::setEnabled);
     if (auto* dock = findChild<QDockWidget*>("consoleDock"))
         if (auto* console = dynamic_cast<ApiConsole*>(dock->widget())) {
             connect(plugins_, &PluginHost::output, console, &ApiConsole::pluginLine);

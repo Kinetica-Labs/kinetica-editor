@@ -15,6 +15,14 @@ ScriptRunner::ScriptRunner(EditorOps* ops, SceneBuilder* builder, std::function<
                              "its end: its edits are one undo step, its print() is the answer's output; a script that falls changes "
                              "nothing and says its file and line. A script runs and is gone - what stays and extends the editor is a plugin",
                "{file: str}", [this](const QJsonObject& a, const EditorOps::Reply& reply) { run(a.value("file").toString(), reply); });
+    ops->addOp("script_stop", "Stop the script that is running (script_run): its process is ended and what it did is taken back, as when a "
+                              "script falls", "{}", [this](const QJsonObject&, const EditorOps::Reply& reply) {
+        if (!process_) return reply(EditorOps::error("no script is running"));
+        const QString name = name_;
+        stopped_ = true;
+        process_->kill(); // its end is said to script_run's caller (done)
+        reply(EditorOps::ok({{"script", name}}));
+    });
 }
 
 void ScriptRunner::run(const QString& file, const EditorOps::Reply& reply) {
@@ -22,7 +30,7 @@ void ScriptRunner::run(const QString& file, const EditorOps::Reply& reply) {
     if (!info.isFile()) return reply(EditorOps::error("no such script: " + file));
     if (process_) return reply(EditorOps::error("a script is running: " + name_));
     name_ = info.fileName();
-    pending_.clear(), tail_.clear();
+    pending_.clear(), tail_.clear(), stopped_ = false;
     process_ = new QProcess(this);
     process_->setProcessEnvironment(pythonEnvironment(apiPort_()));
     process_->setWorkingDirectory(info.absolutePath());
@@ -31,8 +39,8 @@ void ScriptRunner::run(const QString& file, const EditorOps::Reply& reply) {
     connect(process_, &QProcess::readyReadStandardOutput, this, &ScriptRunner::read);
     connect(process_, &QProcess::finished, this, [this, reply](int code, QProcess::ExitStatus how) {
         read();
-        const bool ok = how == QProcess::NormalExit && code == 0;
-        QString why = ok ? QString() : pythonError(tail_);
+        const bool ok = how == QProcess::NormalExit && code == 0 && !stopped_;
+        QString why = ok ? QString() : stopped_ ? QString(uiText("Kinetica", "остановлен")) : pythonError(tail_);
         if (!ok && why.isEmpty()) why = QString("exit code %1").arg(code);
         done(ok, why, reply);
     });
@@ -40,6 +48,7 @@ void ScriptRunner::run(const QString& file, const EditorOps::Reply& reply) {
         if (what == QProcess::FailedToStart) done(false, uiText("Kinetica", "Python 3 не запустился: поставьте его (python.org, «Add to PATH»)"), reply);
     });
     process_->start(pythonInterpreter(), {"-u", info.absoluteFilePath()});
+    emit running(true);
 }
 
 void ScriptRunner::read() {
@@ -61,6 +70,8 @@ void ScriptRunner::done(bool ok, const QString& why, const EditorOps::Reply& rep
     if (!process_) return;
     process_->deleteLater();
     process_ = nullptr;
+    emit running(false);
+    if (!ok && !builder_->editing()) builder_->stop(); // it left the scene playing: back as authored, then its edits taken back
     const bool undone = builder_->endUndoGroup(ok);
     if (ok) return reply(EditorOps::ok({{"script", name_}, {"output", QJsonArray::fromStringList(tail_)}}));
     reply(EditorOps::error((why.startsWith(name_) ? QString() : name_ + ": ") + why + // «falls.py:5: ZeroDivisionError: ...» names it already

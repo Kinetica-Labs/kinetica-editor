@@ -1,6 +1,7 @@
 // Scripts by hand (see SelfTest.h; ScriptRunner.h): script_run runs a Python file that builds the scene - three boxes
 // come, its print() is heard and is the answer's output, and one Ctrl+Z takes all three back; a script that falls after
-// building says its file and line and leaves nothing; a file that is not there is refused; every example of
+// building says its file and line and leaves nothing; a file that is not there is refused; a script stopped while it
+// plays the scene (script_stop) is a script fallen - the scene back in edit, nothing of it left; every example of
 // examples/scripts runs to its end on a new scene - the row of cubes, the UR5e with a pyramid, the cart with a range finder.
 #include "SelfTestSupport.h"
 
@@ -58,6 +59,26 @@ int runScriptTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
     c.check(!fell.value("ok").toBool() && why.contains("falls.py:5") && why.contains("ZeroDivisionError"), "a script that falls says its file and line");
     c.check(b.graph().entities.size() == before && why.contains("отменены"), "a script that falls changes nothing: the box it had added is taken back");
     c.check(run(dir.path() + "/none.py").value("error").toString().contains("no such script"), "a file that is not there is refused");
+
+    // Stopped half way: it had added a box and set the scene playing for a minute.
+    auto* stopAct = w.findChild<QAction*>("actionStopScript");
+    const bool dark = stopAct && !stopAct->isEnabled();
+    QJsonObject long_;
+    ops->run("script_run", {{"file", write("long.py", "import kinetica as ke\n\nscene = ke.connect()\nscene.add(\"box\", position=(0, 1, 0), role=\"rigid\")\n"
+                                                         "print(\"playing\")\nscene.run(60)\n")}}, [&long_](const QJsonObject& r) { long_ = r; }, "ui");
+    const bool began = waitUntil([&] { return heard.contains("long.py: playing") && !b.editing(); }, 20000);
+    const bool lit = stopAct && stopAct->isEnabled();
+    const QJsonObject stopping = ops->runNow("script_stop", {});
+    waitUntil([&] { return !long_.isEmpty(); }, 20000);
+    pump(200);
+    const QString ended = long_.value("error").toString();
+    std::printf("  long.py: began playing %s; script_stop: %s; its end: %s; the scene %s, %zu object(s) left of it\n", began ? "yes" : "no",
+                stopping.value("ok").toBool() ? "ok" : qPrintable(stopping.value("error").toString()), qPrintable(ended), b.editing() ? "in edit" : "still playing",
+                b.graph().entities.size() - before);
+    c.check(began && stopping.value("ok").toBool() && ended.contains("остановлен") && b.editing() && b.graph().entities.size() == before,
+            "script_stop ends the running script: the scene back in edit, what it did taken back");
+    c.check(dark && lit && stopAct && !stopAct->isEnabled() && !ops->runNow("script_stop", {}).value("ok").toBool(),
+            "«Остановить скрипт» is lit only while a script runs; with none running script_stop is refused");
 
     b.newScene();
     const size_t empty = b.graph().entities.size();
