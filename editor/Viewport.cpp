@@ -731,6 +731,7 @@ void Viewport::drawAxesAndHints(QPainter& p) {
     if (editMode_) {
         drawSelectionBox(p);
         drawShapeHandles(p);
+        drawToolDrag(p);
         drawEditLabel(p);
     }
 }
@@ -741,6 +742,16 @@ void Viewport::drawShapeHandles(QPainter& p) {
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
     const int dragged = editTool_.draggingHandle() ? editTool_.draggedIndex() : -1;
+    for (const ShapeHandle& h : handles_) { // what a point rides on, under the points: a dial's circle
+        QPolygonF line;
+        for (const ke::Vector3& w : h.guide) {
+            bool front = false;
+            const QPointF at = pixelOf(w, &front);
+            if (front) line << at;
+        }
+        p.setPen(QPen(QColor(255, 146, 40, 170), 1.2));
+        p.drawPolyline(line);
+    }
     for (size_t i = 0; i < handles_.size(); ++i) {
         bool front = false;
         const QPointF at = pixelOf(handles_[i].centre + handles_[i].axis * handles_[i].reach, &front);
@@ -749,6 +760,25 @@ void Viewport::drawShapeHandles(QPainter& p) {
         p.setPen(QPen(QColor(18, 40, 24), 1.5));
         p.setBrush(lit ? QColor(255, 214, 90) : handles_[i].plugin ? QColor(255, 146, 40) : QColor(110, 232, 130)); // a plugin's: C4D's orange
         p.drawEllipse(at, lit ? 7.5 : 6.0, lit ? 7.5 : 6.0);
+    }
+    p.restore();
+}
+
+// A drag tool's line while it is dragged: from the point pressed to the one under the mouse, and how long it is.
+void Viewport::drawToolDrag(QPainter& p) {
+    if (!pluginTool_.dragging()) return;
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(QPen(QColor(255, 146, 40), 2.0));
+    p.drawLine(pluginTool_.from(), pluginTool_.to());
+    p.setBrush(QColor(255, 146, 40));
+    p.drawEllipse(pluginTool_.from(), 4.0, 4.0);
+    p.drawEllipse(pluginTool_.to(), 4.0, 4.0);
+    Vector3 a, b, n;
+    uint32_t object = 0;
+    if (surfaceAt(pluginTool_.from(), a, n, object) && surfaceAt(pluginTool_.to(), b, n, object)) {
+        p.setPen(QColor(255, 214, 90));
+        p.drawText(pluginTool_.to() + QPointF(12, -8), QLocale().toString(double(ke::length(b - a)), 'f', 3) + " м");
     }
     p.restore();
 }

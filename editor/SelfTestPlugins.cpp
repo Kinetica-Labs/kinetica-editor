@@ -550,6 +550,96 @@ void testScan(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, cons
     QDir(folder + "/late").removeRecursively();
 }
 
+// A plugin's gizmos, as Cinema 4D's handles and tools: a component's angle is an orange point on a circle around the shape
+// (a dial), its size three points on the shape's faces (a box) - each dragged sets its field, one undo step; a tool whose
+// command takes `to` is dragged from a point to a point and gets both.
+void testGizmos(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/gizmos");
+    write(folder + "/gizmos/plugin.py", R"py(from kinetica.plugin import command, component, field
+
+
+@component(label="Заслонка")
+class Flap:
+    angle = field(30.0, unit="°", range=(0.0, 360.0), label="Угол", handle="dial")
+    size = field((0.4, 0.2, 0.6), label="Габарит", handle="box")
+
+
+@command(label="Отрезок", tool=True)
+def span(scene, point, to, object, to_object):
+    """A bar from the point pressed to the point the drag is let go at."""
+    length = sum((b - a) ** 2 for a, b in zip(point, to)) ** 0.5
+    middle = [(a + b) / 2 for a, b in zip(point, to)]
+    scene.add("box", name=f"отрезок {object}-{to_object}", position=middle, size=(max(length, 0.01), 0.02, 0.02))
+    return {"length": length}
+)py");
+    host->start(true);
+    const bool came = waitUntil([&] { return action(w, "plugin:gizmos_span") != nullptr && !b.componentType("gizmos.flap").isEmpty(); }, 10000);
+    b.newScene();
+    const uint32_t cube = uint32_t(ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}, {"size", QJsonArray{0.4, 0.4, 0.4}}}).value("id").toInt());
+    ops->runNow("component_set", {{"id", int(cube)}, {"type", "gizmos.flap"}});
+    b.select(cube);
+    v->setFocusBox(AABB(Vector3(-2, -1, -2), Vector3(2, 2, 2)));
+    v->frameScene();
+    pump(150);
+    const auto kept = [&](const char* field) {
+        return ops->runNow("component_list", {{"type", "gizmos.flap"}}).value("components").toArray().at(0).toObject().value("values").toObject().value(field);
+    };
+    const auto drag = [&](const QPointF& from, const QPointF& to) {
+        sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+        sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+        for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton);
+        sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+        pump(120);
+    };
+    std::vector<ShapeHandle> points = v->shapeHandles();
+    const size_t shown = points.size();
+    size_t steps = b.undoTaken();
+    double angle = 0, wide = 0;
+    size_t dialSteps = 0, boxSteps = 0;
+    if (shown == 4 && points[0].guide.size() == 49) {
+        drag(v->pixelOf(points[0].centre), v->pixelOf(points[0].guide[12])); // a quarter of its circle on: 90 degrees
+        angle = kept("angle").toDouble(), dialSteps = b.undoTaken() - steps, steps = b.undoTaken();
+        points = v->shapeHandles();
+        const ShapeHandle& face = points[1]; // the size's x
+        drag(v->pixelOf(face.centre + face.axis * face.reach), v->pixelOf(face.centre + face.axis * 0.5f));
+        wide = kept("size").toArray().at(0).toDouble(), boxSteps = b.undoTaken() - steps;
+    }
+    const QJsonArray size = kept("size").toArray();
+    std::printf("  a component's gizmos: %zu orange points (a dial and a box's three); the dial dragged a quarter round: %.1f deg, %zu undo "
+                "step(s); the box's x face dragged to 0.5 m: size %.3f %.3f %.3f, %zu undo step(s)\n", shown, angle, dialSteps, wide,
+                size.at(1).toDouble(), size.at(2).toDouble(), boxSteps);
+    c.check(came && shown == 4 && std::fabs(angle - 90.0) < 2.0 && dialSteps == 1,
+            "a dial: a component's angle is an orange point on a circle around the shape; dragged round, it sets the field in the field's degrees - one undo step");
+    c.check(std::fabs(wide - 1.0) < 0.03 && std::fabs(size.at(1).toDouble() - 0.2) < 1e-6 && std::fabs(size.at(2).toDouble() - 0.6) < 1e-6 && boxSteps == 1,
+            "a box: a component's size is a point on each face; one dragged sets that size, the other two stay - one undo step");
+
+    // The tool: pressed on the floor at one point, let go at another - a bar between them, as long as the drag.
+    b.select(0);
+    QAction* tool = action(w, "plugin:gizmos_span");
+    if (tool) tool->trigger();
+    pump(50);
+    const bool drags = v->pluginTool() == "gizmos_span" && v->pluginToolDrags();
+    steps = b.undoTaken();
+    drag(v->pixelOf(Vector3(1.0f, 0.0f, 1.0f)), v->pixelOf(Vector3(1.6f, 0.0f, 1.0f)));
+    const Entity* bar = nullptr;
+    waitUntil([&] {
+        for (const Entity& e : b.graph().entities)
+            if (e.name.rfind("отрезок", 0) == 0) bar = &e;
+        return bar != nullptr;
+    }, 10000);
+    pump(100);
+    const SceneObject* placed = bar ? findObject(b.graph(), bar->id) : nullptr;
+    const float length = bar ? resolveInstance(b.graph(), *bar).size.x : 0;
+    std::printf("  a drag tool: taken %s; dragged 0.6 m over the floor -> «%s», %.3f m long, its middle at x %.3f (%zu undo step)\n", drags ? "yes" : "no",
+                bar ? bar->name.c_str() : "-", double(length), placed ? double(placed->position.x) : 0.0, b.undoTaken() - steps);
+    c.check(drags && bar && bar->name == "отрезок 0-0" && std::fabs(length - 0.6f) < 0.02f && placed && std::fabs(placed->position.x - 1.3f) < 0.02f &&
+            b.undoTaken() == steps + 1,
+            "a plugin's tool with `to` is dragged: the point pressed and the point let go both reach its command - one undo step");
+    QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(v, &esc);
+    QDir(folder + "/gizmos").removeRecursively();
+}
+
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     auto* host = w.findChild<PluginHost*>();
@@ -676,6 +766,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
+    testGizmos(c, w, b, v, ops, host, dir.path());
     testScan(c, w, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;

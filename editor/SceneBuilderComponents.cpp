@@ -46,6 +46,24 @@ Vector3 vectorOf(const QJsonValue& v) {
     return Vector3(float(a.at(0).toDouble()), float(a.at(1).toDouble()), float(a.at(2).toDouble()));
 }
 
+// A dial - a field that is an angle about one of the shape's axes ("y" if none said): the circle its point rides, a
+// little outside the shape; the direction of angle 0 and of a quarter turn (zero x quarter = the axis: a positive angle
+// turns by the right hand); whether the field counts degrees (its unit says so) or radians.
+struct Dial {
+    Vector3 axis, zero, quarter;
+    float radius = 0;
+    bool degrees = false;
+};
+
+Dial dialOf(const QJsonObject& field, const Quaternion& q, const Vector3& size) {
+    const int k = std::clamp(int(field.value("axis").toString("y").at(0).unicode() - 'x'), 0, 2);
+    Vector3 axis(0.0f), zero(0.0f), quarter(0.0f);
+    axis[k] = zero[(k + 1) % 3] = quarter[(k + 2) % 3] = 1.0f;
+    const QString unit = field.value("unit").toString();
+    return {q.rotate(axis), q.rotate(zero), q.rotate(quarter), std::max(0.1f, 0.6f * std::max(size[(k + 1) % 3], size[(k + 2) % 3])),
+            unit == "°" || unit.startsWith("град") || unit.startsWith("deg")};
+}
+
 } // namespace
 
 void SceneBuilder::setPluginComponents(const QString& plugin, const QJsonArray& types) {
@@ -184,7 +202,8 @@ void SceneBuilder::fillPluginCards() {
 }
 
 // The orange points of the selected shape's components: each field with a handle - "radius" along the shape's x,
-// "length" along its axis (x, y or z; y if none said), "point" a place in its frame.
+// "length" along its axis (x, y or z; y if none said), "point" a place in its frame, "dial" an angle about its axis - a
+// point on a circle around the shape -, "box" a size: a point on each of the faces +x, +y, +z, half the size out.
 std::vector<ShapeHandle> SceneBuilder::componentHandles() {
     std::vector<ShapeHandle> out;
     componentHandleFields_.clear();
@@ -210,6 +229,27 @@ std::vector<ShapeHandle> SceneBuilder::componentHandles() {
                 h.free = true, h.axis = Vector3(1, 0, 0);
                 const Vector3 at = p + q.rotate(vectorOf(now));
                 h.centre = at, h.reach = 0;
+            } else if (kind == "dial") {
+                const Dial d = dialOf(f, q, resolveInstance(graph_, *e).size);
+                const float a = float(now.toDouble() * (d.degrees ? kPi / 180 : 1.0));
+                h.free = true, h.axis = Vector3(1, 0, 0), h.reach = 0, h.normal = d.axis;
+                h.centre = p + (d.zero * ke::cos(a) + d.quarter * ke::sin(a)) * d.radius;
+                for (int k = 0; k <= 48; ++k) { // the circle it rides
+                    const float t = float(k) * 2 * float(kPi) / 48;
+                    h.guide.push_back(p + (d.zero * ke::cos(t) + d.quarter * ke::sin(t)) * d.radius);
+                }
+            } else if (kind == "box") {
+                const Vector3 size = vectorOf(now);
+                for (int k = 0; k < 3; ++k) {
+                    Vector3 local(0.0f);
+                    local[k] = 1.0f;
+                    ShapeHandle face = h;
+                    face.axis = q.rotate(local), face.reach = size[k] / 2;
+                    face.label = h.label + " " + QString("xyz").at(k);
+                    out.push_back(face);
+                    componentHandleFields_.push_back({QString::fromStdString(c.type), it.key(), kind, k});
+                }
+                continue;
             } else {
                 const QString axis = kind == "radius" ? "x" : f.value("axis").toString("y");
                 Vector3 local(0.0f);
@@ -246,11 +286,26 @@ void SceneBuilder::onComponentHandle(int index, Vector3 point, int phase) {
     Quaternion q;
     worldPose(componentGraph_, *findObject(componentGraph_, selectedId_), p, q);
     QJsonValue value;
+    const QJsonObject schema = componentType(f.type.toStdString()).value("fields").toObject().value(f.field).toObject();
     if (f.kind == "point") {
         const Vector3 local = q.conjugate().rotate(point - p);
         value = QJsonArray{double(local.x), double(local.y), double(local.z)};
+    } else if (f.kind == "dial") { // where the point is on its circle: the angle from the circle's zero, as the field counts it
+        const Dial d = dialOf(schema, q, resolveInstance(componentGraph_, *masterById(selectedId_)).size);
+        double a = double(ke::atan2(dot(point - p, d.quarter), dot(point - p, d.zero)));
+        if (a < 0 && schema.value("minimum").toDouble(-1) >= 0) a += 2 * kPi; // a field from 0 up counts all the way round
+        if (d.degrees) a *= 180 / kPi;
+        value = std::clamp(a, schema.value("minimum").toDouble(-1e6), schema.value("maximum").toDouble(1e6));
+    } else if (f.kind == "box") { // a face's point: that size, twice its distance from the centre; the other two as they were
+        QJsonArray size;
+        for (const PluginComponent& c : findEntity(componentGraph_, e->id)->components)
+            if (QString::fromStdString(c.type) == f.type) size = valueIn(c, f.field, schema.value("default")).toArray();
+        Vector3 local(0.0f);
+        local[f.part] = 1.0f;
+        const double lo = std::max(1e-3, schema.value("minimum").toDouble(1e-3));
+        size[f.part] = std::clamp(2.0 * double(dot(point - p, q.rotate(local))), lo, schema.value("maximum").toDouble(1e6));
+        value = size;
     } else {
-        const QJsonObject schema = componentType(f.type.toStdString()).value("fields").toObject().value(f.field).toObject();
         const QString axis = f.kind == "radius" ? "x" : schema.value("axis").toString("y");
         Vector3 local(0.0f);
         local[std::clamp(int(axis.at(0).unicode() - 'x'), 0, 2)] = 1.0f;

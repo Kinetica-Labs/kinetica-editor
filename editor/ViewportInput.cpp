@@ -412,9 +412,9 @@ float Viewport::reachAlong(const ShapeHandle& h, const QPointF& pos) const {
     return (b * ke::dot(ray.dir, w) - ke::dot(h.axis, w)) / across;
 }
 
-void Viewport::setPluginTool(const QString& op, const QString& label) {
+void Viewport::setPluginTool(const QString& op, const QString& label, bool drags) {
     if (op == toolOp_) return;
-    toolOp_ = op, toolLabel_ = label;
+    toolOp_ = op, toolLabel_ = label, toolDrags_ = drags;
     if (!createMode_ && !magnetMode_) setCursor(op.isEmpty() ? Qt::ArrowCursor : Qt::CrossCursor);
     emit pluginToolChanged(op);
     updateHint();
@@ -461,11 +461,26 @@ void Viewport::clickTool(const QPointF& pos) {
     if (surfaceAt(pos, point, normal, object)) emit toolClicked(toolOp_, point, normal, object);
 }
 
+// The second point is what is under the mouse at the release; over nothing - the sky - where its ray meets the plane of
+// the surface pressed.
+void Viewport::dragTool(const QPointF& from, const QPointF& to) {
+    Vector3 point, normal, end, endNormal;
+    uint32_t object = 0, endObject = 0;
+    if (!surfaceAt(from, point, normal, object)) return;
+    if (!surfaceAt(to, end, endNormal, endObject)) {
+        const Ray ray = camera_.screenRay(to, size());
+        const float across = ke::dot(ray.dir, normal);
+        if (std::fabs(across) < 1e-4f) return;
+        end = ray.at(ke::dot(point - ray.origin, normal) / across), endObject = 0;
+    }
+    emit toolDragged(toolOp_, point, normal, object, end, endObject);
+}
+
 Vector3 Viewport::handlePoint(const ShapeHandle& h, const QPointF& pos) const {
     if (!h.free) return h.centre + h.axis * reachAlong(h, pos);
     const Vector3 at = h.centre + h.axis * h.reach;
     const QVector3D f = camera_.forward();
-    const Vector3 n(f.x(), f.y(), f.z());
+    const Vector3 n = ke::length(h.normal) > 0.5f ? h.normal : Vector3(f.x(), f.y(), f.z()); // its own plane, or the eye's
     const Ray ray = camera_.screenRay(pos, size());
     const float across = ke::dot(ray.dir, n);
     if (std::fabs(across) < 1e-4f) return at;
@@ -588,7 +603,8 @@ QString Viewport::mouseHint() const {
     if (rightHeld_ && rightButtonFlies(scheme_) && (flew_ || !flyKeys_.empty()))
         return "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться";
     if (!toolOp_.isEmpty())
-        return "«" + toolLabel_ + "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · " + cameraHint(scheme_);
+        return "«" + toolLabel_ + (toolDrags_ ? "»: тяните от точки до точки — обе уходят плагину · щелчок — одна точка · Esc — выход · "
+                                              : "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · ") + cameraHint(scheme_);
     if (!editMode_ && gizmoShown() && !gizmo_.dragging() && gizmo_.hover() != GizmoHandle::None)
         return "Тяните: цель IK, рука идёт за ней моторами · " + cameraHint(scheme_);
     if (!editMode_ && !gizmo_.dragging()) return "ЛКМ по телу: схватить и тащить · " + cameraHint(scheme_);

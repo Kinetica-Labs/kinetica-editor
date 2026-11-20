@@ -135,10 +135,13 @@ public:
     bool hasDrawing(const QString& key) const { return drawings_.count(key) > 0; }
     // A plugin's tool (PluginHost): while on, a left click calls its command `op` with the point, the normal and the
     // object under the mouse; Esc, another tool of the shelf or making shapes leaves it.
-    void setPluginTool(const QString& op, const QString& label);
+    // drags: its command takes `to` - a press, a drag and a release give it two points, a line between them drawn meanwhile.
+    void setPluginTool(const QString& op, const QString& label, bool drags = false);
+    bool pluginToolDrags() const { return toolDrags_; }
     const QString& pluginTool() const { return toolOp_; }
     bool surfaceAt(const QPointF& pos, ke::Vector3& point, ke::Vector3& normal, uint32_t& object) const; // an object, else the floor
     void clickTool(const QPointF& pos);
+    void dragTool(const QPointF& from, const QPointF& to); // a drag tool's two points: under the press, under the release
     // The 2D text over the view (the scene's name, the axes, the navigation cube); off for the gallery's pictures.
     void setOverlayVisible(bool on) { overlayVisible_ = on; update(); }
     // While an agent drives the editor through the API the gizmo is not drawn: nobody takes its handles then, and its
@@ -229,6 +232,7 @@ signals:
     void gizmoCancelled();                            // Esc / right button: put the object back
     void shapeHandleDragged(int index, ke::Vector3 point, int phase); // a point taken: 0 pressed, 1 moved, 2 released, 3 Esc
     void toolClicked(const QString& op, ke::Vector3 point, ke::Vector3 normal, uint32_t object); // a plugin's tool used
+    void toolDragged(const QString& op, ke::Vector3 point, ke::Vector3 normal, uint32_t object, ke::Vector3 to, uint32_t toObject);
     void pluginToolChanged(const QString& op); // its tool taken or left (empty)
     void cloneDragStarted();                          // Shift was held when the handle drag began
     void cloneDragFinished(QPointF pos);              // ... and it ended here: ask how many copies
@@ -413,6 +417,8 @@ private:
     std::map<QString, Drawing> drawings_;
     PluginTool pluginTool_;
     QString toolOp_, toolLabel_;
+    bool toolDrags_ = false;
+    void drawToolDrag(class QPainter& p);
     void drawOverlayLines(const QMatrix4x4& vp);
     void drawOverlayMarks(QPainter& p);
     QString draggedImage_;                  // an image file being dragged over the view

@@ -616,8 +616,20 @@ QString CreateTool::hint(const CreateWhat& w) const {
     return text + (step_ == 0 ? " · Esc — выход" : " · Backspace — шаг назад · Esc — отмена") + " · Ctrl — сетка 5 см";
 }
 
-void PluginTool::press(Viewport&, QMouseEvent* e) { pressed_ = e->position(); }
+void PluginTool::press(Viewport&, QMouseEvent* e) { pressed_ = now_ = e->position(), dragging_ = false; }
+
+void PluginTool::move(Viewport& v, QMouseEvent* e) {
+    if (!v.pluginToolDrags() || !(e->buttons() & Qt::LeftButton)) return;
+    now_ = e->position();
+    dragging_ = dragging_ || QLineF(pressed_, now_).length() >= 4;
+    v.update();
+}
 
 void PluginTool::release(Viewport& v, QMouseEvent* e) {
-    if (e->button() == Qt::LeftButton && QLineF(pressed_, e->position()).length() < 4) v.clickTool(e->position());
+    if (e->button() != Qt::LeftButton) return;
+    const bool dragged = dragging_;
+    dragging_ = false;
+    if (v.pluginToolDrags()) v.dragTool(pressed_, dragged ? e->position() : pressed_);
+    else if (QLineF(pressed_, e->position()).length() < 4) v.clickTool(e->position());
+    v.update();
 }

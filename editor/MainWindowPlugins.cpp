@@ -117,6 +117,12 @@ void MainWindow::buildPlugins() {
         const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
         plugins_->useTool(op, {{"point", three(point)}, {"normal", three(normal)}, {"object", int(object)}});
     });
+    connect(view_, &Viewport::toolDragged, plugins_, [this](const QString& op, ke::Vector3 point, ke::Vector3 normal, uint32_t object,
+                                                           ke::Vector3 to, uint32_t toObject) {
+        const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+        plugins_->useTool(op, {{"point", three(point)}, {"normal", three(normal)}, {"object", int(object)}, {"to", three(to)},
+                               {"to_object", int(toObject)}});
+    });
     QAction* make = menu->addAction("Новый плагин…");
     make->setObjectName("actionNewPlugin");
     make->setToolTip("Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится");

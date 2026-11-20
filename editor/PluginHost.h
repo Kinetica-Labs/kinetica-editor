@@ -63,7 +63,8 @@ public:
 signals:
     void changed(); // a plugin came, went, or fell
     void output(const QString& plugin, const QString& line); // a line it printed (print(), a traceback), or a word about it
-    void toolPicked(const QString& op, const QString& label); // its shelf button pressed (empty op: pressed again, left)
+    // Its shelf button pressed (empty op: pressed again, left); drags: its command takes `to` - two points, not one.
+    void toolPicked(const QString& op, const QString& label, bool drags);
 
 private:
     struct Command {

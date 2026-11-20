@@ -49,7 +49,8 @@ private:
 // collider's centre through it. A box has one on each face (the far face stays), a round collider one on its rim (the
 // diameter) and a capsule or a cylinder one on each end (the height, both ends at once).
 // The same points carry a plugin's fields (Cinema 4D's orange handles on a parametric object: a radius, a length, a point
-// dragged where it is seen): a line handle moves along its line, a free one in the plane facing the eye.
+// dragged where it is seen, an angle on its circle, a box's size on its faces): a line handle moves along its line, a
+// free one in the plane facing the eye - or, given a normal, in that plane (a dial: around an axis).
 struct ShapeHandle {
     ke::Vector3 centre, axis; // the world line it moves on: the collider's centre, outward
     float reach = 0;          // where it is on that line, metres from the centre
@@ -58,6 +59,8 @@ struct ShapeHandle {
     bool both = false;        // both sides at once (a diameter, a height); otherwise the far side stays
     const char* what = "";    // said in the status bar: "грань +X", "диаметр", "высота"
     bool free = false;        // a point: dragged in the plane facing the eye, not along the line (centre + axis * reach is it)
+    ke::Vector3 normal{0.0f}; // a free point held to the plane through it with this normal (zero: the plane facing the eye)
+    std::vector<ke::Vector3> guide; // a thin line through these world points, drawn with the point (a dial's circle)
     bool plugin = false;      // a plugin's field: orange, as Cinema 4D's; a collider's: green
     QString label;            // a plugin's field's words (what overrides `what`)
 };

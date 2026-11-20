@@ -11,8 +11,9 @@ commands, a panel and per-frame hooks: `@on_tick def control(scene, dt, sensors)
 as the robot reads them (no truth) in, `{joint: {"target": x}}` out; `@on_tick(world=True) def f(scene, dt, bodies)` -
 an extension of the physics, the bodies in, `{body: {"force": [x, y, z]}}` out; `@on_play` / `@on_stop`.
 `plugin_new {name, kind: command | controller | world}` gives a working file of each. Components with orange handles
-(`@component`, `field(handle=...)`), tools in the view (`@command(tool=True)`: `point`, `normal`, `object` from a
-click) and drawing (`draw.line/segments/points/label/clear`, op `view_draw`) are there; importers too (`@command(opens=".urdf")`: «Файл → Импорт…» and a file dropped on the view
+(`@component`, `field(handle="radius" | "length" | "point" | "dial" | "box")`), tools in the view
+(`@command(tool=True)`: `point`, `normal`, `object` from a click; with `to` - a drag from point to point) and drawing
+(`draw.line/segments/points/label/circle/box/clear`, op `view_draw`) are there; importers too (`@command(opens=".urdf")`: «Файл → Импорт…» and a file dropped on the view
 call it with `path`; plugins/urdf is the editor's own example) (`docs/contracts/editor-plugin.md`, «Дальше»). Guide for people: `docs/plugins.md`;
 contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; examples: the project's plugins repository kinetica-plugins (`cubes/plugin.py`); new plugins of the project go there, one folder each.
 

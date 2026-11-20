@@ -583,7 +583,7 @@ private:
     void finishColliderDrag(bool cancelled);
     QString colliderLine(QJsonObject& args) const;                 // ed.scene_collider(...) of what the drag made
     std::map<QString, QJsonObject> componentTypes_;                // "<plugin>.<name>" -> its schema
-    struct ComponentHandleField { QString type, field, kind; };
+    struct ComponentHandleField { QString type, field, kind; int part = 0; }; // part: which of a box's three sizes
     std::vector<ComponentHandleField> componentHandleFields_;      // what each orange point is (componentHandles' order)
     ke::SceneGraph componentGraph_;                                // the scene when a point was taken (Esc, and its one edit)
     bool componentDragging_ = false;

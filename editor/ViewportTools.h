@@ -34,14 +34,21 @@ public:
 // look around in place. While the right button is held and W A S D fly the camera, a drag looks
 // around instead of orbiting (Unity, Unreal).
 // A plugin's tool (PluginHost: @command(tool=True)): a left click - not a drag - is where it acts; the point, the
-// surface's normal and the object under the mouse go to its command (Viewport::clickTool).
+// surface's normal and the object under the mouse go to its command (Viewport::clickTool). A tool whose command takes
+// `to` is a drag, as a tool of Cinema 4D: from the press to the release, a line between them meanwhile
+// (Viewport::dragTool); its click is a drag of no length.
 class PluginTool : public ViewportTool {
 public:
     void press(Viewport&, QMouseEvent* e) override;
+    void move(Viewport& v, QMouseEvent* e) override;
     void release(Viewport& v, QMouseEvent* e) override;
+    bool dragging() const { return dragging_; }
+    QPointF from() const { return pressed_; }
+    QPointF to() const { return now_; }
 
 private:
-    QPointF pressed_;
+    QPointF pressed_, now_;
+    bool dragging_ = false;
 };
 
 class CameraTool : public ViewportTool {

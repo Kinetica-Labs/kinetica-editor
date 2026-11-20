@@ -560,7 +560,9 @@ void PluginHost::useTool(const QString& op, const QJsonObject& click) {
     for (const auto& p : plugins_)
         for (const Command& c : p->commands) {
             if (c.op != op) continue;
-            QJsonObject args = click;
+            QJsonObject args;
+            for (auto it = click.begin(); it != click.end(); ++it) // of what the view gives, what the command takes
+                if (c.args.contains(it.key())) args.insert(it.key(), it.value());
             const QJsonObject panel = p->panel ? p->panel->values() : QJsonObject(); // the tool's options: its panel's values
             for (auto it = panel.begin(); it != panel.end(); ++it)
                 if (c.args.contains(it.key()) && !args.contains(it.key())) args.insert(it.key(), it.value());
@@ -674,7 +676,7 @@ void PluginHost::addOps() {
                 if (Plugin* q = find(plugin))
                     for (const Command& x : q->commands) {
                         if (x.op != op) continue;
-                        if (x.tool) return emit toolPicked(x.action->isChecked() ? op : QString(), x.label); // pressed again: left
+                        if (x.tool) return emit toolPicked(x.action->isChecked() ? op : QString(), x.label, x.args.contains("to")); // pressed again: left
                         if (!x.opens.isEmpty()) { // a format it opens: the file first
                             QStringList masks;
                             for (const QString& ext : x.opens) masks << "*" + ext;

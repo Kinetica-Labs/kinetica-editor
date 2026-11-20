@@ -25,6 +25,7 @@ itself (``python -m kinetica.plugin plugin.py``). Only the Python standard libra
 """
 import inspect
 import json
+import math
 import os
 import runpy
 import socket
@@ -45,7 +46,9 @@ _busy = threading.Lock()  # the author's code runs one piece at a time: a comman
 class field:
     """A command's argument or a component's value as the editor shows it: its default, unit, range, the words of its label,
     its choices - and, on a component, its handle in the view (Cinema 4D's orange point on the shape): "radius" (along the
-    shape's x), "length" (along `axis`, "y" if none) or "point" (a place in the shape's frame; a 3-number default).
+    shape's x), "length" (along `axis`, "y" if none), "point" (a place in the shape's frame; a 3-number default), "dial"
+    (an angle about `axis`: a point on a circle around the shape - in degrees when the unit is "°", else radians) or
+    "box" (a size, 3 numbers: a point on each of the faces +x, +y, +z).
 
     `ref` makes it an object of the scene instead of a number typed by hand: ``joint=field(ref="joint")``. Its word is a
     kind ``scene_list`` knows - "joint", "body", "encoder" and the other sensors' own kinds, "sensor", "camera", "light",
@@ -93,7 +96,14 @@ def command(label=None, key=None, tool=False, opens=None):
 
         @command(label="Дерево", tool=True)
         def plant(scene, point, normal, object, height=field(2.0, unit="м")):
-            scene.add_cylinder(position=point, ...)
+            scene.add("cylinder", position=point, size=(0.2, height, 0.2))
+
+    A tool that also takes ``to`` is dragged, as a tool of Cinema 4D: pressed at ``point``, let go at ``to`` (and
+    ``to_object`` under it), a line with its length drawn between them meanwhile; a click is a drag of no length::
+
+        @command(label="Стена", tool=True)
+        def wall(scene, point, to, height=field(1.0, unit="м")):
+            ...
 
     ``opens=".urdf"`` (or a list) makes it how the editor opens such files: «Файл → Импорт…» lists the format, a file
     dropped on the view goes to it; it is called with ``path``, and all it builds is one undo step::
@@ -113,7 +123,9 @@ def command(label=None, key=None, tool=False, opens=None):
 
 
 _CLICK = {"point": {"type": "vector", "label": "Точка щелчка", "unit": "м"}, "normal": {"type": "vector", "label": "Нормаль поверхности"},
-          "object": {"type": "integer", "label": "Объект под мышью (0 - пол)"}}
+          "object": {"type": "integer", "label": "Объект под мышью (0 - пол)"},
+          "to": {"type": "vector", "label": "Точка, до которой дотянули", "unit": "м"},  # a tool with `to` is dragged: two points
+          "to_object": {"type": "integer", "label": "Объект под мышью в конце (0 - пол)"}}
 
 
 class _Draw:
@@ -126,6 +138,8 @@ class _Draw:
         draw.segments("поток", [a0, a1, b0, b1])                       # pairs: a field's arrows
         draw.points("частицы", points, colour="#33ccff", size=4)
         draw.label("v", (0, 1.2, 0), "3.2 м/с")
+        draw.circle("зона", (0, 0, 0), 0.8)                            # about the world's y; axis="x", or a direction
+        draw.box("габарит", (0, 0.5, 0), (1, 1, 2))                    # its twelve edges
         draw.clear("путь")                                             # draw.clear(): all of this plugin's
 
     A colour is "#rrggbb" or (r, g, b) from 0 to 1; orange if none."""
@@ -142,6 +156,25 @@ class _Draw:
     def label(self, key, at, text, colour=None):
         self._send(key, at=_xyz([at])[0], text=str(text), colour=colour)
 
+    def circle(self, key, centre, radius, axis="y", colour=None, sides=48):
+        """A circle around `centre`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
+        n = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}.get(axis) or tuple(float(v) for v in axis)
+        length = math.sqrt(sum(v * v for v in n)) or 1.0
+        n = tuple(v / length for v in n)
+        other = (1.0, 0.0, 0.0) if abs(n[0]) < 0.9 else (0.0, 1.0, 0.0)  # anything not along it: two directions across it
+        u = _cross(n, other)
+        u = tuple(v / math.sqrt(sum(w * w for w in u)) for v in u)
+        w = _cross(n, u)
+        ring = [tuple(centre[i] + radius * (math.cos(a) * u[i] + math.sin(a) * w[i]) for i in range(3))
+                for a in (2 * math.pi * k / sides for k in range(sides + 1))]
+        self.line(key, ring, colour)
+
+    def box(self, key, centre, size, colour=None):
+        """The twelve edges of a box of `size` (x, y, z) around `centre`, along the world's axes."""
+        corner = lambda k: tuple(centre[i] + (size[i] / 2 if k >> i & 1 else -size[i] / 2) for i in range(3))
+        edges = [(a, a | 1 << i) for a in range(8) for i in range(3) if not a >> i & 1]
+        self.segments(key, [corner(k) for edge in edges for k in edge], colour)
+
     def clear(self, key=None):
         self._send(key, clear=True)
 
@@ -157,6 +190,10 @@ class _Draw:
             batch.append(what)
         else:
             _link["client"].call("view_draw", **what)
+
+
+def _cross(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
 
 def _xyz(points):
