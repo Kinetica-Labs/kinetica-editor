@@ -475,6 +475,7 @@ void RobotWorld::leadAnimation(PhysicsWorld& physics, Real time, Real h) {
 }
 
 void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
+    contactsKnown_ = false;
     if (!controls_.empty()) driveControllers(physics, dt);
     leadGoals(physics, dt);
     physics.moveHand(grabJoint_, grabTarget_, dt);
@@ -502,7 +503,21 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     }
     pushes_.clear();
     readPoses(physics);
+    if (--framesToLostCheck_ < 0) framesToLostCheck_ = 29, dropLost(physics); // after the poses: the scene keeps where it was last
     if (recording_) sampleTake(physics);
+}
+
+void RobotWorld::dropLost(PhysicsWorld& physics) {
+    for (size_t b = 0; b < entityOfBody_.size(); ++b) {
+        if (entityOfBody_[b] == 0 || !physics.alive(int(b))) continue;
+        const BodyState s = physics.state(int(b));
+        if (s.mass > 0 && s.position.y < -kLostDepth) physics.removeBody(int(b)), contactsKnown_ = false;
+    }
+}
+
+const std::vector<ContactPoint>& RobotWorld::contactsNow(const PhysicsWorld& physics) const {
+    if (!contactsKnown_) contacts_ = physics.contacts(), contactsKnown_ = true;
+    return contacts_;
 }
 
 bool RobotWorld::push(const PhysicsWorld& physics, uint32_t entity, const Vector3& force, const Vector3& torque, std::string& error) {
@@ -589,7 +604,7 @@ int RobotWorld::bodyOf(uint32_t entity) const {
     return it == bodyOfEntity_.end() ? -1 : it->second;
 }
 
-void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
+void RobotWorld::fill(const PhysicsWorld& physics, Frame& out, bool contacts) const {
     out.domain = AABB(Vector3(-0.5_r * graph_.world.size.x, 0, -0.5_r * graph_.world.size.z),
                       Vector3(0.5_r * graph_.world.size.x, graph_.world.size.y, 0.5_r * graph_.world.size.z));
     out.engine = physics.engine();
@@ -613,8 +628,8 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out) const {
     for (SensorVis& v : out.sensors) // the glyph shows what the robot reads: a sonar's distance, an encoder's coordinate
         if (const LiveSensor* x = sensor(v.id); x && (v.kind == int(SensorKind::Sonar) || v.kind == int(SensorKind::Encoder)))
             v.reading = x->reading().value;
-    for (const ContactPoint& c : physics.contacts())
-        out.contacts.push_back({c.point, c.normal, c.depth, c.normalImpulse, c.a, c.b});
+    if (contacts || Probe::layerOn(DrawLayer::ContactPoints))
+        for (const ContactPoint& c : contactsNow(physics)) out.contacts.push_back({c.point, c.normal, c.depth, c.normalImpulse, c.a, c.b});
     describeLights(live_, out);
     for (const std::string& n : notes_) out.info.push_back({"Не построено", n});
     out.grips = grips(physics);
@@ -684,7 +699,7 @@ std::vector<Frame::GripInfo> RobotWorld::grips(const PhysicsWorld& physics) cons
 void RobotWorld::drawLayers(const PhysicsWorld& physics, Real substepDt) const {
     if (Probe::layers() == 0) return;
     using L = DrawLayer;
-    for (const ContactPoint& c : physics.contacts()) {
+    for (const ContactPoint& c : contactsNow(physics)) {
         Probe::point(L::ContactPoints, c.point, {1, 0.3_r, 0.2_r}, 0.012_r);
         Probe::arrow(L::ContactNormals, c.point, c.normal * 0.1_r, {1, 0.6_r, 0.2_r});
         if (substepDt > 0) Probe::arrow(L::ContactImpulses, c.point, c.normal * (c.normalImpulse / substepDt * Probe::kForceScale), {1, 1, 0.3_r});

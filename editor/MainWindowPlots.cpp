@@ -115,10 +115,11 @@ void MainWindow::autoOpenPlots() {
 // --- What the simulation measures -----------------------------------------------------------------
 
 // The scene's channels (its energy, momentum, the deepest contact) are measured while someone looks:
-// the plots or the Laboratory open.
+// the plots or the Laboratory open. The frame's contact points - a click in the Laboratory picks one - are listed
+// while the Laboratory is open.
 void MainWindow::updateChannelRequests() {
-    const bool on = (graphsAct_ && graphsAct_->isChecked()) || (labAct_ && labAct_->isChecked());
-    ctrl_->post([on](ke::Simulation& sim) { sim.channels.scene = on; });
+    const bool lab = labAct_ && labAct_->isChecked(), on = lab || (graphsAct_ && graphsAct_->isChecked());
+    ctrl_->post([on, lab](ke::Simulation& sim) { sim.channels.scene = on, sim.frameContacts = lab; });
 }
 
 // The name a body's channels go under: the name of the object it is in the scene (an array's copy: the

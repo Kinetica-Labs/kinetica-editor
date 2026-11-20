@@ -156,6 +156,49 @@ void testSimFrameFollowsTheLiveScene() {
     CHECK(same() && std::memcmp(&put, &goal.position, sizeof put) == 0, "a goal moved while the world runs is drawn where it was");
 }
 
+// A box beyond the floor's edge falls: 100 m below the floor (RobotWorld::kLostDepth) it leaves the engine - it would
+// fall for ever, awake, stepped with every substep - and the scene keeps it where it was last seen; the box on the floor
+// and a fixed one far below stay. The frame lists the contact points only when asked (Simulation::frameContacts) - a
+// pass over every body no one may be reading -, and the channels read the same points either way.
+void testSimLostBodiesLeaveTheWorld() {
+    SceneGraph g;
+    g.world.physics.substeps = 4;
+    g.entities.push_back(solid(1, "На полу", Vector3(0.2_r), {0, 0.1_r, 0}, false));
+    g.entities.push_back(solid(2, "За краем", Vector3(0.2_r), {200, -60, 0}, false)); // the floor's slab ends 52 m out
+    g.entities.push_back(solid(3, "Опора внизу", Vector3(0.2_r), {0, -300, 0}, true));
+    Simulation s;
+    s.load(g);
+    s.channels.scene = true;
+    const int rests = s.robot()->bodyOf(1), falls = s.robot()->bodyOf(2), fixed = s.robot()->bodyOf(3);
+    int left = -1;
+    Real last = 0;
+    for (int k = 0; k < 400 && left < 0; ++k) {
+        if (s.physics()->alive(falls)) last = s.physics()->state(falls).position.y;
+        s.stepFrame();
+        if (!s.physics()->alive(falls)) left = k + 1;
+    }
+    const Real kept = s.robot()->live().entities[1].position.y;
+    std::printf("  a box let go 60 m below the floor, beyond its edge: gone from the engine after %d frames, last stepped at y = %.1f m; "
+                "the scene keeps it at %.1f m; the box on the floor %s, the fixed one 300 m below %s\n", left, double(last), double(kept),
+                s.physics()->alive(rests) ? "stays" : "gone", s.physics()->alive(fixed) ? "stays" : "gone");
+    CHECK(left > 0 && kept < -RobotWorld::kLostDepth && kept > -RobotWorld::kLostDepth - 60, "the falling box left after %d frames, kept at %f", left, double(kept));
+    CHECK(s.physics()->alive(rests) && s.physics()->alive(fixed), "a body that did not fall out of the world was taken out of it");
+    Frame with, without;
+    s.fill(with);
+    s.frameContacts = false;
+    s.stepFrame();
+    s.fill(without);
+    double deepest = -1;
+    for (const Measurement& m : s.measurements())
+        if (m.info.id == "rigid/deepest penetration") deepest = m.value;
+    std::printf("  the frame: %zu contact points listed when asked, %zu when not; the deepest contact is measured all the same: %.2e m\n",
+                with.contacts.size(), without.contacts.size(), deepest);
+    CHECK(with.contacts.size() >= 3 && without.contacts.empty(), "the frame lists %zu contacts when asked and %zu when not", with.contacts.size(),
+          without.contacts.size());
+    CHECK(deepest >= 0, "the scene's deepest contact is not measured without the frame's contacts");
+    CHECK(without.bodies.size() == 3, "the frame holds %zu bodies: the one that left is still drawn where it was", without.bodies.size());
+}
+
 void testSimServoHoldsAndDroops() {
     JointDrive d;
     d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;

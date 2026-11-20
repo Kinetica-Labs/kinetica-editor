@@ -45,7 +45,7 @@ void Simulation::stepFrame() {
 void Simulation::fill(Frame& out) const {
     out = Frame();
     out.frame = frame_, out.time = time_, out.stepMs = stepMs_;
-    if (robot_) robot_->fill(*physics_, out);
+    if (robot_) robot_->fill(*physics_, out, frameContacts);
     out.measurements = measurements_;
     out.probe = Probe::snapshot();
 }

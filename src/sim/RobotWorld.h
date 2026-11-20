@@ -46,7 +46,16 @@ public:
     bool recording() const { return recording_; }
     SequenceObject takeRecording(const std::string& name);
     void step(PhysicsWorld& physics, Real dt, int substeps);
-    void fill(const PhysicsWorld& physics, Frame& out) const;
+    // `contacts`: the frame lists the contact points - a pass over every body, 12 ms a frame of ten thousand resting
+    // cubes. Left out when no one reads them; the contact-points layer, when on, has them all the same.
+    void fill(const PhysicsWorld& physics, Frame& out, bool contacts = true) const;
+    // The engine's contact points after the last step, listed once a frame however many read them (the frame, the
+    // layers, the channels).
+    const std::vector<ContactPoint>& contactsNow(const PhysicsWorld& physics) const;
+    // A moving body this far below the floor has fallen out of the world and leaves the engine (removeBody): it would
+    // fall for ever, awake, stepped with every substep - the cubes pushed off a floor's edge. The scene keeps it where
+    // it was last seen; Stop brings it back as authored. Looked for twice a second of the run.
+    static constexpr Real kLostDepth = 100;
     // The probe's debug layers that are on (core/Probe.h: contacts, centres of mass, inertia axes,
     // velocities, sleep, joint frames, the bodies' boxes), drawn from the engine's states - what a
     // laboratory of the editor shows. Nothing when no layer is on.
@@ -191,6 +200,7 @@ private:
     void buildJoint(PhysicsWorld& physics, const JointObject& j);
     void drive(PhysicsWorld& physics, const LiveJoint& j, Real h) const; // h: the substep
     void readPoses(const PhysicsWorld& physics);
+    void dropLost(PhysicsWorld& physics);
     void leadGoals(PhysicsWorld& physics, Real dt);
     static std::unordered_set<uint32_t> animatedEntities(const SceneGraph& g);
     void sampleTake(const PhysicsWorld& physics);
@@ -208,6 +218,9 @@ private:
     };
     mutable std::vector<Drawn> drawn_;
     mutable bool drawnKnown_ = false;
+    mutable std::vector<ContactPoint> contacts_; // contactsNow: the engine's, until the next step
+    mutable bool contactsKnown_ = false;
+    int framesToLostCheck_ = 0;
     std::vector<Entity> flat_;                       // worldEntities(graph_): world poses, instances, array copies
     std::unordered_map<uint32_t, int> bodyOfEntity_; // entity id -> body
     std::vector<uint32_t> entityOfBody_;             // body -> entity id (0: none)

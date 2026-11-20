@@ -42,6 +42,7 @@ void testPhysicsThreadsDeterministic();
 // SimTests.cpp
 void testSimBoxRestsOnFloor();
 void testSimFrameFollowsTheLiveScene();
+void testSimLostBodiesLeaveTheWorld();
 void testSimServoHoldsAndDroops();
 void testSimDcMotorSpinsUp();
 void testSimBatteryDrivesMotor();

@@ -153,7 +153,7 @@ std::vector<Measurement> measureScene(const Simulation& sim) {
     const Double3 L = t.angularAboutOrigin - cross(t.centre(), t.momentum);
     const double mechanical = t.translational + t.rotational + t.potential;
     double deepest = 0;
-    for (const ContactPoint& c : physics->contacts()) deepest = std::max(deepest, double(c.depth));
+    for (const ContactPoint& c : sim.robot()->contactsNow(*physics)) deepest = std::max(deepest, double(c.depth));
     put(out, "rigid/kinetic energy", t.translational);
     put(out, "rigid/rotational energy", t.rotational);
     put(out, "rigid/potential energy", t.potential);
@@ -188,7 +188,7 @@ std::vector<Measurement> measureObject(const Simulation& sim, const ObjectRef& o
     const double h = double(sim.frameDt) / std::max(1, sim.robot()->graph().world.physics.substeps);
     Double3 F;
     int points = 0;
-    for (const ContactPoint& c : physics->contacts()) {
+    for (const ContactPoint& c : sim.robot()->contactsNow(*physics)) {
         if (c.a != body && c.b != body) continue;
         ++points;
         F += Double3(c.normal) * (double(c.normalImpulse) / h * (c.b == body ? 1.0 : -1.0));

@@ -16,6 +16,7 @@ class Simulation {
 public:
     Real frameDt = 1.0_r / 60;
     ChannelRequests channels; // what to measure after every frame (empty: nothing)
+    bool frameContacts = true; // the frame lists the contact points (RobotWorld::fill): off while no one reads them
 
     // A new world from the graph: the old one is gone, the clock back at zero.
     void load(const SceneGraph& graph);

@@ -53,7 +53,7 @@ struct Frame {
         Real depth = 0, normalImpulse = 0;      // m; N s over the step
         int bodyA = -1, bodyB = -1;
     };
-    std::vector<ContactInfo> contacts;
+    std::vector<ContactInfo> contacts; // listed when they are read (Simulation::frameContacts, the contact-points layer)
 
     struct LightInfo {
         int kind = 1;                        // LightKind: 0 Sun, 1 Point, 2 Spot
