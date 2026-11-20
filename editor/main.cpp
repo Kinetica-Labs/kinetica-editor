@@ -397,7 +397,11 @@ int main(int argc, char** argv) {
     w.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1600, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 950);
     if (cli.isSet(o.thumbnail)) w.setThumbnailMode();
     if (unattended(cli, o)) {
-        w.setWindowFlags(w.windowFlags() | Qt::Tool | Qt::WindowTransparentForInput);
+        // Not a window of the desktop at all (X11: override-redirect): the window manager neither places it, nor lists
+        // it, nor watches it. Watched, a run that kept this thread busy for a few seconds - a long check of the
+        // self-test, an agent's long call - put the desktop's «Приложение "Kinetica" не отвечает» with «Принудительно
+        // завершить» on the person's screen: an invisible program offered for killing (a person's report).
+        w.setWindowFlags(w.windowFlags() | Qt::Tool | Qt::WindowTransparentForInput | Qt::BypassWindowManagerHint);
         w.setAttribute(Qt::WA_ShowWithoutActivating);
         w.setWindowOpacity(0.0);
         app.installEventFilter(new OffscreenGuard(&app));
