@@ -197,11 +197,11 @@ class Turbine:
     QAction* add = nullptr;
     for (QAction* a : menu.actions())
         if (a->text() == "Ветряк") add = a;
-    const size_t steps = b.undoSteps();
+    const size_t steps = b.undoTaken();
     if (add) add->trigger();
     pump(100);
     const Entity* e = findEntity(b.graph(), cube);
-    const bool added = add && e && e->components.size() == 1 && e->components[0].type == "turbines.turbine" && b.undoSteps() == steps + 1;
+    const bool added = add && e && e->components.size() == 1 && e->components[0].type == "turbines.turbine" && b.undoTaken() == steps + 1;
     auto* card = w.findChild<QWidget*>("pluginComponent:turbines.turbine");
     std::vector<ShapeHandle> points = v->shapeHandles();
     int radius = -1;
@@ -217,7 +217,7 @@ class Turbine:
     points = v->shapeHandles();
     const ShapeHandle h = points[size_t(radius)];
     const QPointF from = v->pixelOf(h.centre + h.axis * h.reach), to = v->pixelOf(h.centre + h.axis * 2.0f);
-    const size_t before = b.undoSteps();
+    const size_t before = b.undoTaken();
     const auto setLines = [ops] {
         int n = 0;
         for (const QJsonValue& l : ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray()) n += l.toObject().value("op").toString() == "component_set";
@@ -233,8 +233,8 @@ class Turbine:
     const QJsonObject listed = ops->runNow("component_list", {{"type", "turbines.turbine"}});
     const double now = listed.value("components").toArray().at(0).toObject().value("values").toObject().value("radius").toDouble();
     std::printf("  the orange radius point dragged to 2 m: radius %.3f m, %zu undo step(s), %d component_set line(s)\n", now,
-                b.undoSteps() - before, lines);
-    c.check(std::fabs(now - 2.0) < 0.03 && b.undoSteps() == before + 1 && lines == 1,
+                b.undoTaken() - before, lines);
+    c.check(std::fabs(now - 2.0) < 0.03 && b.undoTaken() == before + 1 && lines == 1,
             "an orange point dragged sets its field: one edit, one undo step, one journal line");
     QDir(folder + "/turbines").removeRecursively();
     waitUntil([&] { return b.componentType("turbines.turbine").isEmpty(); }, 5000);
@@ -286,7 +286,7 @@ def mark(scene, dt, sensors):
     if (tool) tool->trigger();
     pump(50);
     const bool taken = v->pluginTool() == "marks_flag" && tool && tool->isChecked();
-    const size_t steps = b.undoSteps();
+    const size_t steps = b.undoTaken();
     const QPointF top = v->pixelOf(Vector3(0.1f, 1.0f, 0.1f));
     sendMouse(v, QEvent::MouseMove, top, Qt::NoButton, Qt::NoButton);
     sendMouse(v, QEvent::MouseButtonPress, top, Qt::LeftButton, Qt::LeftButton);
@@ -301,14 +301,14 @@ def mark(scene, dt, sensors):
     const SceneObject* placed = sphere ? findObject(b.graph(), sphere->id) : nullptr;
     const Vector3 at = placed ? placed->position : Vector3(0.0f);
     const bool clicked = placed && std::fabs(at.y - 1.1f) < 0.01f && std::fabs(at.x - 0.1f) < 0.03f && sphere->name == "флажок " + std::to_string(cube) &&
-                         b.undoSteps() == steps + 1;
+                         b.undoTaken() == steps + 1;
     const bool drawn = v->hasDrawing("marks/флажок") && v->hasDrawing("marks/где");
     QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
     QApplication::sendEvent(v, &esc);
     const bool left = v->pluginTool().isEmpty() && !tool->isChecked();
     std::printf("  the tool: on the shelf %s, taken %s; a click on the cube's top -> «%s» at %.3f %.3f %.3f (%zu undo step); drawn %s; "
                 "Esc leaves it %s\n", onShelf ? "yes" : "no", taken ? "yes" : "no", sphere ? sphere->name.c_str() : "-", double(at.x),
-                double(at.y), double(at.z), b.undoSteps() - steps, drawn ? "yes" : "no", left ? "yes" : "no");
+                double(at.y), double(at.z), b.undoTaken() - steps, drawn ? "yes" : "no", left ? "yes" : "no");
     c.check(onShelf && taken && clicked && drawn && left, "a plugin's tool: an orange button on the shelf, a click gives it the point, "
                                                           "the face's normal and the object - one undo step; its picture stays; Esc leaves it");
     waitUntil([&] { return host->ticking(); }, 5000);
@@ -335,7 +335,7 @@ def mark(scene, dt, sensors):
 // import is one undo step - six links in a group, five joints, the root fixed, z up turned to y up (the upper arm's centre
 // 0.4 m over the floor), the shoulder's limit written; Play, and the motors hold the arm up. A mesh found by package://
 // stands where URDF puts its points: a 0.1 m cube from 0 to 0.1 on each axis has its centre at 0.05, 0.05, -0.05.
-void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+void testUrdf(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
     QDir().mkpath(folder + "/urdf");
     QFile::copy(resourceDir("plugins") + "/urdf/plugin.py", folder + "/urdf/plugin.py");
     QDir().mkpath(folder + "/kpkg/meshes");
@@ -361,7 +361,7 @@ void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, Plugi
     waitUntil([&] { return !host->openerFor("x.urdf").isEmpty(); }, 10000);
     const bool listed = host->formats().contains("URDF — робот (*.urdf)") && host->openerFor("/a/B.URDF") == "urdf_load";
     b.newScene();
-    const size_t steps = b.undoSteps();
+    const size_t steps = b.undoTaken();
     const auto load = [&](const QString& path) { // a plugin's command answers when the plugin has
         QJsonObject answer;
         ops->run("urdf_load", {{"path", path}}, [&answer](const QJsonObject& r) { answer = r; }, "ui");
@@ -378,14 +378,14 @@ void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, Plugi
     const SceneObject* up = upper ? findObject(b.graph(), upper->id) : nullptr;
     const Vector3 at = up ? up->position : Vector3(-9.0f);
     QString limits;
-    for (const QJsonValue& v : ops->runNow("scene_get", {}).value("text").toString().split('\n'))
-        if (v.toString().contains("limit ")) limits += v.toString().trimmed() + "; ";
-    const bool built = made.value("links").toInt() == 6 && made.value("joints").toInt() == 5 && b.undoSteps() == steps + 1 && base &&
+    for (const QString& line : ops->runNow("scene_get", {}).value("text").toString().split('\n'))
+        if (line.contains("limit ")) limits += line.trimmed() + "; ";
+    const bool built = made.value("links").toInt() == 6 && made.value("joints").toInt() == 5 && b.undoTaken() == steps + 1 && base &&
                        base->rigid.fixed && forearm && !forearm->rigid.fixed && std::fabs(at.y - 0.4f) < 1e-3f && std::fabs(at.x) < 1e-3f &&
                        std::fabs(at.z) < 1e-3f && limits.contains("limit rx lower -1.5 upper 1.5") && limits.contains("limit tx lower 0 upper 0.03");
     std::printf("  URDF: %s; listed %s; %d links, %d joints, %zu undo step; the upper arm at %.3f %.3f %.3f; %s\n",
                 qPrintable(made.value("note").toString(made.value("error").toString())), listed ? "yes" : "no", made.value("links").toInt(),
-                made.value("joints").toInt(), b.undoSteps() - steps, double(at.x), double(at.y), double(at.z), qPrintable(limits));
+                made.value("joints").toInt(), b.undoTaken() - steps, double(at.x), double(at.y), double(at.z), qPrintable(limits));
     c.check(listed && built, "a URDF arm: «Импорт…» lists the format; one undo step - six links in a group, five joints, the root fixed, "
                              "z up turned to y up, the limits written");
     QJsonObject stepped;
@@ -539,7 +539,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testRunHooks(c, b, ops, host, dir.path());
     testComponents(c, w, b, v, ops, host, dir.path());
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
-    testUrdf(c, w, b, ops, host, dir.path());
+    testUrdf(c, b, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

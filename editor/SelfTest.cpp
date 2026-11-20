@@ -588,7 +588,9 @@ void testWindowAsCode(Checker& c, QMainWindow& w, SceneBuilder& b) {
     pump(100);
     c.check(lines.size() == 1 && lines[0].first == "edit_undo" && lines[0].second.value("_py").toString() == "scene.undo()",
             "the Undo button is the line scene.undo()");
-    b.setCodeReporter(nullptr);
+    // As the window has it: the groups after this one are a hand's work too, and with no reporter left their edits made
+    // no journal line (seen only in a whole run: «an orange point dragged ... one journal line» of the plugins group).
+    b.setCodeReporter([ops](const QString& op, const QJsonObject& args) { ops->report("ui", op, args); });
 }
 
 int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {

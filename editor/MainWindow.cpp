@@ -494,9 +494,9 @@ void MainWindow::connectSceneBuilder() {
 void MainWindow::buildSceneMenu() {
     auto* menu = new QMenu("С&цена", this);
     menu->addAction("Новая пустая сцена", QKeySequence::New, this, [this] {
-        const size_t before = builder_->undoSteps();
+        const size_t before = builder_->undoTaken();
         builder_->newScene();
-        if (builder_->undoSteps() > before) statusBar()->showMessage("Новая сцена. Прежняя не потеряна: Ctrl+Z вернёт её", 10000);
+        if (builder_->undoTaken() > before) statusBar()->showMessage("Новая сцена. Прежняя не потеряна: Ctrl+Z вернёт её", 10000);
     });
     menu->addAction("Открыть…", QKeySequence::Open, this, [this] {
         const QString path = QFileDialog::getOpenFileName(this, "Открыть сцену", examplesDir(), "Сцена Kinetica (*.kscene)");

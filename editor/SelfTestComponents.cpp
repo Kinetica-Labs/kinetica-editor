@@ -265,7 +265,7 @@ void testColliderMode(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, 
         return c.check(false, "«Править коллайдер в виде» on a box collider: the mode on, six points");
     const ShapeHandle h = points[size_t(plusX)];
     const QPointF from = v->pixelOf(h.centre + h.axis * h.reach), to = v->pixelOf(h.centre + h.axis * (h.reach + 0.1f));
-    const size_t steps = b.undoSteps();
+    const size_t steps = b.undoTaken();
     sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
     sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
     for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton);
@@ -273,9 +273,9 @@ void testColliderMode(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, 
     pump(60);
     const Entity after = last(b);
     const float longer = after.collider.size.x - before.size.x, centre = after.collider.offset.x;
-    const bool oneStep = b.undoSteps() == steps + 1;
+    const bool oneStep = b.undoTaken() == steps + 1;
     std::printf("  the +X point dragged 0.1 m: the collider %.4f m longer, its centre %.4f m along, the cube %s, %zu undo step(s)\n",
-                double(longer), double(centre), same(after.position, before.position) ? "unmoved" : "MOVED", b.undoSteps() - steps);
+                double(longer), double(centre), same(after.position, before.position) ? "unmoved" : "MOVED", b.undoTaken() - steps);
     if (!dir.isEmpty()) windowShot(w).save(dir + "/collider-mode-face.png");
     c.check(std::fabs(longer - 0.1f) < 2e-3f && std::fabs(centre - 0.05f) < 1e-3f && same(after.position, before.position) && oneStep &&
                 !after.collider.fitToGeometry,

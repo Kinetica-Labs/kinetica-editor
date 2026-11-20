@@ -304,7 +304,10 @@ public:
     bool loadPaused();
     bool undoStep() { return !undo_.empty() && (undo(), true); }
     bool redoStep() { return !redo_.empty() && (redo(), true); }
-    size_t undoSteps() const { return undo_.size(); }
+    size_t undoSteps() const { return undo_.size(); } // what Ctrl+Z can still take back
+    // The steps taken so far, the forgotten oldest among them: what an action added is a difference of two of these.
+    // (undoSteps() stands still once the history is full - "one step more" was never seen after a hundred edits.)
+    size_t undoTaken() const { return undo_.size() + undoForgotten_; }
 
 signals:
     void statusMessage(const QString& text);               // "Коллайдер добавлен: без него тело провалится"
@@ -550,6 +553,7 @@ private:
 
     struct HistoryEntry { ke::SceneGraph graph; };
     std::vector<HistoryEntry> undo_, redo_;
+    size_t undoForgotten_ = 0; // the oldest steps dropped from a full history (undoTaken)
     QElapsedTimer lastRemember_;
     std::optional<ke::SceneGraph> previewFrom_; // the graph before a Sequencer preview
     int undoGroup_ = 0;          // open groups (beginUndoGroup)

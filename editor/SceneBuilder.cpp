@@ -348,7 +348,7 @@ void SceneBuilder::remember(bool mergeWithLast) {
     if (undoGroup_ > 0) undoGroupTaken_ = true;
     rememberedNow_ = true;
     undo_.push_back({graph_});
-    if (undo_.size() > 100) undo_.erase(undo_.begin());
+    if (undo_.size() > 100) undo_.erase(undo_.begin()), ++undoForgotten_;
     redo_.clear();
     updateHistoryActions();
 }
