@@ -248,7 +248,6 @@ void PlotPanel::clear() {
     frames_ = 0;
     research_->setResult({});
     refreshResearchChannels();
-    cursor_ = std::nan("");
     rebuildCharts(); // the views pointed into the history that is gone
     refreshLists();
 }
@@ -477,8 +476,6 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
     menu->addSeparator();
     item("plotMenuCsv", "Сохранить CSV…", [this] { emit saveCsvRequested(); });
     item("plotMenuCopy", "Скопировать картинку", [view] { QApplication::clipboard()->setImage(view->grab().toImage()); });
-    const double t = view->timeAtX(at.x());
-    item("plotMenuLab", "Показать этот момент в Лаборатории", [this, t] { emit timeClicked(t); })->setEnabled(frames_ > 0);
     return menu;
 }
 
@@ -543,16 +540,14 @@ TrackChart* PlotPanel::viewOf(int chart) const {
     return nullptr;
 }
 
-// A chart's view and what it answers: the hover, a click (the Laboratory), the title's ▾, the
+// A chart's view and what it answers: the hover, the title's ▾, the
 // legend, the right click. chart -1: the normalised chart of every line.
 TrackChart* PlotPanel::makeView(int chart) {
     auto* v = new TrackChart;
     v->setObjectName("trackChart");
     v->setNormalized(chart < 0);
-    v->setCursorTime(cursor_);
     connect(v, &TrackChart::hovered, this, [this, v](double t, QPoint at, int track) { onHover(v, t, at, track); });
     connect(v, &TrackChart::hoverLeft, this, &PlotPanel::onHoverLeft);
-    connect(v, &TrackChart::clicked, this, &PlotPanel::timeClicked);
     connect(v, &TrackChart::titleClicked, this, [this, chart] { openChartList(chart); });
     connect(v, &TrackChart::legendClicked, this, [this, v, chart](int k) { toggleLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::legendDoubleClicked, this, [this, v, chart](int k) { isolateLine(chart, v->tracks()[size_t(k)].id); });
@@ -695,12 +690,6 @@ void PlotPanel::showHint() {
 
 // --- The cursor and the hover ---------------------------------------------------------------------
 
-void PlotPanel::setCursorTime(double t) {
-    cursor_ = t;
-    for (TrackChart* v : views_) v->setCursorTime(t);
-}
-
-void PlotPanel::clearCursor() { setCursorTime(std::nan("")); }
 
 // The mouse over a chart: the dashed line and the dots on every chart, and the line under the mouse
 // in words.

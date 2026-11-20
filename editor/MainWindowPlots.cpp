@@ -10,7 +10,6 @@
 //   4. «Сохранить CSV»: the lines on the charts, to a file.
 #include "MainWindow.h"
 
-#include "FrameHistory.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
 #include "PlotPanel.h"
@@ -67,12 +66,6 @@ void MainWindow::connectPlots() {
         plots_->showObject(object > 0 ? watchLabel(object) : QString());
         if (object > 0 && builder_->selectedId() != uint32_t(object)) builder_->select(builder_->clickTarget(uint32_t(object)));
     });
-    connect(plots_, &PlotPanel::timeClicked, this, &MainWindow::labSeekTime);
-    connect(history_, &FrameHistory::showFrame, this, [this](FrameHistory::Frame s) {
-        if (s && history_->showingPast()) plots_->setCursorTime(s->time);
-        else plots_->clearCursor();
-    });
-    connect(history_, &FrameHistory::wentLive, plots_, &PlotPanel::clearCursor);
     connect(builder_, &SceneBuilder::selectionChanged, this, [this] { watchSelected(); });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { watchSelected(); });
     connect(plots_, &PlotPanel::saveCsvRequested, this, &MainWindow::saveVisibleCsv);
@@ -213,26 +206,6 @@ bool MainWindow::watchArm() {
     ctrl_->post([asked](ke::Simulation& sim) { sim.channels.joints = asked.joints, sim.channels.goals = asked.goals; });
     plots_->showSection(key, "Рука: " + QString::fromStdString(goal->name), charts, prefixes);
     return true;
-}
-
-// --- Back in the run -----------------------------------------------------------------------------
-
-// A click on a plot: the view shows the kept frame nearest that moment and the scene pauses, as when the Sequencer's
-// playhead is taken back. A moment no longer kept: the status bar says so.
-void MainWindow::labSeekTime(double t) {
-    const int best = history_ ? history_->nearest(t) : -1;
-    if (best < 0) return statusBar()->showMessage("Перейти к моменту графика можно, пока идёт запуск: хранятся его последние кадры", 4000);
-    if (std::fabs(double(history_->frameAt(best)->time) - t) > 0.05)
-        return statusBar()->showMessage("Этот момент уже не хранится: в памяти последние 10 с запуска", 4000);
-    history_->seek(best);
-}
-
-// The Sequencer's playhead taken back while a run is on screen: the kept frame nearest that moment; «● Вживую» back.
-void MainWindow::connectHistory() {
-    connect(sequencer_, &SequencerPanel::pastWanted, this, [this](double t) {
-        if (const int k = history_->nearest(t); k >= 0) history_->seek(k);
-    });
-    connect(sequencer_, &SequencerPanel::liveWanted, history_, &FrameHistory::goLive);
 }
 
 // --- The file -------------------------------------------------------------------------------------

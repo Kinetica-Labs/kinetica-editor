@@ -8,7 +8,7 @@
 //   4. on the chart: the title's ▾ switches the quantity; the right click adds and removes a line;
 //      a legend click hides a line, a double click shows it alone;
 //   5. «Наложить»: the energy's three lines are one chart, another unit is another chart; colours
-//      stay with their lines; «Дорожками»: one time axis and the Laboratory's cursor, both ways;
+//      stay with their lines; «Дорожками»: one time axis;
 //      «Нормировать»: every line 0 … 1;
 //   6. bounded cost: 30 simulated minutes of a real scene's channels - the history grows by less than
 //      20 MB after the first minute, a paint of twelve lines costs the same at the end as at the start.
@@ -17,7 +17,6 @@
 // plots-normalized.png.
 #include "SelfTestSupport.h"
 
-#include "FrameHistory.h"
 #include "PlotPanel.h"
 
 #include <QAction>
@@ -39,7 +38,6 @@ struct Plots {
     PlotPanel* panel = nullptr;
     QAction* graphs = nullptr;
     QDockWidget* dock = nullptr;
-    FrameHistory* timeline = nullptr; // the run's kept frames
 };
 
 bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
@@ -316,31 +314,8 @@ void testLanes(Checker& c, QMainWindow& w, SceneBuilder& b, const Plots& p, cons
         shared = lanes[i]->timeRange() == lanes[0]->timeRange() && std::fabs(lanes[i]->xAtTime(1.0) - lanes[0]->xAtTime(1.0)) < 1e-6;
     c.check(shared, "«Дорожками»: the charts stacked on one time axis (same span, same margins)");
 
-    trigger(w, "actionLaboratory");
-    pump(200);
-    const int k = p.timeline->count() / 3;
-    p.timeline->seek(k); // the playhead taken back (SelfTestLab presses it by hand): the scene pauses
-    pump(100);
-    const double at = p.timeline->frameAt(k)->time;
-    bool cursor = !p.panel->views().empty();
-    for (const TrackChart* lane : p.panel->views()) cursor = cursor && lane->cursorTime() == at;
-    c.check(cursor, "going back in the run moves the plots' cursor on every lane");
-
-    const int target = p.timeline->count() * 2 / 3;
-    TrackChart* lane = p.panel->views().front();
-    click(lane, QPointF(lane->xAtTime(p.timeline->frameAt(target)->time), lane->plotArea().center().y()));
-    const int landed = p.timeline->position();
-    std::printf("  back at frame %d: the cursor there on every lane: %s; a click at frame %d's moment -> frame %d\n", k,
-                cursor ? "yes" : "no", target, landed);
-    c.check(std::abs(landed - target) <= 1 && p.panel->views().front()->cursorTime() == p.timeline->frameAt(landed)->time,
-            "a click on a plot takes the view back to that moment of the run");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-lanes.png");
-    p.timeline->goLive();
-    pump(100);
-    c.check(std::isnan(p.panel->views().front()->cursorTime()), "«Вживую» takes the cursor off the plots");
     b.pause();
-    trigger(w, "actionLaboratory");
-    pump(100);
 }
 
 void testNormalized(Checker& c, QMainWindow& w, const Plots& p, const QString& dir) {
@@ -422,10 +397,9 @@ void testThirtyMinutes(Checker& c, Viewport* v) {
 
 int runPlotTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
-    Plots p{w.findChild<PlotPanel*>(), w.findChild<QAction*>("actionGraphs"), w.findChild<QDockWidget*>("resultsDock"),
-            w.findChild<FrameHistory*>()};
-    if (!p.panel || !p.graphs || !p.dock || !p.timeline) {
-        c.check(false, "the window has the plots, their action and dock, the run's history");
+    Plots p{w.findChild<PlotPanel*>(), w.findChild<QAction*>("actionGraphs"), w.findChild<QDockWidget*>("resultsDock")};
+    if (!p.panel || !p.graphs || !p.dock) {
+        c.check(false, "the window has the plots, their action and dock");
         return c.failures;
     }
     testZeroClicks(c, w, b, v, p, shotsDir);

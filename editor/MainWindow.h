@@ -165,8 +165,9 @@ private:
     void buildLaboratory();
     void connectLaboratory();
     void setLaboratoryVisible(bool on);
-    void labRecord(const std::vector<std::shared_ptr<const ke::Frame>>& frames); // every published frame
-    bool labOnSnapshot(); // before a frame is drawn; false: a kept frame stays on screen
+    void labProfile(const std::vector<std::shared_ptr<const ke::Frame>>& frames); // every new frame, timed
+    void labSync(); // before a frame is drawn: the layer boxes follow the Probe
+    uint64_t labFrame_ = 0; // the last frame the profiler timed
     void onLabClicked(QPointF pos);           // a click in the view: the contact under it, else the body
     void showContactCard(const ke::Frame& s, int index);
     // What the card says about a body; `live` ones come from the simulation thread, the others from the
@@ -182,8 +183,6 @@ private:
     };
     void showBodyCard(int body);       // index into the frame's bodies
     void fillBodyCard(const LabBodyFacts& f);
-    void labScrubStarted();                   // the timeline was taken: the scene pauses
-    void labWentLive();                       // back to the newest frame: the scene runs on if it ran
     bool sceneRunning() const;
     void labPlot(const QString& channel);     // «Построить график»: the channel into the plots, the plots shown
 
@@ -200,7 +199,6 @@ private:
     bool watchArm();                          // an IK goal selected: its arm's motors and miss in the plots
     bool armWatched_ = false;
     void forgetWatched();                     // editing again or another scene: no body watched
-    void labSeekTime(double t);               // a click on a plot: the timeline to that moment
     void saveVisibleCsv();                    // «Сохранить CSV»: the lines on the charts
     void autoOpenPlots();                     // the first ▶: the plots open by themselves, compact
     void recordFrames(const std::vector<SimController::Reading>& readings); // every simulated frame
@@ -237,7 +235,6 @@ private:
     void buildOperators(); // the API's operations and the magnet, before the top bar
     void buildConsoleDock(); // the API console: every call as a Python line, and a line to type calls
     void buildSequencerDock(); // the Sequencer: a tab of the bottom panel (MainWindowPlots.cpp)
-    void connectHistory();     // its playhead over the run's last frames (MainWindowPlots.cpp)
     class SequencerPanel* sequencer_ = nullptr;
     class EditorOps* ops_ = nullptr;
     class EditorServer* apiServer_ = nullptr; // the API, once started (apiPort)
@@ -269,9 +266,6 @@ private:
     QStringList onlyViewDocks_;                     // what "only the 3D view" closed (docks, then "shelf", "status")
     class QDockWidget* labDock_ = nullptr;
     class LabPanel* lab_ = nullptr;
-    class FrameHistory* history_ = nullptr; // the run's last frames: the Sequencer's playhead goes back over them
-    bool labResume_ = false;       // the timeline paused a running scene: «Вживую» lets it run on
-    bool labFresh_ = false;        // new frames were recorded since the view last drew one
 
     struct Automation {
         bool active = false;

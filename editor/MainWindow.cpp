@@ -11,7 +11,6 @@
 #include "RoleBar.h"
 #include "PlotPanel.h"
 #include "SceneBuilder.h"
-#include "FrameHistory.h"
 #include "SequencerPanel.h"
 #include "Viewport.h"
 
@@ -257,13 +256,6 @@ void MainWindow::onModeChanged() {
     syncRecord();
     updateToolShelf();
     updateSimulationBar();
-    if (builder_->editing() && history_ && history_->showingPast()) { // edited: the authored scene, not a run's past
-        history_->blockSignals(true);
-        history_->goLive();
-        history_->blockSignals(false);
-        labResume_ = false;
-        if (sequencer_) sequencer_->showPast(false, 0);
-    }
 }
 
 // The right click of the edit mode, as the quad menu of 3ds Max: an object under the cursor that is
@@ -574,14 +566,14 @@ void MainWindow::buildResultsDock() {
 // ---------------------------------------------------------------------------
 // Runtime
 // ---------------------------------------------------------------------------
-// Every frame the simulation published since the last look goes into the Laboratory's recording;
+// Every frame the simulation published since the last look is timed by the Laboratory's profiler;
 // only the newest of them is drawn (on a slow screen the simulation steps several frames per paint).
 // Nothing published: nothing to do.
 void MainWindow::poll() {
     recordFrames(ctrl_->takeReadings()); // every simulated frame into the plots
     const auto frames = ctrl_->takePublished();
     if (frames.empty()) return;
-    labRecord(frames);
+    labProfile(frames);
     if (sequencer_) sequencer_->setPlayTime(double(frames.back()->time)); // the world plays the sequence: the playhead follows
     onSnapshot(frames.back());
 }
@@ -589,7 +581,8 @@ void MainWindow::poll() {
 void MainWindow::onSnapshot(const std::shared_ptr<const Snap>& s) {
     if (builder_->editing()) return; // edit mode shows the authored scene (SceneBuilder::editSnapshot), not the simulation
     builder_->onSimulationSnapshot(*s);
-    if (labOnSnapshot()) view_->setSnapshot(s); // the Laboratory's timeline may be showing a kept frame
+    labSync();
+    view_->setSnapshot(s);
     updatePlotObjects(*s);
 
     if (auto_.active && int(s->frame) >= auto_.frames && ++auto_.settle == 1) {

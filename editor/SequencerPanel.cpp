@@ -57,9 +57,6 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     filter_->setClearButtonEnabled(true);
     filter_->setFixedWidth(140);
     bar->addWidget(filter_);
-    live_ = button("● Вживую", "Назад к последнему кадру запуска: сцена пойдёт дальше, если шла", "sequencerLive");
-    live_->setStyleSheet("QToolButton { color: #7cff9a; font-weight: bold; }");
-    live_->hide();
     note_ = new QLabel(this);
     note_->setStyleSheet("color: #ff6a5a;");
     bar->addWidget(note_, 1);
@@ -109,17 +106,8 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
         run("sim_record", QJsonObject{{"on", on}});
     });
     connect(curves_, &QToolButton::toggled, this, &SequencerPanel::showCurves);
-    connect(live_, &QToolButton::clicked, this, &SequencerPanel::liveWanted);
     connect(filter_, &QLineEdit::textChanged, timeline_, &SequencerTimeline::setFilter);
     sync();
-}
-
-void SequencerPanel::showPast(bool past, double time) {
-    past_ = past;
-    live_->setVisible(past);
-    playTime_ = past ? time : liveTime_;
-    timeline_->update(), curvesView_->update();
-    time_->setText(QString("%1 / %2 с").arg(playTime_, 0, 'f', 2).arg(liveTime_, 0, 'f', 2));
 }
 
 double SequencerPanel::atLeast() const { return builder_->editing() ? 0 : std::ceil(liveTime_) + 1; }
@@ -153,11 +141,7 @@ void SequencerPanel::seek(double time) {
 }
 
 void SequencerPanel::scrub(double time) {
-    if (!builder_->editing()) { // a run on screen: its frame then, from the history (the scene pauses)
-        scrubbing_ = true, scrubTime_ = time;
-        return emit pastWanted(std::min(time, liveTime_));
-    }
-    if (!ke::activeSequence(builder_->graph())) return;
+    if (!builder_->editing() || !ke::activeSequence(builder_->graph())) return; // a run is not gone back over: nothing of it is kept
     if (!scrubbing_) builder_->beginSequencePreview(), scrubbing_ = true;
     scrubTime_ = time;
     builder_->previewSequence(time); // the view redrawn: sync follows (MainWindow, editSnapshot)
@@ -165,7 +149,7 @@ void SequencerPanel::scrub(double time) {
 
 void SequencerPanel::endScrub() {
     scrubbing_ = false;
-    if (!builder_->editing()) return; // the run's frame stays on screen until «● Вживую» or ▶
+    if (!builder_->editing()) return;
     builder_->endSequencePreview();
     seek(scrubTime_);
 }
@@ -221,13 +205,13 @@ void SequencerPanel::keySelected() {
     run("sequence_key", QJsonObject{{"time", playhead()}});
 }
 
-// In play only the playhead moves: the time and the views, not the sequences (the edited scene stands still).
+// In play the playhead follows the world only while the timeline has something of the run: a take recorded, the open
+// sequence played in it. A plain «Пуск» keeps nothing - a playhead going on over nothing was taken for a recording.
 void SequencerPanel::setPlayTime(double time) {
-    liveTime_ = time;
-    if (past_) return; // a kept frame on screen: the playhead stays on it
-    playTime_ = time;
     if (builder_->editing()) return;
     const ke::SequenceObject* q = ke::activeSequence(builder_->graph());
+    if (!ops_->recording() && !(q && q->play)) time = 0;
+    liveTime_ = playTime_ = time;
     time_->setText(QString("%1 / %2 с").arg(time, 0, 'f', 2).arg(q ? double(q->length()) : 0.0, 0, 'f', 2));
     timeline_->update(), curvesView_->update();
 }

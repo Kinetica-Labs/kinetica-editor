@@ -105,9 +105,6 @@ public:
     void removeChart(int chart);
     QMenu* contextMenu(TrackChart* view, const QPoint& at); // the right click's menu, built, not shown
 
-    // The Laboratory's frame as a line through every chart (NaN / clearCursor: none).
-    void setCursorTime(double t);
-    void clearCursor();
 
     // --- For the self-test ---
     const std::vector<Chart>& charts() const { return charts_; }
@@ -122,7 +119,6 @@ public:
     QString tooltipText(const TrackChart* view, double t, int track) const;
 
 signals:
-    void timeClicked(double t);  // a click on a chart: the Laboratory's timeline goes there
     void saveCsvRequested();     // the right click's «Сохранить CSV…»
     void roomWanted(int height); // the lanes need this much height to be read
 
@@ -179,7 +175,6 @@ private:
     bool ownChannel(const std::string& id) const;
     Arrangement arrangement_ = Arrangement::Overlay;
     bool wholeRun_ = false;
-    double cursor_ = std::nan("");
     // What is recorded.
     PlotCatalog catalog_;
     std::map<std::string, PlotSeries> series_;
