@@ -25,7 +25,6 @@ itself (``python -m kinetica.plugin plugin.py``). Only the Python standard libra
 """
 import inspect
 import json
-import math
 import os
 import runpy
 import socket
@@ -156,24 +155,14 @@ class _Draw:
     def label(self, key, at, text, colour=None):
         self._send(key, at=_xyz([at])[0], text=str(text), colour=colour)
 
-    def circle(self, key, centre, radius, axis="y", colour=None, sides=48):
+    def circle(self, key, centre, radius, axis="y", colour=None):
         """A circle around `centre`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
-        n = {"x": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "z": (0.0, 0.0, 1.0)}.get(axis) or tuple(float(v) for v in axis)
-        length = math.sqrt(sum(v * v for v in n)) or 1.0
-        n = tuple(v / length for v in n)
-        other = (1.0, 0.0, 0.0) if abs(n[0]) < 0.9 else (0.0, 1.0, 0.0)  # anything not along it: two directions across it
-        u = _cross(n, other)
-        u = tuple(v / math.sqrt(sum(w * w for w in u)) for v in u)
-        w = _cross(n, u)
-        ring = [tuple(centre[i] + radius * (math.cos(a) * u[i] + math.sin(a) * w[i]) for i in range(3))
-                for a in (2 * math.pi * k / sides for k in range(sides + 1))]
-        self.line(key, ring, colour)
+        about = {"x": (1, 0, 0), "y": (0, 1, 0), "z": (0, 0, 1)}.get(axis, axis)
+        self._send(key, circle={"centre": _xyz([centre])[0], "radius": float(radius), "axis": _xyz([about])[0]}, colour=colour)
 
     def box(self, key, centre, size, colour=None):
         """The twelve edges of a box of `size` (x, y, z) around `centre`, along the world's axes."""
-        corner = lambda k: tuple(centre[i] + (size[i] / 2 if k >> i & 1 else -size[i] / 2) for i in range(3))
-        edges = [(a, a | 1 << i) for a in range(8) for i in range(3) if not a >> i & 1]
-        self.segments(key, [corner(k) for edge in edges for k in edge], colour)
+        self._send(key, box={"centre": _xyz([centre])[0], "size": _xyz([size])[0]}, colour=colour)
 
     def clear(self, key=None):
         self._send(key, clear=True)
@@ -190,10 +179,6 @@ class _Draw:
             batch.append(what)
         else:
             _link["client"].call("view_draw", **what)
-
-
-def _cross(a, b):
-    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
 
 def _xyz(points):

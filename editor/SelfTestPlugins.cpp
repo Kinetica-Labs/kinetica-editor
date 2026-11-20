@@ -325,7 +325,22 @@ def mark(scene, dt, sensors):
     const bool gone = !v->hasDrawing("marks/такт") && v->hasDrawing("marks/флажок");
     const QJsonObject agent = ops->runNow("view_draw", {{"key", "агент/путь"}, {"line", QJsonArray{QJsonArray{0, 0, 0}, QJsonArray{1, 1, 1}}}});
     const QJsonObject odd = ops->runNow("view_draw", {{"key", "агент/пары"}, {"segments", QJsonArray{QJsonArray{0, 0, 0}}}});
-    const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 1;
+    // A ring and a box's edges are worked out by the operation itself - any client gets them, a plugin's draw.circle only
+    // passes the words on: 48 sides closed at 2 m about y at the centre's height; twelve edges, a pair of points each.
+    ops->runNow("view_draw", {{"key", "агент/кольцо"}, {"circle", QJsonObject{{"centre", QJsonArray{0, 1, 0}}, {"radius", 2.0}}}});
+    ops->runNow("view_draw", {{"key", "агент/габарит"}, {"box", QJsonObject{{"centre", QJsonArray{0, 0.5, 0}}, {"size", QJsonArray{1, 1, 2}}}}});
+    const Viewport::Drawing* ring = v->drawing("агент/кольцо");
+    const Viewport::Drawing* edges = v->drawing("агент/габарит");
+    bool round = ring && ring->strip.size() == 49 * 4;
+    for (size_t k = 0; round && k < ring->strip.size(); k += 4)
+        round = std::fabs(ring->strip[k + 1] - 1.0f) < 1e-5f && std::fabs(std::hypot(ring->strip[k], ring->strip[k + 2]) - 2.0f) < 1e-4f;
+    bool boxed = edges && edges->segments.size() == 24 * 4;
+    for (size_t k = 0; boxed && k < edges->segments.size(); k += 4)
+        boxed = std::fabs(std::fabs(edges->segments[k]) - 0.5f) < 1e-6f && std::fabs(std::fabs(edges->segments[k + 1] - 0.5f) - 0.5f) < 1e-6f &&
+                std::fabs(std::fabs(edges->segments[k + 2]) - 1.0f) < 1e-6f;
+    const bool flat = !ops->runNow("view_draw", {{"key", "агент/ноль"}, {"circle", QJsonObject{{"centre", QJsonArray{0, 0, 0}}, {"radius", 0.0}}}}).value("ok").toBool();
+    c.check(round && boxed && flat, "view_draw works out a ring (circle) and a box's twelve edges itself; a circle of no radius is refused");
+    const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;
     QDir(folder + "/marks").removeRecursively();
     const bool withPlugin = waitUntil([&] { return !v->hasDrawing("marks/флажок"); }, 5000);
     std::printf("  on_tick's picture while playing %s, gone at Stop %s (the tool's stays); view_draw from the API %s; the plugin gone, "

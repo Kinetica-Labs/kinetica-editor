@@ -133,6 +133,10 @@ public:
     void clearPlayDrawings();                 // Stop: what was drawn while the scene ran goes with the run
     size_t drawings() const { return drawings_.size(); }
     bool hasDrawing(const QString& key) const { return drawings_.count(key) > 0; }
+    const Drawing* drawing(const QString& key) const { // what stands under the key (a check reads its points)
+        const auto at = drawings_.find(key);
+        return at == drawings_.end() ? nullptr : &at->second;
+    }
     // A plugin's tool (PluginHost): while on, a left click calls its command `op` with the point, the normal and the
     // object under the mouse; Esc, another tool of the shelf or making shapes leaves it.
     // drags: its command takes `to` - a press, a drag and a release give it two points, a line between them drawn meanwhile.

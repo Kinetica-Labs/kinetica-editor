@@ -174,7 +174,7 @@ def flow(scene, dt, bodies):
   пока его не уберут или пока плагин не остановится.
 - Из `on_tick` рисунки уходят вместе с ответом такта — без лишних запросов. Не правка сцены: ни шага отмены,
   ни строки журнала.
-- Любой клиент API рисует операцией `view_draw {key, line?, segments?, points?, text?, at?, colour?, clear?}` —
+- Любой клиент API рисует операцией `view_draw {key, line?, segments?, points?, circle?, box?, text?, at?, colour?, clear?}` —
   так агент показывает план пути.
 
 ## 7. Инструмент в виде

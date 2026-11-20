@@ -156,9 +156,11 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
 void EditorOps::addInputOps() {
     addSync("view_draw", "Lines, points and words over the 3D view in world metres - a plugin's or an agent's picture (a gas's flow, "
                          "a planned path, a force, a label), by key: the same key again replaces it, clear takes it off (a key ending "
-                         "in / - all under it; none - all). Drawn while the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
-            "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], text?: str, at?: [x,y,z], colour?: [r,g,b], "
-            "size?: number, clear?: bool}",
+                         "in / - all under it; none - all). circle {centre: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
+                         "about the axis; box {centre: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
+                         "ring and bounds. Drawn while the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
+            "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
+            "colour?: [r,g,b], size?: number, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -180,6 +182,38 @@ void EditorOps::addInputOps() {
             }
         }
         if (many > 200000) return error("at most 200000 points a drawing");
+        if (a.contains("circle")) { // a ring: 48 sides, closed
+            const QJsonObject c = a.value("circle").toObject();
+            const float radius = float(c.value("radius").toDouble());
+            ke::Vector3 about = c.contains("axis") ? point(c.value("axis")) : ke::Vector3(0.0f, 1.0f, 0.0f);
+            if (c.value("centre").toArray().size() != 3 || !(radius > 0) || ke::length(about) < 1e-6f)
+                return error("circle: {centre: [x, y, z], radius: metres, axis?: [x, y, z]}");
+            if (!d.strip.empty()) return error("circle or line: one line a drawing");
+            about = ke::normalize(about);
+            const ke::Vector3 centre = point(c.value("centre"));
+            const ke::Vector3 u = ke::normalize(ke::cross(about, std::fabs(about.x) < 0.9f ? ke::Vector3(1.0f, 0.0f, 0.0f) : ke::Vector3(0.0f, 1.0f, 0.0f)));
+            const ke::Vector3 w = ke::cross(about, u);
+            for (int k = 0; k <= 48; ++k) {
+                const float t = float(k) * 2 * float(ke::kPi) / 48;
+                const ke::Vector3 p = centre + (u * ke::cos(t) + w * ke::sin(t)) * radius;
+                d.strip.insert(d.strip.end(), {p.x, p.y, p.z, 0.0f});
+            }
+        }
+        if (a.contains("box")) { // the twelve edges: from each corner along each axis it is the low end of
+            const QJsonObject b = a.value("box").toObject();
+            if (b.value("centre").toArray().size() != 3 || b.value("size").toArray().size() != 3)
+                return error("box: {centre: [x, y, z], size: [x, y, z]}");
+            const ke::Vector3 centre = point(b.value("centre")), half = point(b.value("size")) * 0.5f;
+            for (int corner = 0; corner < 8; ++corner)
+                for (int axis = 0; axis < 3; ++axis) {
+                    if (corner >> axis & 1) continue;
+                    for (int end : {corner, corner | 1 << axis}) {
+                        const ke::Vector3 p(centre.x + (end & 1 ? half.x : -half.x), centre.y + (end & 2 ? half.y : -half.y),
+                                            centre.z + (end & 4 ? half.z : -half.z));
+                        d.segments.insert(d.segments.end(), {p.x, p.y, p.z, 0.0f});
+                    }
+                }
+        }
         d.play = !builder_->editing();
         if (d.segments.size() % 8 != 0) return error("segments: points in pairs - a start and an end each");
         d.text = a.value("text").toString();
@@ -191,7 +225,7 @@ void EditorOps::addInputOps() {
         }
         d.size = float(std::clamp(a.value("size").toDouble(6), 1.0, 64.0));
         if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty())
-            return error("nothing to draw: line, segments, points or text");
+            return error("nothing to draw: line, segments, points, circle, box or text");
         view_->setDrawing(key, std::move(d));
         return ok({{"key", key}, {"drawings", int(view_->drawings())}});
     });

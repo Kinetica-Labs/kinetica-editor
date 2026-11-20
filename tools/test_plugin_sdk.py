@@ -67,18 +67,17 @@ class PluginSdk(unittest.TestCase):
     def test_gizmo_fields_and_drawings(self):
         self.assertEqual(field(30.0, unit="°", range=(0, 360), handle="dial").schema("angle")["handle"], "dial")
         self.assertEqual(field((0.4, 0.2, 0.6), handle="box").schema("size"), {"type": "vector", "default": [0.4, 0.2, 0.6], "label": "size", "handle": "box"})
-        drawn = []
+        drawn = []  # a ring and a box are the editor's to work out (view_draw): the SDK only passes the words on
         send, plugin._Draw._send = plugin._Draw._send, lambda self, key, colour=None, **what: drawn.append(what)
         try:
-            plugin.draw.circle("ring", (0, 1, 0), 2.0)
+            plugin.draw.circle("ring", (0, 1, 0), 2)
+            plugin.draw.circle("tilted", (0, 0, 0), 1.0, axis=(1, 1, 0))
             plugin.draw.box("edges", (0, 0.5, 0), (1, 1, 2))
         finally:
             plugin._Draw._send = send
-        ring, edges = drawn[0]["line"], drawn[1]["segments"]
-        self.assertEqual(len(ring), 49)  # closed: the first point again
-        self.assertTrue(all(abs(p[1] - 1) < 1e-9 and abs((p[0] ** 2 + p[2] ** 2) ** 0.5 - 2.0) < 1e-9 for p in ring))  # about y, at the centre's height
-        self.assertEqual(len(edges), 24)  # twelve edges, a pair of points each
-        self.assertEqual(sorted({abs(a[i] - b[i]) for a, b in zip(edges[::2], edges[1::2]) for i in range(3)}), [0.0, 1.0, 2.0])
+        self.assertEqual(drawn, [{"circle": {"centre": [0.0, 1.0, 0.0], "radius": 2.0, "axis": [0.0, 1.0, 0.0]}},
+                                 {"circle": {"centre": [0.0, 0.0, 0.0], "radius": 1.0, "axis": [1.0, 1.0, 0.0]}},
+                                 {"box": {"centre": [0.0, 0.5, 0.0], "size": [1.0, 1.0, 2.0]}}])
 
     def test_error_points_at_author(self):
         try:
