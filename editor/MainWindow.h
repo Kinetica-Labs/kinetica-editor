@@ -139,6 +139,7 @@ private:
     // File operations
     void importModel(); // «Импорт…»: an OBJ / STL model as a new object, or a file a plugin opens (URDF)
     void importFile(const QString& path); // ... that file: by its extension
+    void runScript();                     // «Выполнить скрипт…»: a Python file that builds or changes the scene, once
     void exportCsv();
     void screenshot();
     void showHelp();
@@ -225,6 +226,7 @@ private:
     QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
     class ControllerKeys* controllerKeys_ = nullptr; // a person's keys to the scene's panels while it plays
     class PluginHost* plugins_ = nullptr;            // plugins as processes (MainWindowPlugins.cpp)
+    class ScriptRunner* scripts_ = nullptr;          // a script run once: script_run (ScriptRunner.h)
     std::unique_ptr<class RunHooks> runHooks_;       // their hooks of a run: a wire and a thread apart from this one's
     std::shared_ptr<std::atomic<bool>> runLive_;     // this run's commands still have a world to go to (false at Stop)
     bool runSeen_ = false; // the plugins' hooks were told a run started (and not yet that it stopped)

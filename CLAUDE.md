@@ -18,6 +18,7 @@ cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp 
 build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; клиент tools/ke_editor.py
 build/kinetica --scene examples/ur5e.kscene --api 47801                # окно человеку; с --api к нему ходят MCP ke-editor (.mcp.json) и клиент
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
+build/kinetica --scene examples/ur5e.kscene --script examples/scripts/cubes_row.py   # скрипт: строит сцену кодом и заканчивается
 build/kinetica --scene examples/ur5e.kscene --frames 120 --window --screenshot /tmp/ur5e.png   # снимок без показа окна после N кадров игры; --edit — сцена как написана
 ```
 
@@ -38,6 +39,9 @@ CI (`.github/workflows/ci.yml`) ещё проверяет абляцию: сло
   (модель сцены, файл `*.kscene` строка-на-факт, правки с обратными `SceneEdits`, реестр операций `SceneOps`,
   IK `Kinematics`), `physics` (контракт движка), `sim` (`RobotWorld` — живой мир робота, `Simulation`, `Frame`).
 - **`plugins/physics/box3d/`** — единственное место с `box3d.h`.
+- **`examples/scripts/*.py`** — скрипты: файл Python строит или меняет сцену и заканчивается (операция `script_run`,
+  «Файл → Выполнить скрипт…», ключ `--script`); всё, что он сделал, — один шаг отмены. Пример сцены кодом — скрипт,
+  не плагин: плагин остаётся и даёт редактору новое умение.
 - **`plugins/<имя>/plugin.py`** — плагины на Python, которые поставляются с редактором (`plugins/urdf` — импорт URDF):
   хост сканирует эту папку при обычном запуске, самотест копирует нужный плагин во временную папку. Плагин —
   отдельный процесс Python, клиент того же API. Остальные плагины проекта — в репозитории kinetica-plugins; хост

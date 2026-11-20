@@ -4,6 +4,7 @@
 // The window itself is MainWindow.h.
 #include "Icons.h"
 #include "MainWindow.h"
+#include "EditorOps.h"
 #include "AgentInstanceGuard.h"
 #include "SelfTest.h"
 #include "SceneBuilder.h"
@@ -11,6 +12,9 @@
 
 #include "core/Probe.h"
 
+#include <QTimer>
+#include <QJsonObject>
+#include <QFileInfo>
 #include <QApplication>
 #include <QDoubleSpinBox>
 #include <QDialog>
@@ -227,11 +231,12 @@ struct Options {
     QCommandLineOption agentEval{"agent-eval", "Serve an isolated agent evaluation without showing windows or taking desktop input; use with --api."};
     QCommandLineOption api{"api", "Serve the editor's API on 127.0.0.1:<port> (JSON lines; tools/ke_editor.py).", "port"};
     QCommandLineOption language{"language", "Override the editor language for this run (ru or en).", "code"};
+    QCommandLineOption script{"script", "Run a Python script that builds or changes the scene, once the window is up (script_run).", "file"};
     QCommandLineOption resumeEditor{"resume-editor", "Restore the editor's scene after a restart.", "file"};
 
     void addTo(QCommandLineParser& cli) const {
         cli.addOptions({frames, shot, size, software, icons, window, scene, selfTest, shots, gizmoShots, edit, camera,
-                        firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval, language});
+                        firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval, language, script});
         auto resume = resumeEditor;
         resume.setFlags(QCommandLineOption::HiddenFromHelp);
         cli.addOption(resume);
@@ -432,5 +437,11 @@ int main(int argc, char** argv) {
     }
     if (cli.isSet(o.api) && !w.startApi(quint16(cli.value(o.api).toUInt())))
         std::fprintf(stderr, "the API port %s is taken\n", qPrintable(cli.value(o.api)));
+    if (cli.isSet(o.script)) // once the window's loop runs: the scene is there, the API answers the script
+        QTimer::singleShot(0, &w, [&w, file = QFileInfo(cli.value(o.script)).absoluteFilePath()] {
+            w.operators()->run("script_run", {{"file", file}}, [](const QJsonObject& r) {
+                if (!r.value("ok").toBool()) std::fprintf(stderr, "%s\n", qPrintable(r.value("error").toString()));
+            }, "ui");
+        });
     return run(app, w, cli, o);
 }

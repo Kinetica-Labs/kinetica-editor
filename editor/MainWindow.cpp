@@ -172,6 +172,10 @@ void MainWindow::buildMenus() {
     importAct->setShortcut(QKeySequence("Ctrl+I")); // Ctrl+O opens a scene (menu "Сцена")
     importAct->setToolTip(uiText("Kinetica", "Модель OBJ или STL как новый объект, робот URDF и форматы плагинов; файл можно и перетащить в вид"));
     connect(importAct, &QAction::triggered, this, &MainWindow::importModel);
+    auto* scriptAct = new QAction(uiText("Kinetica", "Выполнить скрипт…"), this);
+    scriptAct->setObjectName("actionRunScript");
+    scriptAct->setToolTip(uiText("Kinetica", "Файл Python, который строит или меняет сцену: пример кодом. Всё, что он сделал, — один шаг отмены"));
+    connect(scriptAct, &QAction::triggered, this, &MainWindow::runScript);
     auto* shotAct = new QAction(uiText("Kinetica", "Скриншот…"), this);
     shotAct->setShortcut(QKeySequence("Ctrl+P"));
     connect(shotAct, &QAction::triggered, this, &MainWindow::screenshot);
@@ -183,6 +187,7 @@ void MainWindow::buildMenus() {
     auto* file = menuBar()->addMenu(uiText("Kinetica", "&Файл"));
     file->setObjectName("fileMenu");
     file->addAction(importAct);
+    file->addAction(scriptAct);
     file->addAction(csvAct);
     file->addAction(shotAct);
     file->addSeparator();
@@ -657,6 +662,17 @@ void MainWindow::importModel() {
     filters.prepend(uiText("Kinetica", "Всё, что откроется (") + masks.join(' ') + ")");
     const QString path = QFileDialog::getOpenFileName(this, uiText("Kinetica", "Импорт"), examplesDir(), filters.join(";;"));
     if (!path.isEmpty()) importFile(path);
+}
+
+// «Выполнить скрипт…»: the operation script_run on a file picked (examples/scripts first); how it ended on the status bar.
+void MainWindow::runScript() {
+    const QString path = QFileDialog::getOpenFileName(this, uiText("Kinetica", "Выполнить скрипт"), examplesDir() + "/scripts",
+                                                      uiText("Kinetica", "Скрипты Python (*.py)"));
+    if (path.isEmpty()) return;
+    ops_->run("script_run", {{"file", path}}, [this](const QJsonObject& r) {
+        statusBar()->showMessage(r.value("ok").toBool() ? QString(uiText("Kinetica", "Скрипт «%1» выполнен")).arg(r.value("script").toString())
+                                                        : r.value("error").toString(), 10000);
+    }, "ui");
 }
 
 void MainWindow::importFile(const QString& path) {

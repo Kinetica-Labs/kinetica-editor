@@ -8,8 +8,11 @@
 #include "UiLanguage.h"
 
 #include <QDir>
+#include <QFileInfo>
 #include <QProcessEnvironment>
+#include <QRegularExpression>
 #include <QStandardPaths>
+#include <QStringList>
 
 inline QString pythonInterpreter() {
     for (const char* name : {"python3", "python"}) {
@@ -20,6 +23,20 @@ inline QString pythonInterpreter() {
 }
 
 inline QString pythonPackage() { return resourceDir("python"); }
+
+// Where a Python process fell, from the last lines it wrote: «plugin.py:12: ZeroDivisionError: division by zero» - the
+// author's file and line (the deepest frame that is not the kinetica package's own), then the error's own words.
+inline QString pythonError(const QStringList& tail) {
+    static const QRegularExpression frame(R"re(File "([^"]+)", line (\d+))re");
+    const QString package = QDir::cleanPath(pythonPackage());
+    QString where, what;
+    for (const QString& line : tail) {
+        const QRegularExpressionMatch m = frame.match(line);
+        if (m.hasMatch() && !QDir::cleanPath(m.captured(1)).startsWith(package, Qt::CaseInsensitive)) where = QFileInfo(m.captured(1)).fileName() + ":" + m.captured(2) + ": ";
+        else if (!m.hasMatch() && !line.trimmed().isEmpty() && !line.startsWith(' ')) what = line.trimmed();
+    }
+    return where + what;
+}
 
 inline QProcessEnvironment pythonEnvironment(quint16 port) {
     QProcessEnvironment env = QProcessEnvironment::systemEnvironment();

@@ -67,18 +67,6 @@ QString slug(const QString& s) {
     return out;
 }
 
-// The author's line in a traceback: «plugin.py:12: NameError: name 'x' is not defined».
-QString lastError(const QStringList& tail) {
-    static const QRegularExpression frame(R"re(File "([^"]+)", line (\d+))re");
-    QString where, what;
-    for (const QString& line : tail) {
-        const QRegularExpressionMatch m = frame.match(line);
-        if (m.hasMatch() && !m.captured(1).contains("kinetica")) where = QFileInfo(m.captured(1)).fileName() + ":" + m.captured(2) + ": ";
-        else if (!line.trimmed().isEmpty() && !line.startsWith(' ')) what = line.trimmed();
-    }
-    return where + what;
-}
-
 // The command's fields as JSON Schema 2020-12: what MCP gives an agent as the tool's inputSchema.
 // A plugin's tool on the shelf: an orange rounded square with its label's first letter (C4D's colour of a plugin's things).
 QIcon toolIcon(const QString& label) {
@@ -281,7 +269,7 @@ void PluginHost::launch(Plugin& p) {
         if (fell && q->state == "работает") { // a worker thread fell while the process lives on: said, not silent
             QTimer::singleShot(200, this, [this, name] { // the traceback's last line comes a moment later
                 if (Plugin* r = find(name)) {
-                    r->error = lastError(r->stderrTail);
+                    r->error = pythonError(r->stderrTail);
                     notice(name, uiText("Kinetica", "Плагин «") + name + uiText("Kinetica", "»: ошибка в фоне — ") + r->error);
                     emit changed();
                 }
@@ -336,7 +324,7 @@ void PluginHost::onExit(Plugin& p, int code) {
     if (p.restarting) return p.restarting = false, launch(p); // once: a plugin falling at its start falls, it does not loop
     hooks_->expect(p.name, {});
     p.state = code == 0 ? "остановлен" : "упал";
-    p.error = code == 0 ? QString() : lastError(p.stderrTail);
+    p.error = code == 0 ? QString() : pythonError(p.stderrTail);
     if (code != 0) notice(p.name, uiText("Kinetica", "Плагин «") + p.name + uiText("Kinetica", "» упал: ") + (p.error.isEmpty() ? QString(uiText("Kinetica", "код %1")).arg(code) : p.error));
     emit changed();
 }

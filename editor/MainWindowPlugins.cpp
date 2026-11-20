@@ -8,6 +8,7 @@
 #include "ApiConsole.h"
 #include "EditorOps.h"
 #include "PluginHost.h"
+#include "ScriptRunner.h"
 #include "Viewport.h"
 #include "PluginPanel.h"
 #include "RunHooks.h"
@@ -109,8 +110,12 @@ void MainWindow::buildPlugins() {
         if (!add) return;
         inspectorTabs_->addTab(scrolled(panel), panel->title());
     });
+    scripts_ = new ScriptRunner(ops_, builder_, [this] { return apiPort(); }, this);
     if (auto* dock = findChild<QDockWidget*>("consoleDock"))
-        if (auto* console = dynamic_cast<ApiConsole*>(dock->widget())) connect(plugins_, &PluginHost::output, console, &ApiConsole::pluginLine);
+        if (auto* console = dynamic_cast<ApiConsole*>(dock->widget())) {
+            connect(plugins_, &PluginHost::output, console, &ApiConsole::pluginLine);
+            connect(scripts_, &ScriptRunner::output, console, &ApiConsole::pluginLine); // a script's print(), under its file's name
+        }
     // A plugin's tool: its shelf button makes it the view's tool, a click in the view calls it, Esc lights the button off.
     connect(plugins_, &PluginHost::toolPicked, view_, &Viewport::setPluginTool);
     connect(view_, &Viewport::pluginToolChanged, plugins_, &PluginHost::setToolChecked);
