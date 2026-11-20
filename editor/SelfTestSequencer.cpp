@@ -82,8 +82,10 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     const QPointF from(xAt(timeline, b, length), 11), to(xAt(timeline, b, length / 2), 11);
     mouse(timeline, QEvent::MouseButtonPress, from);
     pump(30);
+    const double pressed = activeSequence(b.graph()) ? double(activeSequence(b.graph())->time) : -1; // each step said: where a drag stops
     mouse(timeline, QEvent::MouseMove, to);
     pump(30);
+    const double moved = activeSequence(b.graph()) ? double(activeSequence(b.graph())->time) : -1;
     const float during = findObject(b.graph(), cube)->position.x;
     mouse(timeline, QEvent::MouseButtonRelease, to);
     pump(60);
@@ -100,6 +102,8 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     pump(60);
     std::printf("  the playhead dragged to %.3f s: the cube at x %.3f during the drag, %.3f after (the sequence says %.3f); one undo: x %.3f\n", middle,
                 double(during), double(after), double(p.x), double(undone));
+    std::printf("    its steps: a sequence of %.3f s on a timeline %d px wide; pressed at x %.1f - %.3f s, moved to x %.1f - %.3f s\n", length,
+                timeline->width(), from.x(), pressed, to.x(), moved);
     c.check(std::fabs(after - p.x) < 1e-5f && std::fabs(after - 0.5f) < 0.03f && std::fabs(during - after) < 1e-5f && std::fabs(undone - 1) < 1e-4f,
             "dragging the playhead shows the cube on its track and leaves one undo step");
 
