@@ -197,7 +197,6 @@ private:
     QString watchLabel(int object) const;     // the name a body's channels go under (by its entity id)
     void watchBody(int object);               // this body's channels measured from the next frame on
     void updatePlotObjects(const ke::Frame& snapshot);
-    std::string plotObjectsScene_;
     void watchSelected();                     // the selected object's body, while the scene runs
     bool watchArm();                          // an IK goal selected: its arm's motors and miss in the plots
     bool armWatched_ = false;

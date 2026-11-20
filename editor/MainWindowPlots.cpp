@@ -61,11 +61,6 @@ QWidget* MainWindow::buildPlots() {
 }
 
 void MainWindow::connectPlots() {
-    connect(plots_->research(), &PlotResearch::bodyWanted, this, [this](int object) {
-        watchBody(object);
-        plots_->showObject(object > 0 ? watchLabel(object) : QString());
-        if (object > 0 && builder_->selectedId() != uint32_t(object)) builder_->select(builder_->clickTarget(uint32_t(object)));
-    });
     connect(builder_, &SceneBuilder::selectionChanged, this, [this] { watchSelected(); });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { watchSelected(); });
     connect(plots_, &PlotPanel::saveCsvRequested, this, &MainWindow::saveVisibleCsv);
@@ -160,7 +155,6 @@ void MainWindow::watchSelected() {
     if (builder_->editing()) {
         forgetWatched();
         plots_->showObject(QString());
-        plots_->research()->resetObjects();
     } else if (const auto s = view_->snapshot()) updatePlotObjects(*s);
 }
 
@@ -221,28 +215,17 @@ void MainWindow::saveVisibleCsv() {
     else statusBar()->showMessage("Сохранено: " + path, 4000);
 }
 
-// The research's objects: every body of the physics engine in the frame, by the entity it is (stable while
-// the scene lives, however the frame orders its bodies); the selected one is the object selected in the
-// scene when it is a body.
+// The plots' object: the one selected in the scene when the frame has it as a body of the physics engine (by the
+// entity it is - stable while the scene lives, however the frame orders its bodies); else none.
 void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
     if (watchArm()) return;
     if (armWatched_) { // the goal let go: its arm's channels too
         armWatched_ = false;
         ctrl_->post([](ke::Simulation& sim) { sim.channels.joints.clear(), sim.channels.goals.clear(); });
     }
-    if (snapshot.sceneName != plotObjectsScene_) {
-        plotObjectsScene_ = snapshot.sceneName;
-        plots_->research()->resetObjects();
-    }
-    PlotResearch::Objects objects;
-    int selected = -1;
-    for (const ke::Frame::Body& b : snapshot.bodies) {
-        if (b.body < 0 || b.marker || b.object == 0) continue;
-        objects.push_back({int(b.object), watchLabel(int(b.object))});
-        if (b.object == builder_->selectedId()) selected = int(b.object);
-    }
-    plots_->research()->setObjects(objects, selected);
-    const int object = plots_->research()->body();
+    int object = -1;
+    for (const ke::Frame::Body& b : snapshot.bodies)
+        if (b.body >= 0 && !b.marker && b.object != 0 && b.object == builder_->selectedId()) object = int(b.object);
     if (object > 0) watchBody(object);
     plots_->showObject(object > 0 ? watchLabel(object) : QString());
 }

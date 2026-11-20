@@ -59,19 +59,6 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(0);
 
-    research_ = new PlotResearch(this);
-    col->addWidget(research_);
-    connect(research_, &PlotResearch::channelWanted, this, &PlotPanel::showChannel);
-    connect(research_, &PlotResearch::analysisChanged, this, [this] {
-        showHint();
-        refreshResearch();
-        if (research_->histogram()) emit roomWanted(330);
-    });
-    researchTimer_ = new QTimer(this);
-    researchTimer_->setInterval(200); // distributions scan raw data at most five times per second
-    connect(researchTimer_, &QTimer::timeout, this, &PlotPanel::refreshResearch);
-    researchTimer_->start();
-
     // Before the first frame: one quiet line, nothing to press.
     placeholder_ = new QLabel("Графики появятся после ▶");
     placeholder_->setObjectName("plotPlaceholder");
@@ -168,7 +155,6 @@ void PlotPanel::setScene(const std::string& name) {
     touched_ = it != chartsByScene_.end();
     charts_ = touched_ ? it->second : defaultCharts();
     object_.clear(); // the object's section goes with the old scene
-    research_->resetObjects();
     clear();
 }
 
@@ -194,7 +180,6 @@ void PlotPanel::append(double t, const std::vector<ke::Probe::Channel>& probe, c
     if (fresh_) {
         fresh_ = false;
         updateKeep();
-        refreshResearchChannels();
         rebuildCharts(); // a chart waiting for this channel gets its line
         refreshLists();
     }
@@ -246,8 +231,6 @@ size_t PlotPanel::bytes() const {
 void PlotPanel::clear() {
     series_.clear();
     frames_ = 0;
-    research_->setResult({});
-    refreshResearchChannels();
     rebuildCharts(); // the views pointed into the history that is gone
     refreshLists();
 }
@@ -684,8 +667,8 @@ void PlotPanel::refreshCharts() {
 
 // Before the first frame: one quiet line instead of the charts - nothing to press, nothing to choose.
 void PlotPanel::showHint() {
-    scroll_->setVisible(frames_ > 0 && !research_->histogram());
-    placeholder_->setVisible(frames_ == 0 && !research_->histogram());
+    scroll_->setVisible(frames_ > 0);
+    placeholder_->setVisible(frames_ == 0);
 }
 
 // --- The cursor and the hover ---------------------------------------------------------------------
@@ -780,19 +763,4 @@ bool PlotPanel::writeVisibleCsv(const QString& path) const {
             columns.push_back({card.unit.isEmpty() ? card.name : card.name + ", " + card.unit, s});
         }
     return writeTable(path, columns, true);
-}
-
-// The catalogue is refreshed only when channels appear, not once per simulation sample.
-void PlotPanel::refreshResearchChannels() {
-    std::vector<PlotChannel> cards;
-    for (const auto& [id, values] : series_) cards.push_back(catalog_.card(id));
-    research_->setChannels(cards);
-}
-
-void PlotPanel::refreshResearch() {
-    if (!research_->histogram() || !isVisible()) return;
-    const PlotSeries* source = series(research_->channel());
-    const double seconds = research_->windowSeconds();
-    const double from = seconds > 0 ? now_ - seconds : -std::numeric_limits<double>::infinity();
-    research_->setResult(source ? plotStatistics(*source, from, now_, research_->binCount()) : PlotStatistics());
 }

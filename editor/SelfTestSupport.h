@@ -191,6 +191,3 @@ int runWorldTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 int runGoalTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 // The journal as a way back: a session restored to the bit, to a line, a crash found (SelfTestJournal.cpp).
 int runJournalTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
-
-// Research: exact histograms, body selection and the simulation's recorded measurements.
-int runResearchTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);

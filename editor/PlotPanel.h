@@ -28,7 +28,6 @@
 #include "ChannelList.h"
 #include "PlotChannels.h"
 #include "PlotSeries.h"
-#include "PlotResearch.h"
 #include "TrackChart.h"
 
 #include "core/Probe.h"
@@ -85,7 +84,6 @@ public:
     // Any section that goes with the selection, the same way: its key (empty: none), its header, its charts and
     // the prefixes of the channels that are its own - an arm's goal: a chart for each motor and its miss.
     void showSection(const QString& key, const QString& title, const std::vector<Chart>& charts, const std::vector<std::string>& prefixes);
-    PlotResearch* research() const { return research_; }
 
     // --- What the reader may choose (never needed) ---
     QWidget* moreButton() const;       // «Ещё величины…»
@@ -124,10 +122,6 @@ signals:
 
 private:
     void buildBar();
-    void refreshResearchChannels();
-    void refreshResearch();
-    PlotResearch* research_ = nullptr;
-    QTimer* researchTimer_ = nullptr;
     void record(double t, const std::string& id, double v);
     void addEnergyParts(double t, const std::vector<ke::Measurement>& measurements);
     bool kept(const std::string& id) const;

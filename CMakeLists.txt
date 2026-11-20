@@ -147,9 +147,6 @@ if(Qt6_FOUND)
     editor/PlotSeries.h      editor/PlotSeries.cpp
     editor/ChannelList.h     editor/ChannelList.cpp
     editor/TrackChart.h      editor/TrackChart.cpp
-    editor/HistogramChart.h  editor/HistogramChart.cpp
-    editor/PlotStatistics.h  editor/PlotStatistics.cpp
-    editor/PlotResearch.h    editor/PlotResearch.cpp
     editor/LabPanel.h        editor/LabPanel.cpp
     editor/LabLayers.h       editor/LabLayers.cpp
     editor/LabCard.h         editor/LabCard.cpp
@@ -173,7 +170,7 @@ if(Qt6_FOUND)
     editor/SelfTestSequencer.cpp editor/SelfTestPlugins.cpp
     editor/SelfTestShadows.cpp editor/SelfTestTextures.cpp editor/SelfTestBump.cpp editor/SelfTestPlay.cpp
     editor/SelfTestLayout.cpp editor/SelfTestLab.cpp editor/SelfTestPlots.cpp editor/SelfTestJournal.cpp
-    editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp editor/SelfTestResearch.cpp
+    editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp
     editor/SelfTestShaders.cpp editor/SelfTestCreate.cpp
   )
   qt_add_resources(kinetica shaders PREFIX "/shaders" BASE shaders FILES
