@@ -367,7 +367,15 @@ void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
                      e->position().x(), e->position().y(), width(), a.span, panel_->atLeast(), a.time(e->position().x()), int(panel_->scrubbing()),
                      int(e->spontaneous())), std::fflush(stderr);
     }
-    if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
+    if (!panel_->scrubbing()) return;
+    // The point and the ruler by name, as the press has them. Written as one expression on a temporary ruler this line
+    // gave 0 s for any point under MSVC (Windows 10: the playhead could be clicked, not dragged) and the right time
+    // under GCC; the trace beside it, with a named ruler, gave the right time on both.
+    const QPointF at = e->position();
+    const Axis ruler = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
+    const double time = ruler.time(at.x());
+    if (qEnvironmentVariableIsSet("KE_TRACE_SEQ")) std::fprintf(stderr, "TRACE move scrubs to %.3f\n", time), std::fflush(stderr);
+    panel_->scrub(time);
 }
 
 void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {
