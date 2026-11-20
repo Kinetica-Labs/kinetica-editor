@@ -45,7 +45,9 @@ public:
     // The first-minute bubble even if it was seen before (the command line's --first-start).
     void setForceFirstStart(bool on) { forceFirstStart_ = on; }
     QString firstMinuteText() const; // what the bubble says now (empty: gone)
-    void startPlugins();             // a person's window: the editor's and the user's plugins (MainWindowPlugins.cpp)
+    void startPlugins();
+    void syncControllers();                          // the plugins' on_play / on_tick / on_stop follow ▶ and Stop
+    void tickControllers(const QJsonObject& packet); // one stepped frame to their on_tick, their commands back             // a person's window: the editor's and the user's plugins (MainWindowPlugins.cpp)
     // "Примеры": the gallery of every ready-made scene; a click opens one.
     void openGallery();
     void runGalleryShot(const QString& file); // the gallery with all its pictures as a PNG, then quit
@@ -219,6 +221,8 @@ private:
     QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
     class ControllerKeys* controllerKeys_ = nullptr; // a person's keys to the scene's panels while it plays
     class PluginHost* plugins_ = nullptr;            // plugins as processes (MainWindowPlugins.cpp)
+    bool runSeen_ = false; // the plugins' hooks were told a run started (and not yet that it stopped)
+    bool commandWarned_ = false; // a tick's command that did nothing was said this run
     void buildPlugins();
     class QTimer* recordBlink_ = nullptr;
     QAction* bottomWideAct_ = nullptr; // the bottom panel the window's whole width (MainWindowLayout.cpp)

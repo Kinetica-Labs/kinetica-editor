@@ -40,8 +40,15 @@ public:
     QStringList folders() const;              // the plugins' folders added (a repository's checkout)
     void addFolder(const QString& folder);    // kept for the next starts, its plugins started now
     QString userFolder() const;                         // where «Новый плагин…» makes one
-    QString create(const QString& name, QString& error); // a plugin from the template, started: its file
+    // A plugin from a template, started: its file. kind: "command" (a command with a field), "controller" (a robot's
+    // on_tick: sensors in, commands out), "world" (an extension of the physics: bodies in, forces out).
+    QString create(const QString& name, QString& error, const QString& kind = "command");
     QStringList names() const;
+    // The plugins' on_play / on_tick / on_stop (python/kinetica/plugin.py): an event to every running plugin that has a
+    // hook for it - "play", "tick" {time, dt, frame, sensors}, "stop" - and `done` once all have answered or failed, with
+    // their commands merged ({id: {target | velocity | duty}}); none to tell: done at once.
+    bool ticking(bool world = false) const; // a plugin ticks (world: one that extends the physics, it gets the bodies)
+    void broadcast(const QString& event, const QJsonObject& args, std::function<void(QJsonObject commands)> done);
 
 signals:
     void changed(); // a plugin came, went, or fell
@@ -68,6 +75,8 @@ private:
         bool reloaded = false;   // started again after a save: its registering says how long it took
         class PluginPanel* panel = nullptr; // its panel (PluginPanel.h), while it runs
         QJsonObject panelValues;            // what its panel held when it stopped: given back when it comes again
+        QStringList hooks;                  // its on_play / on_tick / on_stop: "play", "tick", "stop"
+        QString hookError;                  // a hook's last error, said once a run
     };
     void addOps();
     void scan(const QString& folder);

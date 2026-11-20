@@ -33,6 +33,7 @@ from .client import Client
 from .scene import Scene
 
 _commands = {}
+_hooks = {"play": [], "tick": [], "stop": []}  # the run's hooks: (function, world)
 _panel = None
 _link = {}  # the editor's client, name and token once serving: show() speaks through it
 
@@ -66,6 +67,40 @@ def command(label=None, key=None):
         return fn
 
     return make
+
+
+def on_play(fn):
+    """Called once when the scene starts running (▶): ``def start(scene)``."""
+    _hooks["play"].append((fn, False))
+    return fn
+
+
+def on_stop(fn):
+    """Called once when the scene stops (Стоп - the scene goes back as it was): ``def stop(scene)``."""
+    _hooks["stop"].append((fn, False))
+    return fn
+
+
+def on_tick(fn=None, *, world=False):
+    """Called every frame while the scene runs, before the next frame is stepped - the simulation waits for it.
+
+    A robot's controller sees what its sensors read, never the truth::
+
+        @on_tick
+        def control(scene, dt, sensors):            # sensors: {id: {"kind": "encoder", "reading": 0.41, ...}}
+            return {7: {"target": 0.8}}             # a joint's target / velocity, a driver's duty: no undo step, no journal
+
+    A plugin that extends the physics (a gas, water, wind) sees the bodies as the engine has them and pushes them::
+
+        @on_tick(world=True)
+        def wind(scene, dt, bodies):                # bodies: {id: {"position", "velocity", "spin", "mass"}}
+            return {i: {"force": [2.0, 0, 0]} for i in bodies}   # N over this frame, at the centre of mass
+    """
+    def take(f):
+        _hooks["tick"].append((f, world))
+        return f
+
+    return take(fn) if fn is not None else take
 
 
 class ui:
@@ -179,10 +214,18 @@ def _serve(file):
     commands = [{"name": n, "label": c["label"], "key": c["key"], "help": (inspect.getdoc(c["fn"]) or "").strip(), "args": _args(c["fn"]),
                  "order": list(_args(c["fn"]))} for n, c in _commands.items()]
     _link.update(client=control, name=name, token=token)
-    control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands,
+    hooks = [event for event, fns in _hooks.items() if fns] + (["tick:world"] if any(w for _, w in _hooks["tick"]) else [])
+    control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands, hooks=hooks,
                  **({"panel": _panel} if _panel else {}))
     while True:
         call = control.call("plugin_wait", name=name, token=token)
+        if "event" in call:  # ▶, a frame, Стоп: the run's hooks; a tick's commands merged into one answer
+            try:
+                control.call("plugin_reply", name=name, token=token, call=call["call"], event=True,
+                             result={"commands": _run_hooks(scene, call["event"], call.get("args", {}))})
+            except Exception as error:  # the author's mistake, with its line; the run goes on
+                control.call("plugin_reply", name=name, token=token, call=call["call"], event=True, error=_where(error))
+            continue
         fn = _commands.get(call["command"], {}).get("fn")
         try:
             given = call.get("args", {})
@@ -193,6 +236,22 @@ def _serve(file):
             control.call("plugin_reply", name=name, token=token, call=call["call"], result=result if isinstance(result, dict) else {})
         except Exception as error:  # the author's mistake goes back to the editor with its line, the plugin lives on
             control.call("plugin_reply", name=name, token=token, call=call["call"], error=_where(error))
+
+
+def _run_hooks(scene, event, args):
+    """The hooks of one event; a tick's commands, merged and keyed as JSON wants them."""
+    commands = {}
+    for fn, world in _hooks.get(event, []):
+        if event != "tick":
+            fn(scene)
+            continue
+        if world:
+            seen = {int(k): v for k, v in args.get("bodies", {}).items()}
+        else:
+            seen = {s["id"]: s for s in args.get("sensors", [])}
+        for target, what in (fn(scene, args.get("dt", 0.0), seen) or {}).items():
+            commands.setdefault(str(target), {}).update(what)
+    return commands
 
 
 def main():

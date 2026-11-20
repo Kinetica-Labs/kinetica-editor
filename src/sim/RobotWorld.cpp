@@ -484,6 +484,11 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
             if (!drivers_.empty()) power(physics, dt / Real(n));
             for (const LiveJoint& j : joints_) drive(physics, j, dt / Real(n));
             carryGrab(physics);
+            for (const auto& [body, ft] : pushes_) { // a plugin's forces over the whole frame, not its first substep
+                if (!physics.alive(body)) continue;
+                physics.applyForce(body, ft.first, physics.state(body).centre);
+                physics.applyTorque(body, ft.second);
+            }
             if (!animated_.empty()) leadAnimation(physics, Real(double(clockNs_) * 1e-9) + dt / Real(n), dt / Real(n)); // the clock moves on per substep
         }
         {
@@ -494,8 +499,17 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
         Probe::Timer timer("physics/sensors ms");
         for (const auto& x : sensors_) x->step(physics, *this, dt / Real(n), clockNs_);
     }
+    pushes_.clear();
     readPoses(physics);
     if (recording_) sampleTake(physics);
+}
+
+bool RobotWorld::push(const PhysicsWorld& physics, uint32_t entity, const Vector3& force, const Vector3& torque, std::string& error) {
+    const int b = bodyOf(entity);
+    if (b < 0 || !physics.alive(b) || physics.state(b).mass <= 0) return error = "entity " + std::to_string(entity) + " has no moving body", false;
+    auto& ft = pushes_[b];
+    ft.first = ft.first + force, ft.second = ft.second + torque;
+    return true;
 }
 
 void RobotWorld::startRecording(const PhysicsWorld& physics) {

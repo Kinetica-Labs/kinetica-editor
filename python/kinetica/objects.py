@@ -289,6 +289,12 @@ class Joint(SceneObject):
     kind = "joint"
 
     @property
+    def servo(self):
+        """Whether the joint's main freedom has a servo (a drive with stiffness): what a controller's "target" turns."""
+        stiffness = blocks.value(self.block(), "drive", "stiffness")
+        return bool(stiffness and stiffness > 0)
+
+    @property
     def coordinates(self):
         """Travel x y z [m] and turns about x y z [rad] of the joint now (None: not running)."""
         joint = self.scene._live("joints", self.id)

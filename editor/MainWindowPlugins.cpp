@@ -8,6 +8,10 @@
 #include "EditorOps.h"
 #include "PluginHost.h"
 #include "PluginPanel.h"
+#include "sim/Simulation.h"
+#include <QPointer>
+#include "SceneBuilder.h"
+#include "SimController.h"
 
 #include <QDockWidget>
 #include <QScrollArea>
@@ -17,6 +21,12 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QInputDialog>
+#include <QRadioButton>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QFormLayout>
+#include <QDialogButtonBox>
+#include <QButtonGroup>
 #include <QMenu>
 #include <QMenuBar>
 #include <QStatusBar>
@@ -24,6 +34,51 @@
 
 void MainWindow::startPlugins() {
     if (plugins_) plugins_->start(false);
+}
+
+// The plugins' controllers follow the run (PluginHost::broadcast): ▶ from the edit - «play» to each, and the lockstep of
+// Webots' controllers: every stepped frame's sensors, as the robot reads them (no truth), to their on_tick, its commands
+// into the running world before the next frame; Stop - «stop», no lockstep. A pause steps nothing, so ticks nothing.
+void MainWindow::syncControllers() {
+    if (!plugins_) return;
+    const bool running = !builder_->editing();
+    const bool started = running && !runSeen_, stopped = !running && runSeen_;
+    runSeen_ = running;
+    if (stopped) {
+        ctrl_->setLockstep(nullptr);
+        plugins_->broadcast("stop", {}, [](QJsonObject) {});
+    }
+    if (!started) return;
+    commandWarned_ = false;
+    plugins_->broadcast("play", {}, [](QJsonObject) {});
+    if (!plugins_->ticking()) return;
+    QPointer<MainWindow> self(this);
+    const bool world = plugins_->ticking(true); // the bodies' truth gathered only when a physics plugin takes it
+    ctrl_->setLockstep([self, world](ke::Simulation& s) {
+        QJsonObject packet{{"time", double(s.time())}, {"dt", double(s.frameDt)}, {"frame", double(s.frame())}, {"sensors", sensorReadings(s)}};
+        if (world) packet.insert("bodies", bodyStates(s));
+        QMetaObject::invokeMethod(self, [self, packet] {
+            if (self) self->tickControllers(packet);
+        }, Qt::QueuedConnection);
+    });
+}
+
+void MainWindow::tickControllers(const QJsonObject& packet) {
+    const uint64_t frame = uint64_t(packet.value("frame").toDouble());
+    plugins_->broadcast("tick", packet, [this, frame](QJsonObject commands) {
+        if (builder_->editing()) return; // stopped meanwhile: the world is gone
+        if (!commands.isEmpty()) {
+            QPointer<MainWindow> self(this);
+            ctrl_->post([self, commands](ke::Simulation& s) {
+                const QString why = applyCommands(s, commands);
+                if (!why.isEmpty()) // a command that did nothing is said, once a run - not sixty times a second
+                    QMetaObject::invokeMethod(self, [self, why] {
+                        if (self && !self->commandWarned_) self->commandWarned_ = true, emit self->plugins_->output("такт", "команда не выполнена: " + why);
+                    }, Qt::QueuedConnection);
+            }, "controllers");
+        }
+        ctrl_->release(frame);
+    });
 }
 
 void MainWindow::buildPlugins() {
@@ -58,17 +113,35 @@ void MainWindow::buildPlugins() {
     make->setObjectName("actionNewPlugin");
     make->setToolTip("Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится");
     connect(make, &QAction::triggered, this, [this] {
-        bool given = false;
-        QInputDialog ask(this); // its buttons in the window's language: Qt's own say Cancel / OK
+        // What to make, in words, then a name: each kind's file works at once - a button, a waving arm, a wind.
+        QDialog ask(this);
         ask.setWindowTitle("Новый плагин");
-        ask.setLabelText("Имя плагина (латиница, цифры, _) — команды его будут называться так:");
-        ask.setTextValue("my_plugin");
-        ask.setOkButtonText("Создать");
-        ask.setCancelButtonText("Отмена");
-        given = ask.exec() == QDialog::Accepted;
-        const QString name = ask.textValue();
-        if (!given) return;
-        ops_->run("plugin_new", {{"name", name}}, [this](const QJsonObject& r) {
+        auto* form = new QFormLayout(&ask);
+        auto* name = new QLineEdit("my_plugin");
+        name->setObjectName("pluginNewName");
+        form->addRow("Имя", name);
+        const std::pair<const char*, const char*> kinds[] = {
+            {"command", "Команда — кнопка, строка Ctrl+K и инструмент агента: сделать что-то со сценой"},
+            {"controller", "Контроллер робота — каждый кадр Пуска: датчики → команды суставам"},
+            {"world", "Физика мира — каждый кадр Пуска: тела → силы (газ, вода, ветер…)"}};
+        auto* group = new QButtonGroup(&ask);
+        for (const auto& [key, words] : kinds) {
+            auto* option = new QRadioButton(words);
+            option->setObjectName(QString("pluginNewKind_") + key);
+            option->setProperty("kind", key);
+            option->setChecked(group->buttons().isEmpty());
+            group->addButton(option);
+            form->addRow(option);
+        }
+        auto* buttons = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+        buttons->button(QDialogButtonBox::Ok)->setText("Создать");
+        buttons->button(QDialogButtonBox::Cancel)->setText("Отмена");
+        connect(buttons, &QDialogButtonBox::accepted, &ask, &QDialog::accept);
+        connect(buttons, &QDialogButtonBox::rejected, &ask, &QDialog::reject);
+        form->addRow(buttons);
+        if (ask.exec() != QDialog::Accepted) return;
+        const QString kind = group->checkedButton()->property("kind").toString();
+        ops_->run("plugin_new", {{"name", name->text()}, {"kind", kind}}, [this](const QJsonObject& r) {
             if (!r.value("ok").toBool()) return statusBar()->showMessage(r.value("error").toString(), 10000);
             const QString file = r.value("file").toString();
             statusBar()->showMessage("Плагин создан: " + file + " — его кнопка в «Плагины»; сохраните файл, и он перезапустится", 15000);

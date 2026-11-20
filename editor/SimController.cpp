@@ -45,6 +45,58 @@ void SimController::requestStep() {
     cv_.notify_all();
 }
 
+void SimController::setLockstep(std::function<void(ke::Simulation&)> onFrame, int patienceMs) {
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        onFrame_ = std::move(onFrame);
+        patienceMs_ = patienceMs;
+        awaiting_ = false;
+        if (onFrame_) // the frame the run starts from is the first one handed over: the controllers answer it before the first
+            queue_.emplace_back([this](ke::Simulation& s) { // step (a force applied from the first frame on, not the second)
+                std::function<void(ke::Simulation&)> handOver;
+                {
+                    std::lock_guard<std::mutex> lock(mtx_);
+                    handOver = onFrame_, awaiting_ = bool(onFrame_), handed_ = s.frame();
+                }
+                if (handOver) handOver(s);
+            }, "lockstep");
+    }
+    cv_.notify_all();
+}
+
+void SimController::release(uint64_t frame) {
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        if (frame == handed_) awaiting_ = false;
+    }
+    cv_.notify_all();
+}
+
+void SimController::awaitControllers() {
+    const auto deadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(patienceMs_);
+    std::unique_lock<std::mutex> lk(mtx_);
+    while (awaiting_ && onFrame_ && !quit_) {
+        if (!cv_.wait_until(lk, deadline, [&] { return quit_ || !awaiting_ || !queue_.empty() || !onFrame_; })) break; // too slow
+        std::deque<std::pair<Command, const char*>> cmds;
+        cmds.swap(queue_);
+        lk.unlock();
+        for (auto& c : cmds) c.first(*sim_); // their questions answered, their commands applied before the next step
+        lk.lock();
+    }
+    if (awaiting_) ++late_, awaiting_ = false;
+}
+
+void SimController::stepFrames(int n, std::function<bool()> cancelled, std::function<void(ke::Simulation&, int)> after) {
+    if (n <= 0) return post([after](ke::Simulation& s) { after(s, 0); }, "steps");
+    {
+        std::lock_guard<std::mutex> lk(mtx_);
+        stepRequests_ += n, stepsDone_ = 0;
+        stepsCancelled_ = std::move(cancelled);
+        afterSteps_ = std::move(after);
+    }
+    cv_.notify_all();
+}
+
 std::shared_ptr<const ke::Frame> SimController::snapshot() const {
     std::lock_guard<std::mutex> lk(snapMtx_);
     return snap_;
@@ -81,7 +133,7 @@ void SimController::loop() {
     using clock = std::chrono::steady_clock;
     while (!quit_) {
         std::deque<std::pair<Command, const char*>> cmds;
-        bool doStep = false;
+        bool doStep = false, finishSteps = false;
         {
             std::unique_lock<std::mutex> lk(mtx_);
             cv_.wait_for(lk, std::chrono::milliseconds(50),
@@ -89,7 +141,8 @@ void SimController::loop() {
             if (quit_) break;
             cmds.swap(queue_);
             if (running_) doStep = true;
-            else if (stepRequests_ > 0) { --stepRequests_; doStep = true; }
+            else if (stepRequests_ > 0 && stepsCancelled_ && stepsCancelled_()) stepRequests_ = 0, finishSteps = true; // the rest dropped
+            else if (stepRequests_ > 0) { --stepRequests_, ++stepsDone_, doStep = true, finishSteps = stepRequests_ == 0; }
         }
         const auto c0 = clock::now();
         double slowest = 0;
@@ -100,12 +153,23 @@ void SimController::loop() {
             const double ms = std::chrono::duration<double, std::milli>(clock::now() - s0).count();
             if (ms > slowest) slowest = ms, slowLabel = c.second;
         }
-        if (!doStep && cmds.empty()) continue;
+        if (!doStep && cmds.empty() && !finishSteps) continue;
+        if (doStep) awaitControllers(); // the last frame answered (or given up on) before the next is stepped
 
         auto t0 = clock::now();
         if (doStep) sim_->stepFrame();
         const auto t1 = clock::now();
         publish(doStep);
+        if (doStep) {
+            std::function<void(ke::Simulation&)> handOver;
+            {
+                std::lock_guard<std::mutex> lk(mtx_);
+                handOver = onFrame_;
+                awaiting_ = bool(onFrame_);
+                handed_ = sim_->frame();
+            }
+            if (handOver) handOver(*sim_);
+        }
         if (doStep) {
             const auto ms = [](clock::duration d) { return std::chrono::duration<double, std::milli>(d).count(); };
             std::lock_guard<std::mutex> lk(snapMtx_);
@@ -114,8 +178,17 @@ void SimController::loop() {
             frameDtMs_ = 1000.0 * sim_->frameDt;
         }
 
-        // Optional real-time cap: do not run a scene faster than the wall clock.
-        if (doStep && realtime_) {
+        if (finishSteps) { // the frames stepFrames asked for are stepped (or the rest dropped): its answer, after their snapshot
+            std::function<void(ke::Simulation&, int)> after;
+            int done = 0;
+            {
+                std::lock_guard<std::mutex> lk(mtx_);
+                after.swap(afterSteps_), done = stepsDone_, stepsCancelled_ = nullptr;
+            }
+            if (after) after(*sim_, done);
+        }
+        // Optional real-time cap: do not run a scene faster than the wall clock (frames asked for on pause: at once).
+        if (doStep && realtime_ && running_) {
             auto target = t0 + std::chrono::microseconds(int(sim_->frameDt * 1e6f));
             std::this_thread::sleep_until(target);
         }

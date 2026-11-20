@@ -183,11 +183,12 @@ void PluginHost::scan(const QString& folder) {
     }
 }
 
-QString PluginHost::create(const QString& name, QString& error) {
+QString PluginHost::create(const QString& name, QString& error, const QString& kind) {
     const QString folder = userFolder() + "/" + slug(name);
     if (slug(name).isEmpty()) return error = "имя плагина: буквы и цифры, например «my_tools»", QString();
     if (QFileInfo::exists(folder)) return error = "плагин «" + slug(name) + "» уже есть: " + folder, QString();
-    QFile templ(pythonPackage() + "/kinetica/plugin_template.py");
+    if (kind != "command" && kind != "controller" && kind != "world") return error = "kind: command, controller or world", QString();
+    QFile templ(pythonPackage() + "/kinetica/plugin_template" + (kind == "command" ? QString() : "_" + kind) + ".py");
     if (!templ.open(QIODevice::ReadOnly)) return error = "нет заготовки плагина: " + templ.fileName(), QString();
     QDir().mkpath(folder);
     QFile out(folder + "/plugin.py");
@@ -352,12 +353,55 @@ void PluginHost::call(Plugin& p, const QString& command, const QJsonObject& args
     });
 }
 
+bool PluginHost::ticking(bool world) const {
+    for (const auto& p : plugins_)
+        if (p->process && p->hooks.contains(world ? "tick:world" : "tick")) return true;
+    return false;
+}
+
+void PluginHost::broadcast(const QString& event, const QJsonObject& args, std::function<void(QJsonObject commands)> done) {
+    struct Round {
+        int waiting = 0;
+        QJsonObject commands;
+        std::function<void(QJsonObject)> done;
+    };
+    auto round = std::make_shared<Round>();
+    round->done = std::move(done);
+    std::vector<Plugin*> told;
+    for (auto& p : plugins_)
+        if (p->process && p->state == "работает" && p->hooks.contains(event)) told.push_back(p.get());
+    round->waiting = int(told.size());
+    if (told.empty()) return round->done({});
+    if (event == "play")
+        for (Plugin* p : told) p->hookError.clear();
+    for (Plugin* p : told) {
+        const int id = ++nextCall_;
+        p->open[id] = [this, round, name = p->name, event](const QJsonObject& r) {
+            if (r.value("ok").toBool()) {
+                const QJsonObject c = r.value("commands").toObject();
+                for (auto it = c.begin(); it != c.end(); ++it) round->commands.insert(it.key(), it.value());
+            } else if (Plugin* q = find(name); q && q->hookError.isEmpty()) { // said once a run, not sixty times a second
+                q->hookError = r.value("error").toString();
+                emit output(name, "on_" + event + ": " + q->hookError);
+                notice(name, "Плагин «" + name + "»: ошибка в on_" + event + " — " + q->hookError);
+            }
+            if (--round->waiting == 0) round->done(round->commands);
+        };
+        QJsonObject given = args; // the truth of the bodies only to a physics plugin; a controller sees its sensors
+        if (!p->hooks.contains("tick:world")) given.remove("bodies");
+        p->queued.push_back({id, {"@" + event, given}});
+        deliver(*p);
+    }
+}
+
 void PluginHost::deliver(Plugin& p) {
     if (!p.waiting || p.queued.empty()) return;
     const auto [id, what] = p.queued.front();
     p.queued.erase(p.queued.begin());
     const EditorOps::Reply waiting = std::move(p.waiting);
     p.waiting = nullptr;
+    if (what.first.startsWith('@')) // an event of the run, not a command: its hook answers
+        return waiting(EditorOps::ok({{"call", id}, {"event", what.first.mid(1)}, {"args", what.second}}));
     waiting(EditorOps::ok({{"call", id}, {"command", what.first}, {"args", what.second}}));
 }
 
@@ -439,12 +483,14 @@ void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
                                    "(python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
-                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui)}",
+                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), hooks?: [str]}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
         if (!p) return reply(refusal);
         unregister(*p);
+        p->hooks.clear();
+        for (const QJsonValue& h : a.value("hooks").toArray()) p->hooks << h.toString();
         QJsonArray made;
         for (const QJsonValue& v : a.value("commands").toArray()) {
             const QJsonObject c = v.toObject();
@@ -534,7 +580,7 @@ void PluginHost::addOps() {
         p->waiting = reply;
         deliver(*p);
     });
-    ops_->addOp("plugin_reply", "A plugin's answer to a call: its result, or the error with its file and line", "{name: str, token: str, call: int, result?: {}, error?: str}",
+    ops_->addOp("plugin_reply", "A plugin's answer to a call: its result, or the error with its file and line", "{name: str, token: str, call: int, result?: {}, error?: str, event?: bool}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
@@ -543,7 +589,8 @@ void PluginHost::addOps() {
         if (it == p->open.end()) return reply(EditorOps::error("no such call (answered, or timed out)"));
         const EditorOps::Reply answer = it->second;
         p->open.erase(it);
-        if (a.contains("error")) answer(EditorOps::error("плагин «" + p->name + "»: " + a.value("error").toString()));
+        if (a.contains("error")) answer(EditorOps::error(a.value("event").toBool() ? a.value("error").toString()
+                                                                                    : "плагин «" + p->name + "»: " + a.value("error").toString()));
         else answer(EditorOps::ok(a.value("result").toObject()));
         reply(EditorOps::ok());
     });
@@ -557,10 +604,12 @@ void PluginHost::addOps() {
         }
         reply(EditorOps::ok({{"plugins", list}, {"folder", userFolder()}}));
     });
-    ops_->addOp("plugin_new", "A new plugin from the template in the user's plugins' folder, started: a command with a field, a button in «Плагины»",
-                "{name: str}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
+    ops_->addOp("plugin_new", "A new plugin from a template in the user's plugins' folder, started: kind command (a command with a field, "
+                              "a button in «Плагины»), controller (a robot's on_tick: its sensors in, joint commands out) or world (an "
+                              "extension of the physics: the bodies in, forces out - a gas, water, wind)",
+                "{name: str, kind?: 'command'|'controller'|'world'}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QString error;
-        const QString file = create(a.value("name").toString(), error);
+        const QString file = create(a.value("name").toString(), error, a.value("kind").toString("command"));
         reply(file.isEmpty() ? EditorOps::error(error) : EditorOps::ok({{"file", file}}));
     });
     ops_->addOp("plugin_reload", "A plugin started again (as a save of its file does)", "{name: str}", [this](const QJsonObject& a, const EditorOps::Reply& reply) {

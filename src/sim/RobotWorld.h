@@ -100,6 +100,15 @@ public:
     // again; every step it moves an IK goal along the floor, up and down or about the vertical (the arm follows,
     // leadGoals), closes the gripper by its share, walks a joint's servo or sets a driver's duty. False: no such action.
     bool setControllerInput(uint32_t controller, const std::string& action, const Vector3& value, std::string& error);
+    // A controller's command while the world runs (a plugin's tick, robot_command) - not an edit of the scene: a joint's
+    // main freedom to a "target" (its servo; rad or m, within its limits) or at a "velocity" (its velocity motor), a
+    // driver's "duty" (-1..1), held until commanded again. The authored scene is untouched: Stop builds the world from it
+    // again, the command forgotten. False and why: no such joint or driver, no such word, no drive for it.
+    bool command(PhysicsWorld& physics, uint32_t id, const std::string& what, Real value, std::string& error);
+    // A force and a torque on a body over the next frame (N, N m; world), at its centre of mass, at every substep, then
+    // forgotten - how a plugin extends the physics (a gas, water, wind: Unity's AddForce in FixedUpdate). Given again it
+    // adds up within the frame. False and why: the entity has no moving body.
+    bool push(const PhysicsWorld& physics, uint32_t entity, const Vector3& force, const Vector3& torque, std::string& error);
 
     // The mouse's hand (an editor's grab): body `body` held at `point` (world, on the body) by the engine's mouse
     // joint (PhysicsWorld::addHand, Box3D samples' tuning: 7.5 Hz, critically damped, at most 100 weights, its
@@ -172,6 +181,7 @@ private:
     };
     std::vector<ControlLive> controls_;
     std::unordered_set<uint32_t> handed_; // joints whose drive the panel set (grip, jog): an edit that leaves them keeps it
+    std::unordered_map<int, std::pair<Vector3, Vector3>> pushes_; // body -> force, torque over the next frame (push)
     void driveControllers(PhysicsWorld& physics, Real dt);
     void moveGoal(PhysicsWorld& physics, const ControllerAction& a, const Vector3& v, Real dt);
     void driveGrip(PhysicsWorld& physics, const ControllerAction& a, Real part);

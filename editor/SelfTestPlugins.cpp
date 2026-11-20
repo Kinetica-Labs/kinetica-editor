@@ -16,6 +16,8 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonObject>
+#include "scene/Assembly.h"
+#include <QJsonArray>
 #include <QLabel>
 #include <QMenu>
 #include <QPushButton>
@@ -62,6 +64,88 @@ QAction* action(QMainWindow& w, const QString& name) {
     return nullptr;
 }
 
+
+// A run's hooks (on_tick): a plugin that extends the physics holds a cube in the air - m g up over every frame -, a robot's
+// controller turns a servo to 0.5 rad by robot_command's path; it ticks once a frame, before the next is stepped (the
+// lockstep), sees its encoder's reading and no truth; Stop leaves the scene as authored and the journal without a line
+// of what the ticks did.
+void testRunHooks(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+    b.newScene();
+    const auto id = [ops](const char* op, QJsonObject args) { return uint32_t(ops->runNow(op, args).value("id").toInt()); };
+    const uint32_t cube = id("scene_add", {{"shape", "box"}, {"position", QJsonArray{2.0, 1.5, 0.0}}, {"size", QJsonArray{0.2, 0.2, 0.2}}, {"role", "rigid"}});
+    const uint32_t base = id("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}, {"size", QJsonArray{0.2, 0.2, 0.2}},
+                                           {"role", "rigid"}, {"fixed", true}});
+    const uint32_t arm = id("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.3, 0.5, 0.0}}, {"size", QJsonArray{0.4, 0.05, 0.05}}, {"role", "rigid"}});
+    const uint32_t joint = id("assembly_actuator", {{"kind", "rotary"}, {"a", int(arm)}, {"b", int(base)}, {"axis", QJsonArray{0.0, 0.0, 1.0}}});
+    ops->runNow("assembly_encoder", {{"joint", int(joint)}, {"reference", 0.0}});
+    const float authored = float(findJoint(b.graph(), joint) ? findJoint(b.graph(), joint)->dof[DofRx].drive.target : -1);
+    const QString file = folder + "/ticker/plugin.py";
+    QDir().mkpath(folder + "/ticker");
+    write(file, QString(R"py(from kinetica.plugin import on_play, on_stop, on_tick
+
+ticks = 0
+
+
+@on_play
+def start(scene):
+    global ticks
+    ticks = 0
+
+
+@on_tick(world=True)
+def hold(scene, dt, bodies):
+    return {CUBE: {"force": [0, bodies[CUBE]["mass"] * 9.81, 0]}}
+
+
+@on_tick
+def control(scene, dt, sensors):
+    global ticks
+    ticks += 1
+    if ticks == 5:
+        kinds = sorted(s["kind"] for s in sensors.values())
+        print("seen", kinds, "truth" in str(sensors))
+    return {JOINT: {"target": 0.5}}
+
+
+@on_stop
+def stop(scene):
+    print("ticks", ticks)
+)py").replace("CUBE", QString::number(cube)).replace("JOINT", QString::number(joint)));
+    QStringList printed;
+    const auto heard = QObject::connect(host, &PluginHost::output, [&printed](const QString&, const QString& line) { printed << line; });
+    host->start(true);
+    waitUntil([&] { return host->ticking(); }, 10000);
+    const auto journal = [ops] { return ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray().size(); };
+    const qsizetype lines0 = journal();
+    const float y0 = findObject(b.graph(), cube)->position.y;
+    QJsonObject stepped;
+    ops->run("sim_step", {{"frames", 60}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+    waitUntil([&] { return !stepped.isEmpty(); }, 20000);
+    QJsonObject state;
+    ops->run("sim_state", {}, [&state](const QJsonObject& r) { state = r; }, "ui");
+    waitUntil([&] { return !state.isEmpty(); }, 5000);
+    float y = 0, angle = 0;
+    for (const QJsonValue& v : state.value("shapes").toArray())
+        if (uint32_t(v.toObject().value("id").toInt()) == cube) y = float(v.toObject().value("position").toArray().at(1).toDouble());
+    for (const QJsonValue& v : state.value("joints").toArray())
+        if (uint32_t(v.toObject().value("id").toInt()) == joint) angle = float(v.toObject().value("angle").toDouble());
+    b.stop();
+    const bool told = waitUntil([&] { return printed.filter("ticks").size() > 0; }, 5000);
+    QObject::disconnect(heard);
+    const QString seen = printed.filter("seen").value(0), counted = printed.filter("ticks").value(0);
+    const qsizetype added = journal() - lines0;
+    const bool lines = added <= 2; // at most sim_stop (sim_step is the window's time): nothing of the ticks
+    const float after = float(findJoint(b.graph(), joint)->dof[DofRx].drive.target);
+    std::printf("  60 frames with the run's hooks: the cube %.4f -> %.4f m (held), the joint at %.3f rad (commanded 0.5); %s; %s; "
+                "the journal +%lld lines; the servo's authored target %.3f -> %.3f\n", double(y0), double(y), double(angle),
+                qPrintable(seen), qPrintable(counted), static_cast<long long>(added), double(authored), double(after));
+    c.check(std::fabs(y - y0) < 0.01f, "a physics plugin's on_tick(world=True) pushes a body every frame: m g up holds a cube in the air");
+    c.check(std::fabs(angle - 0.5f) < 0.05f && seen.contains("encoder") && seen.endsWith("False"),
+            "a controller's on_tick sees its encoder's reading, not the truth, and turns the servo by its command");
+    c.check(told && counted == "ticks 61", "the lockstep: one tick a frame - the starting one too -, before the next is stepped");
+    c.check(lines && std::fabs(after - authored) < 1e-6f, "Stop: the scene as authored, no journal line of what the ticks did");
+    QDir(folder + "/ticker").removeRecursively();
+}
 
 } // namespace
 
@@ -186,6 +270,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
     const QString gone = ops->runNow("lifter_lift", {}).value("error").toString();
     std::printf("  its command called now: %s\n", qPrintable(gone));
     c.check(gone.contains("упал") && gone.contains("plugin.py:3"), "a fallen plugin's command, called, says the plugin fell and where - not «no operation»");
+    testRunHooks(c, b, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

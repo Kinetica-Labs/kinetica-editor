@@ -108,6 +108,32 @@ void RobotWorld::driveGrip(PhysicsWorld& physics, const ControllerAction& a, Rea
 }
 
 // A joint's servo target moved at the action's speed (m/s, or degrees/s for a turn), within the freedom's limits.
+bool RobotWorld::command(PhysicsWorld& physics, uint32_t id, const std::string& what, Real value, std::string& error) {
+    if (what == "duty") {
+        for (SceneGraph* g : {&graph_, &live_})
+            for (DriverObject& d : g->drivers)
+                if (d.id == id) d.duty = std::clamp(value, -1.0_r, 1.0_r);
+        const bool driver = std::any_of(live_.drivers.begin(), live_.drivers.end(), [id](const DriverObject& d) { return d.id == id; });
+        return driver || (error = "no driver " + std::to_string(id) + " (duty is a driver's)", false);
+    }
+    if (what != "target" && what != "velocity") return error = "a command is target, velocity or duty, not " + what, false;
+    for (LiveJoint& live : joints_) {
+        if (live.spec.id != id) continue;
+        if (live.dof < 0) return error = "joint " + std::to_string(id) + " has no free motion to command", false;
+        JointObject j = live.spec;
+        JointFreedom& f = j.dof[live.dof];
+        if (!f.drive.enabled) return error = "joint " + std::to_string(id) + " has no drive: add a servo or a motor", false;
+        if (what == "target") f.drive.target = f.motion == JointMotion::Limited ? std::clamp(value, f.lower, f.upper) : value;
+        else f.drive.targetVelocity = value;
+        handed_.insert(id); // an edit of the scene while it runs leaves the command, as it leaves the panel's
+        setDrive(physics, live, j);
+        for (JointObject& l : live_.joints)
+            if (l.id == id) l = j;
+        return true;
+    }
+    return error = "no joint " + std::to_string(id), false;
+}
+
 void RobotWorld::jogJoint(PhysicsWorld& physics, const ControllerAction& a, Real v, Real dt) {
     if (v == 0 || a.dof < 0 || a.dof > 5) return;
     for (JointObject& j : live_.joints) {

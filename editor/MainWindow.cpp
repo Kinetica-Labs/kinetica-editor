@@ -256,6 +256,7 @@ void MainWindow::onModeChanged() {
     pauseAct_->setEnabled(m == SceneBuilder::Mode::Playing);
     stopAct_->setEnabled(!edit);
     syncRecord();
+    syncControllers();
     updateToolShelf();
     updateSimulationBar();
 }

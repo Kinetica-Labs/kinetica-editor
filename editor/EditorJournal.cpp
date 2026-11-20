@@ -26,7 +26,7 @@ namespace {
 
 const std::set<QString>& queries() {
     static const std::set<QString> q = {"ops_list", "ops_journal", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
-                                        "assembly_preview", "sim_state", "sim_measure", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
+                                        "assembly_preview", "sim_state", "sim_measure", "sensor_read", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
     return q;
 }
 
@@ -40,7 +40,7 @@ bool EditorOps::windowOnly(const QString& name) {
     for (const char* prefix : {"selection_", "gizmo_", "view_", "ui_", "ops_", "journal_", "runtime_"})
         if (name.startsWith(prefix)) return true;
     if (wiring(name)) return true;
-    return name == "sim_play" || name == "sim_record" || name == "controller_input" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "scene_save" || name == "session_start" ||
+    return name == "sim_play" || name == "sim_record" || name == "controller_input" || name == "robot_command" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "scene_save" || name == "session_start" ||
            name == "session_end";
 }
 

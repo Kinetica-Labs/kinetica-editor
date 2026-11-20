@@ -32,7 +32,18 @@ public:
     void setSceneName(std::string name);
     void setRunning(bool on);
     void requestStep();
+    // N frames stepped on pause through the loop - the lockstep's ticks included, at once (not held to the wall clock) -,
+    // then `after` on the simulation's thread with how many were (fewer: `cancelled` said stop between two).
+    void stepFrames(int n, std::function<bool()> cancelled, std::function<void(ke::Simulation&, int)> after);
     void setRealtimeLimit(bool on) { realtime_ = on; }
+    // Lockstep with the controllers of the window (plugins' on_tick, as Webots' controllers): after each stepped frame
+    // `onFrame` runs on the simulation's thread - it reads what the controllers get and hands it to them - and the next
+    // frame waits for release(), at most `patienceMs`, running the commands posted meanwhile (the controllers' answers
+    // and their questions: an API call they make while answering). Empty: no lockstep. late(): frames that went on
+    // without an answer.
+    void setLockstep(std::function<void(ke::Simulation&)> onFrame, int patienceMs = 500);
+    void release(uint64_t frame); // the answer to that frame: a late one (another frame handed since) releases nothing
+    int late() const { return late_; }
 
     std::shared_ptr<const ke::Frame> snapshot() const;
     // Every snapshot published since the last call, oldest first (at most kPublishedKept: a window that
@@ -75,7 +86,16 @@ private:
     std::condition_variable cv_;
     std::deque<std::pair<Command, const char*>> queue_;
     int stepRequests_ = 0;
+    int stepsDone_ = 0;                                     // of the frames asked by stepFrames (under mtx_)
+    std::function<bool()> stepsCancelled_;                  // under mtx_
+    std::function<void(ke::Simulation&, int)> afterSteps_;  // under mtx_
     std::atomic<bool> running_{false}, quit_{false}, realtime_{true};
+    std::function<void(ke::Simulation&)> onFrame_; // under mtx_
+    int patienceMs_ = 500;
+    bool awaiting_ = false;                        // a frame was handed to the controllers, not answered (under mtx_)
+    uint64_t handed_ = 0;                          // which (under mtx_)
+    std::atomic<int> late_{0};
+    void awaitControllers(); // the lockstep's wait, serving the commands posted meanwhile
 
     mutable std::mutex snapMtx_;
     std::shared_ptr<const ke::Frame> snap_;

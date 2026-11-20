@@ -6,9 +6,12 @@ description: Write, run and fix a Python plugin for the Kinetica robotics editor
 # Writing a Kinetica plugin
 
 A plugin is one file `plugin.py` in its own folder; each `@command` function becomes an operation of the editor (a
-button in «Плагины → <plugin>», Ctrl+K, a console call, an MCP tool with a strict schema). Today a plugin gives
-commands and a panel; per-frame controller ticks, sensor readings without the truth, components, gizmo handles,
-tools in the view, drawing and importers are not there yet (`docs/contracts/editor-plugin.md`, «Дальше»). Guide for people: `docs/plugins.md`;
+button in «Плагины → <plugin>», Ctrl+K, a console call, an MCP tool with a strict schema). A plugin gives
+commands, a panel and per-frame hooks: `@on_tick def control(scene, dt, sensors)` - a robot's controller, its sensors
+as the robot reads them (no truth) in, `{joint: {"target": x}}` out; `@on_tick(world=True) def f(scene, dt, bodies)` -
+an extension of the physics, the bodies in, `{body: {"force": [x, y, z]}}` out; `@on_play` / `@on_stop`.
+`plugin_new {name, kind: command | controller | world}` gives a working file of each. Components, gizmo handles, tools
+in the view, drawing and importers are not there yet (`docs/contracts/editor-plugin.md`, «Дальше»). Guide for people: `docs/plugins.md`;
 contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; examples: the project's plugins repository kinetica-plugins (`cubes/plugin.py`); new plugins of the project go there, one folder each.
 
 ## Steps
@@ -41,7 +44,6 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; e
 ## Rules
 
 - Change the scene only through operations (`scene.ed.<op>(...)` or the object model), never by other means.
-- A robot's controller sees sensors, not the truth (CLAUDE.md, «Контракт наблюдаемости»). There is no operation for
-  readings without the truth yet: do not write a robot controller as a plugin until the controller tick exists;
-  `sim_state` is the engine's truth, for checking only.
+- A robot's controller sees sensors, not the truth (CLAUDE.md, «Контракт наблюдаемости»): write it as `@on_tick` (or
+  read `sensor_read`); `sim_state` is the engine's truth, for checking only.
 - No third-party packages: the standard library only.
