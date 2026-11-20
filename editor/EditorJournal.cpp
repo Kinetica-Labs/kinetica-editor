@@ -85,7 +85,7 @@ void EditorOps::writeLine(QJsonObject line, bool keep) {
 }
 
 void EditorOps::journal(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer) {
-    if (isQuery(name) || replaying_) return;
+    if (isQuery(name) || wiring(name) || replaying_) return; // a plugin's wiring is no one's action - and carries its token
     QJsonObject line{{"src", source}, {"op", name}, {"args", args}, {"ok", answer.value("ok").toBool()}};
     if (answer.contains("error")) line.insert("error", answer.value("error"));
     writeLine(line);
