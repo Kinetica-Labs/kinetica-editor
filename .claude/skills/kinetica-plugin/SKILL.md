@@ -17,7 +17,7 @@ an extension of the physics, the bodies in, `{body: {"force": [x, y, z]}}` out; 
 (`ui.chart("Ошибка", {"error": "ошибка"}, unit="рад")` in its `ui.panel`, a point a frame from `show(error=x)` in
 `on_tick` - the editor keeps the history and draws it); importers too (`@command(opens=".urdf")`: «Файл → Импорт…» and a file dropped on the view
 call it with `path`; plugins/urdf is the editor's own example) (`docs/contracts/editor-plugin.md`, «Дальше»). Guide for people: `docs/plugins.md`;
-contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; examples: the project's plugins repository kinetica-plugins (`cubes/plugin.py`); new plugins of the project go there, one folder each.
+contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; examples: the project's plugins repository kinetica-plugins (`gizmos/plugin.py`); new plugins of the project go there, one folder each.
 
 ## Steps
 

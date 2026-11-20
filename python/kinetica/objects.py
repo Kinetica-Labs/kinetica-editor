@@ -188,9 +188,8 @@ class Body(SceneObject):
         return WheelModule(self.scene, self.scene._call("assembly_wheel", f"{self.ref}.add_wheel({_q(side)}{shown})", **args))
 
     def add_sonar(self, face="+x", model=None):
-        """An ultrasonic range finder on a face - "+x" ... "-z", or "front", "rear", "top", "bottom", "left", "right" of
-        the body's own frame (forward +x, left -z) - looking out of it. `model`: a row of data/sensors/sonar.csv
-        ("HC-SR04"); none: the table's first."""
+        """An ultrasonic range finder on a face - "+x", "-x", "+y", "-y", "+z", "-z" of the body's own frame (forward
+        +x, left -z) - looking out of it. `model`: a row of data/sensors/sonar.csv ("HC-SR04"); none: the table's first."""
         return self._add_sensor("sonar", face, model)
 
     def add_imu(self, face="+y", model=None):

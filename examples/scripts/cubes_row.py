@@ -13,8 +13,9 @@ import kinetica as ke
 COUNT = 5     # how many cubes
 GAP = 0.12    # between their centres, m
 SIDE = 0.05   # a cube's edge, m
+FLOOR = 0.02  # the top of the UR5e scene's floor plate, m
 
 scene = ke.connect()
 for k in range(COUNT):
-    scene.add("box", size=(SIDE, SIDE, SIDE), position=(0.45, SIDE / 2, (k - (COUNT - 1) / 2) * GAP), role="rigid")
+    scene.add("box", size=(SIDE, SIDE, SIDE), position=(0.45, FLOOR + SIDE / 2, (k - (COUNT - 1) / 2) * GAP), role="rigid")
 print("cubes placed:", COUNT)

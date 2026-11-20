@@ -1,7 +1,7 @@
 // Scripts by hand (see SelfTest.h; ScriptRunner.h): script_run runs a Python file that builds the scene - three boxes
 // come, its print() is heard and is the answer's output, and one Ctrl+Z takes all three back; a script that falls after
-// building says its file and line and leaves nothing; a file that is not there is refused; the editor's own example of
-// examples/scripts runs.
+// building says its file and line and leaves nothing; a file that is not there is refused; every example of
+// examples/scripts runs to its end on a new scene - the row of cubes, the UR5e with a pyramid, the cart with a range finder.
 #include "SelfTestSupport.h"
 
 #include "EditorOps.h"
@@ -9,6 +9,7 @@
 #include "ScriptRunner.h"
 
 #include <QAction>
+#include <QDir>
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -64,6 +65,19 @@ int runScriptTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
     std::printf("  examples/scripts/cubes_row.py: %s, %zu cubes\n", example.value("ok").toBool() ? "ok" : qPrintable(example.value("error").toString()),
                 b.graph().entities.size() - empty);
     c.check(example.value("ok").toBool() && b.graph().entities.size() - empty == 5, "the editor's own example script puts its row of cubes");
+    // Every example: on a new scene, to its end, saying something.
+    const QDir examples(MainWindow::examplesDir() + "/scripts");
+    QStringList ran, broken;
+    for (const QString& name : examples.entryList({"*.py"}, QDir::Files, QDir::Name)) {
+        b.newScene();
+        const QJsonObject r = run(examples.filePath(name));
+        const QString last = r.value("output").toArray().last().toString();
+        std::printf("  %s: %s\n", qPrintable(name), r.value("ok").toBool() ? qPrintable(last) : qPrintable(r.value("error").toString()));
+        (r.value("ok").toBool() && !last.isEmpty() ? ran : broken) << name;
+    }
+    c.check(ran.size() >= 3 && broken.isEmpty(), "every script of examples/scripts runs to its end on a new scene and says what it did");
+    b.stop();
+    b.newScene();
     QObject::disconnect(listening);
     return c.failures;
 }
