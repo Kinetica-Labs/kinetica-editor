@@ -167,6 +167,13 @@ public:
     const ke::ControllerObject* controllerById(uint32_t id) const;
     void onGizmoFinished();
     void onGizmoCancelled();
+    // The collider mode (Unity's «Edit Collider», Godot's shape handles; SceneBuilderColliders.cpp): the gizmo and the points
+    // in the view hold the selected shape's collider, not the shape - its place, turn and size by its kind's own numbers,
+    // each drag one undo step and one scene_collider line. Off: Esc, another selection, Пуск. A hull follows the geometry:
+    // no mode, a word why.
+    void setColliderEdit(bool on);
+    bool colliderEditing() const { return colliderEdit_ != 0; }
+    void onShapeHandle(int index, float reach, int phase); // a point dragged: 0 pressed, 1 moved, 2 released, 3 Esc
     // A line of the window said for what lives outside the builder (the tool shelf: the gizmo's tool).
     void sayAction(const QString& op, const QString& py, QJsonObject args = {}) { codeAction(op, py, std::move(args)); }
     void onCloneDragStarted(); // Shift was held when the drag began: the drag moves copies (SceneBuilderClone.cpp)
@@ -304,6 +311,8 @@ signals:
     void frameRequested(const ke::AABB& box);              // show these objects (after a load or an add)
     void selectionChanged(uint32_t id);                    // the "Объект" tab shows it (0: nothing selected)
     void colliderGuides(std::vector<float> lines);         // green wireframes: pairs of points, x y z 0 each
+    void shapeHandles(std::vector<ShapeHandle> handles);   // the collider mode's points (none: the mode is off)
+    void colliderEditChanged(bool on);
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
     void sceneMarkers(std::vector<SceneMarker> markers);   // the lights and cameras to draw
     // The view through a camera (on) or the editor's own view (off).
@@ -544,6 +553,24 @@ private:
 
     ColliderGuides guides_;
     bool showAllColliders_ = false;
+    // The collider mode: the shape whose collider the gizmo holds, and a drag of it under way - its numbers, the scene and
+    // the points when it began.
+    uint32_t colliderEdit_ = 0;
+    bool colliderDrag_ = false;
+    ke::ColliderRole colliderStart_;
+    ke::SceneGraph colliderGraph_;
+    std::vector<ShapeHandle> colliderHandles_;
+    ke::Vector3 colliderBodyAt_;
+    ke::Quaternion colliderBodyTurn_;
+    ke::Entity* colliderEntity();                                  // its master: an instance collides as it (null: gone)
+    ke::ColliderRole heldNow(const ke::Entity& e) const;           // as numbers (scene/Collider.h), the mesh read only to fit
+    bool colliderBodyPose(ke::Vector3& p, ke::Quaternion& q) const; // where the shape stands in the world
+    std::vector<ShapeHandle> handlesOf(const ke::ColliderRole& c) const;
+    void emitShapeHandles();
+    void beginColliderDrag();
+    void showCollider(const ke::ColliderRole& c);                  // the numbers in, the wireframe and the points after them
+    void finishColliderDrag(bool cancelled);
+    QString colliderLine(QJsonObject& args) const;                 // ed.scene_collider(...) of what the drag made
 
     // The gizmo: the active object it drags, every dragged object's world pose when the drag began,
     // and the whole graph then (Esc puts it back; a scale is always from the start sizes).
@@ -615,6 +642,7 @@ private:
     ke::ArrayObject arrayDraft_;
     QPushButton* addComponent_ = nullptr;
     QMenu* addMenu_ = nullptr;
+    QPushButton* colliderEditButton_ = nullptr; // «Править коллайдер в виде» (setColliderEdit)
     InlineBanner* noCollider_ = nullptr; // in the rigid card: a body without a collider falls through
     class FieldForm *rigidFields_ = nullptr, *colliderFields_ = nullptr;
     ke::Entity shapeDraft_; // the active shape's master, the rigid and collider cards' edits written here first

@@ -6,6 +6,7 @@
 // back. The gizmo works in the world: an object in a group is moved where the mouse takes it, its
 // pose written back relative to the group.
 #include "SceneBuilder.h"
+#include "scene/Collider.h"
 
 #include "IkSolverView.h"
 
@@ -39,6 +40,7 @@ void SceneBuilder::setSelection(std::vector<uint32_t> ids, uint32_t active) {
         if ((findObject(graph_, id) || isDevice(id)) && std::find(kept.begin(), kept.end(), id) == kept.end()) kept.push_back(id);
     selection_ = std::move(kept);
     selectedId_ = isSelected(active) ? active : (selection_.empty() ? 0 : selection_.back());
+    if (colliderEdit_ && (selection_.size() != 1 || selectedId_ != colliderEdit_)) setColliderEdit(false); // another thing: the body's gizmo again
     syncListSelection();
     fillInspector();
     refreshIkView();
@@ -158,6 +160,7 @@ void SceneBuilder::unhideAll() {
 // The gizmo: a drag is one undo step; Esc puts the objects back as they were
 // ---------------------------------------------------------------------------
 void SceneBuilder::onGizmoStarted() {
+    if (colliderEdit_) return beginColliderDrag();
     flushCode(); // what the hand did before the drag is said before it
     if (clonePending_) cancelClone(); // a popover left open: its clone is dropped
     SceneObject* active = selectedObject();
@@ -195,6 +198,20 @@ void SceneBuilder::onGizmoStarted() {
 // poses when the drag began): moved by the same step, turned about the gizmo's centre by the same turn,
 // scaled about its own centre by the same factors.
 void SceneBuilder::onGizmoMoved(const GizmoPose& pose) {
+    if (colliderDrag_) { // the collider mode: the gizmo's place and turn are the collider's on the body; its factors, the kind's own numbers
+        ColliderRole c = colliderStart_;
+        const Quaternion back = colliderBodyTurn_.conjugate();
+        const auto most = [](float a, float b) { return std::fabs(a - 1.0f) > std::fabs(b - 1.0f) ? a : b; }; // the factor the hand moved
+        if (pose.mode == GizmoMode::Translate) c.offset = back.rotate(pose.position - colliderBodyAt_);
+        else if (pose.mode == GizmoMode::Rotate) c.rotationDeg = eulerDegrees((back * pose.rotation).normalized());
+        else if (pose.mode == GizmoMode::Scale && c.kind == ColliderKind::Box) c.size = vmax(c.size * pose.scale, Vector3(0.005f));
+        else if (pose.mode == GizmoMode::Scale && c.kind == ColliderKind::Sphere) c.size = Vector3(std::max(0.005f, c.size.x * most(pose.scale.x, most(pose.scale.y, pose.scale.z))));
+        else if (pose.mode == GizmoMode::Scale) {
+            c.size.x = c.size.z = std::max(0.005f, c.size.x * most(pose.scale.x, pose.scale.z));
+            c.size.y = std::max(0.005f, c.size.y * pose.scale.y);
+        }
+        return showCollider(c);
+    }
     if (!gizmoEntity_) return;
     lastPose_ = pose;
     applyGizmo(stepOf(pose));
@@ -243,6 +260,7 @@ void SceneBuilder::applyGizmo(const GizmoStep& step) {
 }
 
 void SceneBuilder::onGizmoFinished() {
+    if (colliderDrag_) return finishColliderDrag(false);
     const bool moved = gizmoEntity_ != 0;
     QString op;
     QJsonObject args;
@@ -260,6 +278,7 @@ void SceneBuilder::onGizmoFinished() {
 }
 
 void SceneBuilder::onGizmoCancelled() {
+    if (colliderDrag_) return finishColliderDrag(true);
     if (!gizmoEntity_) return;
     graph_ = gizmoGraph_;
     gizmoEntity_ = 0;

@@ -5,6 +5,7 @@
 #include "core/Probe.h"
 #include "physics/HullPoints.h"
 #include "scene/Assembly.h"
+#include "scene/Collider.h"
 #include "scene/Animation.h"
 #include "scene/SceneActions.h"
 #include "scene/Kinematics.h"
@@ -26,19 +27,6 @@ Quaternion eulerTurn(const Vector3& degrees) {
     SceneObject o;
     o.rotationDeg = degrees;
     return objectRotation(o);
-}
-
-// Where the collider's frame sits on the shape when it is fitted: the box of the geometry in the
-// collider's axes - its centre (in the entity's frame) and its edges.
-void fitBox(const TriMesh& mesh, const Quaternion& turn, Vector3& centre, Vector3& size) {
-    Vector3 lo(std::numeric_limits<Real>::max()), hi(-std::numeric_limits<Real>::max());
-    for (const Vector3& p : mesh.positions) {
-        const Vector3 q = turn.conjugate().rotate(p);
-        lo = vmin(lo, q), hi = vmax(hi, q);
-    }
-    if (mesh.positions.empty()) lo = hi = Vector3(0.0_r);
-    centre = turn.rotate((lo + hi) * 0.5_r);
-    size = hi - lo;
 }
 
 // The robots of a graph: the entities its joints tie together (a joint marked `collide` does not tie), a group
@@ -69,42 +57,29 @@ ShapeDesc hullOf(const std::vector<Vector3>& points) {
 
 } // namespace
 
+// The collider's numbers (scene/Collider.h) as the engine's shape; a collider not switched on is Авто.
 std::vector<ShapeDesc> colliderShapes(const Entity& e, const TriMesh& local) {
-    const ColliderKind kind = e.collider.enabled ? e.collider.kind : ColliderKind::Auto;
+    Entity built = e;
+    if (!e.collider.enabled) built.collider.kind = ColliderKind::Auto;
+    const ColliderRole c = heldCollider(built, local);
     ShapeDesc s;
-    if (kind == ColliderKind::Auto) {
-        switch (e.shape) {
-        case ShapeKind::Box: s.kind = ShapeDesc::Kind::Box, s.halfExtents = e.size * 0.5_r; break;
-        case ShapeKind::Plane: s.kind = ShapeDesc::Kind::Box, s.halfExtents = Vector3(0.5_r * e.size.x, 0.01_r, 0.5_r * e.size.z); break;
-        case ShapeKind::Sphere: s.kind = ShapeDesc::Kind::Sphere, s.radius = 0.5_r * e.size.x; break;
-        default: s = hullOf(local.positions); break;
-        }
-    } else {
-        const ColliderRole& c = e.collider;
-        s.rotation = eulerTurn(c.rotationDeg);
-        s.position = c.offset;
-        Vector3 size = c.size;
-        if (c.fitToGeometry) fitBox(local, s.rotation, s.position, size);
-        switch (kind) {
-        case ColliderKind::Box: s.kind = ShapeDesc::Kind::Box, s.halfExtents = size * 0.5_r; break;
-        case ColliderKind::Sphere: s.kind = ShapeDesc::Kind::Sphere, s.radius = 0.5_r * (c.fitToGeometry ? maxComp(size) : size.x); break;
-        case ColliderKind::Capsule:
-            s.kind = ShapeDesc::Kind::Capsule;
-            s.radius = 0.5_r * std::max(size.x, c.fitToGeometry ? size.z : size.x);
-            s.halfHeight = std::max(0.0_r, 0.5_r * size.y - s.radius);
-            break;
-        case ColliderKind::Cylinder: {
-            TriMesh round = primitives::cylinder(0.5_r * size.x, size.y, 24); // its axis is z: turned onto the collider's y
-            round.transform(Quaternion::fromAxisAngle({1, 0, 0}, -0.5_r * kPi).toMatrix3x3(), Vector3(1.0_r), Vector3(0.0_r));
-            const Vector3 at = s.position;
-            const Quaternion turn = s.rotation;
-            s = hullOf(round.positions);
-            s.position = at, s.rotation = turn;
-            break;
-        }
-        default: s = hullOf(local.positions); break; // ConvexHull: the geometry's own
-        }
+    switch (c.kind) {
+    case ColliderKind::Box: s.kind = ShapeDesc::Kind::Box, s.halfExtents = c.size * 0.5_r; break;
+    case ColliderKind::Sphere: s.kind = ShapeDesc::Kind::Sphere, s.radius = 0.5_r * c.size.x; break;
+    case ColliderKind::Capsule:
+        s.kind = ShapeDesc::Kind::Capsule;
+        s.radius = 0.5_r * c.size.x;
+        s.halfHeight = std::max(0.0_r, 0.5_r * c.size.y - s.radius);
+        break;
+    case ColliderKind::Cylinder: {
+        TriMesh round = primitives::cylinder(0.5_r * c.size.x, c.size.y, 24); // its axis is z: turned onto the collider's y
+        round.transform(Quaternion::fromAxisAngle({1, 0, 0}, -0.5_r * kPi).toMatrix3x3(), Vector3(1.0_r), Vector3(0.0_r));
+        s = hullOf(round.positions);
+        break;
     }
+    default: s = hullOf(local.positions); break; // a hull: the geometry's own
+    }
+    if (sizedByNumbers(c.kind)) s.position = c.offset, s.rotation = colliderTurn(c);
     s.friction = e.rigid.friction, s.restitution = e.rigid.restitution;
     return {s};
 }

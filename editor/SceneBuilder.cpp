@@ -2,6 +2,7 @@
 // and off together with what they need, the gizmo's edits, the undo history, the edit / play / stop
 // modes and what the viewport shows in each. The panels are built in SceneBuilderPanels.cpp.
 #include "SceneBuilder.h"
+#include "scene/Collider.h"
 #include "core/Probe.h"
 #include "scene/SensorSpec.h"
 #include "scene/Assembly.h"
@@ -399,6 +400,7 @@ void SceneBuilder::updateHistoryActions() {
 void SceneBuilder::setMode(Mode m) {
     const Mode was = mode_;
     mode_ = m;
+    if (m != Mode::Edit && colliderEdit_) colliderEdit_ = 0, colliderDrag_ = false, emit shapeHandles({}), emit colliderEditChanged(false);
     if (m != was) // the buttons as the operations they are; Stop's restored scene is no edit of its own
         codeAction(m == Mode::Playing ? "sim_play" : m == Mode::Paused ? "sim_pause" : "sim_stop",
                    m == Mode::Playing ? "scene.play()" : m == Mode::Paused ? "scene.pause()" : "scene.stop()", {}, m != Mode::Edit);
@@ -560,7 +562,7 @@ void SceneBuilder::sendViewportFlags() {
         if (drawnSelected(id)) selected.push_back(int(b));
         else if (editing() && isInside(ownerOf(id), hoverId_)) hovered.push_back(int(b));
         const auto w = drawn.find(id);
-        if (editing() && w != drawn.end() && entityIsGeometryOnly(*w->second)) ghosts.push_back(int(b));
+        if (editing() && w != drawn.end() && (entityIsGeometryOnly(*w->second) || (colliderEdit_ && id == colliderEdit_))) ghosts.push_back(int(b));
         unpickable[b] = w != drawn.end() ? w->second->locked : owner->locked;
     }
     emit highlightBodies(selected);
@@ -571,6 +573,13 @@ void SceneBuilder::sendViewportFlags() {
 
 // The gizmo sits on the active object's world pose (a group: its centre, an array: its first copy).
 void SceneBuilder::updateGizmoTarget() {
+    if (const Entity* e = colliderEntity(); e && editing()) { // the collider mode: the gizmo on the collider
+        const ColliderRole c = colliderDrag_ ? e->collider : heldNow(*e);
+        Vector3 p;
+        Quaternion q;
+        const bool placed = colliderBodyPose(p, q);
+        return emit gizmoTarget(placed, p + q.rotate(c.offset), q * colliderTurn(c));
+    }
     const SceneObject* o = findObject(graph_, selectedId_);
     const SensorObject* sensor = sensorById(selectedId_);
     const bool onJoint = sensor && findJoint(graph_, sensor->parent); // its place is the joint's

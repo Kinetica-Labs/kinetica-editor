@@ -14,6 +14,7 @@
 #include <QMouseEvent>
 #include <QTimer>
 #include <QToolTip>
+#include <QVector4D>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -249,6 +250,7 @@ void Viewport::keyPressEvent(QKeyEvent* e) {
     if (editMode_ && createMode_ && e->key() == Qt::Key_Backspace) return createTool_.back(*this), updateHint();
     if (editMode_ && magnetMode_ && !rightHeld_ && isMagnetKey(e)) return emit magnetKey(e->key());
     if (gizmo_.modal() && modalKey(e)) return updateHint();
+    if (editTool_.draggingHandle() && e->key() == Qt::Key_Escape) return editTool_.cancelHandle(*this), updateHint();
     if (gizmo_.dragging()) return dragKey(e), updateHint(); // a handle drag: Esc cancels, X Y Z lock an axis
     if (flyKey(e, true)) return;
     const Qt::KeyboardModifiers mods = e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier);
@@ -363,6 +365,51 @@ bool Viewport::playHandleAt(const QPointF& pos) const {
 void Viewport::setGizmoTarget(bool visible, const Vector3& position, const ke::Quaternion& rotation) {
     gizmoVisible_ = visible;
     gizmo_.setTarget(position, rotation);
+    update();
+}
+
+// ---------------------------------------------------------------------------
+// The collider mode's points (ColliderGuides.h ShapeHandle)
+// ---------------------------------------------------------------------------
+void Viewport::setShapeHandles(std::vector<ShapeHandle> handles) {
+    handles_ = std::move(handles);
+    if (hoveredHandle_ >= int(handles_.size())) hoveredHandle_ = -1;
+    update();
+    updateHint();
+}
+
+QPointF Viewport::pixelOf(const Vector3& world, bool* inFront) const {
+    const QVector4D clip = camera_.projection(float(width()) / float(std::max(1, height()))) * camera_.view() * QVector4D(world.x, world.y, world.z, 1);
+    if (inFront) *inFront = clip.w() > 1e-6f;
+    const float w = std::fabs(clip.w()) > 1e-9f ? clip.w() : 1e-9f;
+    return QPointF((clip.x() / w + 1) * 0.5 * width(), (1 - clip.y() / w) * 0.5 * height());
+}
+
+int Viewport::shapeHandleAt(const QPointF& pos) const {
+    int best = -1;
+    double nearest = 9.0;
+    for (size_t i = 0; i < handles_.size(); ++i) {
+        bool front = false;
+        const QPointF p = pixelOf(handles_[i].centre + handles_[i].axis * handles_[i].reach, &front);
+        if (const double d = QLineF(p, pos).length(); front && d <= nearest) nearest = d, best = int(i);
+    }
+    return best;
+}
+
+// The point of the handle's line nearest the mouse ray, as metres from its centre: t = (b (d.w) - a.w) / (1 - b^2) for the
+// line c + a t and the ray o + d s (a, d unit, w = c - o, b = a.d). Looking along the line, it stays where it is.
+float Viewport::reachAlong(const ShapeHandle& h, const QPointF& pos) const {
+    const Ray ray = camera_.screenRay(pos, size());
+    const Vector3 w = h.centre - ray.origin;
+    const float b = ke::dot(h.axis, ray.dir), across = 1.0f - b * b;
+    if (across < 1e-4f) return h.reach;
+    return (b * ke::dot(ray.dir, w) - ke::dot(h.axis, w)) / across;
+}
+
+void Viewport::setHoveredHandle(int i) {
+    if (i == hoveredHandle_) return;
+    hoveredHandle_ = i;
+    setCursor(i >= 0 ? Qt::SizeAllCursor : Qt::ArrowCursor);
     update();
 }
 
@@ -483,6 +530,18 @@ QString Viewport::mouseHint() const {
         return "Клонирование: отпустите — спросим, сколько копий · X / Y / Z: ось · Ctrl: шаг · Esc или ПКМ: отмена";
     if (gizmo_.dragging()) return "X / Y / Z: только по оси · Shift+X / Y / Z: в плоскости · Ctrl: шаг · Shift: точнее · Esc или ПКМ: отмена";
     if (editTool_.boxSelecting()) return "Отпустите — выбрать всё в рамке · Shift: добавить · Ctrl: убрать";
+    if (colliderMode()) { // the collider's points before the gizmo's words: they are what the mode is for
+        if (editTool_.draggingHandle()) return QString("Тяните: %1 коллайдера · Esc или ПКМ: отмена").arg(editTool_.draggedHandle().what);
+        if (hoveredHandle_ >= 0) {
+            const ShapeHandle& h = handles_[size_t(hoveredHandle_)];
+            return QString("Тяните точку: %1 коллайдера%2").arg(h.what, h.both ? "" : " · противоположная грань стоит на месте");
+        }
+        if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
+            const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать" : gizmo_.mode() == GizmoMode::Scale ? "растянуть" : "двигать";
+            return QString("Тяните: %1 коллайдер, модель стоит · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);
+        }
+        return "Коллайдер: точки — размер, гизмо — место и поворот (W E R) · модель не меняется · Esc — назад к телу";
+    }
     if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
         const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать" : gizmo_.mode() == GizmoMode::Scale ? "масштабировать" : "двигать";
         return QString("Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);

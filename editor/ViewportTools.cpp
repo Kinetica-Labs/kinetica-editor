@@ -149,7 +149,18 @@ void EditTool::press(Viewport& v, QMouseEvent* e) {
 }
 
 // A keyboard transform: left confirms, right cancels. A handle drag: the right button puts it back.
+void EditTool::cancelHandle(Viewport& v) {
+    if (handle_ < 0) return;
+    const int h = handle_;
+    handle_ = -1;
+    emit v.shapeHandleDragged(h, handleStart_.reach, 3);
+}
+
 bool EditTool::pressTransform(Viewport& v, QMouseEvent* e) {
+    if (handle_ >= 0) {
+        if (e->button() == Qt::RightButton) cancelHandle(v);
+        return true;
+    }
     if (v.gizmo().modal()) {
         if (e->button() == Qt::LeftButton) v.finishModal();
         else if (e->button() == Qt::RightButton) v.cancelModal();
@@ -165,6 +176,11 @@ bool EditTool::pressTransform(Viewport& v, QMouseEvent* e) {
 void EditTool::pressLeft(Viewport& v, QMouseEvent* e) {
     pressPos_ = boxEnd_ = e->position();
     pressShift_ = e->modifiers() & Qt::ShiftModifier;
+    if (const int h = v.shapeHandleAt(e->position()); h >= 0) { // a collider point: before the gizmo, it sits on the collider
+        handle_ = h, handleStart_ = v.shapeHandles()[size_t(h)], handleReach_ = handleStart_.reach;
+        emit v.shapeHandleDragged(h, handleReach_, 0);
+        return;
+    }
     if (v.gizmoShown()) {
         pending_ = v.gizmo().hitTest(v.gizmoView(), pixel(e));
         if (pending_ != GizmoHandle::None) return; // the drag starts once the mouse has moved 3 px
@@ -190,7 +206,8 @@ void EditTool::startFloorDrag(Viewport& v, QMouseEvent* e) {
 // empty space the selection box.
 void EditTool::startLeftDrag(Viewport& v, QMouseEvent* e) {
     clickPending_ = false;
-    if (pressedEntity_ && ((e->modifiers() & Qt::ShiftModifier) || v.gizmo().mode() == GizmoMode::Translate)) startFloorDrag(v, e);
+    const bool slide = (e->modifiers() & Qt::ShiftModifier) || v.gizmo().mode() == GizmoMode::Translate;
+    if (pressedEntity_ && slide && !v.colliderMode()) startFloorDrag(v, e); // the collider mode moves the collider, not the body
     else if (!pressedEntity_) box_ = true;
 }
 
@@ -208,7 +225,7 @@ bool EditTool::moveGizmo(Viewport& v, QMouseEvent* e) {
         pending_ = GizmoHandle::None;
         floorDrag_ = false;
         virtualMouse_ = lastMouse_ = press;
-        cloning_ = cloneShiftHeld_ = pressShift_ && v.editMode(); // Shift at the start: a clone, as in 3ds Max (not of a goal in play)
+        cloning_ = cloneShiftHeld_ = pressShift_ && v.editMode() && !v.colliderMode(); // Shift: a clone, as in 3ds Max (not of a goal, not of a collider)
         emit v.gizmoStarted();
         if (cloning_) emit v.cloneDragStarted();
     }
@@ -224,6 +241,11 @@ bool EditTool::moveGizmo(Viewport& v, QMouseEvent* e) {
 }
 
 void EditTool::move(Viewport& v, QMouseEvent* e) {
+    if (handle_ >= 0) {
+        handleReach_ = v.reachAlong(handleStart_, e->position());
+        emit v.shapeHandleDragged(handle_, handleReach_, 1);
+        return;
+    }
     if (moveGizmo(v, e)) return;
     if (rightClickPending_ && (QLineF(e->position(), rightPressPos_).length() > 4 || v.flying())) rightClickPending_ = false;
     if (box_) {
@@ -243,6 +265,9 @@ void EditTool::move(Viewport& v, QMouseEvent* e) {
 }
 
 void EditTool::hover(Viewport& v, QMouseEvent* e) {
+    const int point = v.shapeHandleAt(e->position());
+    v.setHoveredHandle(point);
+    if (point >= 0) return v.setHoveredEntity(0);
     const GizmoHandle h = v.gizmoShown() ? v.gizmo().hitTest(v.gizmoView(), pixel(e)) : GizmoHandle::None;
     if (h != v.gizmo().hover()) {
         v.gizmo().setHover(h);
@@ -253,6 +278,12 @@ void EditTool::hover(Viewport& v, QMouseEvent* e) {
 }
 
 void EditTool::release(Viewport& v, QMouseEvent* e) {
+    if (handle_ >= 0 && e->button() == Qt::LeftButton) {
+        const int h = handle_;
+        handle_ = -1;
+        emit v.shapeHandleDragged(h, handleReach_, 2);
+        return;
+    }
     camera_.release(v, e);
     if (e->button() == Qt::RightButton) {
         if (rightClickPending_ && !v.flewThisPress()) emit v.editContextMenu(e->position());

@@ -5,6 +5,7 @@
 // Which button moves the camera is the control scheme's business (ControlScheme.h); the tools ask
 // the viewport for it, so the left button never moves the camera unless Alt is held.
 
+#include "ColliderGuides.h"
 #include "ControlScheme.h"
 #include "Gizmo.h"
 #include "OrbitCamera.h"
@@ -96,6 +97,11 @@ public:
     bool boxSelecting() const { return box_; }
     bool cloning() const { return cloning_; } // this handle drag began with Shift: it clones
     QRectF boxRect() const { return QRectF(pressPos_, boxEnd_).normalized(); }
+    // A collider point being dragged (the collider mode): which, as it was when pressed; Esc puts it back.
+    bool draggingHandle() const { return handle_ >= 0; }
+    int draggedIndex() const { return handle_; }
+    const ShapeHandle& draggedHandle() const { return handleStart_; }
+    void cancelHandle(Viewport& v);
 
 private:
     bool pressTransform(Viewport& v, QMouseEvent* e); // a keyboard transform or a handle drag takes the press
@@ -105,6 +111,9 @@ private:
     void hover(Viewport& v, QMouseEvent* e);
     void startFloorDrag(Viewport& v, QMouseEvent* e);
 
+    int handle_ = -1;                         // a collider point pressed: the drag reports its reach (Viewport::reachAlong)
+    ShapeHandle handleStart_;                 // ... its line as it was when pressed: the collider moves under it, the line not
+    float handleReach_ = 0;
     GizmoHandle pending_ = GizmoHandle::None; // a handle pressed; the drag starts after 3 px
     bool floorDrag_ = false;                  // Shift+drag of an object (Shift is not "fine" then)
     bool pressShift_ = false;                 // Shift was down at the left press

@@ -3,6 +3,7 @@
 // SceneBuilderColliders.cpp, several selected objects in SceneBuilderMulti.cpp. The scene list is a
 // tree: a group holds its members, an array its hidden template; ⧉ marks instances and their master.
 #include "SceneBuilder.h"
+#include "scene/Collider.h"
 
 #include "IkSolverView.h"
 #include "scene/Assembly.h"
@@ -375,9 +376,12 @@ void SceneBuilder::buildMaterialCards(QVBoxLayout* col) {
 void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
     ColliderRole* c = &shapeDraft_.collider;
     const auto manual = [c] { return c->kind != ColliderKind::Auto && !c->fitToGeometry; };
+    const auto round = [c] { return c->kind == ColliderKind::Sphere || c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
+    const auto tall = [c] { return c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
     std::vector<FieldForm::Tile> kinds;
     for (int k = 0; k <= int(ColliderKind::Cylinder); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, kColliderTips[k]});
-    shapeFields(componentCard(col, RoleIcon::Collider), &SceneBuilder::colliderFields_)->note([] { return QString("чем тело сталкивается; виден зелёным каркасом"); }).name("roleRowLabel")
+    ComponentCard* card = componentCard(col, RoleIcon::Collider);
+    shapeFields(card, &SceneBuilder::colliderFields_)->note([] { return QString("чем тело сталкивается; виден зелёным каркасом"); }).name("roleRowLabel")
         .tip("Как в Houdini: геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"
              "Физика двигает и поворачивает геометрию вместе с коллайдером, но саму геометрию не меняет.")
         .tiles(kinds, 28, c->kind).name("colliderButton")
@@ -386,11 +390,38 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
             const std::vector<ShapeDesc>& made = colliderOf(shapeDraft_);
             return made.empty() ? QString("Авто — по форме геометрии") : "Авто → " + collisionShapeName(made.front().kind);
         }).name("colliderKindName")
-        .toggle("Подогнать под геометрию", c->fitToGeometry).shown([c] { return c->kind != ColliderKind::Auto; })
-        .tip("Размер коллайдера берётся из размеров формы; снимите, чтобы задать его руками")
-        .vector("Размер, м", 0.005, 50, 0.05, 3, c->size).shown([=] { return manual() && c->kind != ColliderKind::ConvexHull; })
+        // Taken off, the fit leaves the numbers it made (scene/Collider.h): the collider stays where it was, not 0.2 m.
+        .toggle("Подогнать под геометрию", [c] { return c->fitToGeometry ? 1 : 0; },
+                [this, c](int on) {
+                    if (!on && c->fitToGeometry) {
+                        const ColliderRole held = heldCollider(shapeDraft_, entityLocalMesh(shapeDraft_, graph_.baseDirectory));
+                        if (sizedByNumbers(held.kind)) c->size = held.size, c->offset = held.offset;
+                    }
+                    c->fitToGeometry = on != 0;
+                }).shown([c] { return c->kind != ColliderKind::Auto; })
+        .tip("Размер коллайдера берётся из размеров формы; снимите, чтобы задать его руками — или «Править в виде»: точки и гизмо")
+        // Each kind its own numbers: a sphere's three equal edges were three fields of which one worked.
+        .vector("Размер, м", 0.005, 50, 0.05, 3, c->size).shown([=] { return manual() && c->kind == ColliderKind::Box; })
+        .number("Диаметр, м", 0.005, 50, 0.01, 3, c->size.x).shown([=] { return manual() && round(); }).name("colliderDiameter")
+        .number("Высота, м", 0.005, 50, 0.01, 3, c->size.y).shown([=] { return manual() && tall(); }).name("colliderHeight")
         .vector("Сдвиг, м", -50, 50, 0.05, 3, c->offset).shown(manual)
         .vector("Поворот, °", -360, 360, 5, 1, c->rotationDeg).shown(manual);
+    // The collider in the view (Unity's «Edit Collider»): the gizmo and the points hold it, the model stays.
+    colliderEditButton_ = new QPushButton("Править коллайдер в виде");
+    colliderEditButton_->setObjectName("colliderEdit");
+    colliderEditButton_->setCheckable(true);
+    // On, it is lit in the collider's green, as the bar over the view and the wireframe: the mode is seen where it was entered.
+    colliderEditButton_->setStyleSheet("QPushButton:checked { background: #2f7a45; color: #f0fff1; border: 1px solid #6ee882; "
+                                       "border-radius: 4px; font-weight: bold; padding: 4px; }");
+    colliderEditButton_->setToolTip("Гизмо и точки в виде двигают, вращают и растягивают коллайдер, а не модель: точка на грани тянет "
+                                    "грань, точка на круге — диаметр, на торце — высоту. Esc — назад к телу");
+    connect(colliderEditButton_, &QPushButton::toggled, this, [this](bool on) { setColliderEdit(on); });
+    connect(this, &SceneBuilder::colliderEditChanged, colliderEditButton_, [this](bool on) {
+        const QSignalBlocker quiet(colliderEditButton_);
+        colliderEditButton_->setChecked(on);
+        colliderEditButton_->setText(on ? "Готово: назад к телу (Esc)" : "Править коллайдер в виде"); // the way back where the way in was
+    });
+    card->body()->addWidget(colliderEditButton_);
 }
 
 // "+ Добавить компонент": the components the object does not have yet, with their icons.

@@ -8,10 +8,12 @@
 
 #include <QCoreApplication>
 #include <QCursor>
+#include <QAction>
 #include <QApplication>
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QPointer>
 #include <QWheelEvent>
@@ -79,6 +81,34 @@ void focusByClick(QWidget* pressed) {
         if (w->isEnabled() && (w->focusPolicy() & Qt::ClickFocus)) return w->setFocus(Qt::MouseFocusReason), move.done(Qt::MouseFocusReason);
 }
 
+// Whether an action's place is one a hand reaches: a widget of the window, or a menu hung (through menus) on one - a context
+// menu built for one right click and kept is not, as Qt's shortcut map has it.
+bool reachable(QWidget* window, QWidget* w, int depth = 0) {
+    if (auto* menu = qobject_cast<QMenu*>(w)) {
+        for (QObject* o : menu->menuAction()->associatedObjects())
+            if (auto* up = qobject_cast<QWidget*>(o); up && depth < 8 && reachable(window, up, depth + 1)) return true;
+        return false;
+    }
+    return w == window || (window->isAncestorOf(w) && w->isVisible());
+}
+
+// The window's shortcut for a key, as Qt's shortcut map finds it - which it does only in the active window, and the
+// unattended editor's never is: a tester's Space, Esc, F and Ctrl+Z did nothing (a trial). An enabled action with the key
+// among its shortcuts, in a place a hand reaches; two such: neither, as Qt calls it ambiguous.
+QAction* windowShortcut(QWidget* window, const QKeySequence& key) {
+    QAction* found = nullptr;
+    for (QAction* a : window->findChildren<QAction*>()) {
+        if (!a->isEnabled() || a->shortcutContext() == Qt::WidgetShortcut || !a->shortcuts().contains(key)) continue;
+        bool placed = false;
+        for (QObject* o : a->associatedObjects())
+            if (auto* w = qobject_cast<QWidget*>(o)) placed = placed || reachable(window, w);
+        if (!placed || a == found) continue;
+        if (found) return nullptr;
+        found = a;
+    }
+    return found;
+}
+
 // A key as the window system hands it to the application - the path a real key takes: the window's shortcuts are
 // tried first (Space plays, W E R pick tools), then the focused widget gets it. `ru`: the Russian layout on, as a user
 // typing Russian has it - the key on the QWERTY place of `latin` arrives as its Cyrillic letter, with the place's
@@ -104,6 +134,16 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
         if (press) QCoreApplication::sendEvent(popup, &down);
         if (release) QCoreApplication::sendEvent(popup, &up);
         return;
+    }
+    if (press && !window->isActiveWindow()) { // the focused widget first (a field takes its letters), then the window's shortcut
+        QWidget* focus = window->focusWidget() ? window->focusWidget() : window;
+        QKeyEvent over(QEvent::ShortcutOverride, key, mods, text);
+        over.ignore();
+        QCoreApplication::sendEvent(focus, &over);
+        if (QAction* a = over.isAccepted() ? nullptr : windowShortcut(window, QKeySequence(QKeyCombination(mods, Qt::Key(qtKey))))) {
+            a->trigger();
+            return;
+        }
     }
     if (press) QWindowSystemInterface::handleExtendedKeyEvent(w, QEvent::KeyPress, key, mods, scan, sym, state, text);
     if (release) QWindowSystemInterface::handleExtendedKeyEvent(w, QEvent::KeyRelease, key, mods, scan, sym, state, text);

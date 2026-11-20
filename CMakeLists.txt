@@ -60,6 +60,7 @@ add_library(kecore STATIC
   src/scene/SceneActions.h src/scene/SceneActions.cpp src/scene/SceneActionsTree.cpp
   src/scene/Assembly.h     src/scene/Assembly.cpp src/scene/AssemblyPresets.cpp
   src/scene/CameraHousing.h src/scene/CameraHousing.cpp
+  src/scene/Collider.h     src/scene/Collider.cpp
   src/scene/Kinematics.h   src/scene/Kinematics.cpp
   src/scene/Describe.h     src/scene/Describe.cpp
   src/scene/SensorSpec.h   src/scene/SensorSpec.cpp

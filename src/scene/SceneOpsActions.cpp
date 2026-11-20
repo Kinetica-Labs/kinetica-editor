@@ -4,6 +4,7 @@
 // copies, the group - so a client with a window shows the same as after the button.
 #include "scene/SceneOps.h"
 
+#include "scene/Collider.h"
 #include "scene/Kinematics.h"
 #include "scene/SceneActions.h"
 
@@ -174,6 +175,47 @@ bool roleOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     return true;
 }
 
+// The collider by numbers (scene/Collider.h): the kind, a box's edges or a round one's diameter and height, its centre and
+// turn on the object. What is not given stays as the collider is built now - a fitted one's numbers taken from the
+// geometry - so one number changes and the rest do not jump; the fit to the geometry is off after it. Each kind takes
+// its own numbers: a sphere's three equal edges were three fields of which one worked (a newcomer's question).
+bool colliderOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    static const char* kinds[] = {"box", "sphere", "capsule", "cylinder"};
+    static const ColliderKind kindOf[] = {ColliderKind::Box, ColliderKind::Sphere, ColliderKind::Capsule, ColliderKind::Cylinder};
+    const uint32_t id = masterOf(g, uint32_t(a["id"].integer())); // an instance collides as its master
+    Entity* body = nullptr;
+    for (Entity& x : g.entities) body = x.id == id ? &x : body;
+    if (!body) return e = "no shape " + std::to_string(a["id"].integer()), false;
+    if (isHandle(*body)) return e = "«" + body->name + "» - цель: намерение, а не тело, коллайдера у неё нет", false;
+    ColliderRole c = heldCollider(*body, entityLocalMesh(*body, g.baseDirectory));
+    if (a.has("kind")) {
+        const int k = wordIndex(a["kind"].text(""), kinds);
+        if (k < 0) return e = "kind is box, sphere, capsule or cylinder (a hull follows the geometry: scene_set collider kind hull)", false;
+        c.size = kindForm(kindOf[k], c.size), c.kind = kindOf[k];
+    }
+    if (!sizedByNumbers(c.kind)) return e = "the collider is the geometry's hull: give kind box, sphere, capsule or cylinder to size it", false;
+    const std::string word = kinds[std::find(kindOf, kindOf + 4, c.kind) - kindOf];
+    const bool round = c.kind != ColliderKind::Box, tall = c.kind == ColliderKind::Capsule || c.kind == ColliderKind::Cylinder;
+    if (a.has("size") && round) return e = std::string("a ") + word + " is sized by diameter" + (tall ? " and height" : "") + ", not size", false;
+    if (a.has("diameter") && !round) return e = "a box is sized by size [x, y, z], not diameter", false;
+    if (a.has("height") && !tall) return e = std::string("a ") + word + " has no height" + (round ? ": diameter" : ": size [x, y, z]"), false;
+    Vector3 v;
+    if (a.has("size") && !vectorArg(a, "size", v)) return e = "size is [x, y, z], metres", false;
+    if (a.has("size")) c.size = v;
+    if (a.has("diameter")) c.size.x = c.size.z = Real(a["diameter"].number()), c.size.y = tall ? c.size.y : c.size.x;
+    if (a.has("height")) c.size.y = Real(a["height"].number());
+    if (!(minComp(c.size) >= 0.001_r)) return e = "every size is at least 0.001 m", false;
+    if (a.has("offset") && !vectorArg(a, "offset", c.offset)) return e = "offset is [x, y, z], metres in the object's frame", false;
+    if (a.has("rotation") && !vectorArg(a, "rotation", c.rotationDeg)) return e = "rotation is [x, y, z], degrees in the object's frame", false;
+    c.enabled = true;
+    body->collider = c;
+    r.set("id", body->id), r.set("kind", word), r.set("offset", vectorValue(c.offset)), r.set("rotation", vectorValue(c.rotationDeg));
+    if (round) r.set("diameter", c.size.x);
+    if (tall) r.set("height", c.size.y);
+    if (!round) r.set("size", vectorValue(c.size));
+    return true;
+}
+
 // An inverse kinematics goal among `ids` moved or turned: its arm's servos get the new coordinates (Kinematics.h).
 void followGoals(SceneGraph& g, const std::vector<uint32_t>& ids) {
     for (uint32_t id : ids)
@@ -234,6 +276,11 @@ std::vector<SceneOp> actionSceneOps() {
          [](SceneGraph& g, const Value&, Value&, std::string&) { return showAll(g), true; }},
         {"scene_role", "A role given to the shapes or taken from them, as the role bar does; no `on`: switched as a click",
          "{ids, role: rigid|collider, on?: bool}", {}, roleOp, true},
+        {"scene_collider", "A shape's collider by numbers, apart from what it looks like: the kind; a box's size, a sphere's diameter, a "
+                           "capsule's or a cylinder's diameter and height; its centre (offset) and turn (rotation) on the shape, in the shape's "
+                           "frame. What is not given stays as the collider is now (a fitted one's numbers from the geometry); fitting is off after",
+         "{id: int, kind?: 'box'|'sphere'|'capsule'|'cylinder', size?: [x,y,z], diameter?: m, height?: m, offset?: [x,y,z], rotation?: [x,y,z]}",
+         {}, colliderOp, true},
         transform("scene_move", "Objects moved by a step in the world, their angles kept (the gizmo's arrows)", "{ids, by: [x,y,z]}"),
         transform("scene_turn", "Objects turned about an axis by degrees around a pivot (no pivot: the last object's centre) - the rings",
                   "{ids, axis: x|y|z|[x,y,z], degrees: number, pivot?: [x,y,z]}"),

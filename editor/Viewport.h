@@ -14,6 +14,7 @@
 // Needs only OpenGL 3.0 (GLSL 1.30): runs on any GPU of the last ~15 years and on the CPU through
 // Mesa llvmpipe (--software-gl). A 3.3 core context is used when the driver offers one.
 
+#include "ColliderGuides.h"
 #include "ControlScheme.h"
 #include "EditView.h"
 #include "Gizmo.h"
@@ -102,6 +103,15 @@ public:
     // The collider wireframes: pairs of points, x y z state (ColliderGuides::State: moving, fixed, asleep).
     void setColliderGuides(std::vector<float> lines);
     const std::vector<float>& colliderGuides() const { return colliderGuides_; }
+    // The collider mode's points (SceneBuilder::shapeHandles; none: the mode is off): drawn over everything, each dragged
+    // along its line - the press, the moves, the release and Esc reported as shapeHandleDragged.
+    void setShapeHandles(std::vector<ShapeHandle> handles);
+    const std::vector<ShapeHandle>& shapeHandles() const { return handles_; }
+    bool colliderMode() const { return !handles_.empty(); }
+    int shapeHandleAt(const QPointF& pos) const;                   // the point within 9 px of the pixel (-1: none)
+    float reachAlong(const ShapeHandle& h, const QPointF& pos) const; // where the mouse ray passes nearest its line
+    QPointF pixelOf(const ke::Vector3& world, bool* inFront = nullptr) const;
+    void setHoveredHandle(int i);
     // The IK goals' paths (Entity::path): segments, x y z 0 per point - drawn over the scene, faint where hidden.
     void setPathLines(std::vector<float> lines) { pathLines_ = std::move(lines), update(); }
     // The 2D text over the view (the scene's name, the axes, the navigation cube); off for the gallery's pictures.
@@ -189,6 +199,7 @@ signals:
     void gizmoMoved(const GizmoPose& pose);           // where it has taken the object so far
     void gizmoFinished();                             // confirmed: one step of the undo history
     void gizmoCancelled();                            // Esc / right button: put the object back
+    void shapeHandleDragged(int index, float reach, int phase); // a collider point: 0 pressed, 1 moved, 2 released, 3 Esc
     void cloneDragStarted();                          // Shift was held when the handle drag began
     void cloneDragFinished(QPointF pos);              // ... and it ended here: ask how many copies
     void editContextMenu(QPointF pos);                // edit mode: a right click without a drag
@@ -302,6 +313,7 @@ private:
     bool navPress(QMouseEvent* e);     // the navigation cube takes the press
     void updateHint();
     void drawSelectionBox(class QPainter& p);
+    void drawShapeHandles(class QPainter& p);
     void modalDrag(); // the keyboard changed the transform: recompute it at the cursor
     bool playHandleAt(const QPointF& pos) const; // play: a press there takes the gizmo's handle
     uint32_t pickHandle(const Ray& ray, float& distance) const; // play: a see-through goal on the ray (0: none)
@@ -363,6 +375,8 @@ private:
     bool overlayVisible_ = true, agentDriving_ = false;
     std::vector<char> unpickable_;          // per body: the mouse passes through
     std::vector<float> colliderGuides_;     // x y z state per point, two points a segment
+    std::vector<ShapeHandle> handles_;      // the collider mode's points
+    int hoveredHandle_ = -1;
     std::vector<float> guidesByState_[3];   // the same lines sorted by state: one colour per draw
     std::vector<float> pathLines_;
     QString draggedImage_;                  // an image file being dragged over the view

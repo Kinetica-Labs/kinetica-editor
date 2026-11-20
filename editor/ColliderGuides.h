@@ -43,6 +43,18 @@ private:
     std::map<std::string, Entry> cache_;
 };
 
+// A point of the collider mode (Godot's shape handles): on the collider's surface, dragged along the line from the
+// collider's centre through it. A box has one on each face (the far face stays), a round collider one on its rim (the
+// diameter) and a capsule or a cylinder one on each end (the height, both ends at once).
+struct ShapeHandle {
+    ke::Vector3 centre, axis; // the world line it moves on: the collider's centre, outward
+    float reach = 0;          // where it is on that line, metres from the centre
+    int dimension = 0;        // the size it changes: x, y or z of the collider
+    int side = 1;             // the face's side (+1, -1)
+    bool both = false;        // both sides at once (a diameter, a height); otherwise the far side stays
+    const char* what = "";    // said in the status bar: "грань +X", "диаметр", "высота"
+};
+
 // The guide lines of one shape kind in the shape's frame (pairs of points).
 std::vector<ke::Vector3> boxGuide(const ke::Vector3& halfExtents);
 std::vector<ke::Vector3> sphereGuide(float radius);

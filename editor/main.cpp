@@ -12,6 +12,9 @@
 
 #include <QApplication>
 #include <QDoubleSpinBox>
+#include <QDialog>
+#include <QComboBox>
+#include <QAbstractButton>
 #include <QKeyEvent>
 #include <QIcon>
 #include <QDir>
@@ -259,6 +262,22 @@ private:
     }
 };
 
+// The keys stay where they were when a button, a check box or a list of the window is clicked, as Blender's do: Qt gives
+// such a widget the keyboard on a click, and then Space pressed the button just clicked instead of «Пуск», letters
+// leafed through the list «Привод» - the editor's keys seemed dead (a person's report). Tab still reaches them; a dialog's
+// own buttons keep theirs (Enter, Space on the focused one).
+class KeysStay : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject* to, QEvent* e) override {
+        if (e->type() != QEvent::Polish) return false;
+        auto* w = qobject_cast<QWidget*>(to);
+        const bool takes = qobject_cast<QAbstractButton*>(w) || qobject_cast<QComboBox*>(w);
+        if (takes && (w->focusPolicy() & Qt::ClickFocus) && !qobject_cast<QDialog*>(w->window())) w->setFocusPolicy(Qt::TabFocus);
+        return false;
+    }
+};
+
 // A run nobody watches - the self-test, the pictures, automation - never shows a window, so that
 // nobody takes it for their own editor, and never takes the keyboard from the program in front:
 //   - the main window stays on the screen, because Windows paints only what is on a screen (the 3D
@@ -365,6 +384,7 @@ int main(int argc, char** argv) {
         return 3;
     }
     app.installEventFilter(new NumberFields(&app));
+    app.installEventFilter(new KeysStay(&app));
     MainWindow w;
     const QStringList wh = cli.value(o.size).split('x');
     w.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1600, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 950);
@@ -378,6 +398,10 @@ int main(int argc, char** argv) {
             QApplication::setEffectEnabled(e, false); // a rolling tooltip is a window of its own, placed by Qt
     }
     w.show();
+    if (!unattended(cli, o)) { // a person's window takes the keyboard at once: started from a script or a terminal in the
+        w.raise();             // background, the desktop left it without focus and Space, F, Ctrl+Z went to the window before
+        w.activateWindow();    // it (a person's report: no click anywhere, no key worked)
+    }
     if (cli.isSet(o.api) && !w.startApi(quint16(cli.value(o.api).toUInt())))
         std::fprintf(stderr, "the API port %s is taken\n", qPrintable(cli.value(o.api)));
     return run(app, w, cli, o);

@@ -721,8 +721,27 @@ void Viewport::drawAxesAndHints(QPainter& p) {
     navCube_.draw(p, viewMatrix(), size(), navPressed_ ? navPressHit_ : navHover_);
     if (editMode_) {
         drawSelectionBox(p);
+        drawShapeHandles(p);
         drawEditLabel(p);
     }
+}
+
+// The collider mode's points: discs over everything, lit under the mouse and while dragged.
+void Viewport::drawShapeHandles(QPainter& p) {
+    if (handles_.empty()) return;
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing);
+    const int dragged = editTool_.draggingHandle() ? editTool_.draggedIndex() : -1;
+    for (size_t i = 0; i < handles_.size(); ++i) {
+        bool front = false;
+        const QPointF at = pixelOf(handles_[i].centre + handles_[i].axis * handles_[i].reach, &front);
+        if (!front) continue;
+        const bool lit = int(i) == hoveredHandle_ || int(i) == dragged;
+        p.setPen(QPen(QColor(18, 40, 24), 1.5));
+        p.setBrush(lit ? QColor(255, 214, 90) : QColor(110, 232, 130));
+        p.drawEllipse(at, lit ? 7.5 : 6.0, lit ? 7.5 : 6.0);
+    }
+    p.restore();
 }
 
 void Viewport::drawSelectionBox(QPainter& p) {

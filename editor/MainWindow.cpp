@@ -23,6 +23,9 @@
 #include <QDockWidget>
 #include <QFileDialog>
 #include <QLabel>
+#include <QPushButton>
+#include <QHBoxLayout>
+#include <QFrame>
 #include <QMenu>
 #include <QMenuBar>
 #include <QMessageBox>
@@ -431,6 +434,33 @@ void MainWindow::connectSceneBuilder() {
     });
     connect(builder_, &SceneBuilder::sceneMarkers, view_, &Viewport::setSceneMarkers);
     connect(builder_, &SceneBuilder::cameraView, view_, &Viewport::setLookThrough);
+    // The collider mode says itself over the view, with its way out - a person did not know what took them back: Esc was
+    // only in the status bar's line.
+    auto* colliderBar = new QFrame(view_);
+    colliderBar->setObjectName("colliderModeBar");
+    colliderBar->setStyleSheet("#colliderModeBar { background: rgba(28, 74, 44, 235); border: 1px solid #6ee882; border-radius: 6px; }"
+                               "#colliderModeBar QLabel { color: #e8ffe9; background: transparent; }"
+                               "#colliderModeBar QPushButton { background: #2f7a45; color: #f0fff1; border: 1px solid #6ee882; "
+                               "border-radius: 4px; font-weight: bold; padding: 3px 10px; }"
+                               "#colliderModeBar QPushButton:hover { background: #3c9a58; }");
+    auto* barRow = new QHBoxLayout(colliderBar);
+    barRow->setContentsMargins(12, 5, 6, 5);
+    auto* barText = new QLabel(colliderBar);
+    auto* done = new QPushButton("Готово (Esc)", colliderBar);
+    done->setObjectName("colliderModeDone");
+    barRow->addWidget(barText);
+    barRow->addWidget(done);
+    colliderBar->hide();
+    connect(done, &QPushButton::clicked, builder_, [this] { builder_->setColliderEdit(false); });
+    connect(builder_, &SceneBuilder::colliderEditChanged, this, [this, colliderBar, barText](bool on) {
+        colliderBar->setVisible(on);
+        if (!on) return;
+        barText->setText("<b>Правка коллайдера</b> «" + builder_->objectTitle(builder_->selectedId()) +
+                         "» — точки: размер, гизмо: место и поворот, модель не меняется");
+        colliderBar->adjustSize();
+        colliderBar->move((view_->width() - colliderBar->width()) / 2, view_->height() - colliderBar->height() - 12); // the top: the hints
+        colliderBar->raise();
+    });
     connect(view_, &Viewport::shadowsLeftOut, this, &MainWindow::showShadowBudget);
     connect(view_, &Viewport::lookThroughMoved, builder_, &SceneBuilder::onViewMovedThroughCamera);
     builder_->setViewEye([this] {
@@ -465,6 +495,8 @@ void MainWindow::connectSceneBuilder() {
         updateToolShelf();
     });
     connect(builder_, &SceneBuilder::colliderGuides, view_, &Viewport::setColliderGuides);
+    connect(builder_, &SceneBuilder::shapeHandles, view_, &Viewport::setShapeHandles);
+    connect(view_, &Viewport::shapeHandleDragged, builder_, &SceneBuilder::onShapeHandle);
     connect(builder_, &SceneBuilder::pathLines, view_, &Viewport::setPathLines);
 }
 

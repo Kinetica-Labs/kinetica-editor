@@ -239,6 +239,70 @@ void testSphereCapsule(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v,
     pump(200);
 }
 
+// The collider mode with a hand (Unity's «Edit Collider», Godot's points): a cube, Твёрдое, a fitted box collider,
+// «Править коллайдер в виде» - six points, one per face. The mouse drags the +X face's point 0.1 m out: the collider is
+// 0.1 m longer along x and its centre 0.05 m along (the -X face stays), the cube itself stays where it stood, one undo
+// step; undone, the collider is fitted again. Esc leaves the mode with the cube still selected. A sphere's card asks one
+// diameter, and taking the fit off keeps the fitted one (it was reset to 0.2 m).
+void testColliderMode(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
+    b.newScene();
+    b.createActions()[0]->trigger(); // Куб
+    clickRole(w, RoleIcon::Rigid);
+    clickColliderKind(b, ColliderKind::Box);
+    const Entity before = last(b);
+    v->setFocusBox(AABB(before.position - Vector3(0.8f), before.position + Vector3(0.8f)));
+    v->frameScene();
+    pump(200);
+    auto* edit = w.findChild<QPushButton*>("colliderEdit");
+    if (!edit) return c.check(false, "the collider card has «Править коллайдер в виде»");
+    edit->click();
+    pump(100);
+    const std::vector<ShapeHandle> points = v->shapeHandles();
+    int plusX = -1;
+    for (size_t i = 0; i < points.size(); ++i)
+        if (!points[i].both && points[i].dimension == 0 && points[i].side == 1) plusX = int(i);
+    if (points.size() != 6 || plusX < 0 || !b.colliderEditing())
+        return c.check(false, "«Править коллайдер в виде» on a box collider: the mode on, six points");
+    const ShapeHandle h = points[size_t(plusX)];
+    const QPointF from = v->pixelOf(h.centre + h.axis * h.reach), to = v->pixelOf(h.centre + h.axis * (h.reach + 0.1f));
+    const size_t steps = b.undoSteps();
+    sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+    pump(60);
+    const Entity after = last(b);
+    const float longer = after.collider.size.x - before.size.x, centre = after.collider.offset.x;
+    const bool oneStep = b.undoSteps() == steps + 1;
+    std::printf("  the +X point dragged 0.1 m: the collider %.4f m longer, its centre %.4f m along, the cube %s, %zu undo step(s)\n",
+                double(longer), double(centre), same(after.position, before.position) ? "unmoved" : "MOVED", b.undoSteps() - steps);
+    if (!dir.isEmpty()) windowShot(w).save(dir + "/collider-mode-face.png");
+    c.check(std::fabs(longer - 0.1f) < 2e-3f && std::fabs(centre - 0.05f) < 1e-3f && same(after.position, before.position) && oneStep &&
+                !after.collider.fitToGeometry,
+            "a face's point drags that face: the far face stays, the shape does not move, one undo step");
+    b.undoAction()->trigger();
+    pump(60);
+    const bool back = last(b).collider.fitToGeometry && last(b).collider.kind == ColliderKind::Box && b.colliderEditing();
+    trigger(w, "actionEscape");
+    pump(60);
+    const bool left = !b.colliderEditing() && v->shapeHandles().empty() && b.selectedId() == before.id;
+    c.check(back && left, "one undo fits the collider again; Esc leaves the collider mode, the cube still selected");
+    clickColliderKind(b, ColliderKind::Sphere);
+    pump(60);
+    QCheckBox* fit = nullptr;
+    for (QCheckBox* box : b.inspectorPanel()->findChildren<QCheckBox*>())
+        if (box->text() == "Подогнать под геометрию" && box->isVisibleTo(b.inspectorPanel())) fit = box;
+    if (fit && fit->isChecked()) fit->click();
+    pump(60);
+    auto* diameter = b.inspectorPanel()->findChild<QDoubleSpinBox*>("colliderDiameter");
+    const float expected = maxComp(before.size);
+    const bool sphere = diameter && diameter->isVisibleTo(b.inspectorPanel()) && std::fabs(diameter->value() - expected) < 1e-3 &&
+                        std::fabs(last(b).collider.size.x - expected) < 1e-4f && !last(b).collider.fitToGeometry;
+    std::printf("  a sphere unfitted: the diameter field %s %.3f m (the fitted %.3f m)\n", diameter && diameter->isVisibleTo(b.inspectorPanel()) ? "shows" : "missing",
+                diameter ? diameter->value() : 0.0, double(expected));
+    c.check(sphere, "a sphere's card asks one diameter; the fit taken off keeps the fitted diameter");
+}
+
 // The cube of the coordinator's picture: rigid, with a capsule collider standing in it.
 void cubeCapsuleShot(QMainWindow& w, SceneBuilder& b, const QString& dir) {
     b.newScene();
@@ -542,6 +606,7 @@ int runComponentTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     testAddComponentMenu(c, w, b, shotsDir);
     testStaticCollider(c, b, v);
     testSphereCapsule(c, w, b, v, shotsDir);
+    testColliderMode(c, w, b, v, shotsDir);
     testThreeClicks(c, w, b, v);
     testFirstMinute(c, w, b, v, shotsDir);
     testJointCard(c, b);

@@ -482,6 +482,50 @@ void testSimMeshColliderThinned() {
           "the mesh's collider has %zu points, its box off the mesh's by %f", shapes.front().points.size(), double(gap));
 }
 
+// scene_collider holds the collider as numbers: a 0.2 x 0.4 x 0.6 m box's fitted collider becomes a sphere round its
+// largest edge (radius 0.3 m), a capsule as wide as the larger of x and z (0.6 m) and as tall as y (0.4 m: no straight
+// part left, half height 0), a box with its offset and turn kept; each kind refuses the other kinds' numbers, naming its
+// own, and the engine's shape (colliderShapes) is exactly the numbers.
+void testSceneColliderNumbers() {
+    SceneGraph g;
+    Entity box;
+    box.id = 1, box.name = "Брус", box.shape = ShapeKind::Box, box.size = Vector3(0.2_r, 0.4_r, 0.6_r);
+    box.collider.enabled = true, box.collider.kind = ColliderKind::Box; // fitted to the geometry
+    g.entities.push_back(box);
+    std::string error;
+    Value answer;
+    const auto run = [&](Value a) { a.set("id", 1); answer = Value::map(); return findSceneOp("scene_collider")->edit(g, a, answer, error); };
+    const auto shape = [&] { return colliderShapes(g.entities[0], entityLocalMesh(g.entities[0])).front(); };
+    Value sphere = Value::map();
+    sphere.set("kind", "sphere");
+    const bool round = run(sphere) && shape().kind == ShapeDesc::Kind::Sphere && std::fabs(shape().radius - 0.3_r) < 1e-6_r &&
+                       !g.entities[0].collider.fitToGeometry;
+    Value capsule = Value::map();
+    capsule.set("kind", "capsule");
+    const bool capsuled = run(capsule) && shape().kind == ShapeDesc::Kind::Capsule && std::fabs(shape().radius - 0.3_r) < 1e-6_r;
+    Value taller = Value::map();
+    taller.set("height", 1.0), taller.set("diameter", 0.1);
+    const bool tall = run(taller) && std::fabs(shape().radius - 0.05_r) < 1e-6_r && std::fabs(shape().halfHeight - 0.45_r) < 1e-6_r &&
+                      answer["height"].number() == 1.0;
+    Value wrong = Value::map(), offset = Value::list(), size = Value::list();
+    for (Real v : {0.0_r, 0.1_r, 0.0_r}) offset.push(v);
+    for (Real v : {0.3_r, 0.2_r, 0.1_r}) size.push(v);
+    wrong.set("size", size);
+    const bool sizeRefused = !run(wrong) && error.find("diameter and height") != std::string::npos;
+    Value boxed = Value::map();
+    boxed.set("kind", "box"), boxed.set("size", size), boxed.set("offset", offset);
+    const bool boxy = run(boxed) && shape().kind == ShapeDesc::Kind::Box && length(shape().halfExtents - Vector3(0.15_r, 0.1_r, 0.05_r)) < 1e-6_r &&
+                      length(shape().position - Vector3(0, 0.1_r, 0)) < 1e-6_r;
+    Value diameter = Value::map();
+    diameter.set("diameter", 0.2);
+    const bool diameterRefused = !run(diameter) && error.find("size [x, y, z]") != std::string::npos;
+    std::printf("  a fitted 0.2 x 0.4 x 0.6 m collider: a sphere %s, a capsule %s, 0.1 x 1 m %s; size refused on a capsule %s, "
+                "a box with size and offset %s, diameter refused on a box %s (%s)\n", round ? "r 0.3" : "no", capsuled ? "r 0.3" : "no",
+                tall ? "r 0.05 h/2 0.45" : "no", sizeRefused ? "yes" : "no", boxy ? "yes" : "no", diameterRefused ? "yes" : "no", error.c_str());
+    CHECK(round && capsuled && tall, "a kind's own numbers from the fitted box, then given");
+    CHECK(sizeRefused && boxy && diameterRefused, "each kind takes its own numbers and names them when given another's");
+}
+
 // assembly_goal_pose moves the UR5e's goal 15 cm and turns it 40 degrees at once while the scene plays: the arm leads
 // its gripper there in a straight line and settles - the gripper on the goal within 5 mm and 1 degree, moving less
 // than 5 mm/s over the last half second. A shape that is not a goal is refused.

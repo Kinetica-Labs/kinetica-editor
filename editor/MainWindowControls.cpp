@@ -76,6 +76,7 @@ void MainWindow::buildEditMenu() {
         if (view_->followedBody()) view_->followBody(0);
         else if (builder_->lookingThrough()) builder_->lookThrough(0); // first out of the camera, as Blender's Esc
         else if (!builder_->editing()) builder_->stop();
+        else if (builder_->colliderEditing()) builder_->setColliderEdit(false); // out of the collider first, the body still selected
         else builder_->select(0);
     });
     buildViewKeys(menuBar()->findChild<QMenu*>("viewMenu")); // where a person looks for "from above": the View menu
