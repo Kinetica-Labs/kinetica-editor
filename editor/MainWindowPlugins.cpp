@@ -7,6 +7,7 @@
 #include "ApiConsole.h"
 #include "EditorOps.h"
 #include "PluginHost.h"
+#include "Viewport.h"
 #include "PluginPanel.h"
 #include "sim/Simulation.h"
 #include <QPointer>
@@ -109,6 +110,13 @@ void MainWindow::buildPlugins() {
     });
     if (auto* dock = findChild<QDockWidget*>("consoleDock"))
         if (auto* console = dynamic_cast<ApiConsole*>(dock->widget())) connect(plugins_, &PluginHost::output, console, &ApiConsole::pluginLine);
+    // A plugin's tool: its shelf button makes it the view's tool, a click in the view calls it, Esc lights the button off.
+    connect(plugins_, &PluginHost::toolPicked, view_, &Viewport::setPluginTool);
+    connect(view_, &Viewport::pluginToolChanged, plugins_, &PluginHost::setToolChecked);
+    connect(view_, &Viewport::toolClicked, plugins_, [this](const QString& op, ke::Vector3 point, ke::Vector3 normal, uint32_t object) {
+        const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+        plugins_->useTool(op, {{"point", three(point)}, {"normal", three(normal)}, {"object", int(object)}});
+    });
     QAction* make = menu->addAction("Новый плагин…");
     make->setObjectName("actionNewPlugin");
     make->setToolTip("Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится");

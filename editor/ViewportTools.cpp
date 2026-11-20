@@ -615,3 +615,9 @@ QString CreateTool::hint(const CreateWhat& w) const {
     if (!size.isEmpty()) text += " · " + size;
     return text + (step_ == 0 ? " · Esc — выход" : " · Backspace — шаг назад · Esc — отмена") + " · Ctrl — сетка 5 см";
 }
+
+void PluginTool::press(Viewport&, QMouseEvent* e) { pressed_ = e->position(); }
+
+void PluginTool::release(Viewport& v, QMouseEvent* e) {
+    if (e->button() == Qt::LeftButton && QLineF(pressed_, e->position()).length() < 4) v.clickTool(e->position());
+}

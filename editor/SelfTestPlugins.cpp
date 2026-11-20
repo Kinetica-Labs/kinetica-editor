@@ -16,6 +16,9 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonObject>
+#include <QApplication>
+#include <QKeyEvent>
+#include <QToolBar>
 #include "scene/Assembly.h"
 #include <QJsonArray>
 #include <QLabel>
@@ -228,6 +231,85 @@ class Turbine:
     c.check(note.contains("не запущен") && kept, "its plugin gone, the card says so and the scene keeps the component to the bit");
 }
 
+// A plugin's tool and its pictures: «@command(tool=True)» is an orange button on the shelf; pressed, a click on the cube's
+// top calls it with the point, the face's normal and the cube's id - its sphere stands 0.1 m over the face, one undo step;
+// what it drew stays over the view, Esc leaves the tool. What on_tick draws is there while the scene plays, gone at Stop.
+void testDrawAndTool(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/marks");
+    write(folder + "/marks/plugin.py", R"py(from kinetica.plugin import command, draw, field, on_tick
+
+
+@command(label="Флажок", tool=True)
+def flag(scene, point, normal, object, height=field(0.1, unit="м")):
+    top = [point[i] + normal[i] * height for i in range(3)]
+    scene.ed.scene_add(shape="sphere", name=f"флажок {object}", position=top, size=[0.05, 0.05, 0.05], role="collider")
+    draw.line("флажок", [point, top])
+    draw.label("где", top, f"объект {object}")
+
+
+@on_tick
+def mark(scene, dt, sensors):
+    draw.points("такт", [(0, 2, 0)], size=10)
+)py");
+    host->start(true);
+    QAction* tool = nullptr;
+    waitUntil([&] { return (tool = w.findChild<QAction*>("plugin:marks_flag")) != nullptr; }, 10000);
+    auto* shelf = w.findChild<QToolBar*>("toolShelf");
+    const bool onShelf = tool && shelf && shelf->actions().contains(tool) && !tool->icon().isNull();
+    b.newScene();
+    const uint32_t cube = uint32_t(ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}, {"size", QJsonArray{1.0, 1.0, 1.0}}, {"role", "collider"}}).value("id").toInt());
+    b.select(0);
+    v->setFocusBox(AABB(Vector3(-2, 0, -2), Vector3(2, 2, 2)));
+    v->frameScene();
+    pump(100);
+    if (tool) tool->trigger();
+    pump(50);
+    const bool taken = v->pluginTool() == "marks_flag" && tool && tool->isChecked();
+    const size_t steps = b.undoSteps();
+    const QPointF top = v->pixelOf(Vector3(0.1f, 1.0f, 0.1f));
+    sendMouse(v, QEvent::MouseMove, top, Qt::NoButton, Qt::NoButton);
+    sendMouse(v, QEvent::MouseButtonPress, top, Qt::LeftButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, top, Qt::LeftButton, Qt::NoButton);
+    const Entity* sphere = nullptr;
+    waitUntil([&] {
+        for (const Entity& e : b.graph().entities)
+            if (e.name.rfind("флажок", 0) == 0) sphere = &e;
+        return sphere != nullptr;
+    }, 10000);
+    pump(100);
+    const SceneObject* placed = sphere ? findObject(b.graph(), sphere->id) : nullptr;
+    const Vector3 at = placed ? placed->position : Vector3(0.0f);
+    const bool clicked = placed && std::fabs(at.y - 1.1f) < 0.01f && std::fabs(at.x - 0.1f) < 0.03f && sphere->name == "флажок " + std::to_string(cube) &&
+                         b.undoSteps() == steps + 1;
+    const bool drawn = v->hasDrawing("marks/флажок") && v->hasDrawing("marks/где");
+    QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QApplication::sendEvent(v, &esc);
+    const bool left = v->pluginTool().isEmpty() && !tool->isChecked();
+    std::printf("  the tool: on the shelf %s, taken %s; a click on the cube's top -> «%s» at %.3f %.3f %.3f (%zu undo step); drawn %s; "
+                "Esc leaves it %s\n", onShelf ? "yes" : "no", taken ? "yes" : "no", sphere ? sphere->name.c_str() : "-", double(at.x),
+                double(at.y), double(at.z), b.undoSteps() - steps, drawn ? "yes" : "no", left ? "yes" : "no");
+    c.check(onShelf && taken && clicked && drawn && left, "a plugin's tool: an orange button on the shelf, a click gives it the point, "
+                                                          "the face's normal and the object - one undo step; its picture stays; Esc leaves it");
+    waitUntil([&] { return host->ticking(); }, 5000);
+    QJsonObject stepped;
+    ops->run("sim_step", {{"frames", 5}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+    waitUntil([&] { return !stepped.isEmpty(); }, 20000);
+    pump(50);
+    const bool ticking = v->hasDrawing("marks/такт");
+    b.stop();
+    pump(100);
+    const bool gone = !v->hasDrawing("marks/такт") && v->hasDrawing("marks/флажок");
+    const QJsonObject agent = ops->runNow("view_draw", {{"key", "агент/путь"}, {"line", QJsonArray{QJsonArray{0, 0, 0}, QJsonArray{1, 1, 1}}}});
+    const QJsonObject odd = ops->runNow("view_draw", {{"key", "агент/пары"}, {"segments", QJsonArray{QJsonArray{0, 0, 0}}}});
+    const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 1;
+    QDir(folder + "/marks").removeRecursively();
+    const bool withPlugin = waitUntil([&] { return !v->hasDrawing("marks/флажок"); }, 5000);
+    std::printf("  on_tick's picture while playing %s, gone at Stop %s (the tool's stays); view_draw from the API %s; the plugin gone, "
+                "its pictures too %s\n", ticking ? "yes" : "no", gone ? "yes" : "no", api ? "yes" : "no", withPlugin ? "yes" : "no");
+    c.check(ticking && gone && api && withPlugin, "on_tick draws while the scene plays, gone at Stop; view_draw for any client; a plugin's "
+                                                  "pictures go with it");
+}
+
 } // namespace
 
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
@@ -353,6 +435,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     c.check(gone.contains("упал") && gone.contains("plugin.py:3"), "a fallen plugin's command, called, says the plugin fell and where - not «no operation»");
     testRunHooks(c, b, ops, host, dir.path());
     testComponents(c, w, b, v, ops, host, dir.path());
+    testDrawAndTool(c, w, b, v, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

@@ -33,6 +33,17 @@ public:
 // scheme - orbit around the point under the cursor (it stays where it is on screen), pan, zoom, or
 // look around in place. While the right button is held and W A S D fly the camera, a drag looks
 // around instead of orbiting (Unity, Unreal).
+// A plugin's tool (PluginHost: @command(tool=True)): a left click - not a drag - is where it acts; the point, the
+// surface's normal and the object under the mouse go to its command (Viewport::clickTool).
+class PluginTool : public ViewportTool {
+public:
+    void press(Viewport&, QMouseEvent* e) override;
+    void release(Viewport& v, QMouseEvent* e) override;
+
+private:
+    QPointF pressed_;
+};
+
 class CameraTool : public ViewportTool {
 public:
     void press(Viewport& v, QMouseEvent* e) override;

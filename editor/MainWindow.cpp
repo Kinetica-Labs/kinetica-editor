@@ -252,6 +252,7 @@ void MainWindow::onModeChanged() {
     const bool edit = builder_->editing(), gizmo = builder_->gizmoAllowed();
     const SceneBuilder::Mode m = builder_->mode();
     view_->setEditMode(gizmo);
+    if (edit) view_->clearPlayDrawings(); // Stop: the run's pictures go with it
     playAct_->setEnabled(m != SceneBuilder::Mode::Playing);
     pauseAct_->setEnabled(m == SceneBuilder::Mode::Playing);
     stopAct_->setEnabled(!edit);
@@ -315,7 +316,8 @@ void MainWindow::setTool(GizmoMode m) {
     static const char* tools[] = {"select", "move", "rotate", "scale"};
     if (view_->gizmo().mode() != m) // the tool shelf as code: editor.gizmo.tool = "rotate"
         builder_->sayAction("gizmo_set", QString("editor.gizmo.tool = \"%1\"").arg(tools[int(m)]), {{"tool", tools[int(m)]}});
-    view_->setCreateMode(false); // a tool of the shelf ends drawing shapes
+    view_->setCreateMode(false); // a tool of the shelf ends drawing shapes, and a plugin's tool
+    view_->setPluginTool({}, {});
     view_->gizmo().setMode(m);
     view_->gizmo().setHover(GizmoHandle::None);
     view_->update();

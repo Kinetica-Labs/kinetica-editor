@@ -107,6 +107,10 @@ bool Viewport::navPress(QMouseEvent* e) {
 void Viewport::mousePressEvent(QMouseEvent* e) {
     setFocus(Qt::MouseFocusReason); // the keys (W A S D, X Y Z during a drag) come here
     if (navPress(e)) return;
+    if (!toolOp_.isEmpty() && e->button() == Qt::LeftButton && !(e->modifiers() & Qt::AltModifier)) { // a plugin's tool takes the click
+        grabbed_ = &pluginTool_;
+        return pluginTool_.press(*this, e);
+    }
     if (e->button() == Qt::RightButton) rightHeld_ = true;
     if (e->button() == Qt::LeftButton) labPress_ = e->position(), labPressed_ = true; // a Laboratory click?
     const bool alt = e->modifiers() & Qt::AltModifier;
@@ -243,6 +247,7 @@ bool isMagnetKey(const QKeyEvent* k) {
 } // namespace
 
 void Viewport::keyPressEvent(QKeyEvent* e) {
+    if (!toolOp_.isEmpty() && e->key() == Qt::Key_Escape) return setPluginTool({}, {});
     if (editMode_ && createMode_ && e->key() == Qt::Key_Escape) { // the thing begun dropped; nothing begun: the mode left
         if (!createTool_.cancel(*this)) setCreateMode(false);
         return updateHint();
@@ -333,7 +338,8 @@ bool Viewport::event(QEvent* e) {
         const bool flight = rightHeld_ && rightButtonFlies(scheme_) && isFlyKey(keyByPlace(k));
         const bool magnet = editMode_ && magnetMode_ && !rightHeld_ && isMagnetKey(k);
         const bool create = editMode_ && createMode_ && (k->key() == Qt::Key_Escape || k->key() == Qt::Key_Backspace);
-        if (gizmo_.dragging() || flight || magnet || create) { // X, Esc, digits, W A S D... belong to the drag, not to the window's shortcuts
+        const bool tool = !toolOp_.isEmpty() && k->key() == Qt::Key_Escape;
+        if (gizmo_.dragging() || flight || magnet || create || tool) { // X, Esc, digits, W A S D... belong to the drag, not to the window's shortcuts
             e->accept();
             return true;
         }
@@ -404,6 +410,55 @@ float Viewport::reachAlong(const ShapeHandle& h, const QPointF& pos) const {
     const float b = ke::dot(h.axis, ray.dir), across = 1.0f - b * b;
     if (across < 1e-4f) return h.reach;
     return (b * ke::dot(ray.dir, w) - ke::dot(h.axis, w)) / across;
+}
+
+void Viewport::setPluginTool(const QString& op, const QString& label) {
+    if (op == toolOp_) return;
+    toolOp_ = op, toolLabel_ = label;
+    if (!createMode_ && !magnetMode_) setCursor(op.isEmpty() ? Qt::ArrowCursor : Qt::CrossCursor);
+    emit pluginToolChanged(op);
+    updateHint();
+}
+
+// What a click there is on: the nearest object (edit: the scene's, play: the bodies'), else the floor. A surface with no
+// polygon's normal (a box, a sphere) gets it from two hits a pixel aside on the same object; none: towards the eye.
+bool Viewport::surfaceAt(const QPointF& pos, Vector3& point, Vector3& normal, uint32_t& object) const {
+    const auto hitAt = [this](const QPointF& at, Vector3& p, Vector3* n) -> uint32_t {
+        const Ray ray = camera_.screenRay(at, size());
+        if (editMode_) {
+            const std::vector<PickHit> hits = pickAll(ray);
+            if (hits.empty()) return 0;
+            p = hits.front().point;
+            if (n) *n = hits.front().normal;
+            return hits.front().id;
+        }
+        int body;
+        if (!snap_ || !pickAnyBody(ray, body, p)) return 0;
+        return std::max<uint32_t>(1, snap_->bodies[size_t(body)].object);
+    };
+    const Ray ray = camera_.screenRay(pos, size());
+    normal = Vector3(0.0f);
+    object = hitAt(pos, point, &normal);
+    if (object) {
+        if (ke::length(normal) < 0.5f) {
+            Vector3 a, b;
+            if (hitAt(pos + QPointF(1, 0), a, nullptr) == object && hitAt(pos + QPointF(0, 1), b, nullptr) == object)
+                normal = ke::cross(a - point, b - point);
+            normal = ke::length(normal) > 1e-9f ? ke::normalize(normal) : -ray.dir;
+        }
+        if (ke::dot(normal, ray.dir) > 0) normal = -normal;
+        return true;
+    }
+    const float toFloor = intersectAxisPlane(ray, 1, 0.0f);
+    if (toFloor <= 0.0f || toFloor > 50.0f * camera_.distance()) return false;
+    point = ray.at(toFloor), normal = Vector3(0, 1, 0);
+    return true;
+}
+
+void Viewport::clickTool(const QPointF& pos) {
+    Vector3 point, normal;
+    uint32_t object = 0;
+    if (surfaceAt(pos, point, normal, object)) emit toolClicked(toolOp_, point, normal, object);
 }
 
 Vector3 Viewport::handlePoint(const ShapeHandle& h, const QPointF& pos) const {
@@ -532,6 +587,8 @@ QString Viewport::mouseHint() const {
     if (navPressed_ || navHover_ != NavCube::kOutside) return "Клик по шарику оси: вид вдоль неё (Y — сверху) · тяните: вращать вид";
     if (rightHeld_ && rightButtonFlies(scheme_) && (flew_ || !flyKeys_.empty()))
         return "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться";
+    if (!toolOp_.isEmpty())
+        return "«" + toolLabel_ + "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · " + cameraHint(scheme_);
     if (!editMode_ && gizmoShown() && !gizmo_.dragging() && gizmo_.hover() != GizmoHandle::None)
         return "Тяните: цель IK, рука идёт за ней моторами · " + cameraHint(scheme_);
     if (!editMode_ && !gizmo_.dragging()) return "ЛКМ по телу: схватить и тащить · " + cameraHint(scheme_);
@@ -589,6 +646,7 @@ void Viewport::setMagnetPreview(std::vector<float> ghost, std::vector<float> joi
 }
 
 void Viewport::setCreateMode(bool on, const CreateWhat& what) {
+    if (on) setPluginTool({}, {}); // drawing shapes ends a plugin's tool
     if (!on && !createMode_) return;
     createMode_ = on;
     createWhat_ = what;

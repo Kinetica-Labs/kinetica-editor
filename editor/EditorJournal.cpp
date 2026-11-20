@@ -46,8 +46,8 @@ bool EditorOps::windowOnly(const QString& name) {
 
 bool EditorOps::isQuery(const QString& name) {
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
-    return name == "runtime_status" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_list" || name == "plugin_panel_set" || queries().count(name) > 0 ||
-           (core && core->query) || name.endsWith("_get"); // a plugin's waiting and answering change nothing of the scene
+    return name == "runtime_status" || name == "view_draw" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_list" || name == "plugin_panel_set" || queries().count(name) > 0 ||
+           (core && core->query) || name.endsWith("_get"); // a plugin's waiting and answering, a picture over the view: no scene change
 }
 
 QString EditorOps::journalFile() {

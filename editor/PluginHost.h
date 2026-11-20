@@ -49,14 +49,20 @@ public:
     // their commands merged ({id: {target | velocity | duty}}); none to tell: done at once.
     bool ticking(bool world = false) const; // a plugin ticks (world: one that extends the physics, it gets the bodies)
     void broadcast(const QString& event, const QJsonObject& args, std::function<void(QJsonObject commands)> done);
+    // A plugin's tool (@command(tool=True)) used in the view: its command with the click's point, normal and object, and
+    // the values of its panel the command has (the tool's options); its shelf button lit while it is the view's tool.
+    void useTool(const QString& op, const QJsonObject& click);
+    void setToolChecked(const QString& op);
 
 signals:
     void changed(); // a plugin came, went, or fell
     void output(const QString& plugin, const QString& line); // a line it printed (print(), a traceback), or a word about it
+    void toolPicked(const QString& op, const QString& label); // its shelf button pressed (empty op: pressed again, left)
 
 private:
     struct Command {
         QString name, label, key, help, op;
+        bool tool = false; // a tool of the shelf: a click in the view calls it
         QJsonObject args; // field -> {type, default, label, unit, minimum, maximum, enum}
         QJsonArray order; // the fields as the function lists them (the form's rows)
         QAction* action = nullptr;

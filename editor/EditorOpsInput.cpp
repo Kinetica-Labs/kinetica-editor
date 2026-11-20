@@ -2,6 +2,7 @@
 // it finds where a point of the world is on the screen, moves the mouse there, clicks and presses keys
 // in the 3D view - the events a hand would send, so the magnet's preview and click are tested as used.
 #include "EditorOps.h"
+#include "SceneBuilder.h"
 #include "UiWindowSpace.h"
 
 #include "Viewport.h"
@@ -153,6 +154,47 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
 } // namespace
 
 void EditorOps::addInputOps() {
+    addSync("view_draw", "Lines, points and words over the 3D view in world metres - a plugin's or an agent's picture (a gas's flow, "
+                         "a planned path, a force, a label), by key: the same key again replaces it, clear takes it off (a key ending "
+                         "in / - all under it; none - all). Drawn while the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
+            "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], text?: str, at?: [x,y,z], colour?: [r,g,b], "
+            "size?: number, clear?: bool}",
+            [this](const QJsonObject& a) {
+        const QString key = a.value("key").toString();
+        if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
+        if (key.isEmpty()) return error("key: the drawing's name - the same key again replaces it");
+        const auto point = [](const QJsonValue& v) {
+            const QJsonArray p = v.toArray();
+            return ke::Vector3(float(p.at(0).toDouble()), float(p.at(1).toDouble()), float(p.at(2).toDouble()));
+        };
+        Viewport::Drawing d;
+        size_t many = 0;
+        for (const char* list : {"line", "segments", "points"}) {
+            const QJsonArray given = a.value(list).toArray();
+            many += size_t(given.size());
+            for (const QJsonValue& v : given) {
+                if (v.toArray().size() != 3) return error(QString(list) + ": each point is [x, y, z]");
+                const ke::Vector3 p = point(v);
+                if (list[0] == 'p') d.points.push_back(p);
+                else (list[0] == 'l' ? d.strip : d.segments).insert((list[0] == 'l' ? d.strip : d.segments).end(), {p.x, p.y, p.z, 0.0f});
+            }
+        }
+        if (many > 200000) return error("at most 200000 points a drawing");
+        d.play = !builder_->editing();
+        if (d.segments.size() % 8 != 0) return error("segments: points in pairs - a start and an end each");
+        d.text = a.value("text").toString();
+        if (a.contains("at")) d.at = point(a.value("at"));
+        if (a.contains("colour")) {
+            const QJsonArray c = a.value("colour").toArray();
+            d.colour = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
+                                        float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
+        }
+        d.size = float(std::clamp(a.value("size").toDouble(6), 1.0, 64.0));
+        if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty())
+            return error("nothing to draw: line, segments, points or text");
+        view_->setDrawing(key, std::move(d));
+        return ok({{"key", key}, {"drawings", int(view_->drawings())}});
+    });
     addSync("view_project", "The pixel of the 3D view (origin top-left) where a world point is seen", "{point: [x,y,z]}",
             [this](const QJsonObject& a) {
         const QJsonArray p = a.value("point").toArray();

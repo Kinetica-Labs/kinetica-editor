@@ -653,6 +653,7 @@ void Viewport::drawOverlays3D(const QMatrix4x4& vp) {
     drawHighlight(vp);
     drawColliderGuides(vp);
     drawPaths(vp);
+    drawOverlayLines(vp);
     drawGoalDrops(vp);
     drawSceneMarkers(vp);
     drawGhosts(vp);
@@ -725,6 +726,7 @@ void Viewport::drawOverlay() {
 // The navigation cube in the top-right corner, the selection box while it is drawn, and the live
 // amount of a drag next to the cursor. What the buttons do is in the status bar (hintChanged).
 void Viewport::drawAxesAndHints(QPainter& p) {
+    drawOverlayMarks(p);
     navCube_.draw(p, viewMatrix(), size(), navPressed_ ? navPressHit_ : navHover_);
     if (editMode_) {
         drawSelectionBox(p);
@@ -825,6 +827,69 @@ void Viewport::drawGoalDrops(const QMatrix4x4& vp) {
 }
 
 // The goals' paths in cyan, over everything: the hidden stretches faint, as the collider guides.
+// The pictures of view_draw: lines in the scene's depth (behind a body faint, as the paths), points and words over it.
+void Viewport::setDrawing(const QString& key, Drawing d) {
+    drawings_[key] = std::move(d);
+    update();
+}
+
+void Viewport::clearPlayDrawings() {
+    for (auto it = drawings_.begin(); it != drawings_.end();) it = it->second.play ? drawings_.erase(it) : std::next(it);
+    update();
+}
+
+int Viewport::clearDrawings(const QString& prefix) {
+    int gone = 0;
+    for (auto it = drawings_.begin(); it != drawings_.end();)
+        it = it->first.startsWith(prefix) ? (++gone, drawings_.erase(it)) : std::next(it);
+    if (gone) update();
+    return gone;
+}
+
+void Viewport::drawOverlayLines(const QMatrix4x4& vp) {
+    if (drawings_.empty()) return;
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    for (const auto& [key, d] : drawings_) {
+        const QVector4D seen(d.colour.redF(), d.colour.greenF(), d.colour.blueF(), 1.0f), hidden(seen.x(), seen.y(), seen.z(), 0.35f);
+        glDepthFunc(GL_GREATER);
+        drawLines(d.strip, GL_LINE_STRIP, vp, hidden), drawLines(d.segments, GL_LINES, vp, hidden);
+        glDepthFunc(GL_LEQUAL);
+        drawLines(d.strip, GL_LINE_STRIP, vp, seen), drawLines(d.segments, GL_LINES, vp, seen);
+    }
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
+void Viewport::drawOverlayMarks(QPainter& p) {
+    if (drawings_.empty()) return;
+    const QMatrix4x4 view = camera_.view(), projection = camera_.projection(float(width()) / std::max(1, height()));
+    const auto screen = [&](const Vector3& w, QPointF& out) {
+        const QVector3D eye = view.map(QVector3D(w.x, w.y, w.z));
+        if (eye.z() > -1e-3f) return false; // behind the eye
+        const QVector3D n = projection.map(eye);
+        out = QPointF((n.x() + 1) * 0.5 * width(), (1 - n.y()) * 0.5 * height());
+        return true;
+    };
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing);
+    QPointF at;
+    for (const auto& [key, d] : drawings_) {
+        p.setPen(Qt::NoPen);
+        p.setBrush(d.colour);
+        for (const Vector3& w : d.points)
+            if (screen(w, at)) p.drawEllipse(at, d.size * 0.5, d.size * 0.5);
+        if (d.text.isEmpty() || !screen(d.at, at)) continue;
+        p.setPen(QColor(0, 0, 0, 200));
+        p.drawText(at + QPointF(7, -5), d.text);
+        p.setPen(d.colour);
+        p.drawText(at + QPointF(6, -6), d.text);
+    }
+    p.restore();
+}
+
 void Viewport::drawPaths(const QMatrix4x4& vp) {
     if (pathLines_.empty()) return;
     const QVector4D colour(0.35f, 0.85f, 1.0f, 0.95f), faint(0.35f, 0.85f, 1.0f, 0.35f);

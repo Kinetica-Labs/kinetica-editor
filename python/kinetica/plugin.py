@@ -27,6 +27,7 @@ import inspect
 import os
 import runpy
 import sys
+import threading
 import traceback
 
 from .client import Client
@@ -67,14 +68,79 @@ class field:
         return out
 
 
-def command(label=None, key=None):
-    """A function of this file made a command of the editor: ``label`` on its button, ``key`` its shortcut."""
+def command(label=None, key=None, tool=False):
+    """A function of this file made a command of the editor: ``label`` on its button, ``key`` its shortcut.
+
+    ``tool=True`` makes it a tool of the shelf at the left of the view (an orange button): a click in the view calls it
+    with ``point`` and ``normal`` (the surface's, in the world) and ``object`` (the id under the mouse, 0 - the floor);
+    its other arguments take the values of the plugin's panel, else their defaults::
+
+        @command(label="Дерево", tool=True)
+        def plant(scene, point, normal, object, height=field(2.0, unit="м")):
+            scene.add_cylinder(position=point, ...)
+    """
 
     def make(fn):
-        _commands[fn.__name__] = {"fn": fn, "label": label or fn.__name__, "key": key or ""}
+        _commands[fn.__name__] = {"fn": fn, "label": label or fn.__name__, "key": key or "", "tool": bool(tool)}
         return fn
 
     return make
+
+
+_CLICK = {"point": {"type": "vector", "label": "Точка щелчка", "unit": "м"}, "normal": {"type": "vector", "label": "Нормаль поверхности"},
+          "object": {"type": "integer", "label": "Объект под мышью (0 - пол)"}}
+
+
+class _Draw:
+    """Lines, points and words over the 3D view, in world metres: what the plugin wants seen - a gas's flow, a planned
+    path, a force, a reading. Each drawing has a key: the same key again replaces it. Drawn from on_tick, it goes with the
+    frame's answer and is gone at Стоп; drawn from a command, it stays until cleared or the plugin stops. No undo step,
+    no journal line::
+
+        draw.line("путь", [(0, 0, 0), (1, 0.5, 0), (2, 0, 0)])        # a line through the points
+        draw.segments("поток", [a0, a1, b0, b1])                       # pairs: a field's arrows
+        draw.points("частицы", points, colour="#33ccff", size=4)
+        draw.label("v", (0, 1.2, 0), "3.2 м/с")
+        draw.clear("путь")                                             # draw.clear(): all of this plugin's
+
+    A colour is "#rrggbb" or (r, g, b) from 0 to 1; orange if none."""
+
+    def line(self, key, points, colour=None):
+        self._send(key, line=_xyz(points), colour=colour)
+
+    def segments(self, key, points, colour=None):
+        self._send(key, segments=_xyz(points), colour=colour)
+
+    def points(self, key, points, colour=None, size=6):
+        self._send(key, points=_xyz(points), colour=colour, size=size)
+
+    def label(self, key, at, text, colour=None):
+        self._send(key, at=_xyz([at])[0], text=str(text), colour=colour)
+
+    def clear(self, key=None):
+        self._send(key, clear=True)
+
+    def _send(self, key, colour=None, **what):
+        name = _link.get("name")
+        if not name:
+            raise RuntimeError("draw: only in a plugin the editor started (the console has ed.view_draw)")
+        what["key"] = f"{name}/" + ("" if key is None else str(key))
+        if colour is not None:
+            what["colour"] = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)] if isinstance(colour, str) else [float(c) for c in colour]
+        batch = getattr(_frame, "draws", None)
+        if batch is not None:  # inside a hook: with the frame's answer, no call of its own
+            batch.append(what)
+        else:
+            _link["client"].call("view_draw", **what)
+
+
+def _xyz(points):
+    points = points.tolist() if hasattr(points, "tolist") else points
+    return [[float(p[0]), float(p[1]), float(p[2])] for p in points]
+
+
+_frame = threading.local()  # the hook running on this thread collects its drawings here
+draw = _Draw()
 
 
 _components = {}  # name -> the class
@@ -252,8 +318,13 @@ def _serve(file):
         sys.exit("kinetica.plugin: the editor starts a plugin (Плагины) - it gives it its name and port")
     control = Client(port=port, src=f"plugin:{name}")
     scene = Scene(control)
-    commands = [{"name": n, "label": c["label"], "key": c["key"], "help": (inspect.getdoc(c["fn"]) or "").strip(), "args": _args(c["fn"]),
-                 "order": list(_args(c["fn"]))} for n, c in _commands.items()]
+    commands = []
+    for n, c in _commands.items():
+        args = _args(c["fn"])
+        if c["tool"]:  # the click's three: given by the view, not a field of a form
+            args.update({k: v for k, v in _CLICK.items() if k in args})
+        commands.append({"name": n, "label": c["label"], "key": c["key"], "tool": c["tool"], "help": (inspect.getdoc(c["fn"]) or "").strip(),
+                         "args": args, "order": [k for k in args if not (c["tool"] and k in _CLICK)]})
     _link.update(client=control, name=name, token=token)
     hooks = [event for event, fns in _hooks.items() if fns] + (["tick:world"] if any(w for _, w in _hooks["tick"]) else [])
     components = [{"name": m["name"], "label": m["label"], "help": m["help"], "order": list(m["fields"]),
@@ -263,10 +334,13 @@ def _serve(file):
     while True:
         call = control.call("plugin_wait", name=name, token=token)
         if "event" in call:  # ▶, a frame, Стоп: the run's hooks; a tick's commands merged into one answer
+            _frame.draws = []
             try:
-                control.call("plugin_reply", name=name, token=token, call=call["call"], event=True,
-                             result={"commands": _run_hooks(scene, call["event"], call.get("args", {}))})
+                result = {"commands": _run_hooks(scene, call["event"], call.get("args", {})), "draw": _frame.draws}
+                _frame.draws = None
+                control.call("plugin_reply", name=name, token=token, call=call["call"], event=True, result=result)
             except Exception as error:  # the author's mistake, with its line; the run goes on
+                _frame.draws = None
                 control.call("plugin_reply", name=name, token=token, call=call["call"], event=True, error=_where(error))
             continue
         fn = _commands.get(call["command"], {}).get("fn")

@@ -33,6 +33,10 @@
 #include <QSpinBox>
 #include <QStatusBar>
 #include <QTimer>
+#include <QIcon>
+#include <QPixmap>
+#include <QPainter>
+#include <QToolBar>
 #include <QUuid>
 
 #include <cmath>
@@ -71,10 +75,30 @@ QString lastError(const QStringList& tail) {
 }
 
 // The command's fields as JSON Schema 2020-12: what MCP gives an agent as the tool's inputSchema.
+// A plugin's tool on the shelf: an orange rounded square with its label's first letter (C4D's colour of a plugin's things).
+QIcon toolIcon(const QString& label) {
+    QPixmap pix(56, 56);
+    pix.fill(Qt::transparent);
+    QPainter p(&pix);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(255, 146, 40));
+    p.drawRoundedRect(QRectF(6, 6, 44, 44), 10, 10);
+    QFont f = p.font();
+    f.setPixelSize(28);
+    f.setBold(true);
+    p.setFont(f);
+    p.setPen(QColor(40, 24, 8));
+    p.drawText(QRectF(6, 6, 44, 44), Qt::AlignCenter, label.left(1).toUpper());
+    return QIcon(pix);
+}
+
 QJsonObject jsonSchema(const QJsonObject& args) {
     QJsonObject properties;
     for (auto it = args.begin(); it != args.end(); ++it) {
         QJsonObject f = it.value().toObject(), p{{"type", f.value("type")}, {"default", f.value("default")}};
+        if (f.value("type") == "vector") // a point, a direction: three numbers
+            p = {{"type", "array"}, {"items", QJsonObject{{"type", "number"}}}, {"minItems", 3}, {"maxItems", 3}, {"default", f.value("default")}};
         QString about = f.value("label").toString();
         if (f.contains("unit")) about += ", " + f.value("unit").toString();
         if (f.contains("help")) about += ". " + f.value("help").toString();
@@ -315,6 +339,7 @@ void PluginHost::notice(const QString& plugin, const QString& text) {
 }
 
 void PluginHost::unregister(Plugin& p) {
+    ops_->run("view_draw", {{"clear", true}, {"key", p.name + "/"}}, [](const QJsonObject&) {}, "ui"); // its pictures with it
     builder_->setPluginComponents(p.name, {}); // its components' cards say the plugin is not running; their words stay
     if (p.panel) { // its values kept for its return; the panel out of the window
         p.panelValues = p.panel->values();
@@ -381,6 +406,13 @@ void PluginHost::broadcast(const QString& event, const QJsonObject& args, std::f
             if (r.value("ok").toBool()) {
                 const QJsonObject c = r.value("commands").toObject();
                 for (auto it = c.begin(); it != c.end(); ++it) round->commands.insert(it.key(), it.value());
+                for (const QJsonValue& d : event == "tick" && builder_->editing() ? QJsonArray() : r.value("draw").toArray()) // its frame's pictures (a late one after Stop: none)
+                    ops_->run("view_draw", d.toObject(), [this, name](const QJsonObject& a) {
+                        Plugin* q = find(name);
+                        if (a.value("ok").toBool() || !q || !q->hookError.isEmpty()) return;
+                        q->hookError = "draw: " + a.value("error").toString();
+                        emit output(name, q->hookError);
+                    }, "plugin:" + name);
             } else if (Plugin* q = find(name); q && q->hookError.isEmpty()) { // said once a run, not sixty times a second
                 q->hookError = r.value("error").toString();
                 emit output(name, "on_" + event + ": " + q->hookError);
@@ -480,6 +512,27 @@ void PluginHost::invoke(const QString& plugin, const Command& c) {
     send(args);
 }
 
+void PluginHost::useTool(const QString& op, const QJsonObject& click) {
+    for (const auto& p : plugins_)
+        for (const Command& c : p->commands) {
+            if (c.op != op) continue;
+            QJsonObject args = click;
+            const QJsonObject panel = p->panel ? p->panel->values() : QJsonObject(); // the tool's options: its panel's values
+            for (auto it = panel.begin(); it != panel.end(); ++it)
+                if (c.args.contains(it.key()) && !args.contains(it.key())) args.insert(it.key(), it.value());
+            return ops_->run(op, args, [this](const QJsonObject& r) {
+                if (!r.value("ok").toBool())
+                    if (auto* w = qobject_cast<QMainWindow*>(window_)) w->statusBar()->showMessage(r.value("error").toString(), 10000);
+            }, "ui");
+        }
+}
+
+void PluginHost::setToolChecked(const QString& op) {
+    for (const auto& p : plugins_)
+        for (const Command& c : p->commands)
+            if (c.tool && c.action) c.action->setChecked(c.op == op);
+}
+
 void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
                                    "(python/kinetica/plugin.py sends it)",
@@ -499,6 +552,7 @@ void PluginHost::addOps() {
             Command cmd;
             cmd.name = c.value("name").toString(), cmd.label = c.value("label").toString(cmd.name), cmd.key = c.value("key").toString();
             cmd.help = c.value("help").toString(), cmd.args = c.value("args").toObject(), cmd.order = c.value("order").toArray();
+            cmd.tool = c.value("tool").toBool();
             cmd.op = p->name + "_" + slug(cmd.name);
             const QString plugin = p->name, command = cmd.name;
             ops_->addPluginOp(cmd.op, QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ",
@@ -509,7 +563,12 @@ void PluginHost::addOps() {
                 if (!q || !q->process) return r(EditorOps::error("плагин «" + plugin + "» не запущен"));
                 call(*q, command, args, r);
             }, jsonSchema(cmd.args));
-            cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() ? QString() : "…"), window_);
+            cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() || cmd.tool ? QString() : "…"), window_);
+            if (cmd.tool) { // on the shelf at the left of the view, under the gizmo's tools: orange, its first letter
+                cmd.action->setCheckable(true);
+                cmd.action->setIcon(toolIcon(cmd.label));
+                if (auto* shelf = window_->findChild<QToolBar*>("toolShelf")) shelf->addAction(cmd.action);
+            }
             cmd.action->setObjectName("plugin:" + cmd.op);
             cmd.action->setToolTip(cmd.help.isEmpty() ? cmd.op : cmd.help);
             if (!cmd.key.isEmpty()) { // a key the window or another plugin has already: left off, said (no two actions on one key)
@@ -531,8 +590,11 @@ void PluginHost::addOps() {
             p->menu->insertAction(p->menu->actions().value(p->menu->actions().size() - 2), cmd.action); // before its separator
             connect(cmd.action, &QAction::triggered, this, [this, plugin, op = cmd.op] {
                 if (Plugin* q = find(plugin))
-                    for (const Command& x : q->commands)
-                        if (x.op == op) return invoke(plugin, x);
+                    for (const Command& x : q->commands) {
+                        if (x.op != op) continue;
+                        if (x.tool) return emit toolPicked(x.action->isChecked() ? op : QString(), x.label); // pressed again: left
+                        return invoke(plugin, x);
+                    }
             });
             p->commands.push_back(cmd);
             made.append(cmd.op);

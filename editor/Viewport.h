@@ -24,6 +24,7 @@
 #include "ViewportTools.h"
 #include "sim/Frame.h"
 
+#include <QColor>
 #include <QElapsedTimer>
 
 #include <array>
@@ -115,6 +116,28 @@ public:
     void setHoveredHandle(int i);
     // The IK goals' paths (Entity::path): segments, x y z 0 per point - drawn over the scene, faint where hidden.
     void setPathLines(std::vector<float> lines) { pathLines_ = std::move(lines), update(); }
+    // A picture over the view (view_draw): a plugin's or an agent's lines, points and words, in world metres, by key - the
+    // same key again replaces it. Drawn while the scene plays: gone at Stop, as everything of a run.
+    struct Drawing {
+        std::vector<float> strip, segments; // four floats a point (lines.vert): a line through them, or pairs
+        std::vector<ke::Vector3> points;
+        QString text;
+        ke::Vector3 at{0.0f};
+        QColor colour{255, 146, 40}; // a plugin's orange
+        float size = 6;
+        bool play = false; // drawn while the scene ran (played or paused)
+    };
+    void setDrawing(const QString& key, Drawing d);
+    int clearDrawings(const QString& prefix); // every key that starts so ("": all); how many went
+    void clearPlayDrawings();                 // Stop: what was drawn while the scene ran goes with the run
+    size_t drawings() const { return drawings_.size(); }
+    bool hasDrawing(const QString& key) const { return drawings_.count(key) > 0; }
+    // A plugin's tool (PluginHost): while on, a left click calls its command `op` with the point, the normal and the
+    // object under the mouse; Esc, another tool of the shelf or making shapes leaves it.
+    void setPluginTool(const QString& op, const QString& label);
+    const QString& pluginTool() const { return toolOp_; }
+    bool surfaceAt(const QPointF& pos, ke::Vector3& point, ke::Vector3& normal, uint32_t& object) const; // an object, else the floor
+    void clickTool(const QPointF& pos);
     // The 2D text over the view (the scene's name, the axes, the navigation cube); off for the gallery's pictures.
     void setOverlayVisible(bool on) { overlayVisible_ = on; update(); }
     // While an agent drives the editor through the API the gizmo is not drawn: nobody takes its handles then, and its
@@ -201,6 +224,8 @@ signals:
     void gizmoFinished();                             // confirmed: one step of the undo history
     void gizmoCancelled();                            // Esc / right button: put the object back
     void shapeHandleDragged(int index, ke::Vector3 point, int phase); // a point taken: 0 pressed, 1 moved, 2 released, 3 Esc
+    void toolClicked(const QString& op, ke::Vector3 point, ke::Vector3 normal, uint32_t object); // a plugin's tool used
+    void pluginToolChanged(const QString& op); // its tool taken or left (empty)
     void cloneDragStarted();                          // Shift was held when the handle drag began
     void cloneDragFinished(QPointF pos);              // ... and it ended here: ask how many copies
     void editContextMenu(QPointF pos);                // edit mode: a right click without a drag
@@ -380,6 +405,11 @@ private:
     int hoveredHandle_ = -1;
     std::vector<float> guidesByState_[3];   // the same lines sorted by state: one colour per draw
     std::vector<float> pathLines_;
+    std::map<QString, Drawing> drawings_;
+    PluginTool pluginTool_;
+    QString toolOp_, toolLabel_;
+    void drawOverlayLines(const QMatrix4x4& vp);
+    void drawOverlayMarks(QPainter& p);
     QString draggedImage_;                  // an image file being dragged over the view
     bool labInspect_ = false;               // the Laboratory is open: clicks are reported (labClicked)
     bool labMarker_ = false;                // the ring round what the Laboratory's card shows
