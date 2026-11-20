@@ -4,6 +4,7 @@
 // the self-test, pictures - starts none of them, so it does not depend on what a user installed.
 #include "MainWindow.h"
 
+#include "ApiConsole.h"
 #include "EditorOps.h"
 #include "PluginHost.h"
 #include "PluginPanel.h"
@@ -51,6 +52,8 @@ void MainWindow::buildPlugins() {
         if (!add) return;
         inspectorTabs_->addTab(scrolled(panel), panel->title());
     });
+    if (auto* dock = findChild<QDockWidget*>("consoleDock"))
+        if (auto* console = dynamic_cast<ApiConsole*>(dock->widget())) connect(plugins_, &PluginHost::output, console, &ApiConsole::pluginLine);
     QAction* make = menu->addAction("Новый плагин…");
     make->setObjectName("actionNewPlugin");
     make->setToolTip("Плагин на Python из одного файла: команда с полем, кнопка здесь же; сохраните файл — он перезапустится");

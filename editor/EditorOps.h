@@ -70,6 +70,11 @@ public:
     void setUnknownHint(std::function<QString(const QString&)> hint) { unknownHint_ = std::move(hint); }
     static bool isQuery(const QString& name); // EditorJournal.cpp
     static bool windowOnly(const QString& name); // the window's state or time, no change of the scene (EditorJournal.cpp)
+    // A plugin process's own wiring (plugin_register, _wait, _reply, _panel_set with its token): no one's action - out of
+    // ops_list, the console's log and the journal, as MCP leaves it out of its tools (a person saw ed.plugin_register(…)).
+    static bool wiring(const QString& name) {
+        return name == "plugin_register" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_panel_set";
+    }
 
     // The journal as a way back (EditorJournal.cpp), as a database's log with checkpoints: every line of a
     // session carries its id; a snapshot - the whole scene, the next id to give - starts the session and

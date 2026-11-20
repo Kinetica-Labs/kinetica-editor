@@ -157,12 +157,26 @@ class View:
         self.scene._call("view_frame", f"editor.view.frame({obj.ref if obj else ''})", **({"id": obj.id} if obj else {}))
 
 
+class Operations:
+    """ed.<operation>(**args): any operation of the editor by its name - the console's ``ed`` and a plugin's ``scene.ed``
+    are the same, so a line tried in the console is pasted into a plugin as it is."""
+
+    def __init__(self, scene):
+        self._scene = scene
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return lambda **args: self._scene._call(name, **args)
+
+
 class Scene:
     def __init__(self, client):
         self.client = client
         self.objects = Objects(self)
         self.world = World(self)
         self.editor = Editor(self)
+        self.ed = Operations(self)
 
     def _call(self, op, py=None, **args):
         return self.client.call(op, py, **args)

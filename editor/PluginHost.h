@@ -45,6 +45,7 @@ public:
 
 signals:
     void changed(); // a plugin came, went, or fell
+    void output(const QString& plugin, const QString& line); // a line it printed (print(), a traceback), or a word about it
 
 private:
     struct Command {
@@ -72,6 +73,7 @@ private:
     void scan(const QString& folder);
     void launch(Plugin& p);
     void stop(Plugin& p);
+    void forget(const QString& file); // its file gone: the plugin out of the editor
     void onExit(Plugin& p, int code);
     void unregister(Plugin& p);
     void call(Plugin& p, const QString& command, const QJsonObject& args, const EditorOps::Reply& reply);

@@ -39,10 +39,22 @@
 
 namespace {
 
-// «cubes» + «cube_row» -> cubes_cube_row: an operation's name, as ops_list, the console and MCP spell it.
+// «cubes» + «cube_row» -> cubes_cube_row: an operation's name, as ops_list, the console and MCP spell it. Russian letters
+// are spelt in Latin («Мой плагин» -> moy_plagin; it was «___»), anything else becomes one _, none at the ends.
 QString slug(const QString& s) {
-    QString out = s.toLower();
-    out.replace(QRegularExpression("[^a-z0-9_]"), "_");
+    static const QStringList latin{"a", "b", "v", "g", "d", "e", "zh", "z", "i", "y", "k", "l", "m", "n", "o", "p", "r", "s", "t", "u",
+                                   "f", "kh", "ts", "ch", "sh", "shch", "", "y", "", "e", "yu", "ya"};
+    QString out;
+    for (const QChar c : s.toLower()) {
+        if (c >= QChar(0x0430) && c <= QChar(0x044F)) out += latin[c.unicode() - 0x0430];
+        else if (c == QChar(0x0451)) out += "e"; // ё
+        else out += c;
+    }
+    out.replace(QRegularExpression("[^a-z0-9_]+"), "_");
+    out.replace(QRegularExpression("_+"), "_");
+    while (out.startsWith('_')) out.remove(0, 1);
+    while (out.endsWith('_')) out.chop(1);
+    if (!out.isEmpty() && out[0].isDigit()) out.prepend("p_");
     return out;
 }
 
@@ -103,7 +115,8 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
     commandsEnd_ = menu_->addSeparator();
     connect(watcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) {
         QTimer::singleShot(150, this, [this, path] { // an editor writes in steps: the file as it stands a moment later
-            if (QFileInfo::exists(path)) watcher_->addPath(path); // a replaced file is a new one to watch
+            if (!QFileInfo::exists(path)) return forget(path); // its folder deleted: it was «запускается» for ever
+            watcher_->addPath(path); // a replaced file is a new one to watch
             for (auto& p : plugins_)
                 if (p->file == path) {
                     p->reloaded = true;
@@ -172,7 +185,7 @@ void PluginHost::scan(const QString& folder) {
 
 QString PluginHost::create(const QString& name, QString& error) {
     const QString folder = userFolder() + "/" + slug(name);
-    if (slug(name).isEmpty()) return error = "имя плагина: латиница, цифры, _", QString();
+    if (slug(name).isEmpty()) return error = "имя плагина: буквы и цифры, например «my_tools»", QString();
     if (QFileInfo::exists(folder)) return error = "плагин «" + slug(name) + "» уже есть: " + folder, QString();
     QFile templ(pythonPackage() + "/kinetica/plugin_template.py");
     if (!templ.open(QIODevice::ReadOnly)) return error = "нет заготовки плагина: " + templ.fileName(), QString();
@@ -203,9 +216,31 @@ void PluginHost::launch(Plugin& p) {
     connect(p.process, &QProcess::readyReadStandardOutput, this, [this, name] {
         Plugin* q = find(name);
         if (!q || !q->process) return;
-        for (const QByteArray& line : q->process->readAllStandardOutput().split('\n'))
-            if (!line.trimmed().isEmpty()) q->stderrTail << QString::fromUtf8(line);
+        bool fell = false;
+        for (const QByteArray& raw : q->process->readAllStandardOutput().split('\n')) {
+            const QString line = QString::fromUtf8(raw).trimmed().isEmpty() ? QString() : QString::fromUtf8(raw);
+            if (line.isEmpty()) continue;
+            q->stderrTail << line;
+            fell = fell || line.startsWith("Traceback");
+            emit output(name, line); // print() and tracebacks in the API console as they come (they were seen only after a fall)
+        }
         while (q->stderrTail.size() > 40) q->stderrTail.removeFirst();
+        if (fell && q->state == "работает") { // a worker thread fell while the process lives on: said, not silent
+            QTimer::singleShot(200, this, [this, name] { // the traceback's last line comes a moment later
+                if (Plugin* r = find(name)) {
+                    r->error = lastError(r->stderrTail);
+                    notice(name, "Плагин «" + name + "»: ошибка в фоне — " + r->error);
+                    emit changed();
+                }
+            });
+        }
+    });
+    connect(p.process, &QProcess::errorOccurred, this, [this, name](QProcess::ProcessError e) {
+        Plugin* q = find(name);
+        if (!q || e != QProcess::FailedToStart) return;
+        q->state = "не запустился", q->error = "нет Python: " + pythonInterpreter();
+        notice(name, "Плагин «" + name + "» не запустился: " + q->error);
+        emit changed();
     });
     connect(p.process, &QProcess::finished, this, [this, name](int code, QProcess::ExitStatus status) {
         if (Plugin* q = find(name)) onExit(*q, status == QProcess::CrashExit ? -1 : code);
@@ -213,7 +248,21 @@ void PluginHost::launch(Plugin& p) {
     p.state = "запускается";
     p.stderrTail.clear();
     if (!p.since.isValid()) p.since.start();
-    p.process->start(pythonInterpreter(), {"-u", p.file});
+    p.process->start(pythonInterpreter(), {"-u", "-m", "kinetica.plugin", p.file}); // the runner serves the file: no run() in it
+}
+
+void PluginHost::forget(const QString& file) {
+    for (auto it = plugins_.begin(); it != plugins_.end(); ++it) {
+        if ((*it)->file != file) continue;
+        Plugin& p = **it;
+        if (p.process) p.process->disconnect(this), stop(p);
+        unregister(p);
+        for (auto& [id, reply] : p.open) reply(EditorOps::error("плагин «" + p.name + "» удалён"));
+        if (noticeFor_ == p.name) notice(p.name, {});
+        plugins_.erase(it);
+        emit changed();
+        return;
+    }
 }
 
 void PluginHost::stop(Plugin& p) {
@@ -415,7 +464,13 @@ void PluginHost::addOps() {
             cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() ? QString() : "…"), window_);
             cmd.action->setObjectName("plugin:" + cmd.op);
             cmd.action->setToolTip(cmd.help.isEmpty() ? cmd.op : cmd.help);
-            if (!cmd.key.isEmpty()) cmd.action->setShortcut(QKeySequence(cmd.key));
+            if (!cmd.key.isEmpty()) { // a key the window or another plugin has already: left off, said (no two actions on one key)
+                QString owner;
+                for (QAction* other : window_->findChildren<QAction*>())
+                    if (other != cmd.action && other->shortcuts().contains(QKeySequence(cmd.key))) owner = other->text().remove('&');
+                if (owner.isEmpty()) cmd.action->setShortcut(QKeySequence(cmd.key));
+                else emit output(p->name, "клавиша " + cmd.key + " уже у «" + owner + "»: у «" + cmd.label + "» её нет, выберите другую");
+            }
             if (!p->menu) { // its own submenu: whose command it is, and its file a click away
                 p->menu = new QMenu(p->name, window_);
                 p->menu->setObjectName("pluginMenu:" + p->name);

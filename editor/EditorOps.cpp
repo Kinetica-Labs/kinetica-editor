@@ -110,6 +110,7 @@ QJsonObject EditorOps::runNow(const QString& name, const QJsonObject& args) {
 QJsonArray EditorOps::list() const {
     QJsonArray out;
     for (const auto& [name, op] : ops_) {
+        if (wiring(name)) continue; // a plugin process's own, not an operation anyone calls
         QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}};
         entry.insert("schema", op.schema); // JSON Schema: a plugin's fields, or the core's line of arguments read (ArgsSchema.h)
         out.append(entry);

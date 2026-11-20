@@ -36,6 +36,8 @@ public:
     // The port of the window's API for the console's Python (MainWindow starts the server when it is not
     // serving; 0: none - a line is then one call).
     void setApiPort(std::function<quint16()> port) { apiPort_ = std::move(port); }
+    // A line a plugin printed (its print(), its traceback): in the log as it comes, under the plugin's name.
+    void pluginLine(const QString& plugin, const QString& line);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

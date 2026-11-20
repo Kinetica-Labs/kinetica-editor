@@ -1,16 +1,14 @@
 """Kinetica plugins in Python: one file, plain functions, no build and no manifest::
 
-    from kinetica.plugin import command, field, run, ui, show
+    from kinetica.plugin import command, field
 
-    @command(label="Ряд кубиков", key="Ctrl+Shift+R")
+    @command(label="Ряд кубиков")
     def cube_row(scene, count: int = field(5, range=(1, 50), label="Сколько"),
                  gap: float = field(0.12, unit="м", range=(0.05, 1.0), label="Шаг")):
         \"\"\"A row of cubes in front of the robot.\"\"\"
         for k in range(count):
             scene.add("box", position=(0.4 + k * gap, 0.05, 0.3))
         return {"made": count}
-
-    run()
 
 Put it as ``plugin.py`` in a folder of the editor's plugins (Плагины → Папка моих плагинов, or Плагины → Новый плагин…):
 the editor starts it, and ``cube_row`` is then a command of the editor like any - a button in «Плагины» with its key,
@@ -20,11 +18,14 @@ call it makes is shown in the console as a Python line. Save the file: the edito
 An error points at your line: the editor shows ``plugin.py:12: ...`` on a banner, and goes on.
 
 ``scene`` is the same object model as the editor's console (``kinetica.Scene``): ``scene.objects["Куб 1"]``,
-``scene.add("box")``, ``scene.editor.select(...)``, and ``scene.client.call(op, **args)`` for any operation
-(``ops_list`` names them). Only the Python standard library is used.
+``scene.add("box")``, ``scene.editor.selection``, and ``scene.ed.<operation>(**args)`` for any operation - the
+console's ``ed``, so a line tried there is pasted here as it is (``ops_list`` names them all). ``print`` goes to the
+editor's API console. The editor starts the file itself (``python -m kinetica.plugin plugin.py``): no ``run()`` at its
+end is needed - an old file's ``run()`` does nothing. Only the Python standard library is used.
 """
 import inspect
 import os
+import runpy
 import sys
 import traceback
 
@@ -33,7 +34,7 @@ from .scene import Scene
 
 _commands = {}
 _panel = None
-_link = {}  # the editor's client, name and token once run() has them: show() speaks through it
+_link = {}  # the editor's client, name and token once serving: show() speaks through it
 
 
 class field:
@@ -163,18 +164,22 @@ def _where(error):
 
 
 def run():
-    """Register this file's commands with the editor that started it, then answer its calls until it stops us."""
+    """Kept for files written before the runner: the editor serves the file itself now, so this does nothing."""
+
+
+def _serve(file):
+    """Register the file's commands with the editor that started it, then answer its calls until it stops us - all of it
+    over one connection (the client hands each answer to the call that asked, from any thread)."""
     name, token = os.environ.get("KE_PLUGIN_NAME"), os.environ.get("KE_PLUGIN_TOKEN")
     port = int(os.environ.get("KE_EDITOR_PORT", "47801"))
     if not name:
-        sys.exit("kinetica.plugin.run(): start this file from the editor (Плагины), it gives the plugin its name and port")
-    who = f"plugin:{name}"
-    control, calls = Client(port=port, timeout=None, src=who), Client(port=port, src=who)
-    scene = Scene(calls)
+        sys.exit("kinetica.plugin: the editor starts a plugin (Плагины) - it gives it its name and port")
+    control = Client(port=port, src=f"plugin:{name}")
+    scene = Scene(control)
     commands = [{"name": n, "label": c["label"], "key": c["key"], "help": (inspect.getdoc(c["fn"]) or "").strip(), "args": _args(c["fn"]),
                  "order": list(_args(c["fn"]))} for n, c in _commands.items()]
-    _link.update(client=calls, name=name, token=token)
-    control.call("plugin_register", name=name, token=token, file=os.path.abspath(sys.argv[0]), commands=commands,
+    _link.update(client=control, name=name, token=token)
+    control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands,
                  **({"panel": _panel} if _panel else {}))
     while True:
         call = control.call("plugin_wait", name=name, token=token)
@@ -188,3 +193,20 @@ def run():
             control.call("plugin_reply", name=name, token=token, call=call["call"], result=result if isinstance(result, dict) else {})
         except Exception as error:  # the author's mistake goes back to the editor with its line, the plugin lives on
             control.call("plugin_reply", name=name, token=token, call=call["call"], error=_where(error))
+
+
+def main():
+    """``python -m kinetica.plugin plugin.py``: the file run as the plugin's module (its @command and ui.panel lines
+    declare it), then served."""
+    if len(sys.argv) != 2:
+        sys.exit("usage: python -m kinetica.plugin plugin.py (the editor starts plugins itself)")
+    file = os.path.abspath(sys.argv[1])
+    sys.path.insert(0, os.path.dirname(file))
+    runpy.run_path(file, run_name="__plugin__")
+    _serve(file)
+
+
+if __name__ == "__main__":  # run as -m, this file is "__main__"; the plugin's file imports kinetica.plugin: serve from that one
+    from kinetica import plugin as _module
+
+    _module.main()

@@ -6,7 +6,9 @@ description: Write, run and fix a Python plugin for the Kinetica robotics editor
 # Writing a Kinetica plugin
 
 A plugin is one file `plugin.py` in its own folder; each `@command` function becomes an operation of the editor (a
-button in «Плагины», Ctrl+K, a console call, an MCP tool with a strict schema). Guide for people: `docs/plugins.md`;
+button in «Плагины → <plugin>», Ctrl+K, a console call, an MCP tool with a strict schema). Today a plugin gives
+commands and a panel; per-frame controller ticks, sensor readings without the truth, components, gizmo handles,
+tools in the view, drawing and importers are not there yet (`docs/contracts/editor-plugin.md`, «Дальше»). Guide for people: `docs/plugins.md`;
 contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; examples: the project's plugins repository kinetica-plugins (`cubes/plugin.py`); new plugins of the project go there, one folder each.
 
 ## Steps
@@ -17,16 +19,17 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; e
    (`scene_batch`, `scene_move` with `ids`). Read the state with `scene_list`, `selection_get`, `sim_state`.
 3. **Write the file** with your file tools. Shape:
    ```python
-   from kinetica.plugin import command, field, run
+   from kinetica.plugin import command, field
 
-   @command(label="Words on the button", key="Ctrl+Shift+X")
+   @command(label="Words on the button")
    def name(scene, arg: float = field(0.1, unit="м", range=(0.0, 1.0), label="Подпись")):
        """One sentence: what it does."""
-       answer = scene.client.call("scene_list")
-       return {"done": True}  # a dict, shown to the caller
-
-   run()
+       objects = scene.ed.scene_list()["objects"]  # any operation: scene.ed.<op>(...), as ed.<op>(...) in the console
+       print("seen", len(objects))                # print() goes to the editor's API console
+       return {"done": True}                      # a dict, shown to the caller
    ```
+   No `run()` at the end: the editor starts the file itself. A `key="Ctrl+Shift+X"` is optional; a key already taken
+   is not given (the console says whose it is).
    Labels and words people see are Russian; code and comments English. Every argument after `scene` needs a
    default (a `field` or a plain value). Return a dict.
 4. **Saving restarts it** (about 0.2 s). Check `plugin_list`: its state must be `работает`; otherwise `error`
@@ -37,7 +40,8 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `python/kinetica/plugin.py`; e
 
 ## Rules
 
-- Change the scene only through operations (`scene.client.call`), never by other means.
-- A robot's controller sees sensors, not the truth (CLAUDE.md, «Контракт наблюдаемости»): a plugin that steers a robot
-  reads `sensor_*` readings, not `sim_state` poses.
+- Change the scene only through operations (`scene.ed.<op>(...)` or the object model), never by other means.
+- A robot's controller sees sensors, not the truth (CLAUDE.md, «Контракт наблюдаемости»). There is no operation for
+  readings without the truth yet: do not write a robot controller as a plugin until the controller tick exists;
+  `sim_state` is the engine's truth, for checking only.
 - No third-party packages: the standard library only.

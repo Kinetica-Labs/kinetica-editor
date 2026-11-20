@@ -20,19 +20,9 @@ from kinetica.scene import Scene  # noqa: E402
 DONE = "\x1e"
 
 
-class Operations:
-    """ed.<operation>(**args): any operation of the editor by its name, as the console's old line had it."""
-
-    def __init__(self, scene):
-        self._scene = scene
-
-    def __getattr__(self, name):
-        return lambda **args: self._scene._call(name, **args)
-
-
 def main():
     scene = Scene(Client(port=int(os.environ.get("KE_EDITOR_PORT", "47801")), src="console"))
-    names = {"ke": ke, "scene": scene, "editor": scene.editor, "ed": Operations(scene)}
+    names = {"ke": ke, "scene": scene, "editor": scene.editor, "ed": scene.ed}
     for line in sys.stdin:
         line = line.rstrip("\n")
         try:

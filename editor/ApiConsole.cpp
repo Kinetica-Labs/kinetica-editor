@@ -183,6 +183,7 @@ void ApiConsole::show(const QString& source, const QString& name, const QJsonObj
         return;
     }
     if (query && source != "console" && !queries_->isChecked()) return;
+    if (EditorOps::wiring(name)) return; // a plugin's own wiring is no one's action
     const bool plugin = source.startsWith("plugin:");
     const QString who = source == "console" ? "вы" : source == "ui" ? "окно" : plugin ? "плагин " + source.mid(7) : "агент";
     const QString colour = source == "console" ? "#7fb8ff" : source == "ui" ? "#9aa0a8" : plugin ? "#7cff9a" : "#ffb454";
@@ -195,6 +196,12 @@ void ApiConsole::show(const QString& source, const QString& name, const QJsonObj
     if (answer.value("ok").toBool() && text.size() > 160) text = summary(shown); // a state: its numbers and how many of each list
     appendLog(log_, QString("<span style='color:%1'>&nbsp;&nbsp;%2 %3</span>")
                          .arg(answer.value("ok").toBool() ? "#8fd18f" : "#ff7b72", answer.value("ok").toBool() ? "→" : "✗", text.toHtmlEscaped()));
+}
+
+void ApiConsole::pluginLine(const QString& plugin, const QString& line) {
+    const bool trace = line.startsWith("Traceback") || line.startsWith("  File ") || line.contains("Error:") || line.contains("Exception");
+    appendLog(log_, QString("<span style='color:#7cff9a'>[%1]</span> <span style='color:%2'>%3</span>")
+                         .arg(plugin.toHtmlEscaped(), trace ? "#ff7b72" : "#d8dee9", line.toHtmlEscaped()));
 }
 
 void ApiConsole::submit() {

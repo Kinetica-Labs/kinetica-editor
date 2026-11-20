@@ -11,6 +11,7 @@
 
 #include <QAction>
 #include <QDialog>
+#include <QDir>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QFile>
@@ -138,6 +139,32 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport*, const QString&) {
             "an error in a command answers with the author's file and line");
     c.check(b.graph().entities.size() == objects && why.contains("отменены"),
             "a command that fails changes nothing: the cube it had added is taken back, and the answer says so");
+
+    // A second plugin in a folder named in Russian: its name spelt in Latin (it was «___»); its print() in the console as it
+    // comes (it was seen only after a fall); a worker thread of it falling said on the status bar while it lives on; its
+    // folder deleted - the editor forgets it (it stayed «запускается» for ever).
+    QStringList printed;
+    const auto heard = QObject::connect(host, &PluginHost::output, [&printed](const QString& p, const QString& line) { printed << p + ": " + line; });
+    const QString second = dir.path() + "/Мой плагин";
+    QDir().mkpath(second);
+    write(second + "/plugin.py", "import threading\nfrom kinetica.plugin import command\n\nprint('привет из плагина')\n\n\n"
+                                 "@command(label='Ничего')\ndef nothing(scene):\n    return {}\n\n\n"
+                                 "def worker():\n    raise KeyError('нет такого')\n\n\nthreading.Timer(0.5, worker).start()\n");
+    host->start(true);
+    const bool named = waitUntil([&] { return action(w, "plugin:moy_plagin_nothing") != nullptr; }, 10000);
+    const bool heardIt = waitUntil([&] { return printed.contains("moy_plagin: привет из плагина"); }, 3000);
+    QString background;
+    waitUntil([&] {
+        if (auto* x = w.findChild<QLabel*>("pluginNoticeText"); x && x->isVisible() && x->text().contains("в фоне")) background = x->text();
+        return !background.isEmpty();
+    }, 6000);
+    QDir(second).removeRecursively();
+    const bool forgotten = waitUntil([&] { return !host->names().contains("moy_plagin"); }, 5000);
+    QObject::disconnect(heard);
+    std::printf("  «Мой плагин»: %s; its print heard %s; a worker falling: «%s»; its folder deleted, forgotten %s\n",
+                named ? "moy_plagin_nothing" : "not named", heardIt ? "yes" : "no", qPrintable(background), forgotten ? "yes" : "no");
+    c.check(named && heardIt, "a plugin in a folder named in Russian is moy_plagin; its print() reaches the API console as it comes");
+    c.check(background.contains("KeyError") && forgotten, "a worker thread falling is said on the status bar; its folder deleted, the editor forgets the plugin");
 
     // Saved: back with its new words.
     clock.restart();

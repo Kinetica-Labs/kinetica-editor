@@ -21,8 +21,8 @@ quint16 EditorServer::port() const { return server_->serverPort(); }
 
 void EditorServer::accept() {
     while (QTcpSocket* socket = server_->nextPendingConnection()) {
-        if (sockets_.size() >= 8) {
-            socket->write("{\"result\":{\"ok\":false,\"error\":\"connection limit is 8\"}}\n");
+        if (sockets_.size() >= 32) { // the console, MCP, scripts and a connection per plugin
+            socket->write("{\"result\":{\"ok\":false,\"error\":\"connection limit is 32\"}}\n");
             socket->disconnectFromHost();
             connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
             continue;
