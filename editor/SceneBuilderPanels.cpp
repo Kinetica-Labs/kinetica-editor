@@ -688,7 +688,7 @@ void SceneBuilder::refreshHeader() {
                                     : arrayById(o->id)  ? uiText("Kinetica", "массив копий")
                                     : lightById(o->id)  ? uiText("Kinetica", "свет — для глаза, физика его не видит")
                                     : cameraById(o->id) ? uiText("Kinetica", "камера — через неё вид и скриншоты")
-                                    : forceById(o->id)  ? uiText("Kinetica", "сила — действует на тела мира, робот узнаёт о ней только по датчикам")
+                                    : forceById(o->id)  ? uiText("Kinetica", "сила — толкает тела мира")
                                     : sensorById(o->id) ? (findJoint(graph_, sensorById(o->id)->parent) ? uiText("Kinetica", "датчик — на сочленении, считает его ход")
                                                                                                         : uiText("Kinetica", "датчик — едет на своём теле, читает мир как плата"))
                                                         : uiText("Kinetica", "разные объекты")));

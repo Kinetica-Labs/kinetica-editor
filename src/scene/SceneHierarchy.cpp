@@ -220,6 +220,8 @@ std::vector<Entity> expandArray(const SceneGraph& g, const ArrayObject& a) {
         c.instanceOf = 0;
         c.visible = visible;
         c.locked = a.locked;
+        for (const std::string& t : a.tags)
+            if (std::find(c.tags.begin(), c.tags.end(), t) == c.tags.end()) c.tags.push_back(t); // the array's tags too
         c.position = ap + aq.rotate(offset);
         c.rotationDeg = eulerDegrees((aq * objectRotation(turn) * objectRotation(base)).normalized());
         out.push_back(std::move(c));

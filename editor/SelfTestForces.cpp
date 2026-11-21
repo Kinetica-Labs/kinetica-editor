@@ -114,13 +114,17 @@ void testCard(Checker& c, QMainWindow& w, SceneBuilder& b) {
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
     b.newScene();
     pump(100);
+    const int panelWidth = b.inspectorPanel()->width();
     const uint32_t push = made(b, addAction(w, 0));
+    pump(100);
     const auto field = [&](const char* name) { return w.findChild<QWidget*>(name); };
     const auto shows = [&](const char* name) { return field(name) && field(name)->isVisibleTo(b.inspectorPanel()); };
     auto* card = w.findChild<QWidget*>("forceCard");
     c.check(card && card->isVisibleTo(b.inspectorPanel()) && shows("forceShape") && shows("forceMode") && shows("forceStrength") && shows("forceRadius") &&
                 shows("forceFalloff") && shows("forceStart") && shows("forceTag") && shows("forceFire"),
             "a selected impulse force shows its card: shape, mode, strength, radius, falloff, moment, tag and «Сработать»");
+    c.check(b.inspectorPanel()->width() == panelWidth, ("the force's header line does not widen the inspector: " + std::to_string(panelWidth) + " -> " +
+                                                         std::to_string(b.inspectorPanel()->width()) + " px").c_str());
 
     std::vector<std::pair<QString, QJsonObject>> lines; // what the hand says about the edit, in order
     b.setCodeReporter([&lines](const QString& op, const QJsonObject& args) { lines.push_back({op, args}); });

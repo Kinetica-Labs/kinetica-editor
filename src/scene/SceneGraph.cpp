@@ -781,7 +781,7 @@ static bool readForceLine(const std::vector<std::string>& w, Force& f, std::stri
                       : k == "shape" ? r.text(word) && oneOf(word, kForceShapeNames, v) && (f.shape = ForceShape(v), true)
                       : k == "mode" ? r.text(word) && oneOf(word, kForceModeNames, v) && (f.mode = ForceMode(v), true)
                       : k == "falloff" ? r.text(word) && oneOf(word, kForceFalloffNames, v) && (f.falloff = ForceFalloff(v), true) : false;
-        if (!ok) return fail(bad, k);
+        if (!ok) return fail(bad, word.empty() ? k : word); // a bad word is named, else the key
     }
     const char* fault = forceFault(f);
     return !fault || fail(bad, fault);

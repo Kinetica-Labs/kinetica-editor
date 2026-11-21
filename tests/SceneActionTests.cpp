@@ -685,6 +685,9 @@ void testSceneForces() {
     const SceneGraph standing = g;
     add("radial", "constant");
     CHECK(d.undo() && d.graph.save() == standing.save(), "undo of an added force restores the graph");
+    SceneGraph bad;
+    CHECK(!bad.load("force \"F\"\n  effect radius 1 shape sphere\nend\n", error) && error.find("'sphere'") != std::string::npos,
+          "an unknown shape word is named in the refusal: %s", error.c_str());
     Force far;
     far.id = 900;
     SceneGraph later = g;

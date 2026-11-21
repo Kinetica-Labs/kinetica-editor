@@ -4672,8 +4672,8 @@ or create one from the toolbar.</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="691"/>
-        <source>сила — действует на тела мира, робот узнаёт о ней только по датчикам</source>
-        <translation>force: acts on the world's bodies; a robot learns of it only through its sensors</translation>
+        <source>сила — толкает тела мира</source>
+        <translation>force: pushes the world's bodies</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="692"/>

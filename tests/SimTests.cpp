@@ -1373,6 +1373,17 @@ void testSimForces() {
         for (const Entity& e : copies.robot()->built())
             if (const int b = copies.robot()->bodyOf(e.id); b >= 0 && length(copies.physics()->state(b).velocity) > 0) ++moved;
         CHECK(moved == 3 && length(velocityOf(copies, 2)) == 0, "the array's copies carry its tag: %d moved of the three crates", moved);
+
+        // The tag on the array object itself (the template stays untagged) reaches the copies as well.
+        rows.entities[0].tags.clear();
+        rows.arrays[0].tags = {"crate"};
+        Simulation arrayTag;
+        arrayTag.load(rows);
+        arrayTag.stepFrame();
+        moved = 0;
+        for (const Entity& e : arrayTag.robot()->built())
+            if (const int b = arrayTag.robot()->bodyOf(e.id); b >= 0 && length(arrayTag.physics()->state(b).velocity) > 0) ++moved;
+        CHECK(moved == 3 && length(velocityOf(arrayTag, 2)) == 0, "a tag on the array object reaches its copies: %d moved", moved);
     }
 
     // Sleeping bodies: an impulse takes effect at once and wakes; a constant force wakes; the neighbour of a woken one wakes.
