@@ -25,7 +25,7 @@
 namespace {
 
 const std::set<QString>& queries() {
-    static const std::set<QString> q = {"ops_list", "ops_journal", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
+    static const std::set<QString> q = {"ops_list", "journal_lines", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
                                         "assembly_preview", "sim_state", "sim_measure", "sensor_read", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
     return q;
 }
@@ -72,7 +72,7 @@ QString EditorOps::journalFile() {
     return journalFile_;
 }
 
-// A line of this session: when, the session, the rest as given; the last lines kept for ops_journal (a
+// A line of this session: when, the session, the rest as given; the last lines kept for journal_lines (a
 // snapshot's scene left out there: it is the file's).
 void EditorOps::writeLine(QJsonObject line, bool keep) {
     line.insert("t", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
@@ -129,7 +129,7 @@ void EditorOps::endSession() {
 }
 
 void EditorOps::addJournalOps() {
-    addSync("ops_journal", "The journal's last lines: every change made from the window or the API (where the file is)", "{last?: int}",
+    addSync("journal_lines", "The journal's last lines: every change made from the window or the API (where the file is)", "{last?: int}",
             [this](const QJsonObject& a) {
         const int last = std::clamp(a.value("last").toInt(20), 1, int(kRecent));
         QJsonArray lines;

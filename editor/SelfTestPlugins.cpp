@@ -132,7 +132,7 @@ def stop(scene):
     const auto heard = QObject::connect(host, &PluginHost::output, [&printed](const QString&, const QString& line) { printed << line; });
     host->start(true);
     waitUntil([&] { return host->ticking(); }, 10000);
-    const auto journal = [ops] { return ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray(); };
+    const auto journal = [ops] { return ops->runNow("journal_lines", {{"last", 500}}).value("lines").toArray(); };
     const QJsonArray journalWas = journal();
     const float y0 = findObject(b.graph(), cube)->position.y;
     QJsonObject stepped;
@@ -225,7 +225,7 @@ class Turbine:
     const size_t before = b.undoTaken();
     const auto setLines = [ops] {
         int n = 0;
-        for (const QJsonValue& l : ops->runNow("ops_journal", {{"last", 500}}).value("lines").toArray()) n += l.toObject().value("op").toString() == "component_set";
+        for (const QJsonValue& l : ops->runNow("journal_lines", {{"last", 500}}).value("lines").toArray()) n += l.toObject().value("op").toString() == "component_set";
         return n;
     };
     const int lines0 = setLines();
