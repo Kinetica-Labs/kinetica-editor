@@ -81,6 +81,7 @@ private:
         class QMenu* menu = nullptr; // «Плагины → <name>»: its commands and «Открыть plugin.py», while it runs
         std::vector<Command> commands;
         QStringList stderrTail;
+        QByteArray unfinished; // the start of a line whose end has not come yet: Python writes a traceback's last line in pieces
         std::vector<std::pair<int, std::pair<QString, QJsonObject>>> queued; // calls waiting for the plugin to ask
         EditorOps::Reply waiting;                                         // its plugin_wait held open
         std::map<int, EditorOps::Reply> open;                             // calls sent, not answered yet

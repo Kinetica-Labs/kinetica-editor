@@ -257,7 +257,11 @@ void PluginHost::launch(Plugin& p) {
         Plugin* q = find(name);
         if (!q || !q->process) return;
         bool fell = false;
-        for (QByteArray raw : q->process->readAllStandardOutput().split('\n')) {
+        q->unfinished += q->process->readAllStandardOutput();
+        const qsizetype whole = q->unfinished.lastIndexOf('\n') + 1; // only the lines that have ended: the rest waits for its end
+        const QByteArray ended = q->unfinished.left(whole);
+        q->unfinished.remove(0, whole);
+        for (QByteArray raw : ended.split('\n')) {
             while (raw.endsWith('\r')) raw.chop(1); // Windows' Python ends a line with \r\n (a \r the plugin wrote itself: \r\r\n)
             const QString line = QString::fromUtf8(raw).trimmed().isEmpty() ? QString() : QString::fromUtf8(raw);
             if (line.isEmpty()) continue;
@@ -284,10 +288,15 @@ void PluginHost::launch(Plugin& p) {
         emit changed();
     });
     connect(p.process, &QProcess::finished, this, [this, name](int code, QProcess::ExitStatus status) {
-        if (Plugin* q = find(name)) onExit(*q, status == QProcess::CrashExit ? -1 : code);
+        Plugin* q = find(name);
+        if (!q) return;
+        if (const QString last = QString::fromUtf8(q->unfinished).trimmed(); !last.isEmpty()) q->stderrTail << last; // it died mid-line
+        q->unfinished.clear();
+        onExit(*q, status == QProcess::CrashExit ? -1 : code);
     });
     p.state = "запускается";
     p.stderrTail.clear();
+    p.unfinished.clear();
     if (!p.since.isValid()) p.since.start();
     p.process->start(pythonInterpreter(), {"-u", "-m", "kinetica.plugin", p.file}); // the runner serves the file
 }
