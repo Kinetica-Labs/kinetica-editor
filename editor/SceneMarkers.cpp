@@ -1,4 +1,4 @@
-// The markers of a graph's lights and cameras, their wireframes, and picking them (see SceneMarkers.h).
+// The markers of a graph's lights, cameras and forces, their wireframes, and picking them (see SceneMarkers.h).
 #include "SceneMarkers.h"
 
 #include <algorithm>
@@ -82,6 +82,33 @@ void cameraLines(const SceneMarker& m, float aspect, std::vector<float>& solid) 
     segment(solid, top + right * (w * 0.6f), top + up * (h * 0.6f));
 }
 
+// An arrow along +y of the marker's frame, its length signed (against the axis when negative), and where it reaches.
+void pushLines(const SceneMarker& m, std::vector<float>& solid) {
+    const Vector3 x = m.rotation.rotate(Vector3(1, 0, 0)), y = forceAxis(m.rotation), z = m.rotation.rotate(Vector3(0, 0, 1));
+    const float length = m.reach != 0 ? m.reach : 1.0f, sign = length < 0 ? -1.0f : 1.0f;
+    const Vector3 tip = m.position + y * length;
+    segment(solid, m.position, tip);
+    segment(solid, tip, tip - y * (0.12f * sign) + x * 0.06f);
+    segment(solid, tip, tip - y * (0.12f * sign) - x * 0.06f);
+    if (m.range > 0) circle(solid, m.position, x, z, m.range, 48);
+}
+
+// Three rings of the force's radius and an arrow on each half axis, just inside the sphere: out of it, or into it.
+void burstLines(const SceneMarker& m, std::vector<float>& solid) {
+    const Vector3 axes[3] = {m.rotation.rotate(Vector3(1, 0, 0)), m.rotation.rotate(Vector3(0, 1, 0)), m.rotation.rotate(Vector3(0, 0, 1))};
+    const float r = m.range, len = std::min(0.25f, r), sign = m.reach < 0 ? -1.0f : 1.0f;
+    for (int k = 0; k < 3; ++k) {
+        circle(solid, m.position, axes[k], axes[(k + 1) % 3], r, 48);
+        for (const float side : {-1.0f, 1.0f}) {
+            const Vector3 a = axes[k] * side, side2 = axes[(k + 1) % 3];
+            const Vector3 in = m.position + a * (r - len), out = m.position + a * r, tip = sign > 0 ? out : in;
+            segment(solid, in, out);
+            segment(solid, tip, tip - a * (0.06f * sign) + side2 * 0.04f);
+            segment(solid, tip, tip - a * (0.06f * sign) - side2 * 0.04f);
+        }
+    }
+}
+
 } // namespace
 
 void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, std::vector<float>& faint) {
@@ -89,6 +116,8 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
     case SceneMarker::Sun: sunLines(m, solid); break;
     case SceneMarker::Point: pointLines(m, solid, faint); break;
     case SceneMarker::Spot: spotLines(m, solid, faint); break;
+    case SceneMarker::Push: pushLines(m, solid); break;
+    case SceneMarker::Burst: burstLines(m, solid); break;
     case SceneMarker::Camera:
         cameraLines(m, aspect, solid);
         if (m.aimed) segment(faint, m.position, m.aim); // the line of sight to its target (the target is an object: drawn itself)
@@ -98,13 +127,21 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
 
 bool markerHit(const SceneMarker& m, const Ray& ray, float& t) {
     Vector3 centre = m.position;
-    float radius = m.kind == SceneMarker::Sun ? 0.25f : 0.16f;
+    float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push || m.kind == SceneMarker::Burst ? 0.2f : 0.16f;
     if (m.kind == SceneMarker::Camera) centre = m.position + m.rotation.rotate(Vector3(0, 0, -1)) * (0.5f * kCameraDepth), radius = 0.24f;
     const Vector3 oc = ray.origin - centre;
     const float b = dot(oc, ray.dir), c = dot(oc, oc) - radius * radius, disc = b * b - c;
     if (disc < 0 || c <= 0) return false; // missed, or the eye is inside the ball (a camera made at the eye)
     t = -b - std::sqrt(disc);
     return t >= 0;
+}
+
+SceneMarker forceMarker(const Force& f) {
+    SceneMarker m;
+    m.kind = f.shape == ForceShape::Radial ? SceneMarker::Burst : SceneMarker::Push;
+    m.range = float(f.radius);
+    m.reach = f.strength < 0 ? -1.0f : 1.0f;
+    return m;
 }
 
 std::vector<SceneMarker> markersOf(const SceneGraph& g) {
@@ -130,5 +167,6 @@ std::vector<SceneMarker> markersOf(const SceneGraph& g) {
         if (c.kind == CameraKind::Target && !out.empty() && out.back().id == c.id)
             out.back().aimed = true, out.back().aim = cameraTarget(g, c), out.back().rotation = lookTurn(out.back().position, out.back().aim);
     }
+    for (const Force& f : g.forces) add(f, forceMarker(f));
     return out;
 }

@@ -172,6 +172,8 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
 int runManyTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Lights and cameras: made, picked, moved, lighting a cube, looked through (SelfTestLights.cpp).
 int runLightTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
+// Forces: «Сила ▾», their card, marks and «Сработать» (SelfTestForces.cpp).
+int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir); // SelfTestSequencer.cpp
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestPlugins.cpp
 int runScriptTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestScripts.cpp: script_run

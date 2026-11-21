@@ -269,6 +269,7 @@ public:
     void followGoals(const std::vector<uint32_t>& moved);
     void addLight(ke::LightKind kind, const ke::Vector3* at = nullptr); // over `at`, else the selection or the scene's centre
     ke::Vector3 spawnTarget();          // the selection's place, else the centre of the shapes
+    void addForce(ke::ForceShape shape, ke::ForceMode mode); // «Сила ▾»: at the selection or the scene's centre (SceneBuilderForces.cpp)
     void addCamera(const ke::Vector3* eye = nullptr); // at `eye`, else the editor's eye, looking at the scene's centre
     void setViewEye(std::function<ke::Vector3()> eye) { viewEye_ = std::move(eye); }
     void editLight(uint32_t id, const std::function<void(ke::Light&)>& change);
@@ -330,7 +331,8 @@ signals:
     void colliderEditChanged(bool on);
     void handPlaced(const std::vector<uint32_t>& ids);     // a hand moved or turned these objects (edit mode; the Sequencer's Auto Key keys them)
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
-    void sceneMarkers(std::vector<SceneMarker> markers);   // the lights and cameras to draw
+    void sceneMarkers(std::vector<SceneMarker> markers);   // the lights, cameras and forces to draw
+    void fireForceRequested(uint32_t id);                  // «Сработать» on a force's card
     // The view through a camera (on) or the editor's own view (off).
     void cameraView(bool on, ke::Vector3 eye, ke::Vector3 forward, ke::Vector3 up, float fovDeg, float nearClip, float farClip);
 
@@ -395,8 +397,11 @@ private:
     void refreshMarkers();
     void emitCameraView();
     std::vector<PickHit> pickMarkers(const Ray& ray) const;
-    QIcon kindIcon(uint32_t id, int size) const; // a light's or a camera's icon (null: neither)
+    QIcon kindIcon(uint32_t id, int size) const; // a light's, a camera's or a force's icon (null: none of them)
     ke::Light* lightById(uint32_t id);
+    ke::Force* forceById(uint32_t id);
+    void buildForceCard(QVBoxLayout* col);      // SceneBuilderForces.cpp
+    void fillForceCard(const ke::SceneObject& o);
     ke::Camera* cameraById(uint32_t id);
 
     // Sensors (SceneBuilderSensors.cpp): one put on the selected shape (an encoder on its joint, an IMU
@@ -676,6 +681,12 @@ private:
     std::unordered_map<uint32_t, ke::Vector3> liveObjectPositions_; // in play, for a target camera looked through: its target's pose
     std::vector<ke::Frame::CameraPose> liveCameras_;                // in play: where the world has the cameras it moves (Frame::cameras)
     ke::Light lightDraft_;
+    // The "Сила" card over every selected force: its fields, the draft they edit, the tags «Действует на» lists
+    ComponentCard* forceCard_ = nullptr;
+    class FieldForm* forceFields_ = nullptr;
+    QPushButton* forceFire_ = nullptr;
+    ke::Force forceDraft_;
+    std::vector<std::string> forceTags_;
     ke::Camera cameraDraft_;
     QPushButton* throughButton_ = nullptr;
     // The "Датчик" card; the electrics' cards, shown instead of the object's when one is selected
@@ -719,6 +730,7 @@ const char* shapeName(ke::ShapeKind k);
 // The names and icons of the kinds of light: "Солнце", "Лампа", "Прожектор".
 const char* lightName(ke::LightKind k);
 SceneIcon lightIcon(ke::LightKind k);
+SceneIcon forceIcon(ke::ForceShape s); // an arrow for a directional force, a ball for a radial one
 // The words of the API (SceneBuilderCode.cpp): "box", "sun", "rigid" - as the scene file and kinetica
 // say them; and back (-1: no such word).
 const char* shapeWord(ke::ShapeKind k);

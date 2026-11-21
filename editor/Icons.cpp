@@ -608,6 +608,41 @@ void drawCameraIcon(QPainter& p) {
     p.drawEllipse(QPointF(22, 51), 4, 4);
 }
 
+// A directional force: a fat arrow rising to the upper right.
+void drawForceArrow(QPainter& p) {
+    const QColor c(115, 217, 140);
+    shadow(p, 50, 90, 28);
+    p.setPen(QPen(c, 9, Qt::SolidLine, Qt::RoundCap));
+    p.drawLine(QPointF(22, 78), QPointF(66, 34));
+    const QPointF head[] = {{82, 18}, {52, 26}, {74, 48}};
+    p.setPen(outline(c));
+    p.setBrush(c);
+    p.drawPolygon(head, 3);
+}
+
+// A radial force: a ball with four arrows pointing out of it.
+void drawForceBall(QPainter& p) {
+    const QColor c(115, 217, 140);
+    shadow(p, 50, 90, 28);
+    p.setBrush(c);
+    for (int k = 0; k < 4; ++k) {
+        p.save();
+        p.translate(50, 48);
+        p.rotate(90.0 * k);
+        p.setPen(QPen(c, 6, Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(26, 0), QPointF(36, 0));
+        const QPointF head[] = {{44, 0}, {34, -5}, {34, 5}};
+        p.setPen(outline(c));
+        p.drawPolygon(head, 3);
+        p.restore();
+    }
+    QRadialGradient g(QPointF(43, 41), 24);
+    g.setColorAt(0, shade(c, 130));
+    g.setColorAt(1, shade(c, 80));
+    p.setBrush(g);
+    p.drawEllipse(QPointF(50, 48), 18, 18);
+}
+
 // An encoder: a code disc with its slots round the rim and the read head over them.
 void drawEncoderIcon(QPainter& p) {
     const QColor disc(190, 196, 206), dark(58, 62, 72);
@@ -923,6 +958,8 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
     case SceneIcon::Bulb: drawBulb(p); break;
     case SceneIcon::Spot: drawSpotlight(p); break;
     case SceneIcon::Camera: drawCameraIcon(p); break;
+    case SceneIcon::ForceArrow: drawForceArrow(p); break;
+    case SceneIcon::ForceBall: drawForceBall(p); break;
     case SceneIcon::Count: break;
     }
 }

@@ -295,7 +295,7 @@ def first(s):
     s.ed.selection_set(ids=[ball])
     s.ed.gizmo_set(tool="move")
     s.window("first-5-ball", [RIGID + (1,), PLACE + (2,), (1226, 885, 1596, 911, 3)])
-    s.part("first-5-play", TOOLBAR, marks=[(488, 26, 562, 104, 0)])
+    s.part("first-5-play", TOOLBAR, marks=[(581, 26, 655, 104, 0)])
     s.ed.gizmo_set(tool="select")
     s.ed.selection_set(ids=[])
     s.ed.sim_play()
@@ -305,7 +305,7 @@ def first(s):
     s.ed.sim_step(frames=40)
     s.view("first-6-after", HALF)
     s.window("first-6-pause")
-    s.part("first-6-stop", TOOLBAR, marks=[(768, 26, 838, 104, 0)])
+    s.part("first-6-stop", TOOLBAR, marks=[(861, 26, 931, 104, 0)])
     s.ed.sim_stop()
     s.view("first-7-stop", HALF)
     # What the lesson ends with, moving: the same for both languages - a clean picture has no words on it.
@@ -328,8 +328,8 @@ def first(s):
 
 # The window's own icons, cut out of it - what stands beside a button's name in the guide's text, so a reader knows the
 # button by sight. No words on them: one set for both languages. Centres in the window's pixels.
-BAR_ICONS = {"shape": 46, "light": 140, "camera": 233, "magnet": 326, "sensor": 419, "play": 524, "record": 617, "undo": 908, "redo": 1003}
-RUN_ICONS = {"pause": 710, "stop": 803}       # these two are alive only while the scene plays
+BAR_ICONS = {"shape": 46, "light": 140, "camera": 233, "magnet": 326, "sensor": 419, "play": 617, "record": 710, "undo": 1001, "redo": 1096}
+RUN_ICONS = {"pause": 803, "stop": 896}       # these two are alive only while the scene plays
 TOOL_ICONS = {"select": 132, "move": 177, "rotate": 222, "scale": 267}
 ROLE_ICONS = {"rigid": 1321, "collider": 1491}
 

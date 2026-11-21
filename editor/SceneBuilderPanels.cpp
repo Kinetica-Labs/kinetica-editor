@@ -193,6 +193,7 @@ void SceneBuilder::buildInspector() {
     buildObjectCard(body);
     buildManyCards(body);
     buildLightCards(body);
+    buildForceCard(body);
     buildSensorCard(body);
     shapePart_ = new QWidget; // what only a shape has
     auto* shape = column(shapePart_, 0);
@@ -529,6 +530,7 @@ void SceneBuilder::fillInspector() {
     }
     fillManyCards(*o);
     fillLightCards(*o);
+    fillForceCard(*o);
     fillSensorCard(*o);
     fillPluginCards();
     shown_ = shown;
@@ -628,6 +630,7 @@ void SceneBuilder::refreshList() {
         if (const Entity* t = entityById(a.templateId); t && isHiddenTemplate(*t) && !findObject(graph_, t->parent)) under[t->id] = a.id;
     }
     for (const Light& l : graph_.lights) row(l, sceneIcon(lightIcon(l.kind), 22), QString::fromStdString(l.name));
+    for (const Force& f : graph_.forces) row(f, sceneIcon(forceIcon(f.shape), 22), QString::fromStdString(f.name));
     for (const Camera& c : graph_.cameras)
         row(c, sceneIcon(SceneIcon::Camera, 22), QString::fromStdString(c.name) + (c.id == throughId_ ? uiText("Kinetica", " — вид через неё") : c.active ? uiText("Kinetica", " — активная") : ""));
     for (const SensorObject& s : graph_.sensors) row(s, deviceIcon(DeviceIcon(int(s.kind)), 22), QString::fromStdString(s.name));
@@ -685,6 +688,7 @@ void SceneBuilder::refreshHeader() {
                                     : arrayById(o->id)  ? uiText("Kinetica", "массив копий")
                                     : lightById(o->id)  ? uiText("Kinetica", "свет — для глаза, физика его не видит")
                                     : cameraById(o->id) ? uiText("Kinetica", "камера — через неё вид и скриншоты")
+                                    : forceById(o->id)  ? uiText("Kinetica", "сила — действует на тела мира, робот узнаёт о ней только по датчикам")
                                     : sensorById(o->id) ? (findJoint(graph_, sensorById(o->id)->parent) ? uiText("Kinetica", "датчик — на сочленении, считает его ход")
                                                                                                         : uiText("Kinetica", "датчик — едет на своём теле, читает мир как плата"))
                                                         : uiText("Kinetica", "разные объекты")));

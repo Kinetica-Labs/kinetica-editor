@@ -67,6 +67,7 @@ void MainWindow::buildMainToolbar() {
         createButtons_.push_back(b); // narrows with the shapes on a narrow window
     }
     addSensorButton(tb);
+    addForceButton(tb);
     tb->addSeparator();
     for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_, builder_->undoAction(), builder_->redoAction()}) { // a step: «.», Симуляция
         if (a == builder_->undoAction()) tb->addSeparator();
@@ -267,6 +268,37 @@ void MainWindow::addSensorButton(QToolBar* tb) {
     sensors->setMenu(menu);
     tb->addWidget(sensors);
     createButtons_.push_back(sensors);
+}
+
+// "Сила ▾": the four forces, each added at once (over the selection, else at the scene's centre), like a sensor.
+void MainWindow::addForceButton(QToolBar* tb) {
+    auto* forces = new QToolButton;
+    forces->setObjectName("forcesButton");
+    forces->setText(uiText("Kinetica", "Сила ▾"));
+    forces->setIcon(sceneIcon(SceneIcon::ForceArrow, 48));
+    forces->setIconSize(tb->iconSize());
+    forces->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+    forces->setToolTip(uiText("Kinetica", "Сила: толчок или взрыв разом, тяга или притяжение всё время. Действует на тела, пока идёт мир"));
+    forces->setPopupMode(QToolButton::InstantPopup);
+    auto* menu = new QMenu(forces);
+    menu->setToolTipsVisible(true);
+    struct Kind { const char* name; ke::ForceShape shape; ke::ForceMode mode; const char* text; };
+    const Kind kinds[] = {
+        {"addForcePush", ke::ForceShape::Directional, ke::ForceMode::Impulse, uiText("Kinetica", "Толчок")},
+        {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв")},
+        {"addForceThrust", ke::ForceShape::Directional, ke::ForceMode::Constant, uiText("Kinetica", "Тяга")},
+        {"addForcePull", ke::ForceShape::Radial, ke::ForceMode::Constant, uiText("Kinetica", "Притяжение")}};
+    const char* tips[] = {uiText("Kinetica", "Толчок: один раз, вдоль оси +Y силы, Н·с"), uiText("Kinetica", "Взрыв: один раз, от точки силы во все стороны, Н·с"),
+                          uiText("Kinetica", "Тяга: всё время, вдоль оси +Y силы, Н"), uiText("Kinetica", "Притяжение: всё время, к точке силы, Н")};
+    for (int k = 0; k < 4; ++k) {
+        auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape), 48), kinds[k].text);
+        a->setObjectName(kinds[k].name);
+        a->setToolTip(tips[k]);
+        connect(a, &QAction::triggered, this, [this, shape = kinds[k].shape, mode = kinds[k].mode] { builder_->addForce(shape, mode); });
+    }
+    forces->setMenu(menu);
+    tb->addWidget(forces);
+    createButtons_.push_back(forces);
 }
 
 // One step of giving up room (see the head of the file): 0 every caption, roomy; 1 every caption,

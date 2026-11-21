@@ -740,6 +740,8 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
                 "chart labels, units and sensor menus localize when read from label tables");
         c.check(ru && en && ru->isChecked() == !english && en->isChecked() == english,
                 "the current language is checked");
+        auto* push = w.findChild<QAction*>("addForcePush");
+        c.check(push && push->text() == (english ? "Push" : "Толчок"), "the force menu localizes");
     });
     run("gizmo", [&] { testEuler(c), testArrowDrag(c), testRingTurn(c), testScaleDrag(c), testKeyboardTransform(c); });
     run("play", [&] { testEditPlayStop(c, w, *b, v), testUndoRedo(c, w, *b); });
@@ -754,6 +756,7 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
     run("create", [&] { c.failures += runCreateTests(w, *b, v, shotsDir); });
     run("many", [&] { c.failures += runManyTests(w, *b, v, shotsDir); });
     run("lights", [&] { c.failures += runLightTests(w, *b, v, shotsDir); });
+    run("forces", [&] { c.failures += runForceTests(w, *b, v, shotsDir); });
     run("sequencer", [&] { c.failures += runSequencerTests(w, *b, v, shotsDir); });
     run("plugins", [&] { c.failures += runPluginTests(w, *b, v, shotsDir); });
     run("scripts", [&] { c.failures += runScriptTests(w, *b, v, shotsDir); });

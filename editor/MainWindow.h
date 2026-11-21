@@ -101,6 +101,7 @@ private:
     void addDrawn(const CreateWhat& what, const ke::Vector3& position, const ke::Vector3& size, const ke::Vector3& target);
     void addLightButtons(class QToolBar* tb); // "Свет ▾" (Солнце, Лампа, Прожектор) and "Камера"
     void addSensorButton(class QToolBar* tb); // "Датчик ▾": the six kinds on the selected shape or its joint
+    void addForceButton(class QToolBar* tb);  // "Сила ▾": Толчок, Взрыв, Тяга, Притяжение
     void addCompactButtons(class QToolBar* tb);
     void setToolbarLevel(int level);
     void fitMainToolbar();

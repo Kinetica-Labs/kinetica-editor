@@ -477,6 +477,7 @@ void SceneBuilder::frameObjects() {
     };
     for (const Light& l : graph_.lights) mark(l);
     for (const Camera& c : graph_.cameras) mark(c);
+    for (const Force& f : graph_.forces) mark(f);
     AABB box = mine.valid() ? mine : all;
     if (!box.valid()) return;
     box.lo.y = std::min(box.lo.y, 0.0f); // the floor under them is in the picture

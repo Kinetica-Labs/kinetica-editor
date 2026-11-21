@@ -205,7 +205,7 @@ void SceneBuilder::announceHand(SceneGraph& before) {
             if (was && (length(was->position - o.position) > 0 || length(was->rotationDeg - o.rotationDeg) > 0)) ids.push_back(o.id);
         }
     };
-    check(graph_.entities), check(graph_.groups), check(graph_.arrays), check(graph_.lights), check(graph_.cameras);
+    check(graph_.entities), check(graph_.groups), check(graph_.arrays), check(graph_.lights), check(graph_.cameras), check(graph_.forces);
     if (ids.empty()) return;
     const bool taken = undoGroupTaken_;
     if (undoGroup_++ == 0) undoGroupTaken_ = doc_.history.steps() > 0; // the keys join the step the hand's edit took

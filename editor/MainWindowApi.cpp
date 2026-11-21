@@ -23,6 +23,11 @@ void MainWindow::buildOperators() {
     ops_->onRecordingChanged([this] { syncRecord(); }); // ■ Stop ends a take too: the record button goes out with it
     builder_->setCodeReporter([this](const QString& op, const QJsonObject& args) { ops_->report("ui", op, args); });
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] { ops_->endSession(); }); // a clean end: no crash offered next time
+    connect(builder_, &SceneBuilder::fireForceRequested, this, [this](uint32_t id) { // a refusal goes to the status bar
+        ops_->run("force_fire", {{"id", int(id)}}, [this](const QJsonObject& r) {
+            if (!r.value("ok").toBool()) statusBar()->showMessage(r.value("error").toString(), 6000);
+        }, "ui");
+    });
     magnet_ = new MagnetController(ops_, builder_, view_, this);
     connect(magnet_, &MagnetController::statusMessage, this, [this](const QString& text) {
         if (text.isEmpty()) statusBar()->clearMessage();

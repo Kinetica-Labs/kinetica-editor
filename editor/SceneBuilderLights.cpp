@@ -62,6 +62,8 @@ Camera* SceneBuilder::cameraById(uint32_t id) {
 QIcon SceneBuilder::kindIcon(uint32_t id, int size) const {
     for (const Light& l : graph_.lights)
         if (l.id == id) return sceneIcon(lightIcon(l.kind), size);
+    for (const Force& f : graph_.forces)
+        if (f.id == id) return sceneIcon(forceIcon(f.shape), size);
     for (const SensorObject& s : graph_.sensors)
         if (s.id == id) return deviceIcon(DeviceIcon(int(s.kind)), size);
     return findCamera(graph_, id) ? sceneIcon(SceneIcon::Camera, size) : QIcon();
@@ -234,7 +236,7 @@ void SceneBuilder::refreshLightsAndCameras() {
     emitCameraView();
 }
 
-// Every visible light and camera while editing; while playing only the selected ones. The camera the
+// Every visible light, camera and force while editing; while playing only the selected ones. The camera the
 // view looks through is not drawn (the view is inside it).
 void SceneBuilder::refreshMarkers() {
     std::vector<SceneMarker> out;
@@ -255,6 +257,7 @@ void SceneBuilder::refreshMarkers() {
         m.softnessDeg = l.softnessDeg;
         add(l, m);
     }
+    for (const Force& f : graph_.forces) add(f, forceMarker(f));
     for (const Camera& c : graph_.cameras) {
         SceneMarker m;
         m.kind = SceneMarker::Camera;
@@ -281,6 +284,7 @@ std::vector<PickHit> SceneBuilder::pickMarkers(const Ray& ray) const {
         if (markerHit(m, ray, t)) hits.push_back({o.id, t, ray.at(t), o.name});
     };
     for (const Light& l : graph_.lights) test(l, SceneMarker::Kind(int(l.kind)), 0);
+    for (const Force& f : graph_.forces) test(f, forceMarker(f).kind, 0);
     for (const Camera& c : graph_.cameras) test(c, SceneMarker::Camera, c.fovDeg);
     for (const SensorVis& v : sensorVisuals(graph_)) {
         const SceneObject* o = findObject(graph_, v.id);

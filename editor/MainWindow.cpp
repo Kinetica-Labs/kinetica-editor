@@ -558,7 +558,8 @@ void MainWindow::buildSceneMenu() {
     file->insertSeparator(anchor);
     menu->addSection(uiText("Kinetica", "Добавить"));
     const std::pair<const char*, const char*> lists[] = {{"shapesButton", uiText("Kinetica", "Фигура")}, {"lightsButton", uiText("Kinetica", "Свет")},
-                                                         {"camerasButton", uiText("Kinetica", "Камера")}, {"sensorsButton", uiText("Kinetica", "Датчик на выбранное")}};
+                                                         {"camerasButton", uiText("Kinetica", "Камера")}, {"sensorsButton", uiText("Kinetica", "Датчик на выбранное")},
+                                                         {"forcesButton", uiText("Kinetica", "Сила")}};
     for (const auto& [button, title] : lists)
         if (auto* b = findChild<QToolButton*>(button); b && b->menu()) {
             QMenu* sub = menu->addMenu(b->icon(), title);

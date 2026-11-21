@@ -37,6 +37,7 @@ SceneObject* SceneBuilder::objectById(uint32_t id) {
     if (Group* g = groupById(id)) return g;
     if (Light* l = lightById(id)) return l;
     if (Camera* c = cameraById(id)) return c;
+    if (Force* f = forceById(id)) return f;
     if (SensorObject* s = sensorById(id)) return s;
     return arrayById(id);
 }
@@ -79,6 +80,7 @@ std::vector<uint32_t> SceneBuilder::topLevelObjects() const {
     for (const ArrayObject& a : graph_.arrays) add(a);
     for (const Light& l : graph_.lights) add(l);
     for (const Camera& c : graph_.cameras) add(c);
+    for (const Force& f : graph_.forces) add(f);
     return ids;
 }
 
