@@ -278,6 +278,7 @@ void SceneBuilder::onGizmoFinished() {
     fillInspector();
     if (!editing() && moved) applyEdit(0);
     if (moved && !op.isEmpty()) codeAction(op, py, args, false);
+    if (moved) announceHand(gizmoGraph_);
 }
 
 void SceneBuilder::onGizmoCancelled() {

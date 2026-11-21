@@ -140,6 +140,7 @@ public:
     // Play / pause / stop / one step.
     Mode mode() const { return mode_; }
     bool editing() const { return mode_ == Mode::Edit; }
+    void watchHands(bool on) { handWatched_ = on; } // handPlaced is worked out only while someone asks for it
     ke::LiveEdit::Reload lastReload() const { return lastReload_; }
     bool gizmoAllowed() const { return mode_ != Mode::Playing; } // edit mode, or paused
     // IK goals alone are selected: handles, as MuJoCo's mocap bodies - the simulation never moves them, so their
@@ -328,6 +329,7 @@ signals:
     void colliderGuides(std::vector<float> lines);         // green wireframes: pairs of points, x y z 0 each
     void shapeHandles(std::vector<ShapeHandle> handles);   // the collider mode's points (none: the mode is off)
     void colliderEditChanged(bool on);
+    void handPlaced(const std::vector<uint32_t>& ids);     // a hand moved or turned these objects (edit mode; the Sequencer's Auto Key keys them)
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
     void sceneMarkers(std::vector<SceneMarker> markers);   // the lights and cameras to draw
     // The view through a camera (on) or the editor's own view (off).
@@ -700,6 +702,8 @@ private:
     // The window's actions as code (SceneBuilderCode.cpp)
     void scheduleCode();
     void flushCode();
+    bool handWatched_ = false;
+    void announceHand(ke::SceneGraph& before); // handPlaced for what differs from `before` in place or turn, inside the step the hand's edit took
     void codeAction(const QString& op, const QString& py, QJsonObject args = {}, bool flushFirst = true);
     // An action on objects as its line: `scene.objects["Куб 1"].method()` for one, `scene.method(a, b)`
     // for several. Made before the action runs (the names it removes are still there).

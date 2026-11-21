@@ -8,6 +8,7 @@
 #include "SceneBuilder.h"
 
 #include "core/Format.h"
+#include "scene/Animation.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
 #include "scene/SceneEdits.h"
@@ -183,13 +184,33 @@ void SceneBuilder::flushCode() {
     codedSelection_ = selected;
     // Compared only after a hand's edit: every API call starts here, and writing both scenes out as text to find
     // nothing took a quarter of its time (16 of 70 samples of scene_move).
-    if (reportCode_ && apiDepth_ == 0 && codePending_)
+    const bool hand = apiDepth_ == 0 && codePending_;
+    if (reportCode_ && hand)
         for (const GraphEdit& e : diffEdits(coded_, graph_)) {
             QString op;
             const QJsonObject args = callOf(e, coded_, graph_, op);
             reportCode_(op, args);
         }
+    SceneGraph before = hand ? std::move(coded_) : SceneGraph();
     codeSynced();
+    if (hand) announceHand(before);
+}
+
+void SceneBuilder::announceHand(SceneGraph& before) {
+    if (!handWatched_ || !editing() || previewFrom_) return;
+    std::vector<uint32_t> ids;
+    const auto check = [&](const auto& list) {
+        for (const auto& o : list) {
+            const SceneObject* was = posedObject(before, o.id);
+            if (was && (length(was->position - o.position) > 0 || length(was->rotationDeg - o.rotationDeg) > 0)) ids.push_back(o.id);
+        }
+    };
+    check(graph_.entities), check(graph_.groups), check(graph_.arrays), check(graph_.lights), check(graph_.cameras);
+    if (ids.empty()) return;
+    const bool taken = undoGroupTaken_;
+    if (undoGroup_++ == 0) undoGroupTaken_ = doc_.history.steps() > 0; // the keys join the step the hand's edit took
+    emit handPlaced(ids);
+    if (--undoGroup_ == 0) undoGroupTaken_ = taken;
 }
 
 QString SceneBuilder::codeRefs(const std::vector<uint32_t>& ids) const {

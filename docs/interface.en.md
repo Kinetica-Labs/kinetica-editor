@@ -391,6 +391,8 @@ Three actions:
 2. Move the playhead and put the object elsewhere.
 3. Press Key again - between the keys the object travels by itself.
 
+Without Auto Key the order is: the playhead first, then the move, then Key - a key holds the pose the object has when it is put, and a seek puts the object back on its track. With ◈ Auto Key the order is shorter: switch it on, set the playhead and just move or turn the object - its key is put by itself (a sequence is made when there is none), and the move and its key are one undo step. The button is off by default.
+
 ![A cube travels between its keys](images/ui/en/sequencer.png)
 
 The object's track and its keys - the diamonds on the time scale:

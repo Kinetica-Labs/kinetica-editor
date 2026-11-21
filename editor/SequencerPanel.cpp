@@ -12,6 +12,7 @@
 #include <QApplication>
 #include <QComboBox>
 #include <QHBoxLayout>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QKeyEvent>
 #include <QLabel>
@@ -56,6 +57,14 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
                                  "остановить, бегунок остаётся, где остановили"), "sequencerPlay", true);
     loop_ = button(uiText("Kinetica", "↻ Петля"), uiText("Kinetica", "После последнего ключа — сначала"), "sequencerLoop", true);
     key_ = button(uiText("Kinetica", "◆ Ключ"), uiText("Kinetica", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)"), "sequencerKey");
+    autoKey_ = button(uiText("Kinetica", "◈ Автоключ"), uiText("Kinetica", "Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам (как Auto Key в 3ds Max и автоключ в Blender). Выключен - ключ ставит только «◆ Ключ»"), "sequencerAutoKey", true);
+    connect(autoKey_, &QToolButton::toggled, this, [this](bool on) { builder_->watchHands(on); autoKey_->setStyleSheet(on ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString()); });
+    connect(builder_, &SceneBuilder::handPlaced, this, [this](const std::vector<uint32_t>& ids) {
+        if (!autoKey_->isChecked() || !builder_->editing()) return;
+        QJsonArray list;
+        for (uint32_t id : ids) list.append(int(id));
+        run("sequence_key", QJsonObject{{"ids", list}, {"time", playhead()}});
+    });
     record_ = button(uiText("Kinetica", "⏺ Запись"), uiText("Kinetica", "Записать физику: сцена играет, каждое свободное тело пишется каждый кадр; ещё раз или «Стоп» — "
                                  "запись становится новой секвенцией «Запись N»"), "sequencerRecord", true);
     curves_ = button(uiText("Kinetica", "〰 Кривые"), uiText("Kinetica", "Кривые дорожки выделенного объекта: место и поворот от времени. Ключ тянется вверх-вниз (значение) и "
@@ -136,7 +145,7 @@ void SequencerPanel::addBarAction(QAction* a, const QString& text) {
     b->setDefaultAction(a);
     b->setText(text);
     b->setObjectName(a->objectName() + "Button");
-    static_cast<QHBoxLayout*>(layout()->itemAt(0)->widget()->layout())->insertWidget(9, b); // after «〰 Кривые»
+    static_cast<QHBoxLayout*>(layout()->itemAt(0)->widget()->layout())->insertWidget(10, b); // after «〰 Кривые»
 }
 
 void SequencerPanel::run(const QString& name, const QJsonObject& args) {

@@ -5,12 +5,14 @@
 // Delete remove that key; Space over the timeline plays the sequence and stops it where it is; in play the playhead
 // follows the world's time. «⏺ Запись» on a cube dropped from 1 m plays the
 // scene and records it; pressed again, the scene stops - the cube back where it stood - and the take is a new active
-// sequence «Запись 1» whose end has the cube on the floor; one undo takes the take away. With a directory, the pictures
+// sequence «Запись 1» whose end has the cube on the floor; one undo takes the take away. «◈ Автоключ»: a hand's gizmo
+// move or typed number keys the object at the playhead in its own undo step, the API and the preview key nothing. With a directory, the pictures
 // sequencer.png and sequencer-take.png.
 #include "SelfTestSupport.h"
 
 #include "EditorOps.h"
 #include "MainWindow.h"
+#include "SceneBuilder.h"
 #include "SequencerPanel.h"
 #include "SequencerViews.h"
 #include "scene/Animation.h"
@@ -36,6 +38,113 @@ void mouse(QWidget* w, QEvent::Type type, const QPointF& p) {
 
 // Where the views draw time t (SequencerViews.h, the axis they share).
 double xAt(QWidget* timeline, const SceneBuilder& b, double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width()).x(t); }
+
+// ◈ Auto Key: a hand's move or turn keys the object at the playhead, in the same undo step; the API and the preview do not.
+void autoKeyTests(QMainWindow& w, SceneBuilder& b, Checker& c) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    auto* autoKey = w.findChild<QToolButton*>("sequencerAutoKey");
+    auto* panel = w.findChild<SequencerPanel*>();
+    if (!autoKey || !panel) return c.check(false, "«◈ Автоключ» is a button of the Sequencer");
+    const auto call = [&](const char* name, const QJsonObject& args) {
+        bool ok = false;
+        ops->run(name, args, [&ok](const QJsonObject& r) { ok = r["ok"].toBool(); }, "ui");
+        return ok;
+    };
+    const auto keys = [&](uint32_t id) -> size_t {
+        const SequenceObject* q = activeSequence(b.graph());
+        if (q)
+            for (const auto& t : q->tracks)
+                if (t.object == id) return t.keys.size();
+        return 0;
+    };
+    const auto at = [&](uint32_t id) { return findObject(b.graph(), id)->position.x; };
+    const auto drag = [&](uint32_t id, float dx) {
+        b.select(id);
+        GizmoPose pose;
+        Quaternion q;
+        worldPose(b.graph(), *findObject(b.graph(), id), pose.position, q);
+        pose.mode = GizmoMode::Translate, pose.position += Vector3(dx, 0.0f, 0.0f), pose.rotation = q;
+        b.onGizmoStarted(), b.onGizmoMoved(pose), b.onGizmoFinished();
+        pump(60);
+    };
+    b.newScene();
+    const uint32_t box = made(b, b.createActions()[0]);
+    pump(100);
+    c.check(autoKey->isCheckable() && !autoKey->isChecked(), "Auto Key is a toggle, off at the start");
+
+    int heard = 0;
+    const auto listen = QObject::connect(&b, &SceneBuilder::handPlaced, &b, [&heard](const std::vector<uint32_t>&) { ++heard; });
+    drag(box, 0.5f);
+    c.check(b.graph().sequences.empty() && keys(box) == 0 && heard == 0, "Auto Key off: a gizmo move makes no key and nothing is worked out");
+
+    autoKey->click();
+    pump(30);
+    const float start = at(box);
+    drag(box, 0.5f);
+    c.check(heard == 1, "Auto Key on: a hand's move is announced");
+    QObject::disconnect(listen);
+    const bool first = b.graph().sequences.size() == 1 && keys(box) == 1;
+    b.undoStep();
+    const bool firstUndone = b.graph().sequences.empty() && std::fabs(at(box) - start) < 1e-4f;
+    b.redoStep();
+    pump(30);
+    c.check(first && firstUndone && keys(box) == 1 && std::fabs(at(box) - start - 0.5f) < 1e-4f,
+            "Auto Key on, no sequence: the first move makes one with its key; one undo takes back the move, the key and the sequence, a redo all");
+
+    call("sequence_seek", {{"time", 1.0}});
+    const float home = at(box);
+    drag(box, 0.5f);
+    const SequenceObject* second = activeSequence(b.graph());
+    const bool keyed = second && keys(box) == 2 && std::fabs(double(second->tracks[0].keys[1].time) - 1.0) < 1e-4 &&
+                       std::fabs(second->tracks[0].keys[1].position.x - (home + 0.5f)) < 1e-4f;
+    b.undoStep();
+    const bool back = keys(box) == 1 && std::fabs(at(box) - home) < 1e-4f;
+    b.redoStep();
+    pump(30);
+    c.check(keyed && back && keys(box) == 2 && std::fabs(at(box) - home - 0.5f) < 1e-4f,
+            "a move at the playhead 1 s makes a key at 1 s; one undo takes back the move and the key together, a redo both");
+
+    const size_t before = keys(box);
+    const float moved = at(box);
+    call("scene_move", {{"ids", QJsonArray{int(box)}}, {"by", QJsonArray{0.3, 0.0, 0.0}}});
+    pump(500);
+    c.check(keys(box) == before && std::fabs(at(box) - moved - 0.3f) < 1e-4f, "a scene_move through the API with Auto Key on makes no key");
+
+    b.editEntity(box, [](Entity& e) { e.position.y = 2.0f; });
+    pump(600);
+    const SequenceObject* q = activeSequence(b.graph());
+    const bool typed = q && keys(box) == 2 && std::fabs(q->tracks[0].keys[1].position.y - 2.0f) < 1e-4f;
+    b.undoStep();
+    q = activeSequence(b.graph());
+    const bool undone = q && std::fabs(q->tracks[0].keys[1].position.y - 2.0f) > 1e-3f && std::fabs(at(box) - moved - 0.3f) < 1e-4f;
+    b.redoStep();
+    pump(30);
+    q = activeSequence(b.graph());
+    c.check(typed && undone && q && std::fabs(q->tracks[0].keys[1].position.y - 2.0f) < 1e-4f,
+            "a number typed into the card keys too, one undo takes back the number and the key, a redo both");
+
+    b.newScene();
+    const uint32_t cam = made(b, b.createActions()[0]);
+    b.removeSelected();
+    b.addCamera();
+    const uint32_t camera = b.selectedId();
+    const float x0 = at(camera);
+    call("sequence_seek", {{"time", 0.0}});
+    drag(camera, 0.4f);
+    call("sequence_seek", {{"time", 2.0}});
+    drag(camera, 4.0f);
+    call("sequence_seek", {{"time", 1.0}});
+    pump(60);
+    c.check(cam && keys(camera) == 2 && std::fabs(at(camera) - (x0 + 2.4f)) < 1e-3f, "the owner's case: a camera moved at 0 s and at 2 s stands halfway at 1 s after a seek");
+
+    const float standing = at(camera);
+    const size_t kept = keys(camera);
+    panel->scrub(0.5);
+    panel->endScrub();
+    pump(60);
+    c.check(keys(camera) == kept && std::fabs(at(camera) - (x0 + 1.4f)) < 1e-3f && standing > 0, "dragging the playhead with Auto Key on makes no key and loses nothing");
+    autoKey->click();
+}
 
 } // namespace
 
@@ -329,5 +438,6 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 dock->width());
     c.check(wide && widened > narrow + 100 && reach >= w.width() - 12 && std::abs(dock->width() - narrow) <= 2,
             "⇔ spreads the bottom panel the window's whole width and back");
+    autoKeyTests(w, b, c);
     return c.failures;
 }

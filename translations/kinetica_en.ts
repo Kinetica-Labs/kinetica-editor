@@ -5227,6 +5227,16 @@ Sample </translation>
         <translation>◆ Key</translation>
     </message>
     <message>
+        <location filename="../editor/SequencerPanel.cpp" line="59"/>
+        <source>◈ Автоключ</source>
+        <translation>◈ Auto Key</translation>
+    </message>
+    <message>
+        <location filename="../editor/SequencerPanel.cpp" line="59"/>
+        <source>Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам (как Auto Key в 3ds Max и автоключ в Blender). Выключен - ключ ставит только «◆ Ключ»</source>
+        <translation>While on: when an object is moved or turned, its key is put at the playhead by itself (like Auto Key in 3ds Max and auto keying in Blender). Off - only "◆ Key" puts a key</translation>
+    </message>
+    <message>
         <location filename="../editor/SequencerPanel.cpp" line="58"/>
         <source>Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)</source>
         <translation>The Key to Dedicated Objects at the Moment of a Runner: Where They Stand Now (I)</translation>

@@ -1,7 +1,8 @@
 #pragma once
 // The Sequencer - a tab of the bottom panel, a simple Unreal Sequencer over the scene's sequences (scene/Animation.h).
 // The bar: which sequence is open, whether ▶ plays it (its bodies led as an animation), ⇤ to its start, ▶ a preview,
-// the loop, ◆ a key of the selected objects where they stand (I), ⏺ a take of the physics (sim_record), 〰 the curves,
+// the loop, ◆ a key of the selected objects where they stand (I), ◈ Auto Key (a hand's move or turn of an object keys it at
+// the playhead by itself, in the same undo step), ⏺ a take of the physics (sim_record), 〰 the curves,
 // and a filter of the tracks. Below it one of two views (SequencerViews.h): the tracks, folding by the scene's groups, or
 // one track's curves. Dragging the playhead or ▶ in edit mode shows the poses (SceneBuilder's preview) and then makes
 // one edit, sequence_seek; in play the playhead follows the world only while the timeline has something of the run - a
@@ -59,7 +60,7 @@ private:
     EditorOps* ops_;
     SceneBuilder* builder_;
     QComboBox* sequences_ = nullptr;
-    QToolButton *add_ = nullptr, *start_ = nullptr, *play_ = nullptr, *loop_ = nullptr, *key_ = nullptr, *record_ = nullptr, *plays_ = nullptr,
+    QToolButton *add_ = nullptr, *start_ = nullptr, *play_ = nullptr, *loop_ = nullptr, *key_ = nullptr, *autoKey_ = nullptr, *record_ = nullptr, *plays_ = nullptr,
                 *curves_ = nullptr;
     QLineEdit* filter_ = nullptr;
     QLabel *time_ = nullptr, *note_ = nullptr;
