@@ -220,10 +220,16 @@ void testDocumentPlayBookkeeping() {
           "Stop brings the scene back and the steps made on the way go");
 
     d.beginPlay();
+    const SceneGraph kept = d.backup;
+    run(d, "scene_add", R"({"shape": "sphere"})");
+    d.endPlay(false, &kept);
+    CHECK(d.history.steps() == 2 && d.graph.save() == kept.save(), "the K step: one step after Stop that takes the kept poses back");
+
+    d.beginPlay();
     run(d, "scene_add", R"({"shape": "sphere"})");
     const std::string edited = d.graph.save();
     d.endPlay(true);
-    CHECK(d.mode == PlayMode::Edit && d.graph.save() == edited && d.history.steps() == 2, "a kept edit stays, with its step");
+    CHECK(d.mode == PlayMode::Edit && d.graph.save() == edited && d.history.steps() == 3, "a kept edit stays, with its step");
 
     CHECK(std::string(modeWord(PlayMode::Edit)) == "edit" && std::string(modeWord(PlayMode::Playing)) == "playing" &&
               std::string(modeWord(PlayMode::Paused)) == "paused", "the three words of a mode");

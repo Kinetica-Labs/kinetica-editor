@@ -33,6 +33,6 @@ bool SceneBuilder::pickShape(const Ray& ray, uint32_t& id, Vector3& point, Vecto
 bool SceneBuilder::loadPaused() {
     if (!editing()) return true;
     if (!loadIntoSimulation()) return false;
-    setMode(Mode::Paused);
+    setMode(Mode::Paused, Mode::Edit);
     return true;
 }

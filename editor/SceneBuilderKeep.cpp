@@ -30,7 +30,7 @@ bool livePose(const Simulation& s, uint32_t id, Vector3& position, Quaternion& r
 } // namespace
 
 void SceneBuilder::keepSimulationPoses() {
-    if (editing() || !hasPlayBackup_) return;
+    if (editing()) return;
     std::vector<uint32_t> ids; // the selected objects' shapes, or every shape
     for (const Entity& e : graph_.entities) {
         bool wanted = selection_.empty();
@@ -54,13 +54,13 @@ void SceneBuilder::keepSimulationPoses() {
 // Back from the simulation: the poses go into the scene Stop brings back (and into the graphs of
 // the running scene, so the next edit does not look like a move).
 void SceneBuilder::applyKeptPoses(const std::vector<KeptPose>& poses) {
-    if (editing() || !hasPlayBackup_) return; // stopped in the meantime
+    if (editing()) return; // stopped in the meantime
     if (!hasKeptBefore_) { // the first K of this play: the undo step Stop will add
-        keptBefore_ = playBackup_;
+        keptBefore_ = doc_.backup;
         hasKeptBefore_ = true;
     }
     for (const KeptPose& k : poses)
-        for (SceneGraph* g : {&playBackup_, &graph_, &simGraph_}) {
+        for (SceneGraph* g : {&doc_.backup, &graph_, &doc_.running}) {
             SceneObject* o = const_cast<SceneObject*>(findObject(*g, k.id)); // our own graph: ours to change
             if (!o) continue;
             setWorldPose(*g, *o, k.position, k.rotation);

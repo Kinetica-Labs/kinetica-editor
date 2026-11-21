@@ -74,7 +74,7 @@ void SceneBuilder::afterCardEdit(uint32_t id, bool click) {
 // the scene plays moves the goal's mark in the running world (RobotWorld::setGoals) and its arm's targets.
 void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     (void)entityId; // every change is found by comparing, whichever edit made it
-    const LiveEdit le = ke::liveEdit(simGraph_, graph_);
+    const LiveEdit le = ke::liveEdit(doc_.running, graph_);
     if (le.reload != LiveEdit::Reload::None) return reloadNeeded(le.reload);
     if (le.duties) { // a driver's duty: the bridge takes it at the next substep
         const std::vector<DriverObject> drivers = graph_.drivers;
@@ -108,7 +108,7 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
             }, Qt::QueuedConnection);
         }, "joints");
     }
-    simGraph_ = graph_;
+    doc_.running = graph_;
 }
 
 // A change the running simulation cannot take: stop with the edit kept, and say what to do.
@@ -341,9 +341,8 @@ void SceneBuilder::updateHistoryActions() {
 // ---------------------------------------------------------------------------
 // Edit / play / stop
 // ---------------------------------------------------------------------------
-void SceneBuilder::setMode(Mode m) {
-    const Mode was = mode_;
-    mode_ = m;
+void SceneBuilder::setMode(Mode m, Mode was) {
+    doc_.mode = m;
     if (m != Mode::Edit && colliderEdit_) colliderEdit_ = 0, colliderDrag_ = false, emit shapeHandles({}), emit colliderEditChanged(false);
     if (m != was) // the buttons as the operations they are; Stop's restored scene is no edit of its own
         codeAction(m == Mode::Playing ? "sim_play" : m == Mode::Paused ? "sim_pause" : "sim_stop",
@@ -363,29 +362,30 @@ void SceneBuilder::setMode(Mode m) {
 }
 
 void SceneBuilder::play() {
-    if (mode_ == Mode::Playing) return;
+    if (doc_.mode == Mode::Playing) return;
     stickyBanner_ = false;
     refreshBanner();
+    const Mode was = doc_.mode;
     if (editing() && !loadIntoSimulation()) return;
     ctrl_->setRunning(true);
-    setMode(Mode::Playing);
+    setMode(Mode::Playing, was);
 }
 
 void SceneBuilder::pause() {
-    if (mode_ != Mode::Playing) return;
+    if (doc_.mode != Mode::Playing) return;
     ctrl_->setRunning(false);
-    setMode(Mode::Paused);
+    setMode(Mode::Paused, Mode::Playing);
 }
 
 void SceneBuilder::stop() {
-    if (mode_ != Mode::Edit) returnToEdit(false);
+    if (!editing()) returnToEdit(false);
 }
 
 void SceneBuilder::step() {
     if (editing()) {
         if (!loadIntoSimulation()) return;
-        setMode(Mode::Paused);
-    } else if (mode_ == Mode::Playing) {
+        setMode(Mode::Paused, Mode::Edit);
+    } else if (doc_.mode == Mode::Playing) {
         pause();
     }
     ctrl_->requestStep();
@@ -398,32 +398,28 @@ void SceneBuilder::returnToEdit(bool keepEdits) {
     flushCode(); // the edits made while it ran, before the scene goes back
     ctrl_->setRunning(false);
     ctrl_->post([](Simulation& s) { s.load(SceneGraph()); }, "stop"); // the meta-objects go: bodies, joints, drives
-    const bool restore = hasPlayBackup_ && !keepEdits;
-    if (restore) {
-        const bool edited = playBackup_.save() != graph_.save();
-        graph_ = playBackup_;
-        doc_.history.cut(undoAtPlay_);
-        if (hasKeptBefore_) doc_.history.push(keptBefore_); // K: one Ctrl+Z puts the objects back
+    const Mode was = doc_.mode;
+    if (!keepEdits) {
+        const bool edited = doc_.backup.save() != graph_.save();
+        doc_.endPlay(false, hasKeptBefore_ ? &keptBefore_ : nullptr);
         pruneSelection();
         fillWorld();
         refreshList();
         fillInspector();
         updateHistoryActions();
         if (edited) emit statusMessage(uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются — как в Unity)"));
+    } else {
+        doc_.endPlay(true);
     }
-    hasPlayBackup_ = false;
     hasKeptBefore_ = false;
-    setMode(Mode::Edit);
+    setMode(Mode::Edit, was);
 }
 
 // The robot's world built from the graph on the simulation's thread; which drawn body is which object
 // comes with every frame (onSimulationSnapshot).
 bool SceneBuilder::loadIntoSimulation() {
-    playBackup_ = simGraph_ = graph_;
-    hasPlayBackup_ = true;
-    undoAtPlay_ = doc_.history.steps();
+    const SceneGraph g = doc_.beginPlay();
     ctrl_->setSceneName(displayName());
-    const SceneGraph g = graph_;
     ctrl_->post([g](Simulation& s) { ke::startWorld(s, g); }, "load");
     return true;
 }

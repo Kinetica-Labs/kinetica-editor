@@ -138,11 +138,11 @@ public:
     const ke::SceneGraph& graph() const { return graph_; }
 
     // Play / pause / stop / one step.
-    Mode mode() const { return mode_; }
-    bool editing() const { return mode_ == Mode::Edit; }
+    Mode mode() const { return doc_.mode; }
+    bool editing() const { return doc_.mode == Mode::Edit; }
     void watchHands(bool on) { handWatched_ = on; } // handPlaced is worked out only while someone asks for it
     ke::LiveEdit::Reload lastReload() const { return lastReload_; }
-    bool gizmoAllowed() const { return mode_ != Mode::Playing; } // edit mode, or paused
+    bool gizmoAllowed() const { return doc_.mode != Mode::Playing; } // edit mode, or paused
     // IK goals alone are selected: handles, as MuJoCo's mocap bodies - the simulation never moves them, so their
     // gizmo works while the scene plays too, and the arm follows by its motors (followGoals).
     bool goalSelected() const;
@@ -475,7 +475,7 @@ private:
     void updateHistoryActions();
 
     // What the viewport shows
-    void setMode(Mode m);
+    void setMode(Mode m, Mode was); // was: what the buttons last showed; the document is already in the new mode after beginPlay / endPlay
     void returnToEdit(bool keepEdits); // throw the simulation away, show the scene (as before Play unless kept)
     bool loadIntoSimulation();  // build the simulation from the graph (play, or a step from edit)
     void refreshView();         // edit mode: draw the graph as it is now
@@ -532,9 +532,6 @@ private:
     SimController* ctrl_;
     ke::Document doc_;             // the graph, its history and the ids: declared before graph_
     ke::SceneGraph& graph_ = doc_.graph;
-    ke::SceneGraph playBackup_;    // the graph as it was when Play was pressed: Stop brings it back
-    ke::SceneGraph simGraph_;      // what the simulation was last given (edits during play are diffed with it)
-    bool hasPlayBackup_ = false;
     // K (SceneBuilderKeep.cpp): a live pose read on the simulation's thread, and the scene as it was
     // before the first K of this play - Stop puts it into the history as one undo step.
     struct KeptPose {
@@ -545,11 +542,9 @@ private:
     void applyKeptPoses(const std::vector<KeptPose>& poses);
     ke::SceneGraph keptBefore_;
     bool hasKeptBefore_ = false;
-    size_t undoAtPlay_ = 0;        // the history's length at Play: steps made while playing go on Stop
     ke::Vector3 liveTarget_{0.0f}; // on pause: where the selected object's body is now
     bool liveTargetValid_ = false;
     std::map<uint32_t, std::pair<ke::Vector3, ke::Quaternion>> goalLive_; // the goals on paths, where the scene has walked them
-    Mode mode_ = Mode::Edit;
     EditView editView_;
     uint32_t selectedId_ = 0;      // 0: nothing selected
     uint32_t hoverId_ = 0;         // the object under the mouse (edit mode)
