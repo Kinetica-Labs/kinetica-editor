@@ -2,8 +2,8 @@
 // by hand and compared with diff. A sample:
 //
 //   # Kinetica scene
-//   world gravity 0 -9.81 0 size 4 3 4
-//   physics substeps 16 contactHertz 120 contactDamping 10 jointHertz 240 jointDamping 2 sleeping 1 continuous 1 linearDamping 0 angularDamping 0
+//   world gravity 0 -9.81 0 size 4 3 4 [duration 10]
+//   physics substeps 16 contact_hertz 120 contact_damping 10 joint_hertz 240 joint_damping 2 sleeping 1 continuous 1 linear_damping 0 angular_damping 0
 //   entity "Base"
 //     object id 3 visible 1 locked 0
 //     shape box size 0.3 0.1 0.3 position 0 0.05 0 rotation 0 0 0 color 0.6 0.6 0.6
@@ -17,13 +17,13 @@
 //   end
 //   joint "Elbow"
 //     object id 9
-//     link a 5 b 3 anchorA 0 -0.1 0 frameA 0 0 0 anchorB 0 0.1 0 frameB 0 0 0
+//     link a 5 b 3 anchor_a 0 -0.1 0 frame_a 0 0 0 anchor_b 0 0.1 0 frame_b 0 0 0
 //     limit rx lower -1.5 upper 1.5
 //     drive rx stiffness 0 damping 0 target 0 velocity 1 force 10
 //   end
 //   joint "Shock absorber"
 //     object id 10
-//     link a 6 b 3 anchorA 0 0 0 frameA 0 0 90 anchorB 0.25 -0.05 0.2 frameB 0 0 90
+//     link a 6 b 3 anchor_a 0 0 0 frame_a 0 0 90 anchor_b 0.25 -0.05 0.2 frame_b 0 0 90
 //     limit tx lower -0.05 upper 0.05
 //     drive tx stiffness 3000 damping 80 target 0 velocity 0
 //   end
@@ -60,9 +60,11 @@
 #include "scene/SceneGraph.h"
 
 #include "core/Format.h"
+#include "scene/SensorSpec.h"
 
 #include <cstdlib>
 #include <sstream>
+#include <utility>
 
 namespace ke {
 
@@ -98,6 +100,19 @@ std::vector<std::string> words(const std::string& line) {
     return out;
 }
 
+// A key under the name it had before the format settled on one style (words joined by '_'): files and journal
+// snapshots written then still load, and are saved under the new name. The format only grows; a rename goes here.
+std::string renamed(const std::string& key) {
+    static const std::pair<const char*, const char*> kRenamed[] = {
+        {"anchorA", "anchor_a"}, {"anchorB", "anchor_b"}, {"frameA", "frame_a"}, {"frameB", "frame_b"},
+        {"contactHertz", "contact_hertz"}, {"contactDamping", "contact_damping"}, {"jointHertz", "joint_hertz"},
+        {"jointDamping", "joint_damping"}, {"linearDamping", "linear_damping"}, {"angularDamping", "angular_damping"},
+        {"heightFile", "height_file"}, {"rotationStep", "rotation_step"}};
+    for (const auto& [was, now] : kRenamed)
+        if (key == was) return now;
+    return key;
+}
+
 // Reads the words of one line as "key value(s)" pairs. `need(k)` says how many numbers follow key k.
 class LineReader {
 public:
@@ -106,7 +121,7 @@ public:
     // The next key; one met before on this line comes back as "<key> twice", which no reader takes: a line
     // like "drive rx target 1 damping 5 target 2" is refused, not read with its stiffness lost.
     std::string key() {
-        const std::string& k = w_[i_++];
+        const std::string k = renamed(w_[i_++]);
         if (std::find(seen_.begin(), seen_.end(), k) != seen_.end()) return k + " twice";
         seen_.push_back(k);
         return k;
@@ -170,13 +185,50 @@ bool fail(std::string& bad, const std::string& what) {
 
 } // namespace
 
+std::string presentKey(const std::string& key) { return renamed(key); }
+
 // ---------------------------------------------------------------------------
 // Saving
 // ---------------------------------------------------------------------------
+static std::string quoted(const std::string& name) {
+    std::string n = name;
+    for (char& c : n)
+        if (c == '"') c = '\'';
+    return "\"" + n + "\"";
+}
+
+// A word that names something - a tag, an action of a controller - as the file writes it: bare, or in quotes when it
+// would read as a number ("7"), so that what reads the line back word by word (scene_get) has the name, not 7.0.
+static std::string named(const std::string& word) {
+    double number = 0;
+    return parseNumber(word, number) ? quoted(word) : word;
+}
+
 // The collider role, a line of its own with every field (written only when the role is on).
 static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
     o << "  collider kind " << kColliderNames[int(c.kind)] << " fit " << (c.fitToGeometry ? 1 : 0) << " size " << vec(c.size)
-      << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << "\n";
+      << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << (c.trigger ? " trigger 1" : "") << "\n";
+    if (c.ignores.empty()) return; // both written when set: a file without them reads everywhere
+    o << "  ignores";
+    for (const std::string& t : c.ignores) o << " " << named(t);
+    o << "\n";
+}
+
+// An object's tags, a line of their own - written when it has any: a file without them reads everywhere.
+static void saveTags(std::ostringstream& o, const std::vector<std::string>& tags) {
+    if (tags.empty()) return;
+    o << "  tags";
+    for (const std::string& t : tags) o << " " << named(t);
+    o << "\n";
+}
+
+// The plugins' components of an object, a line each - the last lines of its block, whatever it is.
+static void saveComponents(std::ostringstream& o, const std::vector<PluginComponent>& components) {
+    for (const PluginComponent& c : components) {
+        o << "  component " << c.type;
+        for (const auto& [key, word] : c.values) o << " " << key << " " << (word.find(' ') != std::string::npos || word.empty() ? quoted(word) : word);
+        o << "\n";
+    }
 }
 
 // The part every object has, for groups and arrays: a quoted name, its object line and its pose.
@@ -188,6 +240,24 @@ static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneO
     o << "  object id " << s.id << " visible " << (s.visible ? 1 : 0) << " locked " << (s.locked ? 1 : 0);
     if (s.parent != 0) o << " parent " << s.parent;
     o << "\n  pose position " << vec(s.position) << " rotation " << vec(s.rotationDeg) << " color " << vec(s.color) << "\n";
+    saveTags(o, s.tags);
+    saveComponents(o, s.components);
+}
+
+// A sequence: the object head, its clip line, then each track - its object, then its keys, by time.
+static void saveSequence(std::ostringstream& o, const SequenceObject& q) {
+    saveObjectHead(o, "sequence", q);
+    o << "  clip time " << num(q.time) << " loop " << (q.loop ? 1 : 0) << " active " << (q.active ? 1 : 0) << " play " << (q.play ? 1 : 0) << "\n";
+    for (const SequenceTrack& t : q.tracks) {
+        o << "  track object " << t.object << "\n";
+        for (const AnimKey& k : t.keys) {
+            o << "  key time " << num(k.time) << " position " << vec(k.position) << " rotation " << vec(k.rotationDeg);
+            if (k.hasVelocity) o << " velocity " << vec(k.velocity);
+            if (k.interp != AnimInterp::Linear) o << " interp " << interpName(k.interp);
+            o << "\n";
+        }
+    }
+    o << "end\n";
 }
 
 static void saveGroup(std::ostringstream& o, const Group& g) {
@@ -201,7 +271,7 @@ static const char* kPatternNames[] = {"line", "grid", "circle"};
 static void saveArray(std::ostringstream& o, const ArrayObject& a) {
     saveObjectHead(o, "array", a);
     o << "  pattern " << kPatternNames[int(a.pattern)] << " template " << a.templateId << " count " << a.count[0] << " "
-      << a.count[1] << " " << a.count[2] << " step " << vec(a.step) << " radius " << num(a.radius) << " rotationStep "
+      << a.count[1] << " " << a.count[2] << " step " << vec(a.step) << " radius " << num(a.radius) << " rotation_step "
       << vec(a.rotationStepDeg) << " jitter " << num(a.jitter) << " seed " << a.seed << "\n";
     o << "end\n";
 }
@@ -216,24 +286,51 @@ static void saveLight(std::ostringstream& o, const Light& l) {
     o << "end\n";
 }
 
+const char* kForceShapeNames[2] = {"directional", "radial"};
+const char* kForceModeNames[2] = {"impulse", "constant"};
+static const char* kForceFalloffNames[] = {"none", "linear", "inverse_square"};
+
+const char* forceFault(const Force& f) {
+    if (!std::isfinite(f.strength) || std::fabs(f.strength) > kForceMaxStrength) return "a force's strength is a finite number, at most 100000 in size";
+    if (!std::isfinite(f.radius) || f.radius < 0 || f.radius > kForceMaxRadius) return "a force's radius is from 0 to 1000 m";
+    if (!std::isfinite(f.start) || f.start < 0 || f.start > kForceMaxStart) return "a force's start is from 0 to 3600 s";
+    if (!f.tag.empty() && !tagWord(f.tag)) return "a force's tag is one word, without spaces or quotes";
+    if (f.shape == ForceShape::Radial && f.radius <= 0) return "a radial force needs a radius above 0";
+    return nullptr;
+}
+
+// The effect line: the radius comes before the shape, so that a one-key-at-a-time edit of a directional force into a
+// radial one can set the radius first. falloff, start and tag are written only when set.
+static void saveForce(std::ostringstream& o, const Force& f) {
+    saveObjectHead(o, "force", f);
+    o << "  effect radius " << num(f.radius) << " shape " << kForceShapeNames[int(f.shape)] << " mode " << kForceModeNames[int(f.mode)]
+      << " strength " << num(f.strength);
+    if (f.falloff != ForceFalloff::None) o << " falloff " << kForceFalloffNames[int(f.falloff)];
+    if (f.start != 0) o << " start " << num(f.start);
+    if (!f.tag.empty()) o << " tag " << named(f.tag);
+    o << "\nend\n";
+}
+
 static void saveCamera(std::ostringstream& o, const Camera& c) {
     saveObjectHead(o, "camera", c);
     o << "  lens fov " << num(c.fovDeg) << " near " << num(c.nearClip) << " far " << num(c.farClip) << " active "
       << (c.active ? 1 : 0) << "\n";
+    if (c.kind == CameraKind::Target) o << "  target object " << c.target << "\n"; // a free camera has none: older files read the same
     o << "end\n";
 }
 
 static void saveTexture(std::ostringstream& o, const SurfaceTexture& t) {
-    if (t.kind == TextureKind::None && t.bumpHeight == 0) return;
+    if (t.kind == TextureKind::None && t.bumpHeight == 0 && t.normalFile.empty()) return;
     if (int(t.kind) < 0 || int(t.kind) > 4 || !std::isfinite(t.repeats) || t.repeats <= 0 || t.repeats > 10000 ||
         t.file.find_first_of("\"\r\n") != std::string::npos ||
-        t.heightFile.find_first_of("\"\r\n") != std::string::npos ||
+        t.heightFile.find_first_of("\"\r\n") != std::string::npos || t.normalFile.find_first_of("\"\r\n") != std::string::npos ||
         !std::isfinite(t.bumpHeight) || t.bumpHeight < 0 || t.bumpHeight > 0.05_r)
         throw std::invalid_argument("invalid surface texture settings");
     const char* kinds[] = {"none", "checker", "image", "speckle", "stone"}; // TextureKind
     o << "  texture kind " << kinds[int(t.kind)]
       << " repeats " << num(t.repeats) << " file \"" << t.file << "\"";
-    if (t.bumpHeight > 0) o << " bump " << num(t.bumpHeight) << " heightFile \"" << t.heightFile << "\"";
+    if (t.bumpHeight > 0) o << " bump " << num(t.bumpHeight) << " height_file \"" << t.heightFile << "\"";
+    if (!t.normalFile.empty()) o << " normal_file \"" << t.normalFile << "\""; // written when set: a file without it reads everywhere
     o << "\n";
 }
 
@@ -246,11 +343,15 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     if (e.parent != 0) o << " parent " << e.parent;
     if (e.instanceOf != 0) o << " instance " << e.instanceOf;
     o << "\n";
+    saveTags(o, e.tags);
     o << "  shape " << kShapeNames[int(e.shape)];
     if (e.shape == ShapeKind::Mesh) o << " file \"" << e.meshFile << "\"";
     o << " size " << vec(e.size) << " position " << vec(e.position)
-      << " rotation " << vec(e.rotationDeg) << " color " << vec(e.color) << "\n";
+      << " rotation " << vec(e.rotationDeg) << " color " << vec(e.color);
+    if (e.opacity < 1) o << " opacity " << num(e.opacity); // written when set, as the words that came after the first sample
+    o << "\n";
     if (e.goalOf != 0) o << "  goal effector " << e.goalOf << "\n";
+    if (e.targetOf != 0) o << "  target camera " << e.targetOf << "\n";
     if (!e.path.empty()) {
         o << "  path speed " << num(e.pathSpeed) << " loop " << (e.pathLoop ? 1 : 0) << " smooth " << (e.pathSmooth ? 1 : 0);
         if (e.pathTurnLength != 0) o << " turn " << num(e.pathTurnLength); // written only when set: older files stay as they were
@@ -266,9 +367,18 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     if (e.rigid.enabled) {
         o << "  rigid density " << num(e.rigid.density) << " friction " << num(e.rigid.friction) << " restitution "
           << num(e.rigid.restitution) << " fixed " << (e.rigid.fixed ? 1 : 0) << " velocity " << vec(e.rigid.velocity)
-          << " spin " << vec(e.rigid.angularVelocity) << "\n";
+          << " spin " << vec(e.rigid.angularVelocity) << (e.rigid.kinematic ? " kinematic 1" : ""); // written when set: a file
+                                                                                  // without one reads everywhere - as the next three
+        if (e.rigid.mass > 0) o << " mass " << num(e.rigid.mass);
+        if (e.rigid.centerGiven) o << " center_of_mass " << vec(e.rigid.centerOfMass);
+        if (e.rigid.inertiaGiven) o << " inertia " << vec(e.rigid.inertiaDiagonal) << " " << vec(e.rigid.inertiaProducts);
+        if (e.rigid.gravityScale != 1) o << " gravity_scale " << num(e.rigid.gravityScale);
+        if (e.rigid.linearDamping >= 0) o << " linear_damping " << num(e.rigid.linearDamping);
+        if (e.rigid.angularDamping >= 0) o << " angular_damping " << num(e.rigid.angularDamping);
+        o << "\n";
     }
     if (e.collider.enabled) saveCollider(o, e.collider);
+    saveComponents(o, e.components);
     o << "end\n";
 }
 
@@ -297,28 +407,27 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
     for (char& c : name)
         if (c == '"') c = '\'';
     o << "joint \"" << name << "\"\n  object id " << j.id << "\n";
-    o << "  link a " << j.a << " b " << j.b << " anchorA " << vec(j.anchorA) << " frameA " << vec(j.frameA) << " anchorB "
-      << vec(j.anchorB) << " frameB " << vec(j.frameB) << "\n";
+    saveTags(o, j.tags);
+    saveComponents(o, j.components);
+    o << "  link a " << j.a << " b " << j.b << " anchor_a " << vec(j.anchorA) << " frame_a " << vec(j.frameA) << " anchor_b "
+      << vec(j.anchorB) << " frame_b " << vec(j.frameB) << "\n";
     for (int k = 0; k < 6; ++k) saveFreedom(o, k, j.dof[k]);
     if (j.collide) o << "  collide\n";
     o << "end\n";
 }
 
-static std::string quoted(const std::string& name) {
-    std::string n = name;
-    for (char& c : n)
-        if (c == '"') c = '\'';
-    return "\"" + n + "\"";
-}
-
 static void saveBattery(std::ostringstream& o, const BatteryObject& b) {
     o << "battery " << quoted(b.name) << "\n  object id " << b.id << "\n";
+    saveTags(o, b.tags);
+    saveComponents(o, b.components);
     o << "  cells series " << b.series << " parallel " << b.parallel << " capacity " << num(b.capacityAh) << " r0 " << num(b.r0) << " r1 "
       << num(b.r1) << " c1 " << num(b.c1) << " cutoff " << num(b.cutoff) << " soc " << num(b.soc) << "\nend\n";
 }
 
 static void saveDriver(std::ostringstream& o, const DriverObject& d) {
     o << "driver " << quoted(d.name) << "\n  object id " << d.id << "\n";
+    saveTags(o, d.tags);
+    saveComponents(o, d.components);
     o << "  bridge joint " << d.joint << " dof " << kDofNames[std::clamp(d.dof, 0, 5)] << " battery " << d.battery << " duty " << num(d.duty)
       << " switches " << num(d.switches) << " limit " << num(d.currentLimit) << " stop " << (d.brake ? "brake" : "coast") << "\nend\n";
 }
@@ -329,33 +438,42 @@ static const char* const kControlDrives[] = {"plane", "lift", "turn", "grip", "j
 
 static void saveController(std::ostringstream& o, const ControllerObject& c) {
     o << "controller " << quoted(c.name) << "\n  object id " << c.id << "\n";
+    saveTags(o, c.tags);
+    saveComponents(o, c.components);
     for (const ControllerAction& a : c.actions) {
-        o << "  action " << a.name << " " << kControlValues[int(a.value)] << " drive " << kControlDrives[int(a.drive)] << " target " << a.target;
+        o << "  action " << named(a.name) << " " << kControlValues[int(a.value)] << " drive " << kControlDrives[int(a.drive)] << " target " << a.target;
         if (a.drive == ControlDrive::Jog) o << " dof " << kDofNames[std::clamp(a.dof, 0, 5)];
         o << " speed " << num(a.speed) << "\n";
     }
     for (const ControllerAction& a : c.actions)
         for (const ControlBinding& b : a.bindings) {
-            o << "  bind " << a.name << " " << b.device;
+            o << "  bind " << named(a.name) << " " << b.device;
             for (const std::string& k : b.controls) o << " " << k;
             o << (b.invert ? " invert" : "") << (b.toggle ? " toggle" : "") << "\n";
         }
     o << "end\n";
 }
 
-// A sensor: the object head (its parent and its pose on it), then what it is and reads.
+// A kind's datasheet, every field written: the model it came from, and each number by its key.
+static void saveSpec(std::ostringstream& o, const SensorObject& s) {
+    if (specFields(s.kind).empty()) return;
+    if (!s.model.empty()) o << "  model " << quoted(s.model) << "\n";
+    o << "  spec";
+    for (const Field& f : specFields(s.kind)) o << " " << f.key << " " << num(specValue(s, f.key));
+    o << "\n";
+}
+
+// A sensor: the object head (its parent and its pose on it), then what it is and reads, then its datasheet.
 static void saveSensor(std::ostringstream& o, const SensorObject& s) {
     saveObjectHead(o, "sensor", s);
-    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar) {
-        o << (s.kind == SensorKind::Imu ? "  imu" : "  sonar") << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\nend\n";
+    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar || s.kind == SensorKind::Wrench) {
+        o << "  " << sensorKindKey(s.kind) << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\n";
+        saveSpec(o, s);
+        o << "end\n";
         return;
     }
     if (s.kind == SensorKind::Touch) {
         o << "  touch\nend\n";
-        return;
-    }
-    if (s.kind == SensorKind::Wrench) {
-        o << "  wrench noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\nend\n";
         return;
     }
     if (s.kind == SensorKind::Effort) {
@@ -365,7 +483,6 @@ static void saveSensor(std::ostringstream& o, const SensorObject& s) {
     if (s.kind == SensorKind::Stereo) {
         o << "  stereo width " << s.width << " height " << s.height << " fov " << num(s.fovDeg) << " baseline " << num(s.baseline) << " projector "
           << (s.projector ? 1 : 0) << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed;
-        if (s.matcher != "sgm") o << " matcher \"" << s.matcher << "\""; // the default left out: older files read and write the same
         o << "\nend\n";
         return;
     }
@@ -387,15 +504,15 @@ static void saveWheel(std::ostringstream& o, const WheelObject& w) {
 
 static std::string physicsText(const PhysicsSettings& p) {
     std::ostringstream o;
-    o << "physics substeps " << p.substeps << " contactHertz " << num(p.contactHertz) << " contactDamping " << num(p.contactDamping)
-      << " jointHertz " << num(p.jointHertz) << " jointDamping " << num(p.jointDamping) << " sleeping " << (p.sleeping ? 1 : 0)
-      << " continuous " << (p.continuous ? 1 : 0) << " linearDamping " << num(p.linearDamping) << " angularDamping "
+    o << "physics substeps " << p.substeps << " contact_hertz " << num(p.contactHertz) << " contact_damping " << num(p.contactDamping)
+      << " joint_hertz " << num(p.jointHertz) << " joint_damping " << num(p.jointDamping) << " sleeping " << (p.sleeping ? 1 : 0)
+      << " continuous " << (p.continuous ? 1 : 0) << " linear_damping " << num(p.linearDamping) << " angular_damping "
       << num(p.angularDamping) << "\n";
     return o.str();
 }
 
 static std::string worldLine(const WorldSettings& w) {
-    return "world gravity " + vec(w.gravity) + " size " + vec(w.size) + "\n";
+    return "world gravity " + vec(w.gravity) + " size " + vec(w.size) + (w.duration > 0 ? " duration " + num(w.duration) : "") + "\n";
 }
 
 std::string worldText(const WorldSettings& w) { return worldLine(w) + physicsText(w.physics); }
@@ -414,8 +531,10 @@ std::string SceneGraph::save() const {
     for (const BatteryObject& b : batteries) saveBattery(o, b);
     for (const DriverObject& d : drivers) saveDriver(o, d);
     for (const SensorObject& x : sensors) saveSensor(o, x);
+    for (const Force& f : forces) saveForce(o, f);
     for (const WheelObject& w : wheels) saveWheel(o, w);
     for (const ControllerObject& c : controllers) saveController(o, c);
+    for (const SequenceObject& q : sequences) saveSequence(o, q);
     return o.str();
 }
 
@@ -425,7 +544,8 @@ std::string SceneGraph::save() const {
 static bool readWorld(LineReader& r, WorldSettings& w, std::string& bad) {
     while (!r.done()) {
         const std::string k = r.key();
-        const bool ok = k == "gravity" ? r.vector(w.gravity) : k == "size" ? r.vector(w.size) : false;
+        const bool ok = k == "gravity" ? r.vector(w.gravity) : k == "size" ? r.vector(w.size)
+                      : k == "duration" ? r.number(w.duration) && w.duration >= 0 && w.duration <= 86400 : false;
         if (!ok) return fail(bad, k);
     }
     return true;
@@ -437,10 +557,10 @@ static bool readPhysics(LineReader& r, PhysicsSettings& p, std::string& bad) {
     while (!r.done()) {
         const std::string k = r.key();
         const bool ok = k == "substeps" ? r.count(p.substeps, 1, 64)
-            : k == "contactHertz" ? rate(p.contactHertz) : k == "contactDamping" ? damping(p.contactDamping)
-            : k == "jointHertz" ? rate(p.jointHertz) : k == "jointDamping" ? damping(p.jointDamping)
+            : k == "contact_hertz" ? rate(p.contactHertz) : k == "contact_damping" ? damping(p.contactDamping)
+            : k == "joint_hertz" ? rate(p.jointHertz) : k == "joint_damping" ? damping(p.jointDamping)
             : k == "sleeping" ? r.flag(p.sleeping) : k == "continuous" ? r.flag(p.continuous)
-            : k == "linearDamping" ? damping(p.linearDamping) : k == "angularDamping" ? damping(p.angularDamping) : false;
+            : k == "linear_damping" ? damping(p.linearDamping) : k == "angular_damping" ? damping(p.angularDamping) : false;
         if (!ok) return fail(bad, k);
     }
     return true;
@@ -455,16 +575,30 @@ static bool readShape(LineReader& r, Entity& e, const std::string& shapeName, st
         const std::string k = r.key();
         const bool ok = k == "size" ? r.vector(e.size) : k == "position" ? r.vector(e.position)
                       : k == "rotation" ? r.vector(e.rotationDeg) : k == "color" ? r.vector(e.color)
-                      : k == "file" ? r.text(e.meshFile) : false;
+                      : k == "file" ? r.text(e.meshFile)
+                      : k == "opacity" ? r.number(e.opacity) && std::isfinite(e.opacity) && e.opacity >= 0 && e.opacity <= 1 : false;
         if (!ok) return fail(bad, k);
     }
     return true;
 }
 
+// An inertia tensor a body can have: positive about each axis, no axis heavier than the other two together (a tensor
+// of a real distribution of mass is so), the products within what the diagonal allows.
+static bool inertiaOk(const RigidRole& r) {
+    const Vector3& d = r.inertiaDiagonal;
+    const Vector3& p = r.inertiaProducts;
+    for (int k = 0; k < 3; ++k)
+        if (!std::isfinite(d[k]) || !std::isfinite(p[k]) || !(d[k] > 0)) return false;
+    const Real slack = 1.000001_r;
+    return d.x <= (d.y + d.z) * slack && d.y <= (d.x + d.z) * slack && d.z <= (d.x + d.y) * slack && p.x * p.x <= d.x * d.y && p.y * p.y <= d.x * d.z &&
+           p.z * p.z <= d.y * d.z;
+}
+
 // One "key value(s)" of a role line; false if the key is not one of that role's.
 static bool readTextureKey(const std::string& k, LineReader& r, SurfaceTexture& t) {
     if (k == "file") return r.text(t.file);
-    if (k == "heightFile") return r.text(t.heightFile);
+    if (k == "height_file") return r.text(t.heightFile);
+    if (k == "normal_file") return r.text(t.normalFile);
     if (k == "bump") return r.number(t.bumpHeight) && std::isfinite(t.bumpHeight) && t.bumpHeight >= 0 && t.bumpHeight <= 0.05_r;
     if (k == "repeats") return r.number(t.repeats) && std::isfinite(t.repeats) && t.repeats > 0 && t.repeats <= 10000;
     if (k != "kind") return false;
@@ -489,13 +623,21 @@ static bool readRoleKey(const std::string& role, const std::string& k, LineReade
     if (role == "rigid") {
         return k == "density" ? r.number(e.rigid.density) : k == "friction" ? r.number(e.rigid.friction)
              : k == "restitution" ? r.number(e.rigid.restitution) : k == "fixed" ? r.flag(e.rigid.fixed)
-             : k == "velocity" ? r.vector(e.rigid.velocity) : k == "spin" ? r.vector(e.rigid.angularVelocity) : false;
+             : k == "velocity" ? r.vector(e.rigid.velocity) : k == "spin" ? r.vector(e.rigid.angularVelocity)
+             : k == "kinematic" ? r.flag(e.rigid.kinematic)
+             : k == "mass" ? r.number(e.rigid.mass) && std::isfinite(e.rigid.mass) && e.rigid.mass >= 0
+             : k == "center_of_mass" ? (e.rigid.centerGiven = r.vector(e.rigid.centerOfMass))
+             : k == "inertia" ? (e.rigid.inertiaGiven = r.vector(e.rigid.inertiaDiagonal) && r.vector(e.rigid.inertiaProducts) && inertiaOk(e.rigid))
+             : k == "gravity_scale" ? r.number(e.rigid.gravityScale) && std::isfinite(e.rigid.gravityScale) && std::fabs(e.rigid.gravityScale) <= 100
+             : k == "linear_damping" ? r.number(e.rigid.linearDamping) && std::isfinite(e.rigid.linearDamping) && e.rigid.linearDamping >= 0 && e.rigid.linearDamping <= 100
+             : k == "angular_damping" ? r.number(e.rigid.angularDamping) && std::isfinite(e.rigid.angularDamping) && e.rigid.angularDamping >= 0 && e.rigid.angularDamping <= 100
+             : false;
     }
     if (role == "collider") {
         ColliderRole& c = e.collider;
         if (k != "kind")
             return k == "fit" ? r.flag(c.fitToGeometry) : k == "size" ? r.vector(c.size) : k == "offset" ? r.vector(c.offset)
-                 : k == "rotation" ? r.vector(c.rotationDeg) : false;
+                 : k == "rotation" ? r.vector(c.rotationDeg) : k == "trigger" ? r.flag(c.trigger) : false;
         std::string kind;
         if (!r.text(kind)) return false;
         for (int i = 0; i < kColliderCount; ++i)
@@ -521,9 +663,20 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
         LineReader r(w, 2); // "shape <kind> key values ..."
         return readShape(r, e, w[1], bad);
     }
+    if (what == "target") { // "target camera <id>": a camera's own target
+        LineReader r(w, 1);
+        return (!r.done() && r.key() == "camera" && r.integer(e.targetOf) && r.done() && e.targetOf != 0) || fail(bad, what);
+    }
     if (what == "goal") { // "goal effector <id>"
         LineReader r(w, 1);
         return (!r.done() && r.key() == "effector" && r.integer(e.goalOf) && r.done() && e.goalOf != 0) || fail(bad, what);
+    }
+    if (what == "ignores") { // "ignores <tag> <tag>…": what the collider does not touch
+        for (size_t i = 1; i < w.size(); ++i) {
+            if (!tagWord(w[i])) return fail(bad, w[i]);
+            if (std::find(e.collider.ignores.begin(), e.collider.ignores.end(), w[i]) == e.collider.ignores.end()) e.collider.ignores.push_back(w[i]);
+        }
+        return true;
     }
     if (what == "path") { // "path speed <m/s> loop <0|1> smooth <0|1> [turn <m a rad>]"
         LineReader r(w, 1);
@@ -555,6 +708,7 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
 // The object line and the pose line of a group or an array.
 static bool readObjectLine(const std::vector<std::string>& w, SceneObject& s, std::string& bad) {
     LineReader r(w, 1);
+
     while (!r.done()) {
         const std::string k = r.key();
         const bool ok = w[0] == "object" ? (k == "id" ? r.integer(s.id) : k == "visible" ? r.flag(s.visible)
@@ -585,7 +739,7 @@ static bool readArrayLine(const std::vector<std::string>& w, ArrayObject& a, std
         const bool ok = k == "template" ? r.integer(a.templateId)
                       : k == "count" ? r.integer(a.count[0]) && r.integer(a.count[1]) && r.integer(a.count[2])
                       : k == "step" ? r.vector(a.step) : k == "radius" ? r.number(a.radius)
-                      : k == "rotationStep" ? r.vector(a.rotationStepDeg) : k == "jitter" ? r.number(a.jitter)
+                      : k == "rotation_step" ? r.vector(a.rotationStepDeg) : k == "jitter" ? r.number(a.jitter)
                       : k == "seed" ? r.integer(a.seed) : false;
         if (!ok) return fail(bad, k);
     }
@@ -610,8 +764,41 @@ static bool readLightLine(const std::vector<std::string>& w, Light& l, std::stri
     return true;
 }
 
+template <size_t N>
+static bool oneOf(const std::string& word, const char* (&names)[N], int& out) {
+    for (size_t i = 0; i < N; ++i)
+        if (word == names[i]) return out = int(i), true;
+    return false;
+}
+
+static bool readForceLine(const std::vector<std::string>& w, Force& f, std::string& bad) {
+    if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, f, bad);
+    if (w[0] != "effect") return fail(bad, w[0]);
+    LineReader r(w, 1);
+    while (!r.done()) {
+        const std::string k = r.key();
+        std::string word;
+        int v = 0;
+        const bool ok = k == "radius" ? r.number(f.radius) : k == "strength" ? r.number(f.strength) : k == "start" ? r.number(f.start)
+                      : k == "tag" ? r.text(f.tag)
+                      : k == "shape" ? r.text(word) && oneOf(word, kForceShapeNames, v) && (f.shape = ForceShape(v), true)
+                      : k == "mode" ? r.text(word) && oneOf(word, kForceModeNames, v) && (f.mode = ForceMode(v), true)
+                      : k == "falloff" ? r.text(word) && oneOf(word, kForceFalloffNames, v) && (f.falloff = ForceFalloff(v), true) : false;
+        if (!ok) return fail(bad, word.empty() ? k : word); // a bad word is named, else the key
+    }
+    const char* fault = forceFault(f);
+    return !fault || fail(bad, fault);
+}
+
 static bool readCameraLine(const std::vector<std::string>& w, Camera& c, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, c, bad);
+    if (w[0] == "target") { // "target object <id>" | "target point x y z": a target camera
+        LineReader r(w, 1);
+        c.kind = CameraKind::Target;
+        const std::string k = r.done() ? std::string() : r.key();
+        const bool ok = k == "object" && r.integer(c.target);
+        return ok && r.done() ? true : fail(bad, k.empty() ? "target" : k);
+    }
     if (w[0] != "lens") return fail(bad, w[0]);
     LineReader r(w, 1);
     while (!r.done()) {
@@ -656,8 +843,8 @@ static bool readJointLine(const std::vector<std::string>& w, JointObject& j, std
     while (!r.done()) {
         const std::string k = r.key();
         const bool ok = w[0] == "object" ? k == "id" && r.integer(j.id)
-                      : k == "a" ? r.integer(j.a) : k == "b" ? r.integer(j.b) : k == "anchorA" ? r.vector(j.anchorA)
-                      : k == "anchorB" ? r.vector(j.anchorB) : k == "frameA" ? r.vector(j.frameA) : k == "frameB" ? r.vector(j.frameB)
+                      : k == "a" ? r.integer(j.a) : k == "b" ? r.integer(j.b) : k == "anchor_a" ? r.vector(j.anchorA)
+                      : k == "anchor_b" ? r.vector(j.anchorB) : k == "frame_a" ? r.vector(j.frameA) : k == "frame_b" ? r.vector(j.frameB)
                       : false;
         if (!ok) return fail(bad, k);
     }
@@ -689,6 +876,16 @@ static bool readDof(LineReader& r, int& dof) {
 
 static bool readSensorLine(const std::vector<std::string>& w, SensorObject& s, std::string& bad) {
     if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, s, bad);
+    if (w[0] == "model") return w.size() == 2 ? (s.model = w[1], true) : fail(bad, "model");
+    if (w[0] == "spec") { // after the kind's line: its fields' keys
+        LineReader r(w, 1);
+        while (!r.done()) {
+            const std::string k = r.key();
+            const bool known = std::any_of(specFields(s.kind).begin(), specFields(s.kind).end(), [&](const Field& f) { return k == f.key; });
+            if (!known || !r.number(s.spec[k])) return fail(bad, k);
+        }
+        return true;
+    }
     const char* words[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo"}; // in the order of SensorKind
     int kind = -1;
     for (int n = 0; n < 7; ++n)
@@ -703,7 +900,7 @@ static bool readSensorLine(const std::vector<std::string>& w, SensorObject& s, s
         const bool ok = stereo ? (k == "width" ? r.count(s.width, 16, 4096) : k == "height" ? r.count(s.height, 16, 4096)
                                   : k == "fov" ? r.number(s.fovDeg) && s.fovDeg > 1 && s.fovDeg < 170 : k == "baseline" ? r.number(s.baseline) && s.baseline > 0
                                   : k == "projector" ? r.flag(s.projector) : k == "noise" ? r.flag(s.noise) : k == "seed" ? r.integer(s.seed)
-                                  : k == "matcher" ? r.text(s.matcher) && !s.matcher.empty() : false)
+                                  : false)
                       : noisy ? (k == "noise" ? r.flag(s.noise) : k == "seed" ? r.integer(s.seed) : false)
                       : s.kind == SensorKind::Effort ? (k == "dof" && readDof(r, s.dof))
                       : s.kind != SensorKind::Encoder ? false
@@ -805,8 +1002,41 @@ static bool readControllerLine(const std::vector<std::string>& w, ControllerObje
     return r.integer(c.id) || fail(bad, w[0]);
 }
 
+
+// "clip time <s> loop <0|1> active <0|1> play <0|1>", "track object <id>", "key time <s> position x y z rotation x y z" (to the
+// track above, by time).
+static bool readSequenceLine(const std::vector<std::string>& w, SequenceObject& q, std::string& bad) {
+    if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, q, bad);
+    LineReader r(w, 1);
+    if (w[0] == "clip") {
+        while (!r.done()) {
+            const std::string k = r.key();
+            if (!(k == "time" ? r.number(q.time) : k == "loop" ? r.flag(q.loop) : k == "active" ? r.flag(q.active) : k == "play" ? r.flag(q.play) : false))
+                return fail(bad, k);
+        }
+        return true;
+    }
+    if (w[0] == "track") {
+        q.tracks.emplace_back();
+        return (!r.done() && r.key() == "object" && r.integer(q.tracks.back().object) && r.done()) || fail(bad, "track");
+    }
+    if (w[0] != "key" || q.tracks.empty()) return fail(bad, w[0]);
+    AnimKey key;
+    while (!r.done()) {
+        const std::string k = r.key();
+        if (!(k == "time" ? r.number(key.time) : k == "position" ? r.vector(key.position) : k == "rotation" ? r.vector(key.rotationDeg)
+              : k == "velocity" ? (key.hasVelocity = true, key.interp = AnimInterp::Smooth, r.vector(key.velocity))
+              : k == "interp" ? !r.done() && interpOf(r.key(), key.interp) : false))
+            return fail(bad, k);
+    }
+    std::vector<AnimKey>& keys = q.tracks.back().keys;
+    if (!keys.empty() && !(key.time > keys.back().time)) return fail(bad, "time");
+    keys.push_back(key);
+    return true;
+}
+
 namespace {
-enum class Block { None, Entity, Group, Array, Light, Camera, Joint, Battery, Driver, Sensor, Wheel, Controller };
+enum class Block { None, Entity, Group, Array, Light, Force, Camera, Joint, Battery, Driver, Sensor, Wheel, Controller, Sequence };
 }
 
 // One line of a scene file in the block it belongs to (or starting / ending one).
@@ -825,6 +1055,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         else if (w[0] == "group") g.groups.emplace_back(), g.groups.back().name = name, block = Block::Group;
         else if (w[0] == "array") g.arrays.emplace_back(), g.arrays.back().name = name, block = Block::Array;
         else if (w[0] == "light") g.lights.emplace_back(), g.lights.back().name = name, block = Block::Light;
+        else if (w[0] == "force") g.forces.emplace_back(), g.forces.back().name = name, block = Block::Force;
         else if (w[0] == "camera") g.cameras.emplace_back(), g.cameras.back().name = name, block = Block::Camera;
         else if (w[0] == "joint") g.joints.emplace_back(), g.joints.back().name = name, block = Block::Joint;
         else if (w[0] == "battery") g.batteries.emplace_back(), g.batteries.back().name = name, block = Block::Battery;
@@ -832,7 +1063,42 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         else if (w[0] == "sensor") g.sensors.emplace_back(), g.sensors.back().name = name, block = Block::Sensor;
         else if (w[0] == "wheel") g.wheels.emplace_back(), g.wheels.back().name = name, block = Block::Wheel;
         else if (w[0] == "controller") g.controllers.emplace_back(), g.controllers.back().name = name, block = Block::Controller;
+        else if (w[0] == "sequence") g.sequences.emplace_back(), g.sequences.back().name = name, block = Block::Sequence;
         else return fail(bad, w[0]);
+        return true;
+    }
+    if (w[0] == "tags" || w[0] == "component") { // an object's, whatever it is
+        std::vector<std::string>* tags = nullptr;
+        std::vector<PluginComponent>* components = nullptr;
+        const auto last = [&](auto& objects) { tags = &objects.back().tags, components = &objects.back().components; };
+        switch (block) {
+        case Block::Entity: last(g.entities); break;
+        case Block::Group: last(g.groups); break;
+        case Block::Array: last(g.arrays); break;
+        case Block::Light: last(g.lights); break;
+        case Block::Force: last(g.forces); break;
+        case Block::Camera: last(g.cameras); break;
+        case Block::Joint: last(g.joints); break;
+        case Block::Battery: last(g.batteries); break;
+        case Block::Driver: last(g.drivers); break;
+        case Block::Sensor: last(g.sensors); break;
+        case Block::Wheel: last(g.wheels); break;
+        case Block::Controller: last(g.controllers); break;
+        case Block::Sequence: last(g.sequences); break;
+        case Block::None: return fail(bad, w[0]); // no default: a kind of block added later is missed here loudly, by the compiler
+        }
+        if (w[0] == "component") { // "component <plugin>.<name> key value key value…": a plugin's, kept as it is
+            if (w.size() < 2 || w.size() % 2 != 0) return fail(bad, w[0]);
+            PluginComponent c;
+            c.type = w[1];
+            for (size_t i = 2; i + 1 < w.size(); i += 2) c.values.push_back({w[i], w[i + 1]});
+            components->push_back(std::move(c));
+            return true;
+        }
+        for (size_t i = 1; i < w.size(); ++i) {
+            if (!tagWord(w[i])) return fail(bad, w[i]);
+            if (std::find(tags->begin(), tags->end(), w[i]) == tags->end()) tags->push_back(w[i]);
+        }
         return true;
     }
     if (w[0] == "end") {
@@ -845,6 +1111,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
     if (block == Block::Entity) return readEntityLine(w, g.entities.back(), bad);
     if (block == Block::Group) return readGroupLine(w, g.groups.back(), bad);
     if (block == Block::Light) return readLightLine(w, g.lights.back(), bad);
+    if (block == Block::Force) return readForceLine(w, g.forces.back(), bad);
     if (block == Block::Camera) return readCameraLine(w, g.cameras.back(), bad);
     if (block == Block::Joint) return readJointLine(w, g.joints.back(), bad);
     if (block == Block::Battery) return readBatteryLine(w, g.batteries.back(), bad);
@@ -852,8 +1119,32 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
     if (block == Block::Sensor) return readSensorLine(w, g.sensors.back(), bad);
     if (block == Block::Wheel) return readWheelLine(w, g.wheels.back(), bad);
     if (block == Block::Controller) return readControllerLine(w, g.controllers.back(), bad);
+    if (block == Block::Sequence) return readSequenceLine(w, g.sequences.back(), bad);
     return readArrayLine(w, g.arrays.back(), bad);
 }
+
+bool tagWord(const std::string& word) {
+    if (word.empty() || word.size() > 48) return false;
+    for (const unsigned char c : word)
+        if (c <= ' ' || c == '"' || c == '\'' || c == '#' || c == 127) return false;
+    return true;
+}
+
+// What every kind of object has under one name - its tags, its components - of the object with this id.
+template <class Graph, class Get>
+static auto partOf(Graph& g, uint32_t id, Get get) -> decltype(get(g.entities.front())) {
+    decltype(get(g.entities.front())) found = nullptr;
+    const auto look = [&](auto& objects) {
+        for (auto& o : objects)
+            if (o.id == id) found = get(o);
+    };
+    eachObjectList(g, look);
+    return id == 0 ? nullptr : found;
+}
+std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }
+const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }
+std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.components; }); }
+const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.components; }); }
 
 bool SceneGraph::load(const std::string& text, std::string& error) {
     SceneGraph g;

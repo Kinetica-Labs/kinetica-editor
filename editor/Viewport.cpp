@@ -5,6 +5,9 @@
 // is in ViewportInput.cpp and ViewportTools.cpp, lights and cameras in ViewportLights.cpp, shadows in
 // ViewportShadows.cpp, the play frame, the orbit pivot and following a body in ViewportPlay.cpp.
 #include "Viewport.h"
+#include "UiLanguage.h"
+
+#include <QOpenGLTimeMonitor>
 
 #include "JointGlyphs.h"
 #include "MeshNormals.h"
@@ -75,6 +78,7 @@ Viewport::~Viewport() {
     releaseImageTextures();
     releaseShadowMaps();
     meshCache_.clear(); // GL objects must die while the context is current
+    for (QOpenGLTimeMonitor*& m : gpuClock_) delete m, m = nullptr; // its queries too: a child QObject would outlive the context
     doneCurrent();
 }
 
@@ -206,7 +210,7 @@ bool Viewport::pickBody(const Ray& ray, int& body, Vector3& hit) const {
 // ---------------------------------------------------------------------------
 // Outlines
 // ---------------------------------------------------------------------------
-// The silhouette outlines, as in Blender or Maya: the outlined objects are drawn flat into a mask
+// The silhouette outlines: the outlined objects are drawn flat into a mask
 // (selected in red, hovered in green, role-less in blue), then a full-screen pass lights the pixels
 // just outside each mask - 2 px of orange around the selection, a faint white line around the object
 // under the mouse, a fainter one around geometry that has no role yet. Drawn over everything.
@@ -316,6 +320,13 @@ void Viewport::drawGizmo(const QMatrix4x4& vp) {
 // shape being drawn.
 void Viewport::drawEditLabel(QPainter& p) {
     QString text = createMode_ ? createTool_.sizeText(createWhat_) : gizmo_.dragging() ? QString::fromStdString(gizmo_.dragLabel()) : QString();
+    if (editTool_.draggingHandle()) { // a point's value as it goes, by the cursor
+        const ShapeHandle& h = editTool_.draggedHandle();
+        const Vector3 at = editTool_.draggedTo();
+        const QString name = h.plugin ? h.label : QString(h.what);
+        text = h.free ? QString("%1 %2 %3 %4").arg(name).arg(double(at.x), 0, 'f', 3).arg(double(at.y), 0, 'f', 3).arg(double(at.z), 0, 'f', 3)
+                      : QString(uiText("Kinetica", "%1 %2 м")).arg(name).arg(double(ke::dot(at - h.centre, h.axis)) * (h.both ? 2.0 : 1.0), 0, 'f', 3);
+    }
     if (text.isEmpty()) return;
     if (!typed_.isEmpty()) text = "= " + typed_ + "   " + text;
     const QFontMetrics fm(p.font());
@@ -339,12 +350,11 @@ void Viewport::drawJoints(const QMatrix4x4& vp) {
     JointGizmoLines gizmo;
     std::vector<float> typed[6];
     for (const auto& j : snap_->joints) {
-        if (j.generic) appendJointGizmo(gizmo, j, float(j.size), jointDebug_);
+        if (j.generic) appendJointGizmo(gizmo, j, float(j.size));
         else appendJointGlyph(typed[std::clamp(int(j.type), 0, 5)], j, float(j.size));
     }
     for (int k = 0; k < 3; ++k) drawLines(gizmo.axis[k], GL_LINES, vp, axes[k]);
     drawLines(gizmo.dim, GL_LINES, vp, QVector4D(0.6f, 0.62f, 0.66f, 0.8f));
-    drawLines(gizmo.debug, GL_LINES, vp, QVector4D(1.0f, 1.0f, 1.0f, 0.9f));
     for (int type = 0; type < 6; ++type) drawLines(typed[type], GL_LINES, vp, colors[type]);
     glEnable(GL_DEPTH_TEST);
 }
@@ -506,23 +516,29 @@ void Viewport::drawBackground() {
 }
 
 // Every opaque body from its mesh at its pose, in its colour (a model's own colours where it has
-// them) and with its surface; the see-through ones wait for drawSeeThrough.
+// them) and with its surface; the see-through ones wait for drawSeeThrough. In the frame's order, and what a body
+// shares with the one before it - its surface, its mesh - is not set again: ten thousand cubes of one kind set a
+// surface's seven uniforms and bind a mesh once, not ten thousand times (it was 14 ms of a 20 ms paint).
 void Viewport::drawBodies(const QMatrix4x4& view, const QMatrix4x4& proj) {
     meshProg_.bind();
     meshProg_.setUniformValue("uView", view);
     meshProg_.setUniformValue("uProj", proj);
     meshProg_.setUniformValue("uAlpha", 1.0f);
+    const int uModel = meshProg_.uniformLocation("uModel"), uColor = meshProg_.uniformLocation("uColor"), uVertexColor = meshProg_.uniformLocation("uVertexColor");
+    const ke::SurfaceTexture* surface = nullptr;
+    const GpuMesh* bound = nullptr;
+    int coloured = -1;
     for (const ke::Frame::Body& b : snap_->bodies) {
         if (!b.mesh || b.opacity < 1) continue;
-        setSurfaceTexture(b.texture);
-        meshProg_.setUniformValue("uModel", modelMatrix(b));
-        meshProg_.setUniformValue("uColor", qv(b.color) * sleepDim(b));
-        meshProg_.setUniformValue("uVertexColor", b.mesh->coloured() ? 1 : 0);
-        GpuMesh& g = gpuMesh(b.mesh, b.smooth);
-        g.vao->bind();
+        if (!surface || !(b.texture == *surface)) setSurfaceTexture(b.texture), surface = &b.texture;
+        meshProg_.setUniformValue(uModel, modelMatrix(b));
+        meshProg_.setUniformValue(uColor, qv(b.color) * sleepDim(b));
+        if (const int c = b.mesh->coloured() ? 1 : 0; c != coloured) meshProg_.setUniformValue(uVertexColor, coloured = c);
+        const GpuMesh& g = gpuMesh(b.mesh, b.smooth);
+        if (&g != bound) g.vao->bind(), bound = &g;
         glDrawArrays(GL_TRIANGLES, 0, g.count);
-        g.vao->release();
     }
+    if (bound) bound->vao->release();
     meshProg_.setUniformValue("uVertexColor", 0);
 }
 
@@ -565,13 +581,17 @@ void Viewport::paintGL() {
         p.fillRect(rect(), QColor(26, 28, 33));
         p.setPen(QColor(230, 200, 120));
         p.drawText(rect(), Qt::AlignCenter,
-                   QString("OpenGL 3.0 недоступен (%1).\nЗапустите с ключом --software-gl — рендер на процессоре.").arg(renderer_));
+                   QString(uiText("Kinetica", "OpenGL 3.0 недоступен (%1).\nЗапустите с ключом --software-gl — рендер на процессоре.")).arg(renderer_));
         return;
     }
+    QElapsedTimer painting;
+    painting.start();
     syncLookThrough();
+    beginGpuFrame();
     if (snap_) {
         pruneMeshCache();
         renderShadows();
+        markGpuShadows();
         QString slotKinds; // what each shadow slot holds this frame: the mesh shader compiles only those in
         for (const ShadowMap& m : shadowMaps_) slotKinds += m.light < 0 ? '-' : m.cube ? 'C' : 'M';
         if (slotKinds != meshSlots_) buildMeshShader(slotKinds);
@@ -587,7 +607,8 @@ void Viewport::paintGL() {
     glBindVertexArray(0);
     glUseProgram(0);
     if (overlayVisible_) drawOverlay();
-    countFrame();
+    endGpuFrame();
+    countFrame(painting.nsecsElapsed());
 }
 
 // QPainter (the 2D overlay) may have changed the GL state during the previous frame: set it again.
@@ -611,7 +632,7 @@ void Viewport::drawFloor(const QMatrix4x4& vp) {
     const ke::AABB& d = snap_->domain;
     const Vector3 c = d.center(), e = d.extent();
     const float y = d.lo.y, half = std::max(e.x, e.z);
-    if (!showFloor_ || !d.valid() || !(half > 0)) return;
+    if (!d.valid() || !(half > 0)) return;
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     std::vector<float> g;
@@ -638,17 +659,27 @@ void Viewport::drawOverlays3D(const QMatrix4x4& vp) {
     drawHighlight(vp);
     drawColliderGuides(vp);
     drawPaths(vp);
+    drawOverlayLines(vp);
+    drawGoalDrops(vp);
     drawSceneMarkers(vp);
     drawGhosts(vp);
     drawGizmo(vp);
 }
 
-void Viewport::countFrame() {
+// The frames painted over the last second and what one took on the window's thread, on average (with a software
+// renderer the drawing itself; with a GPU what it took to hand the frame over).
+void Viewport::countFrame(qint64 paintNs) {
     ++fpsFrames_;
+    paintNs_ += paintNs;
+    recordFrameInterval();
     const qint64 now = QDateTime::currentMSecsSinceEpoch();
     if (now - fpsLast_ > 1000) {
         fps_ = float(fpsFrames_) * 1000.0f / float(now - fpsLast_);
-        fpsFrames_ = 0;
+        paintMs_ = float(double(paintNs_) * 1e-6 / std::max(fpsFrames_, 1));
+        const double scene = snap_ && !editMode_ ? double(snap_->time) : -1;
+        realtime_ = scene >= 0 && sceneAtSecond_ >= 0 && fpsLast_ > 0 ? (scene - sceneAtSecond_) * 1000.0 / double(now - fpsLast_) : 0;
+        sceneAtSecond_ = scene;
+        fpsFrames_ = 0, paintNs_ = 0;
         fpsLast_ = now;
     }
 }
@@ -656,8 +687,8 @@ void Viewport::countFrame() {
 // ---------------------------------------------------------------------------
 // 2D overlay
 // ---------------------------------------------------------------------------
-// The scene's name and under it the edit caption, or in play the clock (with the expert's statistics:
-// the step's cost and the frame rate); then the navigation cube and the marks over the picture.
+// The scene's name and under it a creating tool's next step, or in play the clock (the mode itself is said once, by the
+// simulation bar under the view; the frame's numbers by the HUD, F3); then the navigation cube and the marks.
 void Viewport::drawOverlay() {
     QPainter p(this);
     p.setRenderHint(QPainter::Antialiasing);
@@ -665,6 +696,8 @@ void Viewport::drawOverlay() {
     f.setPointSizeF(10.5);
     f.setBold(true);
     p.setFont(f);
+    drawJointTies(p);
+    drawOverlayFills(p); // under the view's own words
     p.setPen(QColor(235, 238, 245));
     p.drawText(14, 24, QString::fromStdString(snap_->sceneName));
     f.setBold(false);
@@ -672,21 +705,28 @@ void Viewport::drawOverlay() {
     p.setFont(f);
     p.setPen(QColor(170, 176, 188));
     const double time = double(snap_->time);
-    if (editMode_)
-        p.drawText(14, 42, createMode_ ? createTool_.hint(createWhat_) : editCaption_);
-    else if (!showStats_)
-        p.drawText(14, 42, QString("t = %1 с").arg(time, 0, 'f', 2));
-    else
-        p.drawText(14, 42, QString("t = %1 с   ·   расчёт %2 мс/кадр   ·   рендер %3 fps (%4)")
-                               .arg(time, 0, 'f', 3)
-                               .arg(double(snap_->stepMs), 0, 'f', 1)
-                               .arg(double(fps_), 0, 'f', 0)
-                               .arg(softwareRenderer() ? QString("процессор, llvmpipe") : QString("GPU")));
+    if (editMode_ && createMode_) p.drawText(14, 42, createTool_.hint(createWhat_)); // what the next click does
+    else if (!editMode_) p.drawText(14, 42, QString(uiText("Kinetica", "t = %1 с")).arg(time, 0, 'f', 2));
+    if (!snap_->grips.empty()) { // the gripper as it reports itself, playing or paused (an edited scene's frame has none)
+        using S = ke::Frame::GripState;
+        const ke::Frame::GripInfo& g = snap_->grips.front();
+        const QString text = g.state == S::Holding ? uiText("Kinetica", "Схват: держит ✓") : g.state == S::Empty ? uiText("Kinetica", "Схват: сомкнут — пусто, промах")
+                           : g.state == S::Closing ? uiText("Kinetica", "Схват: смыкается…") : uiText("Kinetica", "Схват: открыт (пробел — сомкнуть)");
+        const QColor colour = g.state == S::Holding ? QColor(110, 220, 120) : g.state == S::Empty ? QColor(255, 160, 80) : QColor(170, 176, 188);
+        f.setBold(g.state == S::Holding || g.state == S::Empty);
+        p.setFont(f);
+        p.setPen(colour);
+        p.drawText(14, 60, text);
+        f.setBold(false);
+        p.setFont(f);
+        p.setPen(QColor(170, 176, 188));
+    }
     drawAxesAndHints(p);
     drawOrbitPivot(p);
     drawContactDots(p);
     drawProbeLabels(p);
     drawLabMarker(p);
+    drawHud(p);
     drawPlayFrame(p);
     p.end();
 }
@@ -694,11 +734,61 @@ void Viewport::drawOverlay() {
 // The navigation cube in the top-right corner, the selection box while it is drawn, and the live
 // amount of a drag next to the cursor. What the buttons do is in the status bar (hintChanged).
 void Viewport::drawAxesAndHints(QPainter& p) {
+    drawOverlayMarks(p);
     navCube_.draw(p, viewMatrix(), size(), navPressed_ ? navPressHit_ : navHover_);
     if (editMode_) {
         drawSelectionBox(p);
+        drawShapeHandles(p);
+        drawToolDrag(p);
         drawEditLabel(p);
     }
+}
+
+// The collider mode's points: discs over everything, lit under the mouse and while dragged.
+void Viewport::drawShapeHandles(QPainter& p) {
+    if (handles_.empty()) return;
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing);
+    const int dragged = editTool_.draggingHandle() ? editTool_.draggedIndex() : -1;
+    for (const ShapeHandle& h : handles_) { // what a point rides on, under the points: a dial's circle
+        QPolygonF line;
+        for (const ke::Vector3& w : h.guide) {
+            bool front = false;
+            const QPointF at = pixelOf(w, &front);
+            if (front) line << at;
+        }
+        p.setPen(QPen(QColor(255, 146, 40, 170), 1.2));
+        p.drawPolyline(line);
+    }
+    for (size_t i = 0; i < handles_.size(); ++i) {
+        bool front = false;
+        const QPointF at = pixelOf(handles_[i].centre + handles_[i].axis * handles_[i].reach, &front);
+        if (!front) continue;
+        const bool lit = int(i) == hoveredHandle_ || int(i) == dragged;
+        p.setPen(QPen(QColor(18, 40, 24), 1.5));
+        p.setBrush(lit ? QColor(255, 214, 90) : handles_[i].plugin ? QColor(255, 146, 40) : QColor(110, 232, 130)); // a plugin's: C4D's orange
+        p.drawEllipse(at, lit ? 7.5 : 6.0, lit ? 7.5 : 6.0);
+    }
+    p.restore();
+}
+
+// A drag tool's line while it is dragged: from the point pressed to the one under the mouse, and how long it is.
+void Viewport::drawToolDrag(QPainter& p) {
+    if (!pluginTool_.dragging()) return;
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setPen(QPen(QColor(255, 146, 40), 2.0));
+    p.drawLine(pluginTool_.from(), pluginTool_.to());
+    p.setBrush(QColor(255, 146, 40));
+    p.drawEllipse(pluginTool_.from(), 4.0, 4.0);
+    p.drawEllipse(pluginTool_.to(), 4.0, 4.0);
+    Vector3 a, b, n;
+    uint32_t object = 0;
+    if (surfaceAt(pluginTool_.from(), a, n, object) && surfaceAt(pluginTool_.to(), b, n, object)) {
+        p.setPen(QColor(255, 214, 90));
+        p.drawText(pluginTool_.to() + QPointF(12, -8), QLocale().toString(double(ke::length(b - a)), 'f', 3) + uiText("Kinetica", " м"));
+    }
+    p.restore();
 }
 
 void Viewport::drawSelectionBox(QPainter& p) {
@@ -720,7 +810,7 @@ void Viewport::setColliderGuides(std::vector<float> lines) {
     update();
 }
 
-// The collider wireframes (Houdini's collision guide) where they are in front of the geometry, and
+// The collider wireframes where they are in front of the geometry, and
 // faintly where the geometry hides them, so a barrel around a sphere reads whole. Pale green: a
 // body that moves; grey: a fixed obstacle; dim green: a body the engine put to sleep.
 void Viewport::drawColliderGuides(const QMatrix4x4& vp) {
@@ -742,7 +832,106 @@ void Viewport::drawColliderGuides(const QMatrix4x4& vp) {
     glDisable(GL_BLEND);
 }
 
+// Where a goal stands over the world - the depth a picture does not show: a plumb line from each IK goal down to what is
+// under it (a cube's top, the table, the floor; not the robot's own links) and a cross there, over everything, faint where
+// hidden. A newcomer moving the UR5e's goal with W A S D missed a cube five times running: on the screen the hand was
+// over it, in the world beside it.
+void Viewport::drawGoalDrops(const QMatrix4x4& vp) {
+    if (!snap_) return;
+    std::vector<float> lines;
+    for (const ke::Frame::Body& goal : snap_->bodies) {
+        if (!goal.marker) continue;
+        const Ray down{goal.pos, Vector3(0, -1, 0)};
+        float ground = goal.pos.y - snap_->domain.lo.y, t;
+        for (const ke::Frame::Body& b : snap_->bodies)
+            if (!b.marker && !b.robot && rayBody(b, down, t) && t > 0 && t < ground) ground = t;
+        const Vector3 at = down.at(ground);
+        const float r = 0.03f;
+        for (const Vector3& p : {goal.pos, at, at - Vector3(r, 0, 0), at + Vector3(r, 0, 0), at - Vector3(0, 0, r), at + Vector3(0, 0, r)})
+            lines.insert(lines.end(), {p.x, p.y, p.z, 0.0f}); // the line shader's vertex: x y z and a spare
+    }
+    if (lines.empty()) return;
+    const QVector4D colour(1.0f, 0.85f, 0.25f, 0.9f), faint(1.0f, 0.85f, 0.25f, 0.3f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    glDepthFunc(GL_GREATER);
+    drawLines(lines, GL_LINES, vp, faint);
+    glDepthFunc(GL_LEQUAL);
+    drawLines(lines, GL_LINES, vp, colour);
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
 // The goals' paths in cyan, over everything: the hidden stretches faint, as the collider guides.
+// The pictures of view_draw: lines in the scene's depth (behind a body faint, as the paths), points and words over it.
+void Viewport::setDrawing(const QString& key, Drawing d) {
+    drawings_[key] = std::move(d);
+    update();
+}
+
+void Viewport::clearPlayDrawings() {
+    for (auto it = drawings_.begin(); it != drawings_.end();) it = it->second.play ? drawings_.erase(it) : std::next(it);
+    update();
+}
+
+int Viewport::clearDrawings(const QString& prefix) {
+    int gone = 0;
+    for (auto it = drawings_.begin(); it != drawings_.end();)
+        it = it->first.startsWith(prefix) ? (++gone, drawings_.erase(it)) : std::next(it);
+    if (gone) update();
+    return gone;
+}
+
+void Viewport::drawOverlayLines(const QMatrix4x4& vp) {
+    if (drawings_.empty()) return;
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDepthMask(GL_FALSE);
+    for (const auto& [key, d] : drawings_) {
+        const QVector4D seen(d.colour.redF(), d.colour.greenF(), d.colour.blueF(), 1.0f), hidden(seen.x(), seen.y(), seen.z(), 0.35f);
+        glDepthFunc(GL_GREATER);
+        drawLines(d.strip, GL_LINE_STRIP, vp, hidden), drawLines(d.segments, GL_LINES, vp, hidden);
+        glDepthFunc(GL_LEQUAL);
+        drawLines(d.strip, GL_LINE_STRIP, vp, seen), drawLines(d.segments, GL_LINES, vp, seen);
+    }
+    glDepthFunc(GL_LESS);
+    glDepthMask(GL_TRUE);
+    glDisable(GL_BLEND);
+}
+
+void Viewport::drawOverlayMarks(QPainter& p) {
+    if (drawings_.empty()) return;
+    const QMatrix4x4 view = camera_.view(), projection = camera_.projection(float(width()) / std::max(1, height()));
+    const auto screen = [&](const Vector3& w, QPointF& out) {
+        const QVector3D eye = view.map(QVector3D(w.x, w.y, w.z));
+        if (eye.z() > -1e-3f) return false; // behind the eye
+        const QVector3D n = projection.map(eye);
+        out = QPointF((n.x() + 1) * 0.5 * width(), (1 - n.y()) * 0.5 * height());
+        return true;
+    };
+    p.save();
+    p.setRenderHint(QPainter::Antialiasing);
+    QPointF at;
+    const QFont plain = p.font();
+    for (const auto& [key, d] : drawings_) {
+        p.setPen(Qt::NoPen);
+        p.setBrush(d.colour);
+        for (const Vector3& w : d.points)
+            if (screen(w, at)) p.drawEllipse(at, d.size * 0.5, d.size * 0.5);
+        if (d.text.isEmpty() || !screen(d.at, at)) continue;
+        QFont letters = plain; // size: a point's width - and a label's letters, when they are to be larger than plain ones
+        letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
+        p.setFont(letters);
+        p.setPen(QColor(0, 0, 0, 200));
+        p.drawText(at + QPointF(7, -5), d.text);
+        p.setPen(d.colour);
+        p.drawText(at + QPointF(6, -6), d.text);
+    }
+    p.restore();
+}
+
 void Viewport::drawPaths(const QMatrix4x4& vp) {
     if (pathLines_.empty()) return;
     const QVector4D colour(0.35f, 0.85f, 1.0f, 0.95f), faint(0.35f, 0.85f, 1.0f, 0.35f);

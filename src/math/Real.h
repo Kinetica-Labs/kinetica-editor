@@ -2,7 +2,7 @@
 // The core's number type and the scalar constants and helpers shared by the math types.
 //
 // ke::Real is float, or double when the core is built with KE_DOUBLE (ke/Config.h): one switch for
-// every solver, as btScalar in Bullet or dReal in ODE. Literals are written 1.5_r, a Real in both
+// every solver. Literals are written 1.5_r, a Real in both
 // builds: 1.5f would stay float in the double build and drop digits, 1.5 would turn float
 // arithmetic into double. Code that must stay float whatever the build (pixels, GPU buffers) says
 // float and is marked ke:float.

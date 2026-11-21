@@ -5,6 +5,7 @@
 // Which button moves the camera is the control scheme's business (ControlScheme.h); the tools ask
 // the viewport for it, so the left button never moves the camera unless Alt is held.
 
+#include "ColliderGuides.h"
 #include "ControlScheme.h"
 #include "Gizmo.h"
 #include "OrbitCamera.h"
@@ -31,7 +32,25 @@ public:
 // The camera: what a drag does is decided at the press from the button, the keys held and the
 // scheme - orbit around the point under the cursor (it stays where it is on screen), pan, zoom, or
 // look around in place. While the right button is held and W A S D fly the camera, a drag looks
-// around instead of orbiting (Unity, Unreal).
+// around instead of orbiting.
+// A plugin's tool (PluginHost: @command(tool=True)): a left click - not a drag - is where it acts; the point, the
+// surface's normal and the object under the mouse go to its command (Viewport::clickTool). A tool whose command takes
+// `to` is a drag: from the press to the release, a line between them meanwhile
+// (Viewport::dragTool); its click is a drag of no length.
+class PluginTool : public ViewportTool {
+public:
+    void press(Viewport&, QMouseEvent* e) override;
+    void move(Viewport& v, QMouseEvent* e) override;
+    void release(Viewport& v, QMouseEvent* e) override;
+    bool dragging() const { return dragging_; }
+    QPointF from() const { return pressed_; }
+    QPointF to() const { return now_; }
+
+private:
+    QPointF pressed_, now_;
+    bool dragging_ = false;
+};
+
 class CameraTool : public ViewportTool {
 public:
     void press(Viewport& v, QMouseEvent* e) override;
@@ -96,6 +115,12 @@ public:
     bool boxSelecting() const { return box_; }
     bool cloning() const { return cloning_; } // this handle drag began with Shift: it clones
     QRectF boxRect() const { return QRectF(pressPos_, boxEnd_).normalized(); }
+    // A collider point being dragged (the collider mode): which, as it was when pressed; Esc puts it back.
+    bool draggingHandle() const { return handle_ >= 0; }
+    int draggedIndex() const { return handle_; }
+    const ShapeHandle& draggedHandle() const { return handleStart_; }
+    ke::Vector3 draggedTo() const { return handleAt_; } // where it is now (the value next to the cursor)
+    void cancelHandle(Viewport& v);
 
 private:
     bool pressTransform(Viewport& v, QMouseEvent* e); // a keyboard transform or a handle drag takes the press
@@ -105,6 +130,9 @@ private:
     void hover(Viewport& v, QMouseEvent* e);
     void startFloorDrag(Viewport& v, QMouseEvent* e);
 
+    int handle_ = -1;                         // a point pressed: the drag reports where the mouse takes it (Viewport::handlePoint)
+    ShapeHandle handleStart_;                 // ... its line as it was when pressed: the thing moves under it, the line not
+    ke::Vector3 handleAt_;
     GizmoHandle pending_ = GizmoHandle::None; // a handle pressed; the drag starts after 3 px
     bool floorDrag_ = false;                  // Shift+drag of an object (Shift is not "fine" then)
     bool pressShift_ = false;                 // Shift was down at the left press
@@ -139,9 +167,10 @@ struct CreateWhat {
     Kind kind = Kind::Shape;
     ke::ShapeKind shape = ke::ShapeKind::Box;
     ke::LightKind light = ke::LightKind::Point;
+    bool target = false; // a camera that always looks at its target: the object (or point) its third click aims at
 };
 
-// Making things one after another with the mouse (edit mode), step by step as 3ds Max's Create panel,
+// Making things one after another with the mouse (edit mode), step by step,
 // each step named in the view's hint («Куб · шаг 2/3 ●●○ · противоположный угол»):
 //   a box, a plane: a corner, the opposite corner, (the box) its height;
 //   a cylinder, a cone: the centre, the radius, the height; a sphere: the centre, the radius;

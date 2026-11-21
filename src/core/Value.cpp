@@ -20,6 +20,10 @@ bool Value::has(const std::string& key) const {
     return type_ == Type::Map && it != keys_.end() && !items_[size_t(it - keys_.begin())].isNull();
 }
 
+bool Value::contains(const std::string& key) const {
+    return type_ == Type::Map && std::find(keys_.begin(), keys_.end(), key) != keys_.end();
+}
+
 const Value& Value::operator[](const std::string& key) const {
     static const Value none;
     const auto it = std::find(keys_.begin(), keys_.end(), key);

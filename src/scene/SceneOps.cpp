@@ -3,9 +3,11 @@
 // batch of edits as one step - the inverse-able edits of SceneEdits.h under their API names.
 #include "scene/SceneOps.h"
 
+#include "core/Format.h"
 #include "scene/Assembly.h"
 #include "scene/Describe.h"
 #include "scene/SceneEdits.h"
+#include "scene/SensorSpec.h"
 
 #include <algorithm>
 
@@ -16,43 +18,107 @@ namespace {
 const char* kindOf(const SceneGraph& g, uint32_t id) {
     auto in = [id](const auto& v) { return std::any_of(v.begin(), v.end(), [id](const auto& o) { return o.id == id; }); };
     return in(g.entities) ? "entity" : in(g.groups) ? "group" : in(g.arrays) ? "array" : in(g.lights) ? "light" : in(g.cameras) ? "camera"
-         : in(g.batteries) ? "battery" : in(g.drivers) ? "driver" : in(g.sensors) ? "sensor" : in(g.wheels) ? "wheel"
-         : in(g.controllers) ? "controller" : findJoint(g, id) ? "joint" : "";
+         : in(g.batteries) ? "battery" : in(g.drivers) ? "driver" : in(g.sensors) ? "sensor" : in(g.forces) ? "force" : in(g.wheels) ? "wheel"
+         : in(g.controllers) ? "controller" : in(g.sequences) ? "sequence" : findJoint(g, id) ? "joint" : "";
 }
 
-Value objectList(const SceneGraph& g) {
-    Value out = Value::list();
+// The words scene_list's `kind` takes: a row's kind, a sensor's own ("encoder", "imu"...: SensorSpec.h), and "body" - an
+// entity with the rigid role, what physics moves.
+const char* const kListKinds[] = {"entity", "body", "group", "array", "light", "camera", "joint", "battery", "driver", "sensor", "force", "wheel", "controller",
+                                  "sequence"};
+
+bool isOfKind(const SceneGraph& g, uint32_t id, const std::string& word) {
+    if (word == kindOf(g, id)) return true;
+    for (const SensorObject& s : g.sensors)
+        if (s.id == id) return word == sensorKindKey(s.kind);
+    for (const Entity& e : g.entities)
+        if (e.id == id) return word == "body" && resolveInstance(g, e).rigid.enabled;
+    return false;
+}
+
+// Empty word: every object. A word no object can be: false, and the words there are.
+// An object's tags as an answer holds them (empty: no tags, or no such object).
+Value tagsValue(const SceneGraph& g, uint32_t id) {
+    Value list = Value::list();
+    if (const std::vector<std::string>* tags = objectTags(g, id))
+        for (const std::string& t : *tags) list.push(t);
+    return list;
+}
+
+bool objectList(const SceneGraph& g, const std::string& word, const std::string& tag, Value& out, std::string& error) {
+    out = Value::list();
+    bool known = word.empty() || std::any_of(std::begin(kListKinds), std::end(kListKinds), [&](const char* k) { return word == k; });
+    for (int k = 0; k <= int(SensorKind::Stereo) && !known; ++k) known = word == sensorKindKey(SensorKind(k));
+    if (!known) {
+        error = "kind '" + word + "' is not one of:";
+        for (const char* k : kListKinds) error += std::string(" ") + k;
+        for (int k = 0; k <= int(SensorKind::Stereo); ++k) error += std::string(" ") + sensorKindKey(SensorKind(k));
+        return false;
+    }
     auto add = [&](const auto& objects) {
         for (const auto& o : objects) {
+            if (!word.empty() && !isOfKind(g, o.id, word)) continue;
+            if (!tag.empty() && std::find(o.tags.begin(), o.tags.end(), tag) == o.tags.end()) continue;
             Value row = Value::map();
             row.set("id", o.id), row.set("kind", kindOf(g, o.id)), row.set("name", o.name);
+            if (!o.tags.empty()) row.set("tags", tagsValue(g, o.id));
             out.push(row);
         }
     };
-    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras), add(g.joints), add(g.batteries), add(g.drivers);
-    add(g.sensors), add(g.wheels), add(g.controllers);
-    return out;
+    eachObjectList(g, add);
+    return true;
 }
 
 SceneOp query(const char* name, const char* help, const char* args, SceneOp::Query run) { return {name, help, args, std::move(run), {}, false}; }
 SceneOp edit(const char* name, const char* help, const char* args, SceneOp::Edit run) { return {name, help, args, {}, std::move(run), false}; }
 
+// A block's words as an answer holds them: a number as a number, a quoted word as text whatever it reads as.
+Value wordValues(const std::vector<BlockWord>& words) {
+    Value list = Value::list();
+    double number = 0;
+    for (const BlockWord& w : words) list.push(!w.quoted && parseNumber(w.text, number) ? Value(number) : Value(w.text));
+    return list;
+}
+
+// scene_get's and world_get's {line, key?, count?} of a text: the values there, or null.
+Value fieldValues(const std::string& block, const Value& a) {
+    const std::vector<BlockWord> words = getField(block, a["line"].text(""), a["key"].text(""), size_t(std::max(a["count"].integer(1), 1)));
+    return words.empty() ? Value() : wordValues(words);
+}
+
 std::vector<SceneOp> readOps() {
     return {
-        query("scene_list", "The objects of the scene: id, kind, name", "{}", [](const SceneGraph& g, const Value&, Value& r, std::string&) {
-            return r.set("objects", objectList(g)), true;
+        query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
+              "camera, joint, battery, driver, sensor, force, wheel, controller, sequence), a sensor's own (encoder, imu, sonar, touch, wrench, effort, "
+              "stereo), or body - an entity with the rigid role. With tag - only those marked with it (scene_tag); a row says its "
+              "tags when it has any. What a plugin's field of a scene object chooses from",
+              "{kind?: str, tag?: str}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
+            Value objects;
+            if (!objectList(g, a["kind"].text(""), a["tag"].text(""), objects, e)) return false;
+            return r.set("objects", objects), true;
         }),
-        query("scene_get", "One object's block of the scene file, or the whole file without an id", "{id?: int}",
-              [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
-            const std::string t = a.has("id") ? getObject(g, uint32_t(a["id"].integer())) : g.save();
-            if (t.empty()) return e = "no object " + std::to_string(a["id"].integer()), false;
-            return r.set("text", t), true;
+        query("scene_get", "One object's block of the scene file: text, and the same read - kind, name, tags, lines (each line as its words, a "
+              "number as a number); the whole file without an id. With line: values - the count words (1) after key on the object's "
+              "line that starts with the words of line, as scene_set names them (no key: right after the line's own; null: not there)",
+              "{id?: int, line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
+            if (!a.has("id")) return a.has("line") ? (e = "a line is an object's: give its id", false) : (r.set("text", g.save()), true);
+            const std::string block = getObject(g, uint32_t(a["id"].integer()));
+            if (block.empty()) return e = "no object " + std::to_string(a["id"].integer()), false;
+            if (a.has("line")) return r.set("values", fieldValues(block, a)), true;
+            const std::vector<std::vector<BlockWord>> lines = blockLines(block);
+            Value all = Value::list();
+            for (const std::vector<BlockWord>& words : lines) all.push(wordValues(words));
+            r.set("text", block), r.set("kind", lines[0][0].text), r.set("name", lines[0].size() > 1 ? lines[0][1].text : "");
+            r.set("tags", tagsValue(g, uint32_t(a["id"].integer())));
+            return r.set("lines", all), true;
         }),
         query("scene_describe", "The scene in words: the bodies as a tree of joints with their shapes, masses, roles and drives; sensors and where "
               "they look; the batteries - for a person or a language model building by text", "{}",
               [](const SceneGraph& g, const Value&, Value& r, std::string&) { return r.set("text", describeScene(g)), true; }),
-        query("world_get", "The world's 'world' and 'physics' lines of the scene file", "{}", [](const SceneGraph& g, const Value&, Value& r, std::string&) {
-            return r.set("text", getWorld(g)), true;
+        query("world_get", "The world's 'world' and 'physics' lines of the scene file: text. With line (world, physics): values - the count "
+              "words (1) after key on that line, as scene_get reads an object's (null: not there)",
+              "{line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string&) {
+            return a.has("line") ? r.set("values", fieldValues(getWorld(g), a)) : r.set("text", getWorld(g)), true;
         }),
     };
 }
@@ -80,8 +146,14 @@ std::vector<SceneOp> coreSceneOps() {
         const uint32_t id = putObject(g, a["block"].text(""), e);
         return r.set("id", id), id != 0;
     }));
-    ops.push_back(edit("world_set", "The world's 'world' and 'physics' lines, as world_get gives them (gravity, box, physics engine; a missing physics line: defaults)",
-                       "{text: str}", [](SceneGraph& g, const Value& a, Value&, std::string& e) { return putWorld(g, a["text"].text(""), e); }));
+    ops.push_back(edit("world_set", "The world's 'world' and 'physics' lines, as world_get gives them (gravity, box, the play range's end 'duration' in s - 0: none -, physics engine; a missing physics "
+                       "line: defaults) - or one 'line key values' of them, as scene_set sets an object's: line physics, key substeps",
+                       "{text?: str, line?: str, key?: str, values?: [number|str]}", [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+        if (!a.has("line")) return a.has("text") ? putWorld(g, a["text"].text(""), e) : (e = "give the text, or a line with its key and values", false);
+        std::vector<std::string> values;
+        for (const Value& v : a["values"].items()) values.push_back(fileWord(v));
+        return setWorldField(g, a["line"].text(""), a["key"].text(""), values, e);
+    }));
     ops.push_back(edit("scene_set", "One 'line key values' of an object's block, as in the scene file (a missing role line is added)",
                        "{id: int, line: str, key?: str, values?: [number|str]}", [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         std::vector<std::string> values;
@@ -89,7 +161,7 @@ std::vector<SceneOp> coreSceneOps() {
         const uint32_t id = setField(g, uint32_t(a["id"].integer()), a["line"].text(""), a["key"].text(""), values, e);
         return r.set("id", id), id != 0;
     }));
-    ops.push_back(edit("scene_remove", "An object out, with its joints; its children keep their place in the world", "{id: int}",
+    ops.push_back(edit("scene_remove", "One object out, with its joints; its children keep their place in the world (scene_delete: with everything under it)", "{id: int}",
                        [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         return removeObject(g, uint32_t(a["id"].integer())) || (e = "no object " + std::to_string(a["id"].integer()), false);
     }));
@@ -100,7 +172,7 @@ std::vector<SceneOp> coreSceneOps() {
 const std::vector<SceneOp>& sceneOps() {
     static const std::vector<SceneOp> all = [] {
         std::vector<SceneOp> ops = coreSceneOps();
-        for (std::vector<SceneOp> part : {actionSceneOps(), assemblySceneOps(), kinematicSceneOps(), controllerSceneOps()})
+        for (std::vector<SceneOp> part : {actionSceneOps(), assemblySceneOps(), kinematicSceneOps(), controllerSceneOps(), animationSceneOps()})
             ops.insert(ops.end(), part.begin(), part.end());
         return ops;
     }();

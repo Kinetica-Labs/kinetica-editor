@@ -2,8 +2,7 @@
 // The operations of the API's core: every change of a scene graph and every question about it that a
 // client may ask, with its name, a line of help, its arguments and its answer as JSON-shaped values
 // (core/Value.h). The editor registers each of them as its own operation (undo, journal, console),
-// and serves them to scripts and agents over its API - so one name means one thing everywhere, as
-// Blender's operators do for its window and its scripts. What only a client has stays with the client: time (play, step), the undo history, files,
+// and serves them to scripts and agents over its API - so one name means one thing everywhere. What only a client has stays with the client: time (play, step), the undo history, files,
 // and the window's own state (the selection, the gizmo, the view).
 //
 // An operation that acts on objects takes them as `ids`: the core never knows a selection, and a
@@ -36,6 +35,7 @@ std::vector<SceneOp> actionSceneOps();     // add, delete, duplicate, group, rol
 std::vector<SceneOp> assemblySceneOps();   // a face's place, links, ready presets, joints, sensors, power
 std::vector<SceneOp> kinematicSceneOps();  // inverse kinematics: an effector to a point with a turn
 std::vector<SceneOp> controllerSceneOps(); // a controller: added as a ready panel for an arm (SceneOpsControllers.cpp)
+std::vector<SceneOp> animationSceneOps();  // the Sequencer: keys, the playhead, the clip (SceneOpsAnimation.cpp)
 
 // Arguments and answers as the operations read and write them.
 bool vectorArg(const Value& args, const char* key, Vector3& out); // [x, y, z]

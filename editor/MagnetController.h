@@ -1,6 +1,5 @@
 #pragma once
-// The magnet of the scene builder: a machine or a robot built from shapes in seconds, as in a CAD
-// program's assembly. With the magnet on, the polygon under the mouse shows the ghost of what a click
+// The magnet of the scene builder: a machine or a robot built from shapes in seconds, link by link. With the magnet on, the polygon under the mouse shows the ghost of what a click
 // would put there - a ready link (ke::LinkPreset: a hinge about the polygon's normal, a knee, a wheel,
 // four wheels for a chassis, a slider, a weld, a ball) with its joint's glyph - and the ghost moves the
 // way its joint lets it (swings, slides, spins): what the joint does is seen before the click. Which
@@ -9,7 +8,7 @@
 // The left button pressed on a polygon: a plain click puts the suggested link; held or dragged, the
 // pie menu (PieMenu) opens round the press point and the release puts the link the mouse points to -
 // eight choices in fixed places, so the hand learns to flick to one. Ctrl + click on one shape, then
-// Ctrl + click on another: a joint between the two where they stand (Fusion's as-built joint), at the
+// Ctrl + click on another: a joint between the two where they stand (an as-built joint), at the
 // first point, about its normal. Keys: 1-8 pin a ready link, 0 back to the suggestion, A turns a
 // copied link's axis, Tab flips it, M mirrors the link to the other side, Esc leaves the magnet. One
 // click is one undo step.

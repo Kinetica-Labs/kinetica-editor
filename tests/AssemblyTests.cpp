@@ -11,6 +11,7 @@
 #include "scene/SceneEdits.h"
 #include "scene/SceneGraph.h"
 #include "scene/SceneOps.h"
+#include "scene/SensorSpec.h"
 
 #include <algorithm>
 #include <chrono>
@@ -182,7 +183,7 @@ void testWorldAndKindEdits() {
     std::string text = getWorld(g);
     const bool both = text.find("world ") == 0 && text.find("\nphysics ") != std::string::npos;
     text.replace(text.find("gravity 0 -9.81 0"), 17, "gravity 0 0 0");
-    text.replace(text.find("jointHertz 480"), 14, "jointHertz 120");
+    text.replace(text.find("joint_hertz 480"), 15, "joint_hertz 120");
     const bool put = putWorld(other, text, error);
     const bool refused = !putWorld(other, "entity \"Куб\"\n  object id 3\nend\n", error);
     g.entities.push_back(block("Основание", Vector3(0.2_r), Vector3(0.0_r), true));
@@ -199,7 +200,20 @@ void testWorldAndKindEdits() {
                 double(other.world.gravity.z), double(other.world.physics.jointHertz), refused ? "yes" : "no", link.joint, hinge.c_str(),
                 slider.c_str(), j.name.c_str());
     CHECK(both && put && length(other.world.gravity) == 0 && other.world.physics.jointHertz == 120 && refused, "the world's edits: %s", error.c_str());
-    CHECK(slider == "Призматическое " + std::to_string(link.joint) && j.name == "Мой шарнир", "the kind's label: %s, %s", slider.c_str(), j.name.c_str());
+    // A new joint is its kind's word and the first free number (not its id: "Шарнир 59" in a scene of two bodies), and keeps
+    // the number when its kind changes.
+    CHECK(hinge == "Шарнир 1" && slider == "Призматическое 1" && j.name == "Мой шарнир", "the kind's label: %s, %s, %s", hinge.c_str(),
+          slider.c_str(), j.name.c_str());
+    // A sequence is an object as the rest: the difference of two scenes names it (what undo answers with), one object
+    // removed takes it.
+    const SceneGraph before = g;
+    SequenceObject take;
+    take.id = nextId(g), take.name = "Дубль";
+    g.sequences.push_back(take);
+    const std::vector<GraphEdit> made = diffEdits(before, g), gone = diffEdits(g, before);
+    CHECK(made.size() == 1 && made[0].kind == GraphEdit::Kind::Put && made[0].text.find("Дубль") != std::string::npos && gone.size() == 1 &&
+          gone[0].kind == GraphEdit::Kind::Remove && gone[0].id == take.id, "a sequence made or gone is not in the difference of the scenes");
+    CHECK(removeObject(g, take.id) && g.sequences.empty() && g.save() == before.save(), "removeObject says done and leaves the sequence");
 }
 
 // A stereo camera with its housing (CameraHousing.h). Free, a box housing at (0, 1, 0) looking at (1, 0, 0): its +x
@@ -276,6 +290,72 @@ void testDescribeScene() {
 // stiffness (fields merge); a velocity motor and a DC motor by their kinds, a DC motor without its constant
 // refused. The trap an agent fell into - scene_set writing "target" over the stiffness's place, a line with
 // "target" twice - is refused now instead of read with the stiffness lost. The scene in words says "серво".
+// assembly_attach by name - what the MCP server's instructions tell an agent to build with: the new link stands
+// against the face, the joint at the face's centre is of the kind asked for, and the answer says which way it turns.
+void testAssemblyAttachOp() {
+    SceneGraph g;
+    std::string error;
+    const auto list = [](Real x, Real y, Real z) {
+        Value v = Value::list();
+        return v.push(double(x)), v.push(double(y)), v.push(double(z)), v;
+    };
+    Value add = Value::map(), base = Value::map();
+    add.set("shape", "box"), add.set("role", "rigid"), add.set("fixed", true), add.set("size", list(0.5_r, 0.5_r, 0.5_r)), add.set("position", list(0, 0.25_r, 0));
+    findSceneOp("scene_add")->edit(g, add, base, error);
+    const int target = base["id"].integer();
+    const SceneOp* attach = findSceneOp("assembly_attach");
+    Value args = Value::map(), made = Value::map();
+    args.set("target", target), args.set("face", "+y"), args.set("joint", "hinge"), args.set("axis", 0), args.set("size", list(0.2_r, 0.6_r, 0.2_r)), args.set("name", "Плечо");
+    CHECK(attach->edit(g, args, made, error), "assembly_attach: %s", error.c_str());
+    const Entity* link = static_cast<const Entity*>(findObject(g, uint32_t(made["id"].integer())));
+    const JointObject* joint = findJoint(g, uint32_t(made["joint"].integer()));
+    CHECK(link && joint && made["entity"].integer() == made["id"].integer(), "the answer names the new link and its joint");
+    if (!link || !joint) return;
+    Vector3 at, axis;
+    jointWorldFrame(g, *joint, at, axis);
+    const std::vector<Value>& said = made["axis"].items();
+    std::printf("  attached «%s» at y %.3f, the joint at (%.3f, %.3f, %.3f) about (%.2f, %.2f, %.2f)\n", link->name.c_str(), double(link->position.y),
+                double(at.x), double(at.y), double(at.z), double(axis.x), double(axis.y), double(axis.z));
+    CHECK(link->name == "Плечо" && std::abs(link->position.y - 0.8_r) < 1e-5_r && link->rigid.enabled && !link->rigid.fixed,
+          "the link is named, a free body, and stands on the face: its centre half its height above it");
+    CHECK(joint->a == link->id && joint->b == uint32_t(target) && length(at - Vector3(0, 0.5_r, 0)) < 1e-5_r, "the joint holds the link to the target at the face's centre");
+    CHECK(said.size() == 3 && std::abs(length(axis) - 1) < 1e-5_r && std::abs(axis.y) < 1e-5_r && std::abs(Real(said[0].number()) - axis.x) < 1e-6_r &&
+          std::abs(Real(said[2].number()) - axis.z) < 1e-6_r, "the answer's axis is the hinge's in the world - across the face");
+    CHECK(getObject(g, joint->id).find("free rx") != std::string::npos, "a hinge: one free turn");
+    Value weld = Value::map(), welded = Value::map();
+    weld.set("target", target), weld.set("face", "+x"), weld.set("joint", "weld");
+    CHECK(attach->edit(g, weld, welded, error) && getObject(g, uint32_t(welded["joint"].integer())).find("free") == std::string::npos,
+          "joint weld: no freedom left");
+    // A link hung on a kinematic body is a body its joint moves, not one more kinematic one.
+    Value moving = Value::map(), carrier = Value::map(), on = Value::map(), hung = Value::map();
+    moving.set("shape", "box"), moving.set("role", "rigid"), moving.set("kinematic", true), moving.set("position", list(2, 0.5_r, 0));
+    findSceneOp("scene_add")->edit(g, moving, carrier, error);
+    on.set("target", carrier["id"].integer()), on.set("face", "+y"), on.set("joint", "hinge");
+    const bool attached = attach->edit(g, on, hung, error);
+    const Entity* arm = findEntity(g, uint32_t(hung["id"].integer()));
+    CHECK(attached && arm && arm->rigid.dynamic() && findEntity(g, uint32_t(carrier["id"].integer()))->rigid.kinematic,
+          "a link attached to a kinematic body is not a dynamic one - its joint cannot move it: %s", error.c_str());
+    // The target's own kilograms and its being a zone are the target's: a link of another size is a plain body.
+    Entity* weighed = const_cast<Entity*>(findEntity(g, uint32_t(target)));
+    weighed->rigid.mass = 10, weighed->rigid.centerGiven = true, weighed->rigid.centerOfMass = {0.2_r, 0, 0}, weighed->collider.trigger = true;
+    Value small = Value::map(), same = Value::map(), little = Value::map(), twin = Value::map();
+    small.set("target", target), small.set("face", "-x"), small.set("joint", "hinge"), small.set("size", list(0.1_r, 0.1_r, 0.1_r));
+    same.set("target", target), same.set("face", "-z"), same.set("joint", "hinge");
+    const bool both = attach->edit(g, small, little, error) && attach->edit(g, same, twin, error);
+    const Entity* tiny = findEntity(g, uint32_t(little["id"].integer()));
+    const Entity* copy = findEntity(g, uint32_t(twin["id"].integer()));
+    CHECK(both && tiny && copy && tiny->rigid.mass == 0 && !tiny->rigid.centerGiven && !tiny->collider.trigger && copy->rigid.mass == 10 &&
+          !copy->collider.trigger, "a link of another size keeps its target's given mass, or a link is a zone as its target: %s", error.c_str());
+    weighed->rigid.mass = 0, weighed->rigid.centerGiven = false, weighed->collider.trigger = false;
+    const size_t entities = g.entities.size(), joints = g.joints.size();
+    Value wrong = Value::map(), none = Value::map();
+    wrong.set("target", target), wrong.set("face", "up");
+    const bool face = attach->edit(g, wrong, none, error);
+    wrong.set("face", "+z"), wrong.set("joint", "spring");
+    CHECK(!face && !attach->edit(g, wrong, none, error) && g.entities.size() == entities && g.joints.size() == joints,
+          "a face or a joint kind that is not one is refused, nothing added");
+}
+
 void testAssemblyDrive() {
     SceneGraph g;
     Entity base, arm;
@@ -556,4 +636,76 @@ void testSmoothPath() {
                 double((goal.pathSmooth = true, pathLength(goal))), c1, c0, 100 * v1, j1, j0, 1000 * n1, t1);
     CHECK(c1 < 3 && c0 > 80 && v1 < 0.01 && n1 < 1e-3 && t1 < 0.5, "the flight is not smooth, steady and through its points turned as they say");
     CHECK(j1 < 0.5 * j0, "SQUAD's spin jumps as much as slerp's at the points: %g against %g", j1, j0);
+}
+
+// A sensor's datasheet is data: a table's row (quoted cells with commas, an empty cell left at the field's value, an
+// unknown column and a bad number reported, a later table's row of a model over the earlier's); the model's numbers
+// into a sensor, a number typed over them noticed; every number back from the scene file to the bit, an old file's
+// sensor with no datasheet at the fields' values; the program's own tables read with no problem, each number in its
+// field's range; sensor_spec and assembly_sensor by a model's name, an unknown name and a number out of range refused.
+void testSensorDatasheet() {
+    SensorCatalog c;
+    std::string problems = c.read(SensorKind::Imu, "model,rate_hz,bandwidth_hz,colour,source\n# a note\nTest-IMU,200,,red,\"a sheet, rev. 2\"\nBad,x1,5,,\n",
+                                  "imu.csv");
+    problems += c.read(SensorKind::Imu, "model,rate_hz\nBad,400\n", "mine/imu.csv");
+    const SensorModel* t = c.find(SensorKind::Imu, "Test-IMU");
+    const SensorModel* bad = c.find(SensorKind::Imu, "Bad");
+    std::printf("  a table: %zu models, problems:\n%s", c.models(SensorKind::Imu).size(), problems.c_str());
+    CHECK(t && t->source == "a sheet, rev. 2" && t->values.size() == 1 && t->values.at("rate_hz") == 200, "a row's cells: quotes, an empty cell");
+    CHECK(problems.find("colour") != std::string::npos && problems.find("x1") != std::string::npos, "an unknown column and a bad number are told");
+    CHECK(bad && bad->values.at("rate_hz") == 400 && c.models(SensorKind::Imu).size() == 2, "a later table's row of a model replaces the earlier's");
+    SensorObject s;
+    s.kind = SensorKind::Imu;
+    applyModel(s, *t);
+    const ImuSpec spec = imuSpec(s);
+    CHECK(s.model == "Test-IMU" && spec.rateHz == 200 && spec.bandwidthHz == 260 && specMatches(s, *t), "the model's numbers, the rest at the fields'");
+    s.spec["gyro_noise_dps_rthz"] = 0.002_r;
+    CHECK(!specMatches(s, *t) && imuSpec(s).gyroNoiseDps == double(0.002_r), "a number typed over the model's is the sensor's");
+
+    SceneGraph g;
+    Entity box;
+    box.id = 1, box.name = "Box";
+    g.entities.push_back(box);
+    const uint32_t id = attachSensor(g, 1, snapToFace(g, 1, BoxFace::PlusY, Vector3(0.0_r)), SensorKind::Imu);
+    SensorObject& placed = g.sensors.back();
+    placed.model = s.model, placed.spec = s.spec;
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    CHECK(back.load(text, error) && back.save() == text && back.sensors.size() == 1 && back.sensors[0].spec == placed.spec && back.sensors[0].model == "Test-IMU",
+          "the datasheet back from the file to the bit: %s", error.c_str());
+    std::string old = text;
+    for (const char* line : {"  model ", "  spec "}) {
+        const size_t at = old.find(line);
+        old.erase(at, old.find('\n', at) - at + 1);
+    }
+    CHECK(back.load(old, error) && back.sensors[0].spec.empty() && imuSpec(back.sensors[0]).rateHz == ImuSpec().rateHz, "an old file's IMU: the fields' values");
+
+    problems = sensorCatalog().load({std::string(KE_DATA) + "/sensors"});
+    int models = 0, outside = 0;
+    for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+        for (const SensorModel* m : sensorCatalog().models(k)) {
+            ++models;
+            for (const Field& f : specFields(k))
+                if (m->values.count(f.key) && !(m->values.at(f.key) >= f.min && m->values.at(f.key) <= f.max)) ++outside;
+        }
+    std::printf("  the program's tables: %zu files, %d models, %d numbers out of range; problems: %s\n", sensorCatalog().files().size(), models, outside,
+                problems.empty() ? "none" : problems.c_str());
+    CHECK(problems.empty() && sensorCatalog().files().size() == 3 && models >= 3 && outside == 0, "the program's tables read clean");
+
+    const std::string first = sensorCatalog().models(SensorKind::Imu).front()->name;
+    Value args = Value::map(), answer = Value::map(), spec2 = Value::map();
+    args.set("sensor", int(id)), args.set("model", first), spec2.set("rate_hz", 100.0), args.set("spec", spec2);
+    const bool set = findSceneOp("sensor_spec")->edit(g, args, answer, error);
+    CHECK(set && g.sensors.back().model == first && specValue(g.sensors.back(), "rate_hz") == 100 && !answer["datasheet"]["as_model"].truth(true),
+          "sensor_spec: the model's numbers, 100 Hz over them: %s", error.c_str());
+    args.set("model", "No-Such-IMU");
+    CHECK(!findSceneOp("sensor_spec")->edit(g, args, answer, error) && error.find(first) != std::string::npos, "an unknown model is refused, the table's named: %s", error.c_str());
+    Value far = Value::map(), big = Value::map();
+    far.set("sensor", int(id)), big.set("bits", 99.0), far.set("spec", big);
+    CHECK(!findSceneOp("sensor_spec")->edit(g, far, answer, error) && error.find("bits") != std::string::npos, "a number out of its field's range: %s", error.c_str());
+    Value put = Value::map();
+    put.set("target", 1), put.set("kind", "sonar"), put.set("face", "+x"), put.set("model", sensorCatalog().models(SensorKind::Sonar).front()->name);
+    CHECK(findSceneOp("assembly_sensor")->edit(g, put, answer, error) && g.sensors.back().model == sensorCatalog().models(SensorKind::Sonar).front()->name,
+          "assembly_sensor by a model's name: %s", error.c_str());
 }

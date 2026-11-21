@@ -3,14 +3,14 @@
 // SceneBuilderColliders.cpp, several selected objects in SceneBuilderMulti.cpp. The scene list is a
 // tree: a group holds its members, an array its hidden template; ⧉ marks instances and their master.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
+#include "scene/Collider.h"
 
 #include "IkSolverView.h"
 #include "scene/Assembly.h"
 #include "TexturePanel.h"
 #include "WorldPanel.h"
-#include "RuPlural.h"
 
-#include "ColliderPanel.h"
 #include "InspectorWidgets.h"
 #include "ManyPanels.h"
 #include "ObjectInspector.h"
@@ -44,8 +44,9 @@ QString rolesText(const Entity& e) {
     QStringList roles;
     for (int k = 0; k < int(RoleIcon::Count); ++k)
         if (roleEnabled(e, RoleIcon(k))) roles << roleName(RoleIcon(k)).toLower();
-    if (e.rigid.enabled && e.rigid.fixed) roles.replaceInStrings("твёрдое", "неподвижное");
-    if (!e.rigid.enabled && e.collider.enabled) roles.replaceInStrings("коллайдер", "препятствие");
+    if (e.rigid.enabled && e.rigid.fixed) roles.replaceInStrings(uiText("Kinetica", "твёрдое"), uiText("Kinetica", "неподвижное"));
+    else if (e.rigid.enabled && e.rigid.kinematic) roles.replaceInStrings(uiText("Kinetica", "твёрдое"), uiText("Kinetica", "кинематическое"));
+    if (!e.rigid.enabled && e.collider.enabled) roles.replaceInStrings(uiText("Kinetica", "коллайдер"), uiText("Kinetica", "препятствие"));
     const QString name = QString::fromStdString(e.name);
     return roles.isEmpty() ? name : name + " — " + roles.join(", ");
 }
@@ -64,14 +65,38 @@ QLabel* hintLabel(const QString& text) {
     return l;
 }
 
+const char* kColliderTips[] = {
+    QT_TRANSLATE_NOOP("Kinetica", "Авто: сталкивается самой формой — коробка для куба, шар для сферы, оболочка для остального"),
+    QT_TRANSLATE_NOOP("Kinetica", "Коробка: самый быстрый коллайдер; ящики, стены, всё прямоугольное"),
+    QT_TRANSLATE_NOOP("Kinetica", "Сфера: катится; мячи, камни, всё круглое"),
+    QT_TRANSLATE_NOOP("Kinetica", "Капсула: цилиндр с полусферами на концах; персонажи, бочки, бутылки, звенья руки"),
+    QT_TRANSLATE_NOOP("Kinetica", "Выпуклая оболочка: форма, натянутая как плёнка на геометрию, без вмятин"),
+    QT_TRANSLATE_NOOP("Kinetica", "Цилиндр: круглый цилиндр по оси y (многогранник из 24 граней) — колёса, валы, стаканы")};
+static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::Cylinder) + 1, "a tip for every collider kind");
+
+QString colliderName(ColliderKind k) {
+    static const char* names[] = {uiText("Kinetica", "Авто"), uiText("Kinetica", "Коробка"), uiText("Kinetica", "Сфера"), uiText("Kinetica", "Капсула"), uiText("Kinetica", "Выпуклая оболочка"), uiText("Kinetica", "Цилиндр")};
+    return names[int(k)];
+}
+
+QString collisionShapeName(ShapeDesc::Kind k) {
+    switch (k) {
+    case ShapeDesc::Kind::Box: return uiText("Kinetica", "коробка");
+    case ShapeDesc::Kind::Sphere: return uiText("Kinetica", "сфера");
+    case ShapeDesc::Kind::Capsule: return uiText("Kinetica", "капсула");
+    case ShapeDesc::Kind::Hull: return uiText("Kinetica", "выпуклая оболочка");
+    }
+    return "?";
+}
+
 } // namespace
 
 // ---------------------------------------------------------------------------
 // Actions: the big "create" buttons and undo / redo
 // ---------------------------------------------------------------------------
 void SceneBuilder::buildActions() {
-    const char* tips[] = {"Куб 20 см: появится в воздухе; только форма — компоненты справа", "Шар 20 см в воздухе", "Цилиндр в воздухе",
-                          "Конус в воздухе", "Плоскость 3 × 3 м: пол, стол, наклонная плоскость"};
+    const char* tips[] = {uiText("Kinetica", "Куб 20 см: появится в воздухе; только форма — компоненты справа"), uiText("Kinetica", "Шар 20 см в воздухе"), uiText("Kinetica", "Цилиндр в воздухе"),
+                          uiText("Kinetica", "Конус в воздухе"), uiText("Kinetica", "Плоскость 3 × 3 м: пол, стол, наклонная плоскость")};
     for (int k = 0; k < 5; ++k) {
         const ShapeKind shape = ShapeKind(k);
         auto* a = new QAction(shapeIcon(shape, 48), shapeName(shape), this);
@@ -79,13 +104,13 @@ void SceneBuilder::buildActions() {
         connect(a, &QAction::triggered, this, [this, shape] { addEntity(shape); });
         createActions_.push_back(a);
     }
-    undoAct_ = new QAction(controlIcon(ControlIcon::Undo, 48), "Отменить", this);
+    undoAct_ = new QAction(controlIcon(ControlIcon::Undo, 48), uiText("Kinetica", "Отменить"), this);
     undoAct_->setShortcut(QKeySequence::Undo);
-    redoAct_ = new QAction(controlIcon(ControlIcon::Redo, 48), "Повторить", this);
+    redoAct_ = new QAction(controlIcon(ControlIcon::Redo, 48), uiText("Kinetica", "Повторить"), this);
     redoAct_->setShortcuts({QKeySequence("Ctrl+Shift+Z"), QKeySequence("Ctrl+Y")});
     connect(undoAct_, &QAction::triggered, this, &SceneBuilder::undo);
     connect(redoAct_, &QAction::triggered, this, &SceneBuilder::redo);
-    deselectAct_ = new QAction("Снять выделение", this);
+    deselectAct_ = new QAction(uiText("Kinetica", "Снять выделение"), this);
     connect(deselectAct_, &QAction::triggered, this, [this] { setSelected(0); });
 }
 
@@ -103,14 +128,15 @@ void SceneBuilder::buildSceneList() {
     list_->setRootIsDecorated(true); // groups open and shut
     list_->setObjectName("sceneList");
     list_->setIconSize(QSize(22, 22));
+    list_->setUniformRowHeights(true); // every row is one line with an icon: no measuring of each at every refresh
     list_->header()->setStretchLastSection(false);
     list_->header()->setSectionResizeMode(0, QHeaderView::Stretch);
     for (int c : {1, 2}) {
         list_->header()->setSectionResizeMode(c, QHeaderView::Fixed);
         list_->setColumnWidth(c, 28);
     }
-    list_->setToolTip("Всё, что есть в сцене. Глаз — видимость, замок — мышь не трогает. Delete — удалить. "
-                      "⧉ — экземпляр: правка одного меняет все");
+    list_->setToolTip(uiText("Kinetica", "Всё, что есть в сцене. Глаз — видимость, замок — мышь не трогает. Delete — удалить. "
+                      "⧉ — экземпляр: правка одного меняет все"));
     connect(list_, &QTreeWidget::itemClicked, this, &SceneBuilder::onListClicked);
     list_->setSelectionMode(QAbstractItemView::ExtendedSelection); // every selected object is highlighted
     connect(list_, &QTreeWidget::currentItemChanged, this, [this](QTreeWidgetItem* item) {
@@ -122,13 +148,16 @@ void SceneBuilder::buildSceneList() {
     col->addWidget(list_, 1);
 
     auto* row = new QHBoxLayout;
-    auto* dup = new QPushButton("Дублировать");
-    auto* rem = new QPushButton("Удалить");
+    auto* dup = new QPushButton(uiText("Kinetica", "Дублировать"));
+    auto* rem = new QPushButton(uiText("Kinetica", "Удалить"));
     connect(dup, &QPushButton::clicked, this, &SceneBuilder::duplicateSelected);
     connect(rem, &QPushButton::clicked, this, &SceneBuilder::removeSelected);
     row->addWidget(dup);
     row->addWidget(rem);
     col->addLayout(row);
+    const auto showFor = [dup, rem](uint32_t id) { dup->setVisible(id != 0), rem->setVisible(id != 0); }; // nothing selected: nothing to act on
+    connect(this, &SceneBuilder::selectionChanged, dup, showFor);
+    showFor(0);
 }
 
 void SceneBuilder::buildWorldPanel() {
@@ -151,7 +180,7 @@ void SceneBuilder::buildInspector() {
     playHint_->setWordWrap(true);
     playHint_->setVisible(false);
     col->addWidget(playHint_);
-    emptyHint_ = new QLabel("Выберите объект в сцене\nили создайте новый кнопкой сверху.");
+    emptyHint_ = new QLabel(uiText("Kinetica", "Выберите объект в сцене\nили создайте новый кнопкой сверху."));
     emptyHint_->setAlignment(Qt::AlignCenter);
     emptyHint_->setObjectName("emptyHint");
     col->addWidget(emptyHint_);
@@ -164,11 +193,12 @@ void SceneBuilder::buildInspector() {
     buildObjectCard(body);
     buildManyCards(body);
     buildLightCards(body);
+    buildForceCard(body);
     buildSensorCard(body);
     shapePart_ = new QWidget; // what only a shape has
     auto* shape = column(shapePart_, 0);
     buildGeometryCard(shape);
-    shape->addWidget(sectionTitle("Компоненты"));
+    shape->addWidget(sectionTitle(uiText("Kinetica", "Компоненты")));
     buildColliderCard(shape); // right under the shape: what the body looks like, then what it collides with
     buildMaterialCards(shape);
     buildAddComponent(shape);
@@ -208,7 +238,13 @@ void SceneBuilder::buildObjectCard(QVBoxLayout* col) {
     auto* f = new QFormLayout(sizeRow_);
     f->setContentsMargins(0, 0, 0, 0);
     f->setSpacing(6);
-    size_ = vectorField(f, "Размер, м", 0.005, 20, 0.05, 3); // millimetres, as the place
+    size_ = vectorField(f, uiText("Kinetica", "Размер, м"), 0.005, 20, 0.05, 3); // millimetres, as the place
+    opacity_ = new QDoubleSpinBox;
+    opacity_->setObjectName("shapeOpacity");
+    opacity_->setRange(0.05, 1), opacity_->setSingleStep(0.05), opacity_->setDecimals(2), opacity_->setKeyboardTracking(false);
+    opacity_->setToolTip(uiText("Kinetica", "1 — сплошное; меньше — просвечивает: стекло, экран, ограждение. Только вид: физика этого не знает."));
+    connect(opacity_, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &SceneBuilder::onDetailsEdited);
+    f->addRow(uiText("Kinetica", "Непрозрачность"), opacity_);
     col->addWidget(sizeRow_);
 }
 
@@ -217,7 +253,7 @@ void SceneBuilder::buildManyCards(QVBoxLayout* col) {
     instanceLink_ = new InlineBanner;
     instanceLink_->setObjectName("instanceLink");
     col->addWidget(instanceLink_);
-    groupCard_ = new ComponentCard("Группа", objectIcon(ObjectIcon::Group, 22));
+    groupCard_ = new ComponentCard(uiText("Kinetica", "Группа"), objectIcon(ObjectIcon::Group, 22));
     groupCard_->setObjectName("groupCard");
     groupPanel_ = new GroupPanel;
     groupCard_->body()->addWidget(groupPanel_);
@@ -225,49 +261,84 @@ void SceneBuilder::buildManyCards(QVBoxLayout* col) {
     connect(groupPanel_, &GroupPanel::ungroupClicked, this, &SceneBuilder::ungroupSelected);
     connect(groupPanel_, &GroupPanel::gluedToggled, this, [this](bool on) { setGlued(selectedId_, on); });
     col->addWidget(groupCard_);
-    arrayCard_ = new ComponentCard("Массив", objectIcon(ObjectIcon::ArrayLine, 22));
+    arrayCard_ = new ComponentCard(uiText("Kinetica", "Массив"), objectIcon(ObjectIcon::ArrayLine, 22));
     arrayCard_->setObjectName("arrayCard");
-    arrayPanel_ = new ArrayPanel;
-    arrayCard_->body()->addWidget(arrayPanel_);
+    arrayCard_->body()->addWidget(arrayFields());
+    auto* explode = new QPushButton(uiText("Kinetica", "Разобрать на объекты"));
+    explode->setObjectName("explodeArray");
+    explode->setToolTip(uiText("Kinetica", "Каждая копия станет отдельным объектом на своём месте"));
+    connect(explode, &QPushButton::clicked, this, [this] { explodeArray(selectedId_); });
+    arrayCard_->body()->addWidget(explode);
     connect(arrayCard_, &ComponentCard::removeClicked, this, [this] { explodeArray(selectedId_); });
-    connect(arrayPanel_, &ArrayPanel::explodeClicked, this, [this] { explodeArray(selectedId_); });
-    connect(arrayPanel_, &ArrayPanel::edited, this, &SceneBuilder::onArrayEdited);
     col->addWidget(arrayCard_);
 }
 
-void SceneBuilder::onArrayEdited() {
-    if (filling_ || !arrayById(selectedId_)) return;
-    editArray(selectedId_, [this](ArrayObject& a) { arrayPanel_->writeTo(a); });
+// The pattern as three icon buttons, and only its own fields: Ряд - how many and the step between two copies;
+// Сетка - how many along x, y, z and the spacing; Круг - how many and the radius.
+FieldForm* SceneBuilder::arrayFields() {
+    ArrayObject* a = &arrayDraft_;
+    const auto grid = [a] { return a->pattern == ArrayPattern::Grid; };
+    const auto circle = [a] { return a->pattern == ArrayPattern::Circle; };
+    arrayFields_ = new FieldForm([this](bool click) { commitDraft(arrayById(selectedId_), arrayDraft_, click); });
+    arrayFields_->tiles({{objectIcon(ObjectIcon::ArrayLine, 32), uiText("Kinetica", "Ряд")}, {objectIcon(ObjectIcon::ArrayGrid, 32), uiText("Kinetica", "Сетка")},
+                         {objectIcon(ObjectIcon::ArrayCircle, 32), uiText("Kinetica", "Круг")}}, 32,
+                        [a] { return double(int(a->pattern)); }, [a](double p) {
+                            a->pattern = ArrayPattern(int(p));
+                            if (a->pattern != ArrayPattern::Grid) a->count[1] = a->count[2] = 1;
+                        }).name("arrayPattern")
+        .number(uiText("Kinetica", "Сколько"), 1, 1000, 1, 0, a->count[0]).shown([=] { return !grid(); })
+        .vector(uiText("Kinetica", "Сколько"), 1, 1000, 1, 0, [a] { return Vector3(Real(a->count[0]), Real(a->count[1]), Real(a->count[2])); },
+                [a](const Vector3& n) { for (int k = 0; k < 3; ++k) a->count[k] = std::max(1, int(std::lround(n[k]))); }).shown(grid)
+        .vector(uiText("Kinetica", "Шаг, м"), -50, 50, 0.05, 3, a->step).label([=] { return QString(grid() ? uiText("Kinetica", "Расстояние, м") : uiText("Kinetica", "Шаг, м")); })
+        .shown([=] { return !circle(); })
+        .number(uiText("Kinetica", "Радиус, м"), 0.01, 50, 0.1, 2, a->radius).shown(circle)
+        .vector(uiText("Kinetica", "Поворот каждой, °"), -360, 360, 5, 1, a->rotationStepDeg)
+        .number(uiText("Kinetica", "Разброс, м"), 0, 5, 0.01, 3, a->jitter).tip(uiText("Kinetica", "Каждая копия сдвинута на случайное расстояние до этого (одно и то же при каждом запуске)"))
+        .note([this, a] {
+            const SceneObject* t = findObject(graph_, a->templateId);
+            return uiText("Kinetica", "Копии формы «") + (t ? QString::fromStdString(t->name) : QString("?")) + uiText("Kinetica", "» (она скрыта: правьте её в списке — изменятся все копии)");
+        }).name("roleRowLabel");
+    return arrayFields_;
 }
 
 // What the object is shaped like: physics never changes it, but takes from it the mass and the Auto collider.
 void SceneBuilder::buildGeometryCard(QVBoxLayout* col) {
-    col->addWidget(sectionTitle("Геометрия"));
-    col->addWidget(hintLabel("форма объекта: из неё физика берёт массу и коллайдер «Авто»"));
+    col->addWidget(sectionTitle(uiText("Kinetica", "Геометрия")));
+    col->addWidget(hintLabel(uiText("Kinetica", "форма объекта: из неё физика берёт массу и коллайдер «Авто»")));
     auto* f = new QFormLayout;
     f->setSpacing(6);
     shape_ = new QComboBox;
     shape_->setIconSize(QSize(20, 20));
-    shape_->setToolTip("Форма — то, что видно. Чем объект сталкивается, задаёт компонент «Коллайдер»");
+    shape_->setToolTip(uiText("Kinetica", "Форма — то, что видно. Чем объект сталкивается, задаёт компонент «Коллайдер»"));
     for (int k = 0; k < 6; ++k) shape_->addItem(shapeIcon(ShapeKind(k), 20), shapeName(ShapeKind(k)));
     connect(shape_, &QComboBox::currentIndexChanged, this, &SceneBuilder::onDetailsEdited);
-    f->addRow("Форма", shape_);
-    auto* goal = new QPushButton("Цель IK — рука тянется сюда");
-    goal->setObjectName("addGoal");
-    goal->setToolTip("Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
-                     "инверсная кинематика ведёт сочленения (во время игры — сервоприводами)");
-    connect(goal, &QPushButton::clicked, this, [this] { addGoalToSelected(); });
-    f->addRow(goal);
+    f->addRow(uiText("Kinetica", "Форма"), shape_);
+    goalButton_ = new QPushButton(uiText("Kinetica", "Цель IK — рука тянется сюда"));
+    goalButton_->setObjectName("addGoal");
+    connect(goalButton_, &QPushButton::clicked, this, [this] { addGoalToSelected(); });
+    f->addRow(goalButton_);
     grip_ = new QPushButton;
     grip_->setObjectName("gripToggle");
-    grip_->setToolTip("Пальцы схвата этой цели: сжать — каждый палец едет до упора в предмет и жмёт с силой 2 Н, "
-                      "разжать — назад. Работает и в правке, и во время игры (команда assembly_grip)");
+    grip_->setToolTip(uiText("Kinetica", "Пальцы схвата этой цели: сжать — каждый палец едет до упора в предмет и жмёт с силой 2 Н, "
+                      "разжать — назад. Работает и в правке, и в «Пуске»"));
     grip_->setVisible(false);
     connect(grip_, &QPushButton::clicked, this, &SceneBuilder::toggleGrip);
     f->addRow(grip_);
+    // The solver's formula and its rounds are a researcher's: folded under «Подробно» (they were the first thing a newcomer
+    // saw on clicking the goal).
+    ikMore_ = new QPushButton(uiText("Kinetica", "Подробно: решатель IK ▸"));
+    ikMore_->setObjectName("ikMore");
+    ikMore_->setCheckable(true);
+    ikMore_->setFlat(true);
+    ikMore_->setVisible(false);
+    f->addRow(ikMore_);
     ikView_ = new IkSolverView;
     ikView_->setVisible(false);
     f->addRow(ikView_);
+    connect(ikMore_, &QPushButton::toggled, this, [this](bool on) {
+        ikMore_->setText(on ? uiText("Kinetica", "Подробно: решатель IK ▾") : uiText("Kinetica", "Подробно: решатель IK ▸"));
+        ikView_->setVisible(on && ikMore_->isVisible());
+    });
     modelFile_ = new QLabel;
     modelFile_->setObjectName("roleRowLabel");
     modelFile_->setWordWrap(true);
@@ -277,36 +348,28 @@ void SceneBuilder::buildGeometryCard(QVBoxLayout* col) {
 
 // How the surface looks: a texture and its relief - below the components, it changes nothing physical.
 void SceneBuilder::buildTextureCard(QVBoxLayout* col) {
-    col->addWidget(sectionTitle("Текстура"));
+    textureTitle_ = sectionTitle(uiText("Kinetica", "Текстура"));
+    col->addWidget(textureTitle_);
     texture_ = new TexturePanel;
     col->addWidget(texture_);
     connect(texture_, &TexturePanel::edited, this, &SceneBuilder::onDetailsEdited);
 }
 
-ComponentCard* SceneBuilder::componentCard(QVBoxLayout* col, RoleIcon role, QFormLayout*& form) {
+ComponentCard* SceneBuilder::componentCard(QVBoxLayout* col, RoleIcon role) {
     auto* card = new ComponentCard(roleTitle(role), roleIcon(role, 22));
     card->setToolTip(roleTip(role));
-    form = new QFormLayout;
-    form->setSpacing(6);
-    card->body()->addLayout(form);
     connect(card, &ComponentCard::removeClicked, this, [this, role] { toggleRole(role); });
     cards_[int(role)] = card;
     col->addWidget(card);
     return card;
 }
 
-QDoubleSpinBox* SceneBuilder::numberField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals) {
-    QDoubleSpinBox* s = makeSpin(min, max, step, decimals);
-    connect(s, &QDoubleSpinBox::valueChanged, this, &SceneBuilder::onDetailsEdited);
-    f->addRow(label, s);
-    return s;
-}
+Entity* SceneBuilder::masterById(uint32_t id) { return entityById(id) ? entityById(masterOf(id)) : nullptr; }
 
-QCheckBox* SceneBuilder::checkField(QFormLayout* f, const QString& text) {
-    auto* c = new QCheckBox(text);
-    connect(c, &QCheckBox::toggled, this, &SceneBuilder::onDetailsEdited);
-    f->addRow(c);
-    return c;
+FieldForm* SceneBuilder::shapeFields(ComponentCard* card, FieldForm* SceneBuilder::*slot) {
+    this->*slot = new FieldForm([this, slot](bool click) { commitSelected(this->*slot, shapeDraft_, [this](uint32_t id) { return masterById(id); }, click); });
+    card->body()->addWidget(this->*slot);
+    return this->*slot;
 }
 
 Vec3Row* SceneBuilder::vectorField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals) {
@@ -317,52 +380,109 @@ Vec3Row* SceneBuilder::vectorField(QFormLayout* f, const QString& label, double 
 }
 
 void SceneBuilder::buildMaterialCards(QVBoxLayout* col) {
-    QFormLayout* f = nullptr;
-    ComponentCard* rigid = componentCard(col, RoleIcon::Rigid, f);
+    ComponentCard* rigid = componentCard(col, RoleIcon::Rigid);
     noCollider_ = new InlineBanner;
-    rigid->body()->insertWidget(0, noCollider_);
-    rigidDensity_ = numberField(f, "Плотность, кг/м³", 1, 30000, 50, 0);
-    rigidDensity_->setObjectName("rigidDensity");
-    friction_ = numberField(f, "Трение", 0, 2, 0.05, 2);
-    restitution_ = numberField(f, "Упругость удара", 0, 1, 0.05, 2);
-    fixed_ = checkField(f, "неподвижное (стена, стол)");
-    velocity_ = vectorField(f, "Скорость, м/с", -100, 100, 0.5, 2);
-    spin_ = vectorField(f, "Вращение, рад/с", -200, 200, 0.5, 2);
+    rigid->body()->addWidget(noCollider_);
+    RigidRole* r = &shapeDraft_.rigid;
+    shapeFields(rigid, &SceneBuilder::rigidFields_)->number(uiText("Kinetica", "Плотность, кг/м³"), 1, 30000, 50, 0, r->density).name("rigidDensity")
+        .number(uiText("Kinetica", "Масса, кг"), 0, 100000, 0.1, 3, r->mass).name("rigidMass")
+        .tip(uiText("Kinetica", "0 — масса из плотности и объёма формы. Своё число — тело весит столько, какой бы ни была форма."))
+        .number(uiText("Kinetica", "Трение"), 0, 2, 0.05, 2, r->friction)
+        .number(uiText("Kinetica", "Упругость удара"), 0, 1, 0.05, 2, r->restitution)
+        .choice(uiText("Kinetica", "Тело"), {uiText("Kinetica", "динамическое"), uiText("Kinetica", "кинематическое"), uiText("Kinetica", "статическое")},
+                [r] { return r->fixed ? 2.0 : r->kinematic ? 1.0 : 0.0; },
+                [r](double kind) { r->fixed = kind == 2, r->kinematic = kind == 1; }).name("rigidBodyKind")
+        .tip(uiText("Kinetica", "Динамическое двигает физика: оно падает и сталкивается. Кинематическое движется как задано — своей "
+                                "скоростью или секвенцией — и толкает других, а его не толкает ничто. Статическое стоит: стена, стол."))
+        .vector(uiText("Kinetica", "Скорость, м/с"), -100, 100, 0.5, 2, r->velocity)
+        .vector(uiText("Kinetica", "Вращение, рад/с"), -200, 200, 0.5, 2, r->angularVelocity);
 }
 
+// What the body collides with, apart from what it looks like: Авто - the geometry itself - or a kind fitted to the geometry or sized by hand. Choosing it never
+// changes the geometry; what the physics engine gets of it is ke::colliderShapes (sim/RobotWorld.h).
 void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
-    QFormLayout* f = nullptr;
-    ComponentCard* card = componentCard(col, RoleIcon::Collider, f);
-    collider_ = new ColliderPanel;
-    connect(collider_, &ColliderPanel::edited, this, &SceneBuilder::onDetailsEdited);
-    card->body()->addWidget(collider_);
+    ColliderRole* c = &shapeDraft_.collider;
+    const auto manual = [c] { return c->kind != ColliderKind::Auto && !c->fitToGeometry; };
+    const auto round = [c] { return c->kind == ColliderKind::Sphere || c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
+    const auto tall = [c] { return c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
+    std::vector<FieldForm::Tile> kinds;
+    for (int k = 0; k <= int(ColliderKind::Cylinder); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, uiText("Kinetica", kColliderTips[k])});
+    ComponentCard* card = componentCard(col, RoleIcon::Collider);
+    shapeFields(card, &SceneBuilder::colliderFields_)->note([] { return QString(uiText("Kinetica", "чем тело сталкивается; виден зелёным каркасом")); }).name("roleRowLabel")
+        .tip(uiText("Kinetica", "Геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"
+             "Физика двигает и поворачивает геометрию вместе с коллайдером, но саму геометрию не меняет."))
+        .tiles(kinds, 28, c->kind).name("colliderButton")
+        .note([this, c] {
+            if (c->kind != ColliderKind::Auto) return colliderName(c->kind);
+            const std::vector<ShapeDesc>& made = colliderOf(shapeDraft_);
+            return made.empty() ? QString(uiText("Kinetica", "Авто — по форме геометрии")) : uiText("Kinetica", "Авто → ") + collisionShapeName(made.front().kind);
+        }).name("colliderKindName")
+        // Taken off, the fit leaves the numbers it made (scene/Collider.h): the collider stays where it was, not 0.2 m.
+        .toggle(uiText("Kinetica", "Подогнать под геометрию"), [c] { return c->fitToGeometry ? 1 : 0; },
+                [this, c](int on) {
+                    if (!on && c->fitToGeometry) {
+                        const ColliderRole held = heldCollider(shapeDraft_, entityLocalMesh(shapeDraft_, graph_.baseDirectory));
+                        if (sizedByNumbers(held.kind)) c->size = held.size, c->offset = held.offset;
+                    }
+                    c->fitToGeometry = on != 0;
+                }).shown([c] { return c->kind != ColliderKind::Auto; })
+        .tip(uiText("Kinetica", "Размер коллайдера берётся из размеров формы; снимите, чтобы задать его руками — или «Править в виде»: точки и гизмо"))
+        // Each kind its own numbers: a sphere's three equal edges were three fields of which one worked.
+        .vector(uiText("Kinetica", "Размер, м"), 0.005, 50, 0.05, 3, c->size).shown([=] { return manual() && c->kind == ColliderKind::Box; })
+        .number(uiText("Kinetica", "Диаметр, м"), 0.005, 50, 0.01, 3, c->size.x).shown([=] { return manual() && round(); }).name("colliderDiameter")
+        .number(uiText("Kinetica", "Высота, м"), 0.005, 50, 0.01, 3, c->size.y).shown([=] { return manual() && tall(); }).name("colliderHeight")
+        .vector(uiText("Kinetica", "Сдвиг, м"), -50, 50, 0.05, 3, c->offset).shown(manual)
+        .vector(uiText("Kinetica", "Поворот, °"), -360, 360, 5, 1, c->rotationDeg).shown(manual)
+        .toggle(uiText("Kinetica", "зона: ничего не толкает, замечает, что внутри"), c->trigger).name("colliderTrigger")
+        .tip(uiText("Kinetica", "Зона пропускает тела сквозь себя и сообщает, кто в ней стоит: корзина, куда должна попасть деталь, "
+                                "область ограждения. Кто внутри — в ответе sim_state (triggers) и в Python: zone.inside."));
+    // The collider in the view: the gizmo and the points hold it, the model stays.
+    colliderEditButton_ = new QPushButton(uiText("Kinetica", "Править коллайдер в виде"));
+    colliderEditButton_->setObjectName("colliderEdit");
+    colliderEditButton_->setCheckable(true);
+    // On, it is lit in the collider's green, as the bar over the view and the wireframe: the mode is seen where it was entered.
+    colliderEditButton_->setStyleSheet("QPushButton:checked { background: #2f7a45; color: #f0fff1; border: 1px solid #6ee882; "
+                                       "border-radius: 4px; font-weight: bold; padding: 4px; }");
+    colliderEditButton_->setToolTip(uiText("Kinetica", "Гизмо и точки в виде двигают, вращают и растягивают коллайдер, а не модель: точка на грани тянет "
+                                    "грань, точка на круге — диаметр, на торце — высоту. Esc — назад к телу"));
+    connect(colliderEditButton_, &QPushButton::toggled, this, [this](bool on) { setColliderEdit(on); });
+    connect(this, &SceneBuilder::colliderEditChanged, colliderEditButton_, [this](bool on) {
+        const QSignalBlocker quiet(colliderEditButton_);
+        colliderEditButton_->setChecked(on);
+        colliderEditButton_->setText(on ? uiText("Kinetica", "Готово: назад к телу (Esc)") : uiText("Kinetica", "Править коллайдер в виде")); // the way back where the way in was
+    });
+    card->body()->addWidget(colliderEditButton_);
 }
 
 // "+ Добавить компонент": the components the object does not have yet, with their icons.
 void SceneBuilder::buildAddComponent(QVBoxLayout* col) {
-    addComponent_ = new QPushButton("+ Добавить компонент");
+    pluginCards_ = new QVBoxLayout; // the plugins' component cards, over the button that adds one
+    pluginCards_->setContentsMargins(0, 0, 0, 0);
+    col->addLayout(pluginCards_);
+    addComponent_ = new QPushButton(uiText("Kinetica", "+ Добавить компонент"));
     addComponent_->setObjectName("addComponent");
     addMenu_ = new QMenu(addComponent_);
     addMenu_->setObjectName("addComponentMenu");
-    connect(addMenu_, &QMenu::aboutToShow, this, &SceneBuilder::fillAddMenu);
+    connect(addMenu_, &QMenu::aboutToShow, this, [this] { fillAddMenu(addMenu_); });
     addComponent_->setMenu(addMenu_);
     col->addWidget(addComponent_);
 }
 
-void SceneBuilder::fillAddMenu() {
-    addMenu_->clear();
+void SceneBuilder::fillAddMenu(QMenu* menu) {
+    menu->clear();
     const Entity* e = selectedEntity();
     if (!e) return;
     const std::vector<RoleIcon> all = commonRoles(); // several selected: added to every one of them
     for (RoleIcon role : {RoleIcon::Rigid, RoleIcon::Collider}) {
         if (std::find(all.begin(), all.end(), role) != all.end()) continue;
-        QAction* a = addMenu_->addAction(roleIcon(role, 24), roleTitle(role));
+        QAction* a = menu->addAction(roleIcon(role, 24), roleTitle(role));
         a->setToolTip(roleTip(role));
         connect(a, &QAction::triggered, this, [this, role] { toggleRole(role); });
     }
-    if (!addMenu_->isEmpty()) addMenu_->addSeparator();
-    if (selection_.size() <= 2) fillJointMenu(*e); // to the world, or between the two selected
-    if (selection_.size() == 1) fillSensorMenu(*e);
+    if (!menu->isEmpty()) menu->addSeparator();
+    if (selection_.size() <= 2) fillJointMenu(*e, menu); // to the world, or between the two selected
+    if (selection_.size() == 1) fillSensorMenu(*e, menu);
+    if (selection_.size() == 1) addPluginComponentsTo(menu, *masterById(selectedId_));
 }
 
 // ---------------------------------------------------------------------------
@@ -385,10 +505,15 @@ void SceneBuilder::fillInspector() {
     Entity shown = own ? resolveInstance(graph_, *own) : Entity();
     if (!own) static_cast<SceneObject&>(shown) = *o;
     const bool shapes = own && selectedEntities().size() == selection_.size();
+    // An IK goal is the arm's intent, not matter: no body or collider tiles, no components, no texture on its card.
+    const bool goal = own && isHandle(*own);
     object_->setObject(shown);
+    showPlaceRows(o->id); // selected from the tree too, not only after an edit
     sizeRow_->setVisible(shapes);
     shapePart_->setVisible(shapes);
-    roleBar_->setVisible(shapes);
+    roleBar_->setVisible(shapes && !goal);
+    addComponent_->setVisible(!goal);
+    textureTitle_->setVisible(!goal), texture_->setVisible(!goal);
     if (shapes) {
         const QSignalBlocker quiet(shape_);
         shape_->setCurrentIndex(int(shown.shape));
@@ -396,15 +521,18 @@ void SceneBuilder::fillInspector() {
         if (auto* model = qobject_cast<QStandardItemModel*>(shape_->model()))
             model->item(int(ShapeKind::Mesh))->setEnabled(shown.shape == ShapeKind::Mesh);
         modelFile_->setVisible(shown.shape == ShapeKind::Mesh);
-        modelFile_->setText("Файл: " + QFileInfo(QString::fromStdString(shown.meshFile)).fileName());
+        modelFile_->setText(uiText("Kinetica", "Файл: ") + QFileInfo(QString::fromStdString(shown.meshFile)).fileName());
         texture_->setTexture(shown.texture, QString::fromStdString(graph_.baseDirectory), shown.size);
         size_->setValue(shown.size);
-        fillDetails(shown);
+        opacity_->setValue(shown.opacity);
+        fillDetails();
         roleBar_->setRoles(shown);
     }
     fillManyCards(*o);
     fillLightCards(*o);
+    fillForceCard(*o);
     fillSensorCard(*o);
+    fillPluginCards();
     shown_ = shown;
     if (selection_.size() > 1) markMixed();
     shown_ = readWidgets(); // what the widgets show, "—" included: an edit is what differs from it
@@ -421,56 +549,45 @@ void SceneBuilder::fillManyCards(const SceneObject& o) {
     groupCard_->setVisible(one && g);
     arrayCard_->setVisible(one && a);
     if (one && g) groupPanel_->setGroup(*g, int(childrenOf(g->id).size()));
-    if (one && a) {
-        const SceneObject* t = findObject(graph_, a->templateId);
-        arrayPanel_->setArray(*a, t ? QString::fromStdString(t->name) : QString("?"));
-    }
+    if (one && a) arrayDraft_ = *a, arrayFields_->fill();
     const Entity* e = entityById(o.id);
     int instances = 0;
     for (const Entity& x : graph_.entities) instances += x.id != o.id && masterOf(x.id) == o.id;
     if (one && e && e->instanceOf != 0 && masterOf(e->id) != e->id) {
         const uint32_t id = e->id;
-        instanceLink_->showMessage("Экземпляр: связан с «" + QString::fromStdString(entityById(masterOf(id))->name) +
-                                       "» — форма и компоненты общие", "Отвязать", [this, id] { unlinkInstance(id); });
+        instanceLink_->showMessage(uiText("Kinetica", "Экземпляр: связан с «") + QString::fromStdString(entityById(masterOf(id))->name) +
+                                       uiText("Kinetica", "» — форма и компоненты общие"), uiText("Kinetica", "Отвязать"), [this, id] { unlinkInstance(id); });
     } else if (one && e && instances > 0) {
-        instanceLink_->showMessage("Образец для " + ruPlural(instances, "экземпляра", "экземпляров", "экземпляров") +
-                                   ": правка формы и компонентов меняет все");
+        instanceLink_->showMessage(uiText("Kinetica", "Образец для ") + uiCount(instances, UiCount::InstanceOf) +
+                                   uiText("Kinetica", ": правка формы и компонентов меняет все"));
     } else {
         instanceLink_->clearMessage();
     }
 }
 
-void SceneBuilder::fillDetails(const Entity& e) {
-    rigidDensity_->setValue(e.rigid.density);
-    friction_->setValue(e.rigid.friction);
-    restitution_->setValue(e.rigid.restitution);
-    fixed_->setChecked(e.rigid.fixed);
-    velocity_->setValue(e.rigid.velocity);
-    spin_->setValue(e.rigid.angularVelocity);
-    collider_->setCollider(e.collider);
-    if (e.collider.enabled && e.collider.kind == ColliderKind::Auto) { // what "Авто" makes of this geometry
-        const std::vector<ShapeDesc>& made = colliderOf(e);
-        collider_->setAutoResult(made.empty() ? QString() : collisionShapeName(made.front().kind));
-    }
+void SceneBuilder::fillDetails() {
+    const auto master = [this](uint32_t id) { return masterById(id); };
+    fillSelected(rigidFields_, shapeDraft_, master);
+    fillSelected(colliderFields_, shapeDraft_, master);
 }
 
-// The widgets into the entity. The geometry and the collider are read apart: choosing one never
-// changes the other.
+// The geometry's widgets into the entity; its components' numbers are their cards' (shapeFields).
 void SceneBuilder::readDetails(Entity& e) const {
     e.shape = ShapeKind(shape_->currentIndex());
     e.size = size_->value();
-    e.rigid.density = Real(rigidDensity_->value());
-    e.rigid.friction = Real(friction_->value());
-    e.rigid.restitution = Real(restitution_->value());
-    e.rigid.fixed = fixed_->isChecked();
-    e.rigid.velocity = velocity_->value();
-    e.rigid.angularVelocity = spin_->value();
-    collider_->writeTo(e.collider);
+    e.opacity = ke::Real(opacity_->value());
+}
+
+// The place rows, unless the thing's place is another's: a sensor on a joint stands where the joint is.
+void SceneBuilder::showPlaceRows(uint32_t id) {
+    const SensorObject* sensor = sensorById(id);
+    object_->showPlace(!(sensor && findJoint(graph_, sensor->parent)));
 }
 
 void SceneBuilder::showTransform(const SceneObject& o) {
     filling_ = true;
     object_->setObject(o);
+    showPlaceRows(o.id);
     if (const Entity* e = entityById(o.id)) size_->setValue(entityById(masterOf(e->id))->size);
     filling_ = false;
 }
@@ -492,20 +609,20 @@ void SceneBuilder::refreshList() {
         item->setData(0, Qt::UserRole, o.id);
         item->setIcon(1, controlIcon(o.visible ? ControlIcon::Visible : ControlIcon::Hidden, 18));
         item->setIcon(2, controlIcon(o.locked ? ControlIcon::Locked : ControlIcon::Unlocked, 18));
-        item->setToolTip(1, "Видимость");
-        item->setToolTip(2, "Замок: мышь не выделяет и не двигает");
+        item->setToolTip(1, uiText("Kinetica", "Видимость"));
+        item->setToolTip(2, uiText("Kinetica", "Замок: мышь не выделяет и не двигает"));
         if (!o.visible) item->setForeground(0, QColor(120, 124, 132)); // hidden: greyed
         rows[o.id] = item;
         under[o.id] = o.parent;
     };
-    for (const Group& g : graph_.groups) row(g, objectIcon(ObjectIcon::Group, 22), QString::fromStdString(g.name) + (g.glued ? " — склеено" : ""));
+    for (const Group& g : graph_.groups) row(g, objectIcon(ObjectIcon::Group, 22), QString::fromStdString(g.name) + (g.glued ? uiText("Kinetica", " — склеено") : ""));
     std::set<uint32_t> masters; // shapes that instances share
     for (const Entity& e : graph_.entities)
         if (masterOf(e.id) != e.id) masters.insert(masterOf(e.id));
     for (const Entity& e : graph_.entities) {
         const Entity r = resolveInstance(graph_, e);
         const bool linked = masterOf(e.id) != e.id || masters.count(e.id);
-        row(e, shapeIcon(r.shape, 22), (linked ? "⧉ " : "") + rolesText(r) + (isHiddenTemplate(e) ? " (образец массива)" : ""));
+        row(e, shapeIcon(r.shape, 22), (linked ? "⧉ " : "") + rolesText(r) + (isHiddenTemplate(e) ? uiText("Kinetica", " (образец массива)") : ""));
     }
     for (const ArrayObject& a : graph_.arrays) {
         const ObjectIcon icon = a.pattern == ArrayPattern::Grid ? ObjectIcon::ArrayGrid : a.pattern == ArrayPattern::Circle ? ObjectIcon::ArrayCircle : ObjectIcon::ArrayLine;
@@ -513,8 +630,9 @@ void SceneBuilder::refreshList() {
         if (const Entity* t = entityById(a.templateId); t && isHiddenTemplate(*t) && !findObject(graph_, t->parent)) under[t->id] = a.id;
     }
     for (const Light& l : graph_.lights) row(l, sceneIcon(lightIcon(l.kind), 22), QString::fromStdString(l.name));
+    for (const Force& f : graph_.forces) row(f, sceneIcon(forceIcon(f.shape), 22), QString::fromStdString(f.name));
     for (const Camera& c : graph_.cameras)
-        row(c, sceneIcon(SceneIcon::Camera, 22), QString::fromStdString(c.name) + (c.id == throughId_ ? " — вид через неё" : c.active ? " — активная" : ""));
+        row(c, sceneIcon(SceneIcon::Camera, 22), QString::fromStdString(c.name) + (c.id == throughId_ ? uiText("Kinetica", " — вид через неё") : c.active ? uiText("Kinetica", " — активная") : ""));
     for (const SensorObject& s : graph_.sensors) row(s, deviceIcon(DeviceIcon(int(s.kind)), 22), QString::fromStdString(s.name));
     addJointRows(rows, under); // between the bodies they tie, a joint's sensors under it
     for (auto& [id, item] : rows) {
@@ -537,7 +655,7 @@ void SceneBuilder::refreshSections() {
         noCollider_->clearMessage();
         return;
     }
-    noCollider_->showMessage("Без коллайдера тело провалится сквозь всё.", "Добавить коллайдер",
+    noCollider_->showMessage(uiText("Kinetica", "Без коллайдера тело провалится сквозь всё."), uiText("Kinetica", "Добавить коллайдер"),
                              [this] { toggleRole(RoleIcon::Collider); });
 }
 
@@ -550,7 +668,7 @@ void SceneBuilder::refreshHeader() {
     const QIcon icon = e ? shapeIcon(resolveInstance(graph_, *e).shape, 44)
                          : !kind.isNull() ? kind : objectIcon(groupById(o->id) ? ObjectIcon::Group : ObjectIcon::ArrayLine, 44);
     headerIcon_->setPixmap(icon.pixmap(44, 44));
-    headerName_->setText(selection_.size() > 1 ? "Выбрано: " + ruPlural(int(selection_.size()), "объект", "объекта", "объектов") : objectTitle(o->id));
+    headerName_->setText(selection_.size() > 1 ? uiText("Kinetica", "Выбрано: ") + uiCount(int(selection_.size()), UiCount::Object) : objectTitle(o->id));
     QLayout* chips = headerChips_->layout();
     while (QLayoutItem* it = chips->takeAt(0)) {
         delete it->widget();
@@ -563,16 +681,17 @@ void SceneBuilder::refreshHeader() {
         chips->addWidget(chip);
     }
     const bool shapes = e && selectedEntities().size() == selection_.size();
-    if (chips->count() == 0 && shapes) chips->addWidget(new QLabel(selection_.size() > 1 ? "общих компонентов нет — правка идёт всем сразу"
-                                                                                            : "только геометрия — добавьте компонент"));
+    if (chips->count() == 0 && shapes) chips->addWidget(new QLabel(selection_.size() > 1 ? uiText("Kinetica", "общих компонентов нет — правка идёт всем сразу")
+                                                                                            : uiText("Kinetica", "только геометрия — добавьте компонент")));
     else if (chips->count() == 0)
-        chips->addWidget(new QLabel(groupById(o->id)    ? "группа"
-                                    : arrayById(o->id)  ? "массив копий"
-                                    : lightById(o->id)  ? "свет — для глаза, физика его не видит"
-                                    : cameraById(o->id) ? "камера — через неё вид и скриншоты"
-                                    : sensorById(o->id) ? (findJoint(graph_, sensorById(o->id)->parent) ? "датчик — на сочленении, считает его ход"
-                                                                                                        : "датчик — едет на своём теле, читает мир как плата")
-                                                        : "разные объекты"));
+        chips->addWidget(new QLabel(groupById(o->id)    ? uiText("Kinetica", "группа")
+                                    : arrayById(o->id)  ? uiText("Kinetica", "массив копий")
+                                    : lightById(o->id)  ? uiText("Kinetica", "свет — для глаза, физика его не видит")
+                                    : cameraById(o->id) ? uiText("Kinetica", "камера — через неё вид и скриншоты")
+                                    : forceById(o->id)  ? uiText("Kinetica", "сила — толкает тела мира")
+                                    : sensorById(o->id) ? (findJoint(graph_, sensorById(o->id)->parent) ? uiText("Kinetica", "датчик — на сочленении, считает его ход")
+                                                                                                        : uiText("Kinetica", "датчик — едет на своём теле, читает мир как плата"))
+                                                        : uiText("Kinetica", "разные объекты")));
     static_cast<QHBoxLayout*>(chips)->addStretch(1);
 }
 

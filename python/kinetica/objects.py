@@ -7,7 +7,6 @@ journaled and shown in the API console as the line that made it.
 """
 import json
 
-from . import blocks
 
 
 def _q(text):
@@ -47,15 +46,44 @@ class SceneObject:
 
     @property
     def name(self):
-        return blocks.header(self.block())[1]
+        return self.scene._call("scene_get", id=self.id)["name"]
+
+    @property
+    def tags(self):
+        """The words it is marked with: ``scene.objects.tagged("target")`` finds by them."""
+        return self.scene._call("scene_get", id=self.id)["tags"]
+
+    def tag(self, word, on=True):
+        """A tag put on it (on=False: taken off): one word, no spaces. Any object takes one - a shape, a joint, a sensor."""
+        self.scene._call("scene_tag", f"{self.ref}.tag({_q(word)}{'' if on else ', False'})", ids=[self.id], tag=word, on=bool(on))
+
+    @property
+    def inside(self):
+        """What stands inside this zone now (a shape whose collider is a trigger, or a row of such - an array): the
+        objects, a row of copies as its array; None when it is no zone or the scene is not running."""
+        zone = self.scene._live("triggers", self.id)
+        return None if zone is None else [self.scene.objects[i] for i in zone["inside"]]
+
+    position = property(lambda self: self._get("pose", "position", 3),
+                        doc="Its place on its parent, m - the scene file's line: where a key or an edit has put it")
+
+    def _get(self, line, key, count=1):
+        """What `_set` writes, read: the value after `key` on the block's line `line` - `count` of them as a tuple
+        (None: the block has no such line or key)."""
+        values = self.scene._call("scene_get", id=self.id, line=line, key=key, count=count)["values"]
+        return values if values is None else values[0] if count == 1 else tuple(values)
+
+    def _lines(self, name):
+        """The block's lines that start with the word `name`, each as its words after it."""
+        return [words[1:] for words in self.scene._call("scene_get", id=self.id)["lines"] if words[0] == name]
 
     def _set(self, line, key, values, py):
         values = values if isinstance(values, (list, tuple)) else [values]
         self.scene._call("scene_set", py, id=self.id, line=line, key=key, values=list(values))
 
-    visible = property(lambda self: blocks.value(self.block(), "object", "visible") == 1,
+    visible = property(lambda self: self._get("object", "visible") == 1,
                        lambda self, v: self._set("object", "visible", int(bool(v)), f"{self.ref}.visible = {bool(v)}"))
-    locked = property(lambda self: blocks.value(self.block(), "object", "locked") == 1,
+    locked = property(lambda self: self._get("object", "locked") == 1,
                       lambda self, v: self._set("object", "locked", int(bool(v)), f"{self.ref}.locked = {bool(v)}"),
                       doc="A locked object is not picked in the view nor edited by hand")
 
@@ -93,16 +121,51 @@ class Body(SceneObject):
     kind = "entity"
 
     def _shape(self, key, count=3):
-        return blocks.value(self.block(), "shape", key, count)
+        return self._get("shape", key, count)
 
     position = property(lambda self: self._shape("position"),
-                        lambda self, v: self._set("shape", "position", v, f"{self.ref}.position = {tuple(v)}"))
+                        lambda self, v: self._set("shape", "position", v, f"{self.ref}.position = {tuple(v)}"),
+                        doc="The authored place (the scene file's line), m - not where the body is now: scene.measure(objects=[body]) says that.")
     rotation = property(lambda self: self._shape("rotation"),
                         lambda self, v: self._set("shape", "rotation", v, f"{self.ref}.rotation = {tuple(v)}"))
     size = property(lambda self: self._shape("size"),
                     lambda self, v: self._set("shape", "size", v, f"{self.ref}.size = {tuple(v)}"))
-    fixed = property(lambda self: blocks.value(self.block(), "rigid", "fixed") == 1,
+    fixed = property(lambda self: self._get("rigid", "fixed") == 1,
                      lambda self, v: self._set("rigid", "fixed", int(bool(v)), f"{self.ref}.fixed = {bool(v)}"))
+    trigger = property(lambda self: self._get("collider", "trigger") == 1,
+                       lambda self, v: self.scene._call("scene_collider", f"{self.ref}.trigger = {bool(v)}", id=self.id, trigger=bool(v)),
+                       doc="A zone: its collider touches nothing and tells what is inside it (inside)")
+
+    @property
+    def ignores(self):
+        """The tags of what its collider has no contact with: ``part.ignores = ["robot-cover"]``."""
+        return [word for line in self._lines("ignores") for word in line]
+
+    @ignores.setter
+    def ignores(self, tags):
+        self.scene._call("scene_collider", f"{self.ref}.ignores = {list(tags)!r}", id=self.id, ignores=list(tags))
+
+    opacity = property(lambda self: (lambda v: 1.0 if v is None else v)(self._get("shape", "opacity")),
+                       lambda self, v: self._set("shape", "opacity", float(v), f"{self.ref}.opacity = {float(v)}"),
+                       doc="How solid it looks: 1 - solid, less - see-through (glass). Its look only")
+    mass = property(lambda self: self._get("rigid", "mass") or 0.0,
+                    lambda self, v: self._set("rigid", "mass", float(v), f"{self.ref}.mass = {float(v)}"),
+                    doc="Its mass given, kg (0: the shape's volume times the density)")
+    center_of_mass = property(lambda self: self._get("rigid", "center_of_mass", 3),
+                              lambda self, v: self._set("rigid", "center_of_mass", [float(x) for x in v], f"{self.ref}.center_of_mass = {tuple(v)}"),
+                              doc="Its centre of mass given, in its own frame, m (None: the shape's own)")
+    gravity_scale = property(lambda self: (lambda v: 1.0 if v is None else v)(self._get("rigid", "gravity_scale")),
+                             lambda self, v: self._set("rigid", "gravity_scale", float(v), f"{self.ref}.gravity_scale = {float(v)}"),
+                             doc="How much of the world's gravity takes it: 1 - as everything, 0 - it floats")
+    linear_damping = property(lambda self: self._get("rigid", "linear_damping"),
+                              lambda self, v: self._set("rigid", "linear_damping", float(v), f"{self.ref}.linear_damping = {float(v)}"),
+                              doc="Its own damping of motion, 1/s (None: the world's)")
+    angular_damping = property(lambda self: self._get("rigid", "angular_damping"),
+                               lambda self, v: self._set("rigid", "angular_damping", float(v), f"{self.ref}.angular_damping = {float(v)}"),
+                               doc="Its own damping of spin, 1/s (None: the world's)")
+    kinematic = property(lambda self: self._get("rigid", "kinematic") == 1,
+                         lambda self, v: self._set("rigid", "kinematic", int(bool(v)), f"{self.ref}.kinematic = {bool(v)}"),
+                         doc="It moves as its velocity and spin say and pushes what it meets; nothing pushes it")
 
     @property
     def velocity(self):
@@ -149,6 +212,20 @@ class Body(SceneObject):
         shown = f"{self.ref}.pose(" + ", ".join(f"{k}={tuple(round(x, 4) for x in v)}" for k, v in args.items()) + ")"
         return self.scene._call("assembly_goal_pose", shown, goal=self.id, **args)
 
+    def grip(self, close=True, force=None):
+        """The fingers of this IK goal's hand closed (or opened): each slides until it meets something and presses with
+        `force` N (2 by default)."""
+        args = {"goal": self.id, "close": bool(close), **({"force": float(force)} if force is not None else {})}
+        shown = ("" if close else "close=False") + (f"{'' if close else ', '}force={force!r}" if force is not None else "")
+        return self.scene._call("assembly_grip", f"{self.ref}.grip({shown})", **args)
+
+    @property
+    def gripped(self):
+        """What this IK goal's hand says of its fingers now: "open", "closing", "holding" (they stopped on something) or
+        "empty" (closed on nothing); None: not running, or no hand."""
+        grip = next((g for g in self.scene._call("sim_state").get("grips", []) if g.get("goal") == self.id), None)
+        return grip.get("state") if grip else None
+
     def reach(self, position, quaternion=None, basis=None, pose=False):
         """Inverse kinematics: this body (an arm's effector) to `position` with a turn - a quaternion (w, x, y, z) or
         a basis, a rotation matrix by rows; none: the point only. The chain's servos get the coordinates as targets
@@ -162,7 +239,9 @@ class Body(SceneObject):
         return self.scene._call("assembly_reach", f"{self.ref}.reach({', '.join(shown + (['pose=True'] if pose else []))})", **args)
 
     def attach(self, preset, face="+x", **options):
-        """A ready link on a face (``"motor_wheel"``, ``"hinge"``, ``"shock"``, ``"car"``...): its links."""
+        """A ready link on a face (``"motor_wheel"``, ``"hinge"``, ``"shock"``, ``"car"``...): its links. The preset builds
+        its own link bodies (the returned links); a body you added is not joined by it. A "hinge" turns about the face's
+        normal; a pendulum on a chosen axis is ``scene.ed.assembly_joint(a=, b=0, type="hinge", anchor=, axis=)``."""
         args = "".join(f", {k}={v!r}" for k, v in options.items())
         answer = self.scene._call("assembly_preset", f"{self.ref}.attach({_q(preset)}, face={_q(face)}{args})",
                                   target=self.id, preset=preset, face=face, **options)
@@ -187,22 +266,27 @@ class Body(SceneObject):
         shown += (f", battery={battery.ref}" if battery is not None else "") + (f", radius={radius!r}" if radius is not None else "")
         return WheelModule(self.scene, self.scene._call("assembly_wheel", f"{self.ref}.add_wheel({_q(side)}{shown})", **args))
 
-    def add_sonar(self, face="+x"):
-        """An HC-SR04 on a face - "+x" ... "-z", or "front", "rear", "top", "bottom", "left", "right" of the
-        body's own frame (forward +x, left -z) - looking out of it."""
-        return self._add_sensor("sonar", face)
+    def add_sonar(self, face="+x", model=None):
+        """An ultrasonic range finder on a face - "+x", "-x", "+y", "-y", "+z", "-z" of the body's own frame (forward
+        +x, left -z) - looking out of it. `model`: a row of data/sensors/sonar.csv ("HC-SR04"); none: the table's first."""
+        return self._add_sensor("sonar", face, model)
 
-    def add_imu(self, face="+y"):
-        """An MPU-6050 flat on a face (as add_sonar names them), its z out of it."""
-        return self._add_sensor("imu", face)
+    def add_imu(self, face="+y", model=None):
+        """An IMU flat on a face (as add_sonar names them), its z out of it. `model`: a row of data/sensors/imu.csv
+        ("MPU-6050", "ICM-42688-P"...); none: the table's first."""
+        return self._add_sensor("imu", face, model)
 
     def add_touch(self, face="-y"):
         """A touch pad on a face (as add_sonar names them): the normal force of the contacts through it [N] -
         a fingertip's pad, a bumper, a load cell under a foot."""
         return self._add_sensor("touch", face)
 
-    def _add_sensor(self, kind, face):
-        answer = self.scene._call("assembly_sensor", f"{self.ref}.add_{kind}(face={_q(face)})", target=self.id, kind=kind, face=face)
+    def _add_sensor(self, kind, face, model=None):
+        args = {"target": self.id, "kind": kind, "face": face}
+        if model is not None:
+            args["model"] = model
+        shown = f", model={_q(model)}" if model is not None else ""
+        answer = self.scene._call("assembly_sensor", f"{self.ref}.add_{kind}(face={_q(face)}{shown})", **args)
         return self.scene.objects[answer["id"]]
 
     @property
@@ -224,8 +308,7 @@ class Roles:
         self.body = body
 
     def _words(self):
-        block = self.body.block()
-        return [w for w in self.WORDS if blocks.line(block, w)]
+        return [w for w in self.WORDS if self.body._lines(w)]
 
     def __iter__(self):
         return iter(self._words())
@@ -283,6 +366,12 @@ class Joint(SceneObject):
     kind = "joint"
 
     @property
+    def servo(self):
+        """Whether the joint's main freedom has a servo (a drive with stiffness): what a controller's "target" turns."""
+        stiffness = self._get("drive", "stiffness")
+        return bool(stiffness and stiffness > 0)
+
+    @property
     def coordinates(self):
         """Travel x y z [m] and turns about x y z [rad] of the joint now (None: not running)."""
         joint = self.scene._live("joints", self.id)
@@ -332,7 +421,7 @@ class Sensor(SceneObject):
 
     @property
     def parent(self):
-        return int(blocks.value(self.block(), "object", "parent") or 0)
+        return int(self._get("object", "parent") or 0)
 
     def _reading(self, key):
         sensor = self.scene._live("sensors", self.id)
@@ -343,9 +432,31 @@ class Sensor(SceneObject):
         """Why it reads nothing ("" when it reads; None: the scene is not running)."""
         return self._reading("problem")
 
+    @property
+    def model(self):
+        """The model of the catalog its datasheet was copied from ("" : its own numbers)."""
+        return next((words[0] for words in self._lines("model") if words), "")
+
+    @property
+    def spec(self):
+        """Its datasheet: {key: number}, the keys of its kind's fields (sensor_models), units in their names."""
+        words = next(iter(self._lines("spec")), [])
+        return {key: float(value) for key, value in zip(words[0::2], words[1::2])}
+
+    def set_spec(self, model=None, **values):
+        """A model's numbers from its table, then `values` over them: ``imu.set_spec("BMI088", rate_hz=400)``."""
+        args = {"sensor": self.id}
+        shown = [_q(model)] if model is not None else []
+        if model is not None:
+            args["model"] = model
+        if values:
+            args["spec"] = values
+            shown += [f"{k}={v!r}" for k, v in values.items()]
+        return self.scene._call("sensor_spec", f"{self.ref}.set_spec({', '.join(shown)})", **args)["datasheet"]
+
 
 class Encoder(Sensor):
-    lines = property(lambda self: int(blocks.value(self.block(), "encoder", "lines")),
+    lines = property(lambda self: int(self._get("encoder", "lines")),
                      lambda self, v: self._set("encoder", "lines", int(v), f"{self.ref}.lines = {int(v)}"))
     count = property(lambda self: None if self._reading("count") is None else int(self._reading("count")),
                      doc="Quadrature steps counted since it began")
@@ -353,16 +464,15 @@ class Encoder(Sensor):
 
 
 class Imu(Sensor):
-    accel = property(lambda self: self._reading("accel"), doc="Specific force in the chip's axes, m/s^2, as decoded")
-    gyro = property(lambda self: self._reading("gyro"), doc="Angular rate in the chip's axes, rad/s, as decoded")
-    temperature = property(lambda self: self._reading("temperature"))
-    noise = property(lambda self: blocks.value(self.block(), "imu", "noise") == 1,
+    accel = property(lambda self: self._reading("accel"), doc="Specific force in the chip's axes, m/s^2, as its counts say")
+    gyro = property(lambda self: self._reading("gyro"), doc="Angular rate in the chip's axes, rad/s, as its counts say")
+    noise = property(lambda self: self._get("imu", "noise") == 1,
                      lambda self, v: self._set("imu", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
 
 
 class Sonar(Sensor):
     distance = property(lambda self: self._reading("distance"), doc="The echo's distance, m (-1: no echo)")
-    noise = property(lambda self: blocks.value(self.block(), "sonar", "noise") == 1,
+    noise = property(lambda self: self._get("sonar", "noise") == 1,
                      lambda self, v: self._set("sonar", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
 
 
@@ -385,16 +495,16 @@ class Battery(SceneObject):
     voltage = property(lambda self: (self.scene._live("batteries", self.id) or {}).get("voltage"))
     current = property(lambda self: (self.scene._live("batteries", self.id) or {}).get("current"))
     charge = property(lambda self: (self.scene._live("batteries", self.id) or {}).get("charge"), doc="State of charge, 0..1")
-    series = property(lambda self: int(blocks.value(self.block(), "cells", "series")),
+    series = property(lambda self: int(self._get("cells", "series")),
                       lambda self, v: self._set("cells", "series", int(v), f"{self.ref}.series = {int(v)}"))
 
 
 class Driver(SceneObject):
     kind = "driver"
-    duty = property(lambda self: blocks.value(self.block(), "bridge", "duty"),
+    duty = property(lambda self: self._get("bridge", "duty"),
                     lambda self, v: self._set("bridge", "duty", float(v), f"{self.ref}.duty = {float(v)}"),
                     doc="PWM duty -1..1, the sign the direction")
-    brake = property(lambda self: blocks.value(self.block(), "bridge", "stop") == "brake",
+    brake = property(lambda self: self._get("bridge", "stop") == "brake",
                      lambda self, v: self._set("bridge", "stop", "brake" if v else "coast", f"{self.ref}.brake = {bool(v)}"),
                      doc="At duty 0: the winding shorted (brake), not open (coast)")
     current = property(lambda self: (self.scene._live("drivers", self.id) or {}).get("current"), doc="Motor current now, A")
@@ -402,12 +512,12 @@ class Driver(SceneObject):
 
     @property
     def battery(self):
-        id = int(blocks.value(self.block(), "bridge", "battery") or 0)
+        id = int(self._get("bridge", "battery") or 0)
         return self.scene.objects[id] if id else None
 
     @property
     def joint(self):
-        return self.scene.objects[int(blocks.value(self.block(), "bridge", "joint"))]
+        return self.scene.objects[int(self._get("bridge", "joint"))]
 
 
 class Controller(SceneObject):
@@ -417,7 +527,83 @@ class Controller(SceneObject):
 
     @property
     def actions(self):
-        return [line.split()[1] for line in self.block().splitlines() if line.strip().startswith("action ")]
+        return [words[0] for words in self._lines("action")]
+
+
+class Camera(SceneObject):
+    """A camera: free (it looks where it is turned) or a target camera that always looks at its target - an object,
+    which it follows in play, or a point."""
+    kind = "camera"
+
+    @property
+    def target(self):
+        """What a target camera looks at: an object - its own target cube (move it to aim) or another; None: free."""
+        at = self._get("target", "object")
+        return None if at is None else self.scene.objects[int(at)]
+
+    def aim(self, at=None, point=None):
+        """A target camera: always looking at object `at` (wherever it goes), else at its own target cube - put at
+        `point`, or where it looks now."""
+        args, shown = {"camera": self.id}, []
+        if at is not None:
+            args["at"] = at.id
+            shown.append(f"at={at.ref}")
+        if point is not None:
+            args["point"] = list(point)
+            shown.append(f"point={_t(point)}")
+        self.scene._call("camera_aim", f"{self.ref}.aim({', '.join(shown)})", **args)
+        return self
+
+    def free(self):
+        """A free camera again, looking where it looked."""
+        self.scene._call("camera_aim", f"{self.ref}.free()", camera=self.id, free=True)
+        return self
+
+
+class Light(SceneObject):
+    """A light: the sun, a lamp ("point") or a spot."""
+    kind = "light"
+
+    def _lamp(key, doc, read=lambda v: v, write=lambda v: v):
+        return property(lambda self: read(self._get("kind", key)),
+                        lambda self, v: self._set("kind", key, write(v), f"{self.ref}.{key} = {v!r}"), doc=doc)
+
+    intensity = _lamp("intensity", "How bright it is (1: as made)")
+    range = _lamp("range", "How far a lamp or a spot shines, m")
+    shadows = _lamp("shadows", "Whether bodies cast shadows from it", read=lambda v: v == 1, write=lambda v: int(bool(v)))
+    del _lamp
+
+
+class Force(SceneObject):
+    """A force in the scene: a push along its own +Y axis (shape "directional") or outward from it, inward when the
+    strength is negative ("radial"), once at `start` ("impulse", N s) or all the time ("constant", N), on the rigid
+    bodies in its reach. The core refuses a bad value: set `radius` before shape="radial"."""
+    kind = "force"
+
+    def _effect(key, doc):
+        return property(lambda self: self._get("effect", key),
+                        lambda self, v: self._set("effect", key, v, f"{self.ref}.{key} = {v!r}"), doc=doc)
+
+    shape = _effect("shape", "directional or radial")
+    mode = _effect("mode", "impulse or constant")
+    strength = _effect("strength", "A field: m/s (impulse) or m/s^2 (constant), the same for every body; a body's own force: N s or N. Negative: along -Y, inward")
+    radius = _effect("radius", "Reach, m: the bodies whose centres are within it; 0: every body (directional only)")
+    falloff = _effect("falloff", "none, linear or inverse_square")
+    start = _effect("start", "Impulse only: the second of the run it fires at")
+    del _effect
+
+    @property
+    def acts_on(self):
+        """The tag a body must carry to be acted on (not the force's own tags, see `tag`); "" or None: every body."""
+        return self._get("effect", "tag") or ""
+
+    @acts_on.setter
+    def acts_on(self, word):
+        self._set("effect", "tag", word or "", f"{self.ref}.acts_on = {word or ''!r}")
+
+    def fire(self):
+        """An impulse force fired now, in the running scene."""
+        self.scene._call("force_fire", None, id=self.id)  # the world's operation: it takes its id alone, no console line
 
 
 class Group(SceneObject):
@@ -426,7 +612,7 @@ class Group(SceneObject):
 
     @property
     def members(self):
-        return [o for o in self.scene.objects if int(blocks.value(o.block(), "object", "parent") or 0) == self.id]
+        return [o for o in self.scene.objects if int(o._get("object", "parent") or 0) == self.id]
 
     def ungroup(self):
         """The group dissolved, its members kept where they stand: the members."""
@@ -437,11 +623,11 @@ class PointWheel(SceneObject):
     """A wheel as a point of its body (the fast model of a wheel module): a ray to the ground, a spring, a
     tyre, a DC motor - no body of its own."""
     kind = "wheel"
-    radius = property(lambda self: blocks.value(self.block(), "tyre", "radius"))
-    rolling = property(lambda self: blocks.value(self.block(), "tyre", "rolling"),
+    radius = property(lambda self: self._get("tyre", "radius"))
+    rolling = property(lambda self: self._get("tyre", "rolling"),
                        lambda self, v: self._set("tyre", "rolling", float(v), f"{self.ref}.rolling = {float(v)}"),
                        doc="The rolling resistance coefficient C_rr: a torque C_rr N r against the spin")
-    friction = property(lambda self: blocks.value(self.block(), "tyre", "friction"),
+    friction = property(lambda self: self._get("tyre", "friction"),
                         lambda self, v: self._set("tyre", "friction", float(v), f"{self.ref}.friction = {float(v)}"))
 
     def _reading(self, key):

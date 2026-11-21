@@ -13,10 +13,6 @@ using namespace ke;
 using namespace selftest;
 
 namespace {
-const Entity* entity(const SceneBuilder& builder, uint32_t id) {
-    for (const Entity& e : builder.graph().entities) if (e.id == id) return &e;
-    return nullptr;
-}
 QColor pixelAt(Viewport* v, const QImage& image, Vector3 point) {
     if (image.isNull()) return QColor();
     const Vector2 p = v->gizmoView().project(point);

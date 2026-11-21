@@ -1,13 +1,13 @@
 // The hierarchy an action works on, the boxes it places things by, new objects (a shape, a light, a
 // camera), showing everything and the roles (see SceneActions.h). The rules are an editor's: a new
-// shape appears in the air over a free spot so ▶ drops it; a rigid body gets its collider (Unity's
-// "Add Component" adding a Rigidbody's collider) and nothing else that could surprise.
+// shape appears in the air over a free spot so ▶ drops it; a rigid body gets its collider
+// and nothing else that could surprise.
 #include "scene/SceneActions.h"
+#include "core/UiLabel.h"
 
 #include "math/ElementaryFunctions.h"
 
 #include <algorithm>
-#include <map>
 
 namespace ke {
 
@@ -20,14 +20,6 @@ const Vector3 kPalette[] = {{0.91_r, 0.50_r, 0.28_r}, {0.31_r, 0.59_r, 0.92_r}, 
 const char* kRoleWords[] = {"rigid", "collider"};
 
 bool contains(const std::vector<uint32_t>& v, uint32_t id) { return std::find(v.begin(), v.end(), id) != v.end(); }
-
-// The object an array's copy is drawn for: its array (an ordinary id is its own).
-uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId) {
-    if (!isArrayCopyId(drawnId)) return drawnId;
-    for (const ArrayObject& a : g.arrays)
-        if ((a.id & 0x7FFFu) == arrayOfCopyId(drawnId)) return a.id;
-    return 0;
-}
 
 AABB entityBounds(const SceneGraph& g, const Entity& e) {
     const AABB local = entityLocalMesh(e, g.baseDirectory).bounds();
@@ -67,12 +59,18 @@ bool hasRole(const Entity& e, Role r) { return r == Role::Rigid ? e.rigid.enable
 void setRole(Entity& e, Role r, bool on) { (r == Role::Rigid ? e.rigid.enabled : e.collider.enabled) = on; }
 
 const char* shapeTitle(ShapeKind k) {
-    static const char* names[] = {"Куб", "Сфера", "Цилиндр", "Конус", "Плоскость", "Модель"};
+    static const char* names[] = {KE_UI_LABEL("Kinetica", "Куб"), KE_UI_LABEL("Kinetica", "Сфера"), KE_UI_LABEL("Kinetica", "Цилиндр"), KE_UI_LABEL("Kinetica", "Конус"), KE_UI_LABEL("Kinetica", "Плоскость"), KE_UI_LABEL("Kinetica", "Модель")};
     return names[std::clamp(int(k), 0, 5)];
 }
 
+const char* forceTitle(ForceShape shape, ForceMode mode) {
+    static const char* names[] = {KE_UI_LABEL("Kinetica", "Толчок"), KE_UI_LABEL("Kinetica", "Тяга"), KE_UI_LABEL("Kinetica", "Взрыв"),
+                                  KE_UI_LABEL("Kinetica", "Притяжение")};
+    return names[int(shape) * 2 + int(mode)];
+}
+
 const char* lightTitle(LightKind k) {
-    static const char* names[] = {"Солнце", "Лампа", "Прожектор"};
+    static const char* names[] = {KE_UI_LABEL("Kinetica", "Солнце"), KE_UI_LABEL("Kinetica", "Лампа"), KE_UI_LABEL("Kinetica", "Прожектор")};
     return names[std::clamp(int(k), 0, 2)];
 }
 
@@ -90,7 +88,7 @@ std::vector<uint32_t> childrenOf(const SceneGraph& g, uint32_t id) {
         for (const auto& o : objects)
             if (o.parent == id) kids.push_back(o.id);
     };
-    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras);
+    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras), add(g.forces);
     return kids;
 }
 
@@ -117,11 +115,18 @@ uint32_t masterOf(const SceneGraph& g, uint32_t entity) {
     }
 }
 
-AABB objectBounds(const SceneGraph& g, uint32_t id) {
+uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId) {
+    if (!isArrayCopyId(drawnId)) return drawnId;
+    for (const ArrayObject& a : g.arrays)
+        if ((a.id & 0x7FFFu) == arrayOfCopyId(drawnId)) return a.id;
+    return 0;
+}
+
+AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(const Entity&)>& entityBox) {
     AABB box;
     for (const Entity& w : worldEntities(g))
-        if (w.visible && isInside(g, ownerOf(g, w.id), id)) box.expand(entityBounds(g, w));
-    auto mark = [&](const SceneObject& o) { // a light or a camera: about the size of its wireframe
+        if (w.visible && isInside(g, ownerOf(g, w.id), id)) box.expand(entityBox ? entityBox(w) : entityBounds(g, w));
+    auto mark = [&](const SceneObject& o) { // a light, a camera or a force: about the size of its wireframe
         Vector3 p;
         Quaternion q;
         worldPose(g, o, p, q);
@@ -129,6 +134,7 @@ AABB objectBounds(const SceneGraph& g, uint32_t id) {
     };
     for (const Light& l : g.lights) mark(l);
     for (const Camera& c : g.cameras) mark(c);
+    for (const Force& f : g.forces) mark(f);
     return box;
 }
 
@@ -197,6 +203,25 @@ uint32_t placeLight(SceneGraph& g, LightKind kind, const Vector3& position, cons
     return id;
 }
 
+uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3& at) {
+    Force f;
+    f.id = nextId(g);
+    f.shape = shape;
+    f.mode = mode;
+    const auto same = std::count_if(g.forces.begin(), g.forces.end(), [&](const Force& o) { return o.shape == shape && o.mode == mode; });
+    f.name = std::string(forceTitle(shape, mode)) + " " + std::to_string(same + 1);
+    f.color = Vector3(0.59_r, 0.41_r, 0.94_r); // its mark's and its icon's violet
+    f.position = at;
+    // A field's strength is what it gives every body in its reach, whatever the body weighs: m/s (an impulse), m/s^2 (a
+    // constant one). A blast throws at 6 m/s, fading to its edge; a pull draws in at 15 m/s^2 - more than the floor's
+    // friction holds; a push gives 3 m/s and a thrust 12 m/s^2, which lifts.
+    if (shape == ForceShape::Radial) f.radius = mode == ForceMode::Impulse ? 3.0_r : 5.0_r, f.falloff = mode == ForceMode::Impulse ? ForceFalloff::Linear : ForceFalloff::None;
+    else f.radius = 1.5_r; // it pushes what stands near it (radius 0: every body)
+    f.strength = shape == ForceShape::Directional ? (mode == ForceMode::Impulse ? 3.0_r : 12.0_r) : (mode == ForceMode::Impulse ? 6.0_r : -15.0_r);
+    g.forces.push_back(f);
+    return f.id;
+}
+
 uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre) {
     Camera c;
     c.id = nextId(g);
@@ -212,6 +237,67 @@ uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre) {
     return c.id;
 }
 
+static Camera* cameraIn(SceneGraph& g, uint32_t id) {
+    for (Camera& c : g.cameras)
+        if (c.id == id && id != 0) return &c;
+    return nullptr;
+}
+
+// The camera's own target, made if it has none: a see-through cube 8 cm across in the camera's colour.
+static Entity& ownTarget(SceneGraph& g, Camera& c, const Vector3& at) {
+    for (Entity& e : g.entities)
+        if (e.targetOf == c.id) return e;
+    Entity e;
+    e.id = nextId(g);
+    e.name = "Цель «" + c.name + "»";
+    e.shape = ShapeKind::Box;
+    e.size = Vector3(0.08_r);
+    e.position = at;
+    e.color = c.color;
+    e.targetOf = c.id;
+    e.rigid.enabled = e.collider.enabled = false;
+    g.entities.push_back(e);
+    return g.entities.back();
+}
+
+bool aimCamera(SceneGraph& g, uint32_t camera, uint32_t target, const Vector3* point) {
+    Camera* c = cameraIn(g, camera);
+    if (!c || (target && (target == camera || !findObject(g, target)))) return false;
+    if (!target) { // its own target: where it is told, else where it looks now
+        const Vector3 at = point ? *point : cameraTarget(g, *c);
+        Entity& own = ownTarget(g, *c, at);
+        setWorldPose(g, own, at, Quaternion());
+        target = own.id;
+    }
+    std::vector<uint32_t> stale; // another object aimed at: its own target goes
+    for (const Entity& e : g.entities)
+        if (e.targetOf == camera && e.id != target) stale.push_back(e.id);
+    deleteObjects(g, stale);
+    c = cameraIn(g, camera);
+    c->kind = CameraKind::Target;
+    c->target = target;
+    Vector3 eye;
+    Quaternion turn;
+    worldPose(g, *c, eye, turn);
+    setWorldPose(g, *c, eye, lookTurn(eye, cameraTarget(g, *c)));
+    return true;
+}
+
+bool freeCamera(SceneGraph& g, uint32_t camera) {
+    Camera* c = cameraIn(g, camera);
+    if (!c) return false;
+    Vector3 eye, forward, up;
+    cameraFrame(g, *c, eye, forward, up);
+    c->kind = CameraKind::Free;
+    c->target = 0;
+    setWorldPose(g, *c, eye, lookTurn(eye, eye + forward));
+    std::vector<uint32_t> own; // its own target goes with it (a target camera made free loses its target)
+    for (const Entity& e : g.entities)
+        if (e.targetOf == camera) own.push_back(e.id);
+    deleteObjects(g, own);
+    return true;
+}
+
 void showAll(SceneGraph& g) {
     for (Entity& e : g.entities) {
         const bool hiddenTemplate = !e.visible && std::any_of(g.arrays.begin(), g.arrays.end(), [&](const ArrayObject& a) { return a.templateId == e.id; });
@@ -221,17 +307,18 @@ void showAll(SceneGraph& g) {
     for (ArrayObject& o : g.arrays) o.visible = true;
     for (Light& o : g.lights) o.visible = true;
     for (Camera& o : g.cameras) o.visible = true;
+    for (Force& o : g.forces) o.visible = true;
 }
 
 namespace {
 
-// A collider pairs with a rigid body or stands alone (a fixed obstacle), as in Unity: a rigid body gets one.
+// A collider pairs with a rigid body or stands alone (a fixed obstacle): a rigid body gets one.
 // What was added besides, in words.
 std::string keepComponentsConsistent(Entity& e, Role role) {
     if (role != Role::Rigid || e.collider.enabled) return {};
     e.collider.enabled = true;
     e.collider.kind = ColliderKind::Auto;
-    return "Добавлен коллайдер «Авто»: тело сталкивается своей формой";
+    return KE_UI_LABEL("Kinetica", "Добавлен коллайдер «Авто»: тело сталкивается своей формой");
 }
 
 } // namespace

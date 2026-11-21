@@ -1,7 +1,6 @@
 // One chart of the plots: lines of one unit over a window of time, drawn by hand (see TrackChart.h).
 #include "TrackChart.h"
-
-#include "PlotChannels.h"
+#include "UiLanguage.h"
 
 #include <QContextMenuEvent>
 #include <QFontMetricsF>
@@ -10,6 +9,37 @@
 #include <QPolygonF>
 
 #include <algorithm>
+#include <array>
+
+QColor plotSlotColor(int slot) {
+    static const std::array<QColor, 8> palette = {QColor("#3987e5"), QColor("#d95926"), QColor("#199e70"), QColor("#c98500"),
+                                                  QColor("#d55181"), QColor("#008300"), QColor("#9085e9"), QColor("#e66767")};
+    return palette[size_t(slot) % palette.size()];
+}
+
+Qt::PenStyle plotSlotStyle(int slot) {
+    static const Qt::PenStyle styles[] = {Qt::SolidLine, Qt::DashLine, Qt::DotLine};
+    return styles[(size_t(slot) / 8) % 3];
+}
+
+QString numberText(double v, int significant) {
+    if (!std::isfinite(v)) return "—";
+    if (v == 0) return "0";
+    const double a = std::fabs(v);
+    const int power = int(std::floor(std::log10(a)));
+    if (a >= 1e-3 && a < 1e5) {
+        QString s = QString::number(v, 'f', std::max(0, significant - 1 - power));
+        if (s.contains('.')) {
+            while (s.endsWith('0')) s.chop(1);
+            if (s.endsWith('.')) s.chop(1);
+        }
+        return s.replace('.', ',');
+    }
+    static const QString superscript = QString::fromUtf8("⁰¹²³⁴⁵⁶⁷⁸⁹");
+    QString exponent = power < 0 ? QString::fromUtf8("⁻") : QString();
+    for (const QChar c : QString::number(std::abs(power))) exponent += superscript[c.digitValue()];
+    return numberText(v / std::pow(10.0, power), std::max(1, significant - 1)) + QString::fromUtf8("·10") + exponent;
+}
 
 namespace {
 
@@ -131,7 +161,6 @@ void TrackChart::setTitle(const QString& title, bool menu) { title_ = title, men
 void TrackChart::setEmptyText(const QString& text) { emptyText_ = text, update(); }
 void TrackChart::setNormalized(bool on) { normalized_ = on, refresh(); }
 void TrackChart::setTimeAxisVisible(bool on) { timeAxis_ = on, update(); }
-void TrackChart::setCursorTime(double t) { cursor_ = t, update(); }
 void TrackChart::setHoverTime(double t) { hover_ = t, update(); }
 void TrackChart::setSharedMargins(int left, int right) { sharedLeft_ = left, sharedRight_ = right, update(); }
 
@@ -330,7 +359,7 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
         p.drawText(QRectF(x - 40, r.bottom() + 5, 80, 14), Qt::AlignHCenter | Qt::AlignTop, formatNumber(t, tStep));
     }
     p.setPen(kMuted);
-    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop, "t, с");
+    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop, uiText("Kinetica", "t, с"));
 }
 
 // One line: the samples inside the window, as a 2 px line when they are sparse and as a ribbon when
@@ -457,38 +486,21 @@ void TrackChart::drawDirectLabels(QPainter& p, const QRectF& r) const {
     }
 }
 
-// A vertical line through the plot at time t: the Laboratory's frame (solid, its time on top) or
-// the mouse (dashed, a dot on every line - the panel's tooltip gives the value).
-void TrackChart::drawTimeLine(QPainter& p, const QRectF& r, double t, bool hover) const {
+// The mouse's moment: a dashed vertical line through the plot, a dot on every line (the panel's tooltip gives the value).
+void TrackChart::drawHoverLine(QPainter& p, const QRectF& r) const {
+    const double t = hover_;
     if (!std::isfinite(t) || t < t0_ || t > t1_) return;
     const double x = toScreen(r, t, y0_).x();
     QColor ink = kInk;
-    ink.setAlpha(hover ? 130 : 180);
-    p.setPen(QPen(ink, hover ? 1.0 : 1.5, hover ? Qt::DashLine : Qt::SolidLine));
+    ink.setAlpha(130);
+    p.setPen(QPen(ink, 1.0, Qt::DashLine));
     p.drawLine(QPointF(x, r.top()), QPointF(x, r.bottom()));
-    if (hover) {
-        for (size_t k = 0; k < tracks_.size(); ++k)
-            if (const double v = shownValueAt(k, t); !tracks_[k].hidden && std::isfinite(v)) {
-                p.setPen(QPen(kSurface, 2.0));
-                p.setBrush(tracks_[k].color);
-                p.drawEllipse(toScreen(r, t, v), 4.0, 4.0);
-            }
-        return;
-    }
-    p.setFont(smallFont(this, 8));
-    const QFontMetricsF fm(p.font());
-    const QString label = QString("t = %1 с").arg(formatNumber(t, 0.01));
-    const double w = fm.horizontalAdvance(label) + 10;
-    const double left = x + 4 + w <= r.right() ? x + 4 : x - 4 - w; // flip left at the right edge
-    const QRectF box(left, r.top() + 2, w, 16);
-    QColor back = kSurface, edge = kInk;
-    back.setAlpha(225);
-    edge.setAlpha(90);
-    p.setPen(QPen(edge, 1.0));
-    p.setBrush(back);
-    p.drawRoundedRect(box, 3, 3);
-    p.setPen(kInk);
-    p.drawText(box, Qt::AlignCenter, label);
+    for (size_t k = 0; k < tracks_.size(); ++k)
+        if (const double v = shownValueAt(k, t); !tracks_[k].hidden && std::isfinite(v)) {
+            p.setPen(QPen(kSurface, 2.0));
+            p.setBrush(tracks_[k].color);
+            p.drawEllipse(toScreen(r, t, v), 4.0, 4.0);
+        }
 }
 
 void TrackChart::paintEvent(QPaintEvent*) {
@@ -513,10 +525,9 @@ void TrackChart::paintEvent(QPaintEvent*) {
     if (allZero_) {
         p.setFont(smallFont(this, 9));
         p.setPen(kAxisText);
-        p.drawText(r.adjusted(0, 6, 0, 0), Qt::AlignHCenter | Qt::AlignTop, "всё это время — ровно 0");
+        p.drawText(r.adjusted(0, 6, 0, 0), Qt::AlignHCenter | Qt::AlignTop, uiText("Kinetica", "всё это время — ровно 0"));
     }
-    drawTimeLine(p, r, cursor_, false);
-    drawTimeLine(p, r, hover_, true);
+    drawHoverLine(p, r);
 }
 
 // --- The mouse ------------------------------------------------------------------------------------
@@ -544,7 +555,6 @@ void TrackChart::mousePressEvent(QMouseEvent* e) {
     const QPointF pos = e->position();
     if (menu_ && titleRect().contains(pos)) emit titleClicked();
     else if (const int k = legendAt(pos); k >= 0) emit legendClicked(k);
-    else if (plotRect().adjusted(-4, 0, 4, 0).contains(pos)) emit clicked(timeAtX(pos.x()));
 }
 
 void TrackChart::mouseDoubleClickEvent(QMouseEvent* e) {

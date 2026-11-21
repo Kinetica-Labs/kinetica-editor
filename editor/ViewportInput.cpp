@@ -3,6 +3,7 @@
 // a click on a sensor or a body in play, making shapes with the mouse (on, off, Esc), and the line of
 // the status bar that says what the buttons and keys do right now.
 #include "Viewport.h"
+#include "UiLanguage.h"
 
 #include "SensorGlyphs.h"
 
@@ -14,6 +15,7 @@
 #include <QMouseEvent>
 #include <QTimer>
 #include <QToolTip>
+#include <QVector4D>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -106,6 +108,10 @@ bool Viewport::navPress(QMouseEvent* e) {
 void Viewport::mousePressEvent(QMouseEvent* e) {
     setFocus(Qt::MouseFocusReason); // the keys (W A S D, X Y Z during a drag) come here
     if (navPress(e)) return;
+    if (!toolOp_.isEmpty() && e->button() == Qt::LeftButton && !(e->modifiers() & Qt::AltModifier)) { // a plugin's tool takes the click
+        grabbed_ = &pluginTool_;
+        return pluginTool_.press(*this, e);
+    }
     if (e->button() == Qt::RightButton) rightHeld_ = true;
     if (e->button() == Qt::LeftButton) labPress_ = e->position(), labPressed_ = true; // a Laboratory click?
     const bool alt = e->modifiers() & Qt::AltModifier;
@@ -216,7 +222,7 @@ void Viewport::mouseDoubleClickEvent(QMouseEvent* e) {
     emit frameSelectedRequested();
 }
 
-// The keys go to the view the mouse is over, as Blender's go to the editor under the cursor: the flight's and the
+// The keys go to the view the mouse is over: the flight's and the
 // transforms' keys work without a click into the view first.
 void Viewport::enterEvent(QEnterEvent* e) {
     if (window()->isActiveWindow() && !QApplication::activePopupWidget()) setFocus(Qt::MouseFocusReason);
@@ -242,6 +248,7 @@ bool isMagnetKey(const QKeyEvent* k) {
 } // namespace
 
 void Viewport::keyPressEvent(QKeyEvent* e) {
+    if (!toolOp_.isEmpty() && e->key() == Qt::Key_Escape) return setPluginTool({}, {});
     if (editMode_ && createMode_ && e->key() == Qt::Key_Escape) { // the thing begun dropped; nothing begun: the mode left
         if (!createTool_.cancel(*this)) setCreateMode(false);
         return updateHint();
@@ -249,10 +256,11 @@ void Viewport::keyPressEvent(QKeyEvent* e) {
     if (editMode_ && createMode_ && e->key() == Qt::Key_Backspace) return createTool_.back(*this), updateHint();
     if (editMode_ && magnetMode_ && !rightHeld_ && isMagnetKey(e)) return emit magnetKey(e->key());
     if (gizmo_.modal() && modalKey(e)) return updateHint();
+    if (editTool_.draggingHandle() && e->key() == Qt::Key_Escape) return editTool_.cancelHandle(*this), updateHint();
     if (gizmo_.dragging()) return dragKey(e), updateHint(); // a handle drag: Esc cancels, X Y Z lock an axis
     if (flyKey(e, true)) return;
     const Qt::KeyboardModifiers mods = e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier);
-    if (editMode_ && blenderKeys(scheme_) && mods == Qt::NoModifier) { // Blender: G move, R turn, S scale
+    if (editMode_ && letterKeys(scheme_) && mods == Qt::NoModifier) { // G move, R turn, S scale
         if (e->key() == Qt::Key_G) return startModal(GizmoMode::Translate);
         if (e->key() == Qt::Key_R) return startModal(GizmoMode::Rotate);
         if (e->key() == Qt::Key_S) return startModal(GizmoMode::Scale);
@@ -270,7 +278,7 @@ void Viewport::focusOutEvent(QFocusEvent* e) {
 }
 
 // During a handle drag: Esc puts the object back; X / Y / Z switch the drag to that axis, Shift+X /
-// Y / Z to the plane across it (Blender's axis locking).
+// Y / Z to the plane across it (axis locking).
 void Viewport::dragKey(QKeyEvent* e) {
     const int k = e->key();
     if (k == Qt::Key_Escape) return cancelGizmoDrag();
@@ -331,7 +339,8 @@ bool Viewport::event(QEvent* e) {
         const bool flight = rightHeld_ && rightButtonFlies(scheme_) && isFlyKey(keyByPlace(k));
         const bool magnet = editMode_ && magnetMode_ && !rightHeld_ && isMagnetKey(k);
         const bool create = editMode_ && createMode_ && (k->key() == Qt::Key_Escape || k->key() == Qt::Key_Backspace);
-        if (gizmo_.dragging() || flight || magnet || create) { // X, Esc, digits, W A S D... belong to the drag, not to the window's shortcuts
+        const bool tool = !toolOp_.isEmpty() && k->key() == Qt::Key_Escape;
+        if (gizmo_.dragging() || flight || magnet || create || tool) { // X, Esc, digits, W A S D... belong to the drag, not to the window's shortcuts
             e->accept();
             return true;
         }
@@ -363,6 +372,126 @@ bool Viewport::playHandleAt(const QPointF& pos) const {
 void Viewport::setGizmoTarget(bool visible, const Vector3& position, const ke::Quaternion& rotation) {
     gizmoVisible_ = visible;
     gizmo_.setTarget(position, rotation);
+    update();
+}
+
+// ---------------------------------------------------------------------------
+// The collider mode's points (ColliderGuides.h ShapeHandle)
+// ---------------------------------------------------------------------------
+void Viewport::setShapeHandles(std::vector<ShapeHandle> handles) {
+    handles_ = std::move(handles);
+    if (hoveredHandle_ >= int(handles_.size())) hoveredHandle_ = -1;
+    update();
+    updateHint();
+}
+
+QPointF Viewport::pixelOf(const Vector3& world, bool* inFront) const {
+    const QVector4D clip = camera_.projection(float(width()) / float(std::max(1, height()))) * camera_.view() * QVector4D(world.x, world.y, world.z, 1);
+    if (inFront) *inFront = clip.w() > 1e-6f;
+    const float w = std::fabs(clip.w()) > 1e-9f ? clip.w() : 1e-9f;
+    return QPointF((clip.x() / w + 1) * 0.5 * width(), (1 - clip.y() / w) * 0.5 * height());
+}
+
+int Viewport::shapeHandleAt(const QPointF& pos) const {
+    int best = -1;
+    double nearest = 9.0;
+    for (size_t i = 0; i < handles_.size(); ++i) {
+        bool front = false;
+        const QPointF p = pixelOf(handles_[i].centre + handles_[i].axis * handles_[i].reach, &front);
+        if (const double d = QLineF(p, pos).length(); front && d <= nearest) nearest = d, best = int(i);
+    }
+    return best;
+}
+
+// The point of the handle's line nearest the mouse ray, as metres from its centre: t = (b (d.w) - a.w) / (1 - b^2) for the
+// line c + a t and the ray o + d s (a, d unit, w = c - o, b = a.d). Looking along the line, it stays where it is.
+float Viewport::reachAlong(const ShapeHandle& h, const QPointF& pos) const {
+    const Ray ray = camera_.screenRay(pos, size());
+    const Vector3 w = h.centre - ray.origin;
+    const float b = ke::dot(h.axis, ray.dir), across = 1.0f - b * b;
+    if (across < 1e-4f) return h.reach;
+    return (b * ke::dot(ray.dir, w) - ke::dot(h.axis, w)) / across;
+}
+
+void Viewport::setPluginTool(const QString& op, const QString& label, bool drags) {
+    if (op == toolOp_) return;
+    toolOp_ = op, toolLabel_ = label, toolDrags_ = drags;
+    if (!createMode_ && !magnetMode_) setCursor(op.isEmpty() ? Qt::ArrowCursor : Qt::CrossCursor);
+    emit pluginToolChanged(op);
+    updateHint();
+}
+
+// What a click there is on: the nearest object (edit: the scene's, play: the bodies'), else the floor. A surface with no
+// polygon's normal (a box, a sphere) gets it from two hits a pixel aside on the same object; none: towards the eye.
+bool Viewport::surfaceAt(const QPointF& pos, Vector3& point, Vector3& normal, uint32_t& object) const {
+    const auto hitAt = [this](const QPointF& at, Vector3& p, Vector3* n) -> uint32_t {
+        const Ray ray = camera_.screenRay(at, size());
+        if (editMode_) {
+            const std::vector<PickHit> hits = pickAll(ray);
+            if (hits.empty()) return 0;
+            p = hits.front().point;
+            if (n) *n = hits.front().normal;
+            return hits.front().id;
+        }
+        int body;
+        if (!snap_ || !pickAnyBody(ray, body, p)) return 0;
+        return std::max<uint32_t>(1, snap_->bodies[size_t(body)].object);
+    };
+    const Ray ray = camera_.screenRay(pos, size());
+    normal = Vector3(0.0f);
+    object = hitAt(pos, point, &normal);
+    if (object) {
+        if (ke::length(normal) < 0.5f) {
+            Vector3 a, b;
+            if (hitAt(pos + QPointF(1, 0), a, nullptr) == object && hitAt(pos + QPointF(0, 1), b, nullptr) == object)
+                normal = ke::cross(a - point, b - point);
+            normal = ke::length(normal) > 1e-9f ? ke::normalize(normal) : -ray.dir;
+        }
+        if (ke::dot(normal, ray.dir) > 0) normal = -normal;
+        return true;
+    }
+    const float toFloor = intersectAxisPlane(ray, 1, 0.0f);
+    if (toFloor <= 0.0f || toFloor > 50.0f * camera_.distance()) return false;
+    point = ray.at(toFloor), normal = Vector3(0, 1, 0);
+    return true;
+}
+
+void Viewport::clickTool(const QPointF& pos) {
+    Vector3 point, normal;
+    uint32_t object = 0;
+    if (surfaceAt(pos, point, normal, object)) emit toolClicked(toolOp_, point, normal, object);
+}
+
+// The second point is what is under the mouse at the release; over nothing - the sky - where its ray meets the plane of
+// the surface pressed.
+void Viewport::dragTool(const QPointF& from, const QPointF& to) {
+    Vector3 point, normal, end, endNormal;
+    uint32_t object = 0, endObject = 0;
+    if (!surfaceAt(from, point, normal, object)) return;
+    if (!surfaceAt(to, end, endNormal, endObject)) {
+        const Ray ray = camera_.screenRay(to, size());
+        const float across = ke::dot(ray.dir, normal);
+        if (std::fabs(across) < 1e-4f) return;
+        end = ray.at(ke::dot(point - ray.origin, normal) / across), endObject = 0;
+    }
+    emit toolDragged(toolOp_, point, normal, object, end, endObject);
+}
+
+Vector3 Viewport::handlePoint(const ShapeHandle& h, const QPointF& pos) const {
+    if (!h.free) return h.centre + h.axis * reachAlong(h, pos);
+    const Vector3 at = h.centre + h.axis * h.reach;
+    const QVector3D f = camera_.forward();
+    const Vector3 n = ke::length(h.normal) > 0.5f ? h.normal : Vector3(f.x(), f.y(), f.z()); // its own plane, or the eye's
+    const Ray ray = camera_.screenRay(pos, size());
+    const float across = ke::dot(ray.dir, n);
+    if (std::fabs(across) < 1e-4f) return at;
+    return ray.at(ke::dot(at - ray.origin, n) / across);
+}
+
+void Viewport::setHoveredHandle(int i) {
+    if (i == hoveredHandle_) return;
+    hoveredHandle_ = i;
+    setCursor(i >= 0 ? Qt::SizeAllCursor : Qt::ArrowCursor);
     update();
 }
 
@@ -471,24 +600,46 @@ bool Viewport::modalKey(QKeyEvent* e) {
 // What the buttons and keys do right now (the status bar)
 // ---------------------------------------------------------------------------
 QString Viewport::mouseHint() const {
-    if (navPressed_ || navHover_ != NavCube::kOutside) return "Клик по шарику оси: вид вдоль неё (Y — сверху) · тяните: вращать вид";
+    if (navPressed_ || navHover_ != NavCube::kOutside) return uiText("Kinetica", "Клик по шарику оси: вид вдоль неё (Y — сверху) · тяните: вращать вид");
     if (rightHeld_ && rightButtonFlies(scheme_) && (flew_ || !flyKeys_.empty()))
-        return "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться";
+        return uiText("Kinetica", "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться");
+    if (!toolOp_.isEmpty())
+        return "«" + toolLabel_ + (toolDrags_ ? uiText("Kinetica", "»: тяните от точки до точки — обе уходят плагину · щелчок — одна точка · Esc — выход · ")
+                                              : uiText("Kinetica", "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · ")) + cameraHint(scheme_);
     if (!editMode_ && gizmoShown() && !gizmo_.dragging() && gizmo_.hover() != GizmoHandle::None)
-        return "Тяните: цель IK, рука идёт за ней моторами · " + cameraHint(scheme_);
-    if (!editMode_ && !gizmo_.dragging()) return "ЛКМ по телу: схватить и тащить · " + cameraHint(scheme_);
+        return uiText("Kinetica", "Тяните: цель IK, рука идёт за ней моторами · ") + cameraHint(scheme_);
+    if (!editMode_ && !gizmo_.dragging()) return uiText("Kinetica", "ЛКМ по телу: схватить и тащить · ") + cameraHint(scheme_);
     if (createMode_) return createTool_.hint(createWhat_);
-    if (gizmo_.modal()) return "X / Y / Z: ось (ещё раз — своя) · число: точно · Enter или ЛКМ: принять · Esc или ПКМ: отмена";
+    if (gizmo_.modal()) return uiText("Kinetica", "X / Y / Z: ось (ещё раз — своя) · число: точно · Enter или ЛКМ: принять · Esc или ПКМ: отмена");
     if (gizmo_.dragging() && editTool_.cloning())
-        return "Клонирование: отпустите — спросим, сколько копий · X / Y / Z: ось · Ctrl: шаг · Esc или ПКМ: отмена";
-    if (gizmo_.dragging()) return "X / Y / Z: только по оси · Shift+X / Y / Z: в плоскости · Ctrl: шаг · Shift: точнее · Esc или ПКМ: отмена";
-    if (editTool_.boxSelecting()) return "Отпустите — выбрать всё в рамке · Shift: добавить · Ctrl: убрать";
-    if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
-        const char* verb = gizmo_.mode() == GizmoMode::Rotate ? "вращать" : gizmo_.mode() == GizmoMode::Scale ? "масштабировать" : "двигать";
-        return QString("Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось").arg(verb);
+        return uiText("Kinetica", "Клонирование: отпустите — спросим, сколько копий · X / Y / Z: ось · Ctrl: шаг · Esc или ПКМ: отмена");
+    if (gizmo_.dragging()) return uiText("Kinetica", "X / Y / Z: только по оси · Shift+X / Y / Z: в плоскости · Ctrl: шаг · Shift: точнее · Esc или ПКМ: отмена");
+    if (editTool_.boxSelecting()) return uiText("Kinetica", "Отпустите — выбрать всё в рамке · Shift: добавить · Ctrl: убрать");
+    if (!handles_.empty() && !colliderMode()) { // a plugin's orange points: what they are, in its words
+        if (editTool_.draggingHandle()) return QString(uiText("Kinetica", "Тяните: %1 · Esc или ПКМ: отмена")).arg(editTool_.draggedHandle().label);
+        if (hoveredHandle_ >= 0) return QString(uiText("Kinetica", "Тяните точку: %1")).arg(handles_[size_t(hoveredHandle_)].label);
     }
-    if (hoveredEntity_) return "ЛКМ: выбрать · Shift или Ctrl+ЛКМ: добавить / убрать · двойной клик: показать · " + cameraHint(scheme_);
-    return "ЛКМ: выбрать · тяните с пустого места: рамка · " + cameraHint(scheme_) + " · F: показать";
+    if (colliderMode()) { // the collider's points before the gizmo's words: they are what the mode is for
+        if (editTool_.draggingHandle()) return QString(uiText("Kinetica", "Тяните: %1 коллайдера · Esc или ПКМ: отмена")).arg(editTool_.draggedHandle().what);
+        if (hoveredHandle_ >= 0) {
+            const ShapeHandle& h = handles_[size_t(hoveredHandle_)];
+            return QString(uiText("Kinetica", "Тяните точку: %1 коллайдера%2")).arg(h.what, h.both ? "" : uiText("Kinetica", " · противоположная грань стоит на месте"));
+        }
+        if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
+            const char* verb = gizmo_.mode() == GizmoMode::Rotate ? uiText("Kinetica", "вращать") : gizmo_.mode() == GizmoMode::Scale ? uiText("Kinetica", "растянуть") : uiText("Kinetica", "двигать");
+            return QString(uiText("Kinetica", "Тяните: %1 коллайдер, модель стоит · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось")).arg(verb);
+        }
+        return uiText("Kinetica", "Коллайдер: точки — размер, гизмо — место и поворот (W E R) · модель не меняется · Esc — назад к телу");
+    }
+    if (gizmoShown() && gizmo_.hover() != GizmoHandle::None) {
+        const char* verb = gizmo_.mode() == GizmoMode::Rotate ? uiText("Kinetica", "вращать — отпустите у точки, и угол станет ровно 90°") :
+                           gizmo_.mode() == GizmoMode::Scale ? uiText("Kinetica", "масштабировать") : uiText("Kinetica", "двигать");
+        return QString(uiText("Kinetica", "Тяните: %1 · Shift+тяните: клонировать · Ctrl: шаг · Shift во время драга: точнее · X / Y / Z: ось")).arg(verb);
+    }
+    if (hoveredEntity_)
+        return QString(uiText("Kinetica", "ЛКМ: выбрать · ")) + (gizmo_.mode() == GizmoMode::Translate ? uiText("Kinetica", "тяните: двигать по полу · ") : uiText("Kinetica", "Shift+тяните: двигать по полу · ")) +
+               uiText("Kinetica", "Shift или Ctrl+ЛКМ: добавить / убрать · двойной клик: показать · ") + cameraHint(scheme_);
+    return uiText("Kinetica", "ЛКМ: выбрать · тяните с пустого места: рамка · ") + cameraHint(scheme_) + uiText("Kinetica", " · F: показать");
 }
 
 void Viewport::updateHint() {
@@ -513,6 +664,7 @@ void Viewport::setMagnetPreview(std::vector<float> ghost, std::vector<float> joi
 }
 
 void Viewport::setCreateMode(bool on, const CreateWhat& what) {
+    if (on) setPluginTool({}, {}); // drawing shapes ends a plugin's tool
     if (!on && !createMode_) return;
     createMode_ = on;
     createWhat_ = what;

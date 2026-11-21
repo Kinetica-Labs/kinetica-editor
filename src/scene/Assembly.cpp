@@ -2,9 +2,8 @@
 // put flat against that face, and joints written into the frame of the entity they hang on.
 #include "scene/Assembly.h"
 
-#include "devices/Hcsr04.h"
+#include "scene/SensorSpec.h"
 
-#include "math/ElementaryFunctions.h"
 #include <algorithm>
 #include <cmath>
 #include <string>
@@ -13,11 +12,6 @@ namespace ke {
 
 namespace {
 
-const Entity* findEntity(const SceneGraph& g, uint32_t id) {
-    for (const Entity& e : g.entities)
-        if (e.id == id && id != 0) return &e;
-    return nullptr;
-}
 
 // The entity's box in its own frame: centre and half edges. A model's box is its mesh's bounds (its
 // size only says how large its largest extent is); every other shape is centred on its origin.
@@ -48,6 +42,15 @@ const char* jointLabel(JointType t) {
     case JointType::Slider: return "Призматическое";
     case JointType::Fixed: return "Сварка";
     default: return "Сочленение";
+    }
+}
+
+// A new joint's name: its kind's word and the first number no other joint has with it - "Шарнир 1" in a scene of two
+// bodies, not its id ("Шарнир 59", which a newcomer took for a count).
+std::string freeJointName(const SceneGraph& g, const std::string& label) {
+    for (int n = 1;; ++n) {
+        const std::string name = label + " " + std::to_string(n);
+        if (std::none_of(g.joints.begin(), g.joints.end(), [&](const JointObject& j) { return j.name == name; })) return name;
     }
 }
 
@@ -160,24 +163,28 @@ static int freeMask(const JointObject& j) {
 uint32_t addJoint(SceneGraph& g, JointType type, uint32_t a, uint32_t b, const Vector3& worldAnchor, const Vector3& worldAxis) {
     JointObject j;
     j.id = nextId(g);
-    j.name = std::string(jointLabel(type)) + " " + std::to_string(j.id);
+    j.name = freeJointName(g, jointLabel(type));
     setJointKind(j, type);
     j.a = a;
     j.b = b;
+    placeJoint(g, j, worldAnchor, worldAxis);
+    g.joints.push_back(j);
+    return j.id;
+}
+
+void placeJoint(const SceneGraph& g, JointObject& j, const Vector3& worldAnchor, const Vector3& worldAxis) {
     const Vector3 x = normalize(worldAxis), y = normalize(anyPerpendicular(x)), z = cross(x, y);
     Matrix3x3 basis;
     for (int r = 0; r < 3; ++r) basis.m[r][0] = x[r], basis.m[r][1] = y[r], basis.m[r][2] = z[r];
     const Quaternion Q = Quaternion::fromMatrix3x3(basis).normalized();
     Vector3 pa, pb;
     Quaternion qa, qb;
-    poseOf(g, a, pa, qa);
-    poseOf(g, b, pb, qb);
+    poseOf(g, j.a, pa, qa);
+    poseOf(g, j.b, pb, qb);
     j.anchorA = qa.conjugate().rotate(worldAnchor - pa);
     j.anchorB = qb.conjugate().rotate(worldAnchor - pb);
     j.frameA = eulerDegrees((qa.conjugate() * Q).normalized());
     j.frameB = eulerDegrees((qb.conjugate() * Q).normalized());
-    g.joints.push_back(j);
-    return j.id;
 }
 
 const JointObject* findJoint(const SceneGraph& g, uint32_t id) {
@@ -243,15 +250,17 @@ const char* jointKindWord(const JointObject& j) {
     return "generic";
 }
 
-// The kind's freedoms; a joint still called by its old kind's label and its id is renamed by the new.
+// The kind's freedoms; a joint still called by its old kind's word and a number is renamed by the new, the number kept.
 bool setJointKind(JointObject& j, const std::string& word) {
     std::string old = "Сочленение";
     for (const KindWord& k : kKinds)
         if (k.free == freeMask(j)) old = k.label;
+    const std::string number = j.name.size() > old.size() + 1 && j.name.compare(0, old.size() + 1, old + " ") == 0 ? j.name.substr(old.size() + 1) : "";
+    const bool named = !number.empty() && std::all_of(number.begin(), number.end(), [](char c) { return c >= '0' && c <= '9'; });
     for (const KindWord& k : kKinds)
         if (word == k.word) {
             for (int d = 0; d < 6; ++d) j.dof[d].motion = (k.free >> d) & 1 ? JointMotion::Free : JointMotion::Locked;
-            if (j.name == old + " " + std::to_string(j.id)) j.name = std::string(k.label) + " " + std::to_string(j.id);
+            if (named) j.name = std::string(k.label) + " " + number;
             return true;
         }
     return false;
@@ -313,10 +322,17 @@ std::vector<JointVis> jointVisuals(const SceneGraph& g) {
     std::vector<JointVis> out;
     for (const JointObject& j : g.joints) {
         JointVis v;
+        v.id = j.id, v.a = j.a, v.b = j.b;
         v.type = jointKind(j);
         v.axis = Vector3(0.0_r);
         Quaternion fa, fb;
         jointWorldFrames(g, j, v.anchorA, fa, v.anchorB, fb);
+        v.bodyA = v.anchorA, v.bodyB = v.anchorB; // a body that is not there: the tie has no length
+        Quaternion turned;
+        if (const Entity* a = findEntity(g, j.a)) worldPose(g, *a, v.bodyA, turned);
+        const Entity* b = findEntity(g, j.b);
+        if (b) worldPose(g, *b, v.bodyB, turned);
+        v.grounded = !b;
         const int k = std::max(mainFreedom(j), 0);
         Vector3 e(0.0_r);
         e[k % 3] = 1;
@@ -358,7 +374,7 @@ Attached attachLink(SceneGraph& g, uint32_t target, const FaceSnap& at, const Li
     e.instanceOf = 0;
     e.position = anchor + at.normal * depth;
     e.rotationDeg = eulerDegrees(Q);
-    e.rigid.fixed = false;
+    e.rigid.fixed = e.rigid.kinematic = e.collider.trigger = false; // whatever the target is - fixed, kinematic, a zone - a link is a body its joint moves
     e.rigid.velocity = e.rigid.angularVelocity = Vector3(0.0_r);
     makeBody(e);
     g.entities.push_back(e);
@@ -410,6 +426,7 @@ uint32_t attachSensor(SceneGraph& g, uint32_t target, const FaceSnap& at, Sensor
     s.id = nextId(g);
     s.name = sensorName(g, kind);
     s.kind = kind;
+    applyDefaultModel(s); // the first model of its table, else a generic unit
     s.parent = target;
     s.position = q.conjugate().rotate(at.anchor - p);
     s.rotationDeg = eulerDegrees((q.conjugate() * Quaternion::fromMatrix3x3(frame)).normalized());
@@ -424,6 +441,7 @@ uint32_t attachJointSensor(SceneGraph& g, uint32_t joint, SensorKind kind, int d
     s.id = nextId(g);
     s.name = sensorName(g, kind);
     s.kind = kind;
+    applyDefaultModel(s);
     s.parent = joint;
     s.dof = dof >= 0 && dof < 6 ? dof : std::max(mainFreedom(*j), 0);
     g.sensors.push_back(s);
@@ -451,7 +469,7 @@ std::vector<SensorVis> sensorVisuals(const SceneGraph& g) {
         SensorVis v;
         v.id = s.id;
         v.kind = int(s.kind);
-        v.reading = s.kind == SensorKind::Sonar ? Real(Hcsr04::kMax) : 0.0_r;
+        v.reading = s.kind == SensorKind::Sonar ? Real(sonarSpec(s).maxM) : 0.0_r;
         if (s.kind == SensorKind::Stereo) v.fovDeg = s.fovDeg, v.baseline = s.baseline, v.aspect = Real(s.height) / Real(s.width);
         if (const JointObject* j = findJoint(g, s.parent)) {
             Vector3 oa, ob;

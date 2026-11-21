@@ -1,5 +1,5 @@
 #pragma once
-// "Найти команду" (Ctrl+K), as the command palettes of VS Code and Blender's F3 search: a field at
+// "Найти команду" (Ctrl+K), a command palette: a field at
 // the top of the window and below it every command of the editor that matches what is typed -
 // with where it lives in the menus and its key, so the search also teaches the keys. Enter or a
 // click runs the command.

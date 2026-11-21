@@ -9,7 +9,6 @@
 
 #include "RoleBar.h"
 
-#include "ColliderPanel.h"
 #include "InspectorWidgets.h"
 #include "ObjectInspector.h"
 
@@ -37,6 +36,21 @@ void take(const std::string& before, const std::string& after, std::string& targ
     if (after != before) target = after;
 }
 
+// The tags field shows the active object's words; the others selected may hold different ones. A word typed goes on
+// each of them, a word erased comes off each, and the rest of each one's own stays (the object shown takes the field
+// as it is, the order of its words too).
+void takeTags(const std::vector<std::string>& before, const std::vector<std::string>& after, std::vector<std::string>& target) {
+    if (after == before) return;
+    if (target == before) {
+        target = after;
+        return;
+    }
+    const auto has = [](const std::vector<std::string>& words, const std::string& w) { return std::find(words.begin(), words.end(), w) != words.end(); };
+    target.erase(std::remove_if(target.begin(), target.end(), [&](const std::string& w) { return has(before, w) && !has(after, w); }), target.end());
+    for (const std::string& w : after)
+        if (!has(before, w) && !has(target, w)) target.push_back(w);
+}
+
 void takeObject(const SceneObject& before, const SceneObject& after, SceneObject& target) {
     take(before.name, after.name, target.name);
     take(before.visible, after.visible, target.visible);
@@ -44,18 +58,10 @@ void takeObject(const SceneObject& before, const SceneObject& after, SceneObject
     take(before.color, after.color, target.color);
     take(before.position, after.position, target.position);
     take(before.rotationDeg, after.rotationDeg, target.rotationDeg);
+    takeTags(before.tags, after.tags, target.tags);
 }
 
-void takeCollider(const ColliderRole& before, const ColliderRole& after, ColliderRole& target) {
-    if (after.kind != before.kind) target.kind = after.kind;
-    take(before.fitToGeometry, after.fitToGeometry, target.fitToGeometry);
-    take(before.size, after.size, target.size);
-    take(before.offset, after.offset, target.offset);
-    take(before.rotationDeg, after.rotationDeg, target.rotationDeg);
-}
-
-// The geometry and the numbers of the components (the components themselves are switched by
-// toggleRole, not by these widgets).
+// The geometry and its look (the components' numbers are their cards', which write the one field edited themselves).
 void takeShape(const Entity& before, const Entity& after, Entity& t) {
     if (after.shape != before.shape) t.shape = after.shape;
     if (before.texture.kind != after.texture.kind) t.texture.kind = after.texture.kind;
@@ -63,21 +69,12 @@ void takeShape(const Entity& before, const Entity& after, Entity& t) {
     take(before.texture.repeats, after.texture.repeats, t.texture.repeats);
     take(before.texture.bumpHeight, after.texture.bumpHeight, t.texture.bumpHeight);
     if (before.texture.heightFile != after.texture.heightFile) t.texture.heightFile = after.texture.heightFile;
+    if (before.texture.normalFile != after.texture.normalFile) t.texture.normalFile = after.texture.normalFile;
     take(before.size, after.size, t.size);
-    take(before.rigid.density, after.rigid.density, t.rigid.density);
-    take(before.rigid.friction, after.rigid.friction, t.rigid.friction);
-    take(before.rigid.restitution, after.rigid.restitution, t.rigid.restitution);
-    take(before.rigid.fixed, after.rigid.fixed, t.rigid.fixed);
-    take(before.rigid.velocity, after.rigid.velocity, t.rigid.velocity);
-    take(before.rigid.angularVelocity, after.rigid.angularVelocity, t.rigid.angularVelocity);
-    takeCollider(before.collider, after.collider, t.collider);
+    take(before.opacity, after.opacity, t.opacity);
 }
 
-// "—" in a number field when the selected differ in it.
-void markNumber(QDoubleSpinBox* s, const std::vector<Entity>& all, Real (*get)(const Entity&)) {
-    for (const Entity& e : all)
-        if (get(e) != get(all.front())) return showMixed(s);
-}
+// "—" in a number of the three when the selected differ in it.
 void markVector(Vec3Row* r, const std::vector<Entity>& all, Vector3 (*get)(const Entity&)) {
     for (int k = 0; k < 3; ++k)
         for (const Entity& e : all)
@@ -86,17 +83,6 @@ void markVector(Vec3Row* r, const std::vector<Entity>& all, Vector3 (*get)(const
                 break;
             }
 }
-void markCheck(QCheckBox* c, const std::vector<Entity>& all, bool (*get)(const Entity&)) {
-    for (const Entity& e : all)
-        if (get(e) != get(all.front())) { // unchecked, and says so: a click checks it for all
-            const QSignalBlocker quiet(c);
-            c->setProperty("realText", c->text());
-            c->setText(c->text() + "  (—: у всех разное)");
-            c->setChecked(false);
-            return;
-        }
-}
-
 } // namespace
 
 std::vector<Entity*> SceneBuilder::selectedEntities() {
@@ -128,7 +114,9 @@ Entity SceneBuilder::readWidgets() const {
 // Called after the widgets were filled from the active object.
 void SceneBuilder::markMixed() {
     std::vector<const SceneObject*> objects;
-    for (uint32_t id : selection_) objects.push_back(findObject(graph_, id));
+    for (uint32_t id : selection_)
+        if (const SceneObject* o = findObject(graph_, id)) objects.push_back(o); // a joint or a battery among them has no place of its own
+    if (objects.empty()) return;
     int position = 0, rotation = 0;
     bool name = false;
     for (const SceneObject* o : objects) {
@@ -145,12 +133,6 @@ void SceneBuilder::markMixed() {
     if (all.size() != selection_.size()) return; // not all shapes: only the object's part is shown
     if (std::any_of(all.begin(), all.end(), [&](const Entity& e) { return e.shape != all.front().shape; })) shape_->setCurrentIndex(-1);
     markVector(size_, all, [](const Entity& e) { return e.size; });
-    markNumber(rigidDensity_, all, [](const Entity& e) { return e.rigid.density; });
-    markNumber(friction_, all, [](const Entity& e) { return e.rigid.friction; });
-    markNumber(restitution_, all, [](const Entity& e) { return e.rigid.restitution; });
-    markCheck(fixed_, all, [](const Entity& e) { return e.rigid.fixed; });
-    markVector(velocity_, all, [](const Entity& e) { return e.rigid.velocity; });
-    markVector(spin_, all, [](const Entity& e) { return e.rigid.angularVelocity; });
 }
 
 // A widget changed: what differs from what was shown goes to every selected object - its own part

@@ -12,6 +12,7 @@ class SimulationBar : public QFrame {
 public:
     SimulationBar(QWidget* parent, QAction* keep);
     void setState(bool playing, bool paused, bool canKeep);
+    void setNote(const QString& note); // what the keys do while a panel takes them (ControllerKeys); empty: the hint
 protected:
     void resizeEvent(QResizeEvent* event) override;
 private:
@@ -19,4 +20,5 @@ private:
     QLabel* mode_;
     QLabel* hint_;
     QPushButton* keep_;
+    QString note_;
 };

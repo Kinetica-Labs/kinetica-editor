@@ -8,6 +8,7 @@
 #include "EditorOps.h"
 
 #include "SceneBuilder.h"
+#include "api/Scene.h"
 #include "scene/SceneOps.h"
 
 #include <QCoreApplication>
@@ -25,8 +26,8 @@
 namespace {
 
 const std::set<QString>& queries() {
-    static const std::set<QString> q = {"ops_list", "ops_journal", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
-                                        "assembly_preview", "sim_state", "sim_measure", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
+    static const std::set<QString> q = {"journal_lines", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
+                                        "assembly_preview", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
     return q;
 }
 
@@ -39,13 +40,30 @@ constexpr size_t kRecent = 500;
 bool EditorOps::windowOnly(const QString& name) {
     for (const char* prefix : {"selection_", "gizmo_", "view_", "ui_", "ops_", "journal_", "runtime_"})
         if (name.startsWith(prefix)) return true;
-    return name == "sim_play" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "scene_save" || name == "session_start" ||
+    if (wiring(name)) return true;
+    return name == "sim_play" || name == "sim_record" || name == "controller_input" || name == "robot_command" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "force_fire" || name == "scene_save" || name == "session_start" ||
            name == "session_end";
+}
+
+QString EditorOps::kind(const QString& name) const {
+    if (pluginOps_.count(name)) return "action";
+    if (const ke::HostOp* host = ke::hostOp(name.toStdString())) return QString::fromStdString(host->kind);
+    if (const ke::WorldOp* world = ke::worldOp(name.toStdString())) return QString::fromStdString(world->kind);
+    if (name == "view_draw" || name == "console_note" || (name.startsWith("ui_") && name != "ui_actions")) return "window"; // no journal line, yet not a look
+    if (isQuery(name)) return "query";
+    const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
+    if (core && core->edit) return "edit";
+    if (name.startsWith("journal_") || name.startsWith("runtime_")) return "action";
+    return windowOnly(name) || name.startsWith("sim_") ? "window" : "action";
 }
 
 bool EditorOps::isQuery(const QString& name) {
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
-    return name == "runtime_status" || queries().count(name) > 0 || (core && core->query) || name.endsWith("_get");
+    const std::string word = name.toStdString();
+    const ke::HostOp* host = ke::hostOp(word);
+    const ke::WorldOp* world = ke::worldOp(word);
+    return (host && host->kind == "query") || (world && world->kind == "query") || name == "runtime_status" || name == "view_draw" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_list" || name == "plugin_panel_set" || queries().count(name) > 0 ||
+           (core && core->query) || name.endsWith("_get"); // a plugin's waiting and answering, a picture over the view: no scene change
 }
 
 QString EditorOps::journalFile() {
@@ -60,7 +78,7 @@ QString EditorOps::journalFile() {
     return journalFile_;
 }
 
-// A line of this session: when, the session, the rest as given; the last lines kept for ops_journal (a
+// A line of this session: when, the session, the rest as given; the last lines kept for journal_lines (a
 // snapshot's scene left out there: it is the file's).
 void EditorOps::writeLine(QJsonObject line, bool keep) {
     line.insert("t", QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
@@ -73,7 +91,7 @@ void EditorOps::writeLine(QJsonObject line, bool keep) {
 }
 
 void EditorOps::journal(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer) {
-    if (isQuery(name) || replaying_) return;
+    if (isQuery(name) || wiring(name) || replaying_) return; // a plugin's wiring is no one's action - and carries its token
     QJsonObject line{{"src", source}, {"op", name}, {"args", args}, {"ok", answer.value("ok").toBool()}};
     if (answer.contains("error")) line.insert("error", answer.value("error"));
     writeLine(line);
@@ -117,7 +135,7 @@ void EditorOps::endSession() {
 }
 
 void EditorOps::addJournalOps() {
-    addSync("ops_journal", "The journal's last lines: every change made from the window or the API (where the file is)", "{last?: int}",
+    addSync("journal_lines", "The journal's last lines: every change made from the window or the API (where the file is)", "{last?: int}",
             [this](const QJsonObject& a) {
         const int last = std::clamp(a.value("last").toInt(20), 1, int(kRecent));
         QJsonArray lines;

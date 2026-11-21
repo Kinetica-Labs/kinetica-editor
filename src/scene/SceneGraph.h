@@ -1,6 +1,6 @@
 #pragma once
 // The scene as data: a robot and its world - bodies, joints, motors, batteries, sensors, wheels,
-// controllers, IK goals, lights and cameras. An editor builds it with buttons and operations,
+// controllers, IK goals, lights, cameras and forces. An editor builds it with buttons and operations,
 // saves it as a small text file anyone can read (*.kscene, SceneGraph.cpp), and the running world
 // (src/sim) turns it into bodies and joints of the physics engine.
 //
@@ -15,6 +15,8 @@
 #include "scene/JointModel.h"
 
 #include <cstdint>
+#include <functional>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -23,8 +25,17 @@ namespace ke {
 // Mesh: a model read from an OBJ or STL file (Entity::meshFile).
 enum class ShapeKind { Box, Sphere, Cylinder, Cone, Plane, Mesh };
 
+// A plugin's component on an object of any kind - a shape, a joint, a light (docs/contracts/editor-plugin.md): its
+// type, "<plugin>.<name>", and its values as the scene file has them - a key and one word each (a number, a vector
+// "x,y,z", a word). Kept word for word whether or not the plugin is there: a scene opens and
+// saves the same without it.
+struct PluginComponent {
+    std::string type;
+    std::vector<std::pair<std::string, std::string>> values;
+};
+
 // What a body collides with - its own component on the entity, apart from what the entity looks
-// like (Unity's Collider next to its MeshRenderer, Unreal's simple collision): a horse model may
+// like: a horse model may
 // collide as a capsule. The body is always DRAWN with its geometry; the collider is only for
 // contacts (the editor shows it as a thin wireframe). A collider alone makes a STATIC obstacle (a
 // wall, a floor); with the rigid role it is the collider of a moving body; a rigid role without
@@ -44,13 +55,31 @@ struct ColliderRole {
     Vector3 size{0.2_r};         // box: edges; sphere: diameter = x; capsule, cylinder: diameter = x, full height = y
     Vector3 offset{0.0_r};       // collider centre relative to the object's centre, in the object's frame
     Vector3 rotationDeg{0.0_r};  // collider orientation relative to the object (capsule axis = y)
+    bool trigger = false;        // a zone: it touches nothing and notices what is inside it (a bin a part is to reach, a guard's area)
+    std::vector<std::string> ignores; // tags: no contact between it and a body marked with any of them (a part and the robot's own cover)
 };
 struct RigidRole {
     bool enabled = false;
     Real density = 500;        // kg/m^3
+    // Given instead of what the shape and the density make - an imported link's, a part weighed on scales; each by
+    // itself, what is not given stays the shape's own:
+    Real mass = 0;              // kg; 0: the shape's volume times the density (the shape's inertia is scaled with a given mass)
+    bool centerGiven = false;   // the centre of mass given:
+    Vector3 centerOfMass{0.0_r}; //   in the body's own frame, m
+    bool inertiaGiven = false;  // the inertia tensor given, about the centre of mass in the body's axes, kg m^2:
+    Vector3 inertiaDiagonal{0.0_r}; //   ixx iyy izz
+    Vector3 inertiaProducts{0.0_r}; //   ixy ixz iyz
+    // This body's own, apart from the world's:
+    Real gravityScale = 1;      // how much of the world's gravity takes it: 0 - it floats (a balloon, a body held by thrust in a test)
+    Real linearDamping = -1;    // 1/s; below 0: the world's (physics linear_damping)
+    Real angularDamping = -1;   // 1/s; below 0: the world's (physics angular_damping)
     Real friction = 0.5_r;      // kinetic friction coefficient
     Real restitution = 0.2_r;   // bounciness, 0..1
-    bool fixed = false;         // does not move (a wall, a table)
+    bool fixed = false;         // static: does not move (a wall, a table)
+    bool kinematic = false;     // moves as it is told - by its velocity and spin, or by a sequence - and pushes what it meets;
+                                // nothing pushes it: no gravity, no contact (a conveyor, a door, a lift). A fixed one stays static
+    // What physics moves by forces: neither held still nor led.
+    bool dynamic() const { return enabled && !fixed && !kinematic; }
     Vector3 velocity{0.0_r};     // initial, m/s
     Vector3 angularVelocity{0.0_r};
 };
@@ -68,6 +97,8 @@ struct SceneObject {
     // Hierarchy: the id of the parent object (0: none). position / rotationDeg are then RELATIVE to
     // the parent, and moving the parent moves the children (a group). worldPose() composes them.
     uint32_t parent = 0;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
 };
 
 // A group: an object with no geometry of its own that other objects hang under (Ctrl+G in the
@@ -90,16 +121,47 @@ struct Light : SceneObject {
     bool shadows = false;       // the viewer may cast shadows from it (Sun first)
 };
 
+// A force of the scene: a push along its own +y axis (directional) or a burst or pull from its origin (radial), once
+// (impulse, N s) or all the time (constant, N). It acts on the centre of mass of rigid bodies while the world runs
+// (src/sim/RobotWorld.cpp), never as a torque. A negative strength pushes along -y, or inward.
+enum class ForceShape { Directional, Radial };
+enum class ForceMode { Impulse, Constant };
+enum class ForceFalloff { None, Linear, InverseSquare };
+extern const char* kForceShapeNames[2]; // the words of the file and the API, by ForceShape
+extern const char* kForceModeNames[2];  // by ForceMode
+// Single source of the bounds; the reader, scene_add_force and the editor's card use these numbers.
+constexpr Real kForceMaxStrength = 100000_r;  // |strength|, N s or N
+constexpr Real kForceMaxRadius = 1000_r;      // m
+constexpr Real kForceMaxStart = 3600_r;       // s
+struct Force : SceneObject {
+    ForceShape shape = ForceShape::Directional;
+    ForceMode mode = ForceMode::Impulse;
+    Real strength = 1_r;          // N s (impulse) or N (constant); negative: along -axis / inward
+    Real radius = 0_r;            // m; radial: > 0 required; directional: 0 = no limit
+    ForceFalloff falloff = ForceFalloff::None;
+    Real start = 0_r;             // s of world time from play; impulse only, >= 0
+    std::string tag;              // tag word; "" = every dynamic body
+};
+// The one validation of a force: null when it is valid, else an English refusal text.
+const char* forceFault(const Force& f);
+
 // A camera of the scene: a viewpoint the viewer can look through, take screenshots and recordings
 // from. Looks along the object's -z axis turned by its rotation.
+// A camera is free - it looks where its turn points - or a target camera (a camera and its aim point):
+// it always looks at its target, an object (its origin, wherever the running world takes it), its up the world's;
+// its own turn is not used. Moved, it keeps looking at the target; the target moved, it turns after it. A target that
+// is no other object is the camera's own (Entity::targetOf): a small see-through cube the gizmo moves, a handle like
+// an IK goal; it goes with its camera, or when the camera is set free.
+enum class CameraKind { Free, Target };
 struct Camera : SceneObject {
     Real fovDeg = 50.0_r;       // vertical field of view
     Real nearClip = 0.05_r, farClip = 200.0_r; // m
     bool active = false;        // the one the viewer looks through when "through the camera" is on
+    CameraKind kind = CameraKind::Free;
+    uint32_t target = 0;        // a target camera's object (0, or gone: it looks 2 m ahead)
 };
 
-// An array: one object standing for many copies of a template entity laid out in a pattern, as the
-// Array modifier of Blender or copy-to-points of Houdini. The simulation expands it into one set of
+// An array: one object standing for many copies of a template entity laid out in a pattern. The simulation expands it into one set of
 // meta-objects per copy; the editor changes the count or the spacing with one number. The copies
 // are placed relative to the array's own pose; the template itself is not simulated.
 enum class ArrayPattern { Line, Grid, Circle };
@@ -114,12 +176,13 @@ struct ArrayObject : SceneObject {
     uint32_t seed = 1;
 };
 
+
 // A shape in the scene with its roles: a rigid body, a collider, or both (a moving body); a collider
 // alone is a static obstacle. With no role at all it is geometry only: drawn, but no body, no
 // collision, no part in the simulation.
 struct Entity : SceneObject {
     // An instance shares the geometry and the roles of its master (the entity with this id): change
-    // the density, the collider or the shape of one and all change (as 3ds Max's Instance). Only the
+    // the density, the collider or the shape of one and all change. Only the
     // SceneObject part (name, pose, visibility...) stays its own. 0: an ordinary, independent entity.
     // resolveInstance() gives the effective entity.
     uint32_t instanceOf = 0;
@@ -129,7 +192,9 @@ struct Entity : SceneObject {
     // component of size (entityLocalMesh(e).bounds() is its real box).
     Vector3 size{0.2_r};
     std::string meshFile;       // ShapeKind::Mesh: the OBJ/STL file as written in the scene file
+    Real opacity = 1;           // 1: solid; below: see-through - glass, a screen, a guard. Its look only: physics does not know
     uint32_t goalOf = 0;        // an inverse kinematics goal: this effector's frame is driven to this entity's (Kinematics.h)
+    uint32_t targetOf = 0;      // a target camera's own target: this camera looks at it
     // A goal's trajectory (Kinematics.h, pathPoint): from the goal's own place through these points, world metres,
     // walked at `pathSpeed` along its length while the scene plays - from the start, or from when the path was
     // set - then held at the last point (or back to the start and round again: `pathLoop`). Its turn stays its own.
@@ -155,7 +220,7 @@ struct JointFreedom {
 };
 
 // A joint of the scene: entity `a` held to entity `b` (0: the world) - the generic six-freedom joint
-// (JointModel.h). As in USD Physics and a CAD program's mate connectors, it is a frame
+// (JointModel.h). It is a frame
 // on each link: where it sits and how it is turned, in that link's own frame (b = 0: the world's).
 // The six freedoms are frame a's travel along frame b's x, y, z and its turns about them; each is
 // locked, limited or free and may be driven. A hinge is the joint with the turn about x free, a
@@ -172,6 +237,8 @@ struct JointObject {
     Vector3 frameA{0.0_r}, frameB{0.0_r};   // the frames' turns, Euler degrees as SceneObject::rotationDeg
     JointFreedom dof[6];                // travel x, y, z; turn x, y, z (JointDof)
     bool collide = false;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
 };
 
 // A battery of the scene (electro/Battery.h): a pack of cells - an equivalent circuit with its own
@@ -179,6 +246,8 @@ struct JointObject {
 struct BatteryObject {
     uint32_t id = 0;
     std::string name;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
     int series = 1, parallel = 1;
     Real capacityAh = 2.5_r;            // of one cell [A h]
     Real r0 = 0.03_r, r1 = 0.015_r;     // of one cell [Ohm]
@@ -187,7 +256,7 @@ struct BatteryObject {
     Real soc = 1.0_r;                   // the state of charge the scene starts with
 };
 
-// A motor driver (an H-bridge, electro/PowerBus.h) between a battery and a joint's DC motor: it
+// A motor driver (an H-bridge) between a battery and a joint's DC motor: it
 // switches the battery's bus onto the motor with the duty `duty` (-1..1, the sign the direction). The
 // motor's constant and winding resistance are the joint's dcmotor line; the driver gives its voltage
 // (with no driver, the motor runs on its line's own voltage, an ideal supply). At a duty of 0 the
@@ -196,6 +265,8 @@ struct BatteryObject {
 struct DriverObject {
     uint32_t id = 0;
     std::string name;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
     uint32_t joint = 0;                 // the joint whose freedom `dof` has the DC motor
     int dof = DofRx;
     uint32_t battery = 0;
@@ -205,14 +276,12 @@ struct DriverObject {
     bool brake = false;                 // at duty 0: shorted (brake), not open (coast)
 };
 
-// A controller of the scene (src/sim): an operator's panel as an abstract thing, the way Unity's Input
-// System and Unreal's Enhanced Input split one - named actions, each with a value (a button, an axis, a 2-D vector)
+// A controller of the scene (src/sim): an operator's panel as an abstract thing - named actions, each with a value (a button, an axis, a 2-D vector)
 // and one thing of the scene it drives at a speed, and bindings saying which controls of which device give the value.
-// Which device feeds it is up to the bindings: the keyboard, a game controller, the mouse - several at once, as
-// Unity's control schemes - or none, a script or a trained policy setting the values itself. The bindings are the
+// Which device feeds it is up to the bindings: the keyboard, a game controller, the mouse - several at once - or none, a script or a trained policy setting the values itself. The bindings are the
 // client's to read (the editor turns its keys and pad into values); the core takes only the values
 // (the operation controller_input), so a demonstration records actions and a policy
-// plays them back through the same panel - robosuite's, Isaac Lab's and LeRobot's teleoperation, as one object.
+// plays them back through the same panel, as one object.
 //
 // What an action drives (`drive`), at a value of 1 (an axis's or a button's first component, a vector's two):
 //   plane - an IK goal across the floor, value (x, y) along the world's +x and -z (a client turns its view's
@@ -243,30 +312,36 @@ struct ControllerAction {
 struct ControllerObject {
     uint32_t id = 0;
     std::string name;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
     std::vector<ControllerAction> actions;
 };
 
-// A sensor of the scene (src/devices): an object with no geometry riding on its parent - as a sensor
-// in Isaac Sim, Gazebo or Unreal is a child of the link it is mounted on - reading what a
+// A sensor of the scene (src/devices): an object with no geometry riding on the link it is mounted on, a child of it - reading what a
 // microcontroller would. Its pose relative to the parent is where it is mounted, its x axis what it
 // measures along (an encoder's shaft). The parent is an entity or a joint:
-//   - on a joint, it reads the joint's freedom `dof` - the joint's own coordinate (MuJoCo's jointpos);
+//   - on a joint, it reads the joint's freedom `dof` - the joint's own coordinate;
 //   - on an entity, it reads coordinate `dof` of its frame on the parent against the same frame
-//     fixed to `against` (0: the world) where the two were when it began to read (MuJoCo's frame
-//     sensors with a reference frame): a measuring wheel on the floor, a turntable, a tilt against
+//     fixed to `against` (0: the world) where the two were when it began to read: a measuring wheel on the floor, a turntable, a tilt against
 //     the world - no joint needed.
 // Both go through frameCoordinates (JointModel.h), so an encoder on a joint starting at zero and one
 // on the joint's two links counts the same. A parent removed takes its sensors with it; `against`
 // removed leaves the sensor reading nothing and saying why.
 //
-// An IMU (an MPU-6050, devices/Mpu6050.h) rides on an entity and reads against the world only - an
-// accelerometer and a gyroscope measure against an inertial frame: the specific force at its point
-// and the angular rate, in its axes (its pose on the parent is the chip's axes). A sonar (an HC-SR04,
-// devices/Hcsr04.h) sends its beam along its x axis and hears the nearest echo off the rigid bodies
-// and the walls and floor of the scene's box - its carrier left out, as the beam starts on its face.
-// An IMU or a sonar with parent 0 is fixed in the world, at its own pose.
+// An IMU (devices/Imu.h) rides on an entity and reads against the world only - an accelerometer and a
+// gyroscope measure against an inertial frame: the specific force at its point and the angular rate, in
+// its axes (its pose on the parent is the chip's axes). A sonar (devices/Sonar.h) sends its beam along
+// its x axis and hears the nearest echo off the rigid bodies and the walls and floor of the scene's box -
+// its carrier left out, as the beam starts on its face. An IMU or a sonar with parent 0 is fixed in the
+// world, at its own pose.
 //
-// The force sensors read what crosses a boundary - MuJoCo's touch, force, torque and actuatorfrc sensors.
+// The kind says what a sensor measures, not which unit it is: the unit is its datasheet, `spec` - the
+// numbers a kind's model needs (rate, range, noise, offsets, mass...; their keys, units and the values of
+// a sensor no model was given: scene/SensorSpec.h) - and `model`, the name of the table's row they were
+// copied from (data/sensors/<kind>.csv). The numbers are the sensor's own: a scene reads the same with
+// no table at hand, and a number typed over the model's makes the unit what was typed.
+//
+// The force sensors read what crosses a boundary: touch, force, torque and actuator effort.
 // A touch pad lies on a face of an entity (its x out of the face, as a sonar's beam) and reads the
 // normal force of the contacts through that face - the points whose outward normal lies within 45
 // degrees of its x: a fingertip's pad, a bumper, a load cell under a foot, a limit switch by a threshold.
@@ -274,7 +349,8 @@ struct ControllerObject {
 // the joint's frame on a about its anchor - a six-axis force-torque sensor at a robot's wrist (ATI's
 // and Robotiq's), a load cell inline. An effort sensor reads a joint's drive along one freedom: the
 // force or torque its motor puts out (positive pushes the coordinate up) - a servo's current sense.
-// They read the physics engine's forces of each substep: ideal readings, no datasheet's noise yet.
+// A touch pad and an effort sensor read the physics engine's forces of each substep: ideal readings, no
+// datasheet's noise yet; a wrench sensor has a datasheet (devices/ForceTorque.h).
 //
 // A stereo camera is one frame with two pinhole cameras on it (src/sim): its x the optical axis, the
 // left camera b/2 along its +y, the right b/2 along -y, both looking along x, width x height pixels over a
@@ -285,22 +361,22 @@ struct ControllerObject {
 enum class SensorKind { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo };
 struct SensorObject : SceneObject {
     SensorKind kind = SensorKind::Encoder;
+    std::string model;                  // the catalog's model the datasheet was copied from ("": its own numbers)
+    std::map<std::string, Real> spec;   // the datasheet by key (scene/SensorSpec.h); a key not here: the field's value
     int lines = 500;                    // an encoder: per turn for a turn (rx, ry, rz), per metre for a travel (tx...)
     bool hasEncoderReference = false;   // explicit calibrated coordinate when count=0; never inferred from physics
     Real encoderReference = 0;          // rad for rotational DOFs, m for translational DOFs
     int dof = DofRx;
     uint32_t against = 0;               // an encoder on an entity: what it is measured against (0: the world)
-    bool noise = true;                  // an IMU, a sonar, a stereo camera: the unit's noise as its datasheet has them
-    uint32_t seed = 0;                  // an IMU, a sonar, a stereo camera: of its noise and offsets (0: its id)
+    bool noise = true;                  // the unit's noise and offsets as its datasheet has them (off: an ideal reference)
+    uint32_t seed = 0;                  // of its noise and offsets: the same seed, the same unit (0: its id)
     int width = 320, height = 240;      // a stereo camera: its images, pixels
     Real fovDeg = 65;                   // ... its horizontal field of view
     Real baseline = 0.10_r;             // ... the distance between its two cameras, m (a ZED-like rig: 65 degrees, 10 cm)
     bool projector = true;              // ... its pattern of dots on
-    std::string matcher = "sgm";        // ... how the robot matches its pair (vision/StereoMatching.h): "sgm", "onnx:<engine>:<model>"
 };
 
-// A wheel as a point of its body - the fast model of a wheel module (Assembly.h), as Unity's
-// WheelCollider, Unreal's Chaos wheels, PhysX Vehicles and Bullet's raycast vehicle make it: no body of
+// A wheel as a point of its body - the fast model of a wheel module (Assembly.h): no body of
 // its own, a ray from where its suspension is mounted down to the ground. Its pose on the parent (the
 // chassis, an entity) is that mount: its -y the suspension's line, its x the way it rolls, its z the
 // axle. The suspension is a spring and a damper along the line, `rest` long fully extended; the wheel
@@ -323,7 +399,46 @@ struct WheelObject : SceneObject {
 struct WorldSettings {
     Vector3 gravity{0, -9.81_r, 0};
     Vector3 size{4, 3, 4};      // the box everything lives in, m (floor at y = 0)
+    Real duration = 0;          // the play range's end, s of the world's time from ▶ (0: no end): a window's run pauses
+                                // there - or, its sequence looping, starts over - and a take ends there
     PhysicsSettings physics;
+};
+
+// A sequence - the Sequencer's (scene/Animation.h): an object of the scene that holds an
+// animation of others, never written into them. Its tracks bind objects by id (a group, a robot's root, a body, a camera,
+// a light), each a list of keys - the object's pose on its parent at a time. Between two keys the place goes in a line
+// and the turn the shortest way (slerp); before the first and after the last the pose holds, or the sequence loops over
+// its length; between two keys that both carry a velocity (a recorded run's) the place follows the cubic with those
+// velocities at its ends (Hermite: a fall's parabola, a slide's braking, exactly). A scene holds as many as it likes -
+// scenarios, recorded runs. The active one is the Sequencer's (shown, scrubbed, keyed); ▶ plays it only when it is set
+// to play: its bodies are then kinematic ones led along their tracks, pushing what they meet. A
+// take of a run comes not playing - the next ▶ is physics again -; set to play, it replays the run as an animation. An
+// object deleted leaves its track lost, skipped.
+// How a key goes on to the next one (key interpolation): in a line; smoothly - the cubic
+// (Hermite) through the keys with the key's velocity at it, a recorded key's own or, set by hand, the slope from the
+// key before to the key after (a first and a last key: none, the motion starts and stops softly); or held, a step.
+enum class AnimInterp : uint8_t { Linear, Smooth, Step };
+struct AnimKey {
+    Real time = 0;              // s
+    Vector3 position{0.0_r};    // as SceneObject::position
+    Vector3 rotationDeg{0.0_r}; // as SceneObject::rotationDeg
+    Vector3 velocity{0.0_r};    // m/s on the parent, when hasVelocity
+    bool hasVelocity = false;   // a recorded key: the motion's velocity there
+    AnimInterp interp = AnimInterp::Linear; // to the next key
+};
+const char* interpName(AnimInterp i);                  // "linear", "smooth", "step"
+bool interpOf(const std::string& name, AnimInterp& i); // false: no such
+struct SequenceTrack {
+    uint32_t object = 0;        // the bound object
+    std::vector<AnimKey> keys;  // by time, one a time
+};
+struct SequenceObject : SceneObject {
+    std::vector<SequenceTrack> tracks;
+    Real time = 0;              // the playhead, s
+    bool loop = false;
+    bool active = false;        // the Sequencer's (one at most)
+    bool play = true;           // ▶ plays it when it is the active one: its bodies led along their tracks
+    Real length() const;        // the last key's time of any track (0: none)
 };
 
 struct SceneGraph {
@@ -337,8 +452,10 @@ struct SceneGraph {
     std::vector<BatteryObject> batteries;
     std::vector<DriverObject> drivers;
     std::vector<SensorObject> sensors;
+    std::vector<Force> forces;
     std::vector<WheelObject> wheels;
     std::vector<ControllerObject> controllers;
+    std::vector<SequenceObject> sequences;
     // Not saved: the folder relative mesh files are found in (the scene file's own folder). load()
     // keeps it as it was.
     std::string baseDirectory;
@@ -353,12 +470,35 @@ struct SceneGraph {
 // The world's "world" and "physics" lines, both always (save() leaves out a physics line of defaults).
 std::string worldText(const WorldSettings& w);
 
+// Every list of objects a scene holds, kind by kind in the file's order: `f` is called with each (the lists hold
+// different types, so `f` takes any of them). A kind added to the graph is added here once, and whatever walks all
+// the objects - their tags, their components, scene_list - has it.
+template <class Graph, class F>
+void eachObjectList(Graph& g, F&& f) {
+    f(g.entities), f(g.groups), f(g.arrays), f(g.lights), f(g.cameras), f(g.joints), f(g.batteries), f(g.drivers), f(g.sensors), f(g.forces), f(g.wheels),
+        f(g.controllers), f(g.sequences);
+}
+
 // ---------------------------------------------------------------------------
 // Many objects at once (SceneHierarchy.cpp): hierarchy, instances, arrays. None of these call the
 // physics engine; the running world and an editor use them alike.
 // ---------------------------------------------------------------------------
-// The object with this id - an entity, a group, an array, a light, a camera or a sensor (null: none).
+// The object with this id - an entity, a group, an array, a light, a camera, a force or a sensor (null: none).
 const SceneObject* findObject(const SceneGraph& g, uint32_t id);
+// The tags of an object of any kind - a shape, a joint, a battery, a sequence (nullptr: no such object). A tag is one
+// word (tagWord): letters, digits and - _ . : of any alphabet, no spaces or quotes, 48 bytes at most.
+std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id);
+const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id);
+bool tagWord(const std::string& word);
+
+// A key of the scene file under the name the format has for it today: one of its earlier names (anchorA) comes
+// back as the present one (anchor_a), any other word as it is - what a script or a journal written before names
+// still means the same.
+std::string presentKey(const std::string& key);
+// The plugins' components of an object of any kind (nullptr: no such object).
+std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id);
+const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id);
+const Entity* findEntity(const SceneGraph& g, uint32_t id); // only an entity (null: none, or another kind)
 // Any object's orientation from its rotationDeg (Ry Rx Rz), and back: Euler degrees of a rotation.
 Quaternion objectRotation(const SceneObject& o);
 Vector3 eulerDegrees(const Quaternion& q);
@@ -383,7 +523,8 @@ uint32_t arrayCopyId(uint32_t arrayId, int copy);
 bool isArrayCopyId(uint32_t id);
 uint32_t arrayOfCopyId(uint32_t id);
 // Every entity the simulation builds, in the world: the graph's entities (instances resolved,
-// parents composed, visibility inherited) followed by the copies of every array.
+// parents composed, visibility inherited) followed by the copies of every array. worldEntity: one of them.
+Entity worldEntity(const SceneGraph& g, const Entity& e);
 std::vector<Entity> worldEntities(const SceneGraph& g);
 // A fresh id: the largest over the objects and the joints, plus one.
 uint32_t nextId(const SceneGraph& g);
@@ -391,7 +532,31 @@ uint32_t nextId(const SceneGraph& g);
 // Lights and cameras in the world (their parents included). A light shines along its -y axis and a
 // camera looks along its -z axis, both turned by the object's world rotation; up is the camera's +y.
 Vector3 lightDirection(const SceneGraph& g, const Light& l);
+// The direction of a directional force: the +y axis turned by the object's world rotation.
+Vector3 forceAxis(const Quaternion& q);
+// The shape a directional force is applied to: its parent, when that is a shape. The force then acts on that body
+// alone, at its own point - off the centre of mass it turns the body - whatever its radius and tag say; while the
+// shape is no moving body (no rigid role, fixed or led: forceIdle) it acts on nothing. Null: a field, acting on the
+// bodies in its reach at their centres.
+const Entity* forceBody(const SceneGraph& g, const Force& f);
+bool forceIdle(const SceneGraph& g, const Force& f); // a shape's own force that has nothing to push yet
+// The strength one metre of a directional force's arrow stands for. The arrow shows what the force does: a metre is
+// 3 m/s of the velocity an impulse gives, or 10 m/s^2 of a constant force's acceleration (an arrow up longer than a
+// metre lifts a body). A field's strength is that velocity or acceleration itself; a body's own force's is N s or N,
+// so its metre is that times the body's mass.
+Real forceUnitPerMetre(const SceneGraph& g, const Force& f);
+// The force made that body's own: its child, standing at the body's centre of mass, upright in the world, a metre of
+// arrow long (a constant one 1.2 m: straight up it lifts the body).
+void applyForceTo(SceneGraph& g, Force& f, const Entity& body);
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up);
+// A handle: an IK goal or a camera's own target - intent, not matter: no body, no roles, drawn see-through, moved by
+// the gizmo while the world runs, never seen by a robot's sensors.
+inline bool isHandle(const Entity& e) { return e.goalOf != 0 || e.targetOf != 0; }
+// Where a target camera looks: its object's origin in the world (a free camera, or its target gone: 2 m ahead).
+// `objectAt`, when given, says where an object is now (the running world's pose; false: where the graph has it).
+Vector3 cameraTarget(const SceneGraph& g, const Camera& c, const std::function<bool(uint32_t, Vector3&)>& objectAt = {});
+// A camera's frame looking at `target` from `eye`, its up the world's (straight up or down: its z): its world turn.
+Quaternion lookTurn(const Vector3& eye, const Vector3& target);
 
 // ---------------------------------------------------------------------------
 // The shape of an entity as a mesh (EntityShapes.cpp) - the same mesh the physics engine gets, so a
@@ -411,5 +576,9 @@ std::string entityGeometryKey(const Entity& e, const std::string& baseDirectory 
 // The same mesh posed in the world: turned by the rotation and moved to the position.
 // No role at all: drawn, but not part of the simulation.
 bool entityIsGeometryOnly(const Entity& e);
+// What a rigid body of this shape weighs, kg: the mass given to it (rigid mass) - the engine's own number -, else an
+// estimate: its density over the drawn shape's volume (a model: its box; the engine counts the collider's). What
+// tunes a servo or a spring to a body asks here. An instance is resolved first (resolveInstance): its role is its master's.
+Real bodyMass(const Entity& e);
 
 } // namespace ke

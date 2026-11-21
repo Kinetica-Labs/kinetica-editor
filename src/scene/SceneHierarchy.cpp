@@ -1,6 +1,6 @@
 // Many objects at once, as data: the hierarchy (an object's pose relative to its parent group),
-// instances (entities sharing the geometry and roles of a master, 3ds Max's Instance), and arrays
-// (one object standing for a pattern of copies, Blender's Array modifier / Houdini's copy-to-points).
+// instances (entities sharing the geometry and roles of a master), and arrays
+// (one object standing for a pattern of copies).
 // Everything here only reads the SceneGraph and computes poses; the running world (src/sim) turns the
 // result into bodies, and an editor draws it the same way while the scene is being edited.
 #include "scene/SceneGraph.h"
@@ -22,11 +22,6 @@ const SceneObject* findIn(const std::vector<T>& list, uint32_t id) {
     return nullptr;
 }
 
-const Entity* findEntity(const SceneGraph& g, uint32_t id) {
-    for (const Entity& e : g.entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
 
 // The parents of an object, nearest first; stops at a missing parent or a repeated one (a cycle).
 std::vector<const SceneObject*> ancestors(const SceneGraph& g, const SceneObject& o) {
@@ -68,6 +63,10 @@ int copyCount(const ArrayObject& a) {
 
 } // namespace
 
+const Entity* findEntity(const SceneGraph& g, uint32_t id) {
+    return id ? static_cast<const Entity*>(findIn(g.entities, id)) : nullptr;
+}
+
 const SceneObject* findObject(const SceneGraph& g, uint32_t id) {
     if (id == 0) return nullptr;
     if (const SceneObject* o = findIn(g.entities, id)) return o;
@@ -76,6 +75,8 @@ const SceneObject* findObject(const SceneGraph& g, uint32_t id) {
     if (const SceneObject* o = findIn(g.lights, id)) return o;
     if (const SceneObject* o = findIn(g.cameras, id)) return o;
     if (const SceneObject* o = findIn(g.sensors, id)) return o;
+    if (const SceneObject* o = findIn(g.forces, id)) return o;
+    if (const SceneObject* o = findIn(g.sequences, id)) return o;
     return findIn(g.wheels, id);
 }
 
@@ -181,7 +182,8 @@ Entity resolveInstance(const SceneGraph& g, const Entity& e) {
         master = next;
     }
     Entity out = *master;                                             // geometry and roles of the master
-    static_cast<SceneObject&>(out) = static_cast<const SceneObject&>(e); // name, pose, visibility, id: its own
+    static_cast<SceneObject&>(out) = static_cast<const SceneObject&>(e); // name, pose, visibility, id, tags: its own
+    out.components = master->components; // a plugin's components are the master's, as its roles are (component_set writes there)
     out.instanceOf = e.instanceOf;
     return out;
 }
@@ -218,6 +220,8 @@ std::vector<Entity> expandArray(const SceneGraph& g, const ArrayObject& a) {
         c.instanceOf = 0;
         c.visible = visible;
         c.locked = a.locked;
+        for (const std::string& t : a.tags)
+            if (std::find(c.tags.begin(), c.tags.end(), t) == c.tags.end()) c.tags.push_back(t); // the array's tags too
         c.position = ap + aq.rotate(offset);
         c.rotationDeg = eulerDegrees((aq * objectRotation(turn) * objectRotation(base)).normalized());
         out.push_back(std::move(c));
@@ -227,22 +231,24 @@ std::vector<Entity> expandArray(const SceneGraph& g, const ArrayObject& a) {
 
 // A root keeps its pose exactly as written (no round trip through a quaternion), so a flat scene
 // builds bit for bit as it did before hierarchies existed.
+Entity worldEntity(const SceneGraph& g, const Entity& e) {
+    Entity w = resolveInstance(g, e);
+    if (e.parent != 0 && findObject(g, e.parent)) {
+        Vector3 p;
+        Quaternion q;
+        worldPose(g, e, p, q);
+        w.position = p;
+        w.rotationDeg = eulerDegrees(q);
+    }
+    w.parent = 0;
+    w.visible = effectivelyVisible(g, e);
+    return w;
+}
+
 std::vector<Entity> worldEntities(const SceneGraph& g) {
     std::vector<Entity> out;
     out.reserve(g.entities.size());
-    for (const Entity& e : g.entities) {
-        Entity w = resolveInstance(g, e);
-        if (e.parent != 0 && findObject(g, e.parent)) {
-            Vector3 p;
-            Quaternion q;
-            worldPose(g, e, p, q);
-            w.position = p;
-            w.rotationDeg = eulerDegrees(q);
-        }
-        w.parent = 0;
-        w.visible = effectivelyVisible(g, e);
-        out.push_back(std::move(w));
-    }
+    for (const Entity& e : g.entities) out.push_back(worldEntity(g, e));
     for (const ArrayObject& a : g.arrays) {
         std::vector<Entity> copies = expandArray(g, a);
         out.insert(out.end(), copies.begin(), copies.end());
@@ -261,9 +267,37 @@ uint32_t nextId(const SceneGraph& g) {
     for (const BatteryObject& b : g.batteries) next = std::max(next, b.id + 1);
     for (const DriverObject& d : g.drivers) next = std::max(next, d.id + 1);
     for (const SensorObject& s : g.sensors) next = std::max(next, s.id + 1);
+    for (const Force& f : g.forces) next = std::max(next, f.id + 1);
     for (const WheelObject& w : g.wheels) next = std::max(next, w.id + 1);
     for (const ControllerObject& c : g.controllers) next = std::max(next, c.id + 1);
+    for (const SequenceObject& q : g.sequences) next = std::max(next, q.id + 1);
     return next;
+}
+
+Vector3 forceAxis(const Quaternion& q) { return normalize(q.rotate(Vector3(0, 1, 0))); }
+
+const Entity* forceBody(const SceneGraph& g, const Force& f) {
+    const Entity* e = f.shape == ForceShape::Directional && f.parent ? findEntity(g, f.parent) : nullptr;
+    return e && !isHandle(*e) ? e : nullptr;
+}
+
+bool forceIdle(const SceneGraph& g, const Force& f) {
+    const Entity* body = forceBody(g, f);
+    return body && !resolveInstance(g, *body).rigid.dynamic();
+}
+
+Real forceUnitPerMetre(const SceneGraph& g, const Force& f) {
+    const Entity* body = forceBody(g, f);
+    return (body ? bodyMass(resolveInstance(g, *body)) : 1_r) * (f.mode == ForceMode::Impulse ? 3_r : 10_r);
+}
+
+void applyForceTo(SceneGraph& g, Force& f, const Entity& body) {
+    Vector3 p;
+    Quaternion q;
+    worldPose(g, body, p, q);
+    f.parent = body.id;
+    setWorldPose(g, f, p + q.rotate(body.rigid.centerGiven ? body.rigid.centerOfMass : Vector3(0.0_r)), Quaternion());
+    f.strength = forceUnitPerMetre(g, f) * (f.mode == ForceMode::Impulse ? 1_r : 1.2_r);
 }
 
 Vector3 lightDirection(const SceneGraph& g, const Light& l) {
@@ -273,9 +307,32 @@ Vector3 lightDirection(const SceneGraph& g, const Light& l) {
     return normalize(rotation.rotate(Vector3(0, -1, 0)));
 }
 
+Quaternion lookTurn(const Vector3& eye, const Vector3& target) {
+    Vector3 forward = target - eye;
+    if (length(forward) < 1e-6_r) return Quaternion();
+    forward = normalize(forward);
+    const Vector3 world = std::fabs(forward.y) > 0.999_r ? Vector3(0, 0, -1) : Vector3(0, 1, 0);
+    const Vector3 right = normalize(cross(forward, world)), up = cross(right, forward);
+    return Quaternion::fromMatrix3x3(Matrix3x3::fromColumns(right, up, forward * -1.0_r)).normalized(); // its -z the forward
+}
+
+Vector3 cameraTarget(const SceneGraph& g, const Camera& c, const std::function<bool(uint32_t, Vector3&)>& objectAt) {
+    Vector3 eye;
+    Quaternion rotation;
+    worldPose(g, c, eye, rotation);
+    Vector3 at = eye + rotation.rotate(Vector3(0, 0, -2));
+    if (c.kind == CameraKind::Free || !c.target || (objectAt && objectAt(c.target, at))) return at;
+    if (const SceneObject* o = findObject(g, c.target)) {
+        Quaternion turn;
+        worldPose(g, *o, at, turn);
+    }
+    return at;
+}
+
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up) {
     Quaternion rotation;
     worldPose(g, c, eye, rotation);
+    if (c.kind == CameraKind::Target) rotation = lookTurn(eye, cameraTarget(g, c));
     forward = normalize(rotation.rotate(Vector3(0, 0, -1)));
     up = normalize(rotation.rotate(Vector3(0, 1, 0)));
 }

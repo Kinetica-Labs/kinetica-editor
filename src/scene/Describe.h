@@ -4,8 +4,8 @@
 // absorbers, their wheels), each with its shape, size, mass and roles; each joint's kind, what moves
 // and what drives it (a spring, a DC motor and its driver's duty); the sensors and where they look in
 // their carrier's frame (forward +x, up +y, left -z: the modules' convention, Assembly.h); the
-// batteries. Numbers are rounded for reading, written with a '.' whatever the locale. The scene file
-// stays the exact record; this is its summary.
+// batteries. Every object and joint carries its id (#12): what the tools take. Numbers are rounded for
+// reading, written with a '.' whatever the locale. The scene file stays the exact record; this is its summary.
 #include "scene/SceneGraph.h"
 
 #include <string>

@@ -7,6 +7,7 @@
 #include "Gizmo.h"
 #include "SimController.h"
 
+#include <atomic>
 #include <map>
 #include <QMainWindow>
 #include <QStringList>
@@ -25,7 +26,6 @@ class QAction;
 class QComboBox;
 class QGroupBox;
 class QLabel;
-class QTableWidget;
 class QTimer;
 
 class MainWindow : public QMainWindow {
@@ -40,12 +40,14 @@ public:
     // setEditScreenshot), a screenshot saved, quit.
     void runAutomation(int frames, const QString& screenshotPath);
     // The builder's first scene (MainWindowStart.cpp): the --scene file; on the very first start of
-    // an interactive session the welcome scene with the first-minute bubble; else an empty floor.
+    // an interactive session the UR5e arm with the first-minute bubble; else an empty floor.
     void startBuilder(bool interactive = false);
     void startJournal(); // this window's session of the journal; a crashed one before it offered back
     // The first-minute bubble even if it was seen before (the command line's --first-start).
     void setForceFirstStart(bool on) { forceFirstStart_ = on; }
     QString firstMinuteText() const; // what the bubble says now (empty: gone)
+    void startPlugins();
+    void syncControllers(); // the plugins' on_play / on_tick / on_stop follow ▶ and Stop (MainWindowPlugins.cpp)
     // "Примеры": the gallery of every ready-made scene; a click opens one.
     void openGallery();
     void runGalleryShot(const QString& file); // the gallery with all its pictures as a PNG, then quit
@@ -53,6 +55,7 @@ public:
     void setThumbnailMode();
     // The builder starts on this scene file instead of an empty floor (the command line's --scene).
     void setStartScene(const QString& path) { startScene_ = path; }
+    void setRestartFile(const QString& path) { restartFile_ = path; }
     // The screenshot of the automation shows the whole window (panels too), not only the 3D view.
     void setScreenshotWholeWindow(bool on) { auto_.wholeWindow = on; }
     // The screenshot of the builder's scene is taken in edit mode (nothing simulated).
@@ -79,8 +82,12 @@ private:
     // UI construction
     void connectViewport();       // the mouse joint, the software-OpenGL restart
     void buildActions();
+    void changeLanguage(const QString& code);
+    void restartForLanguage(const QString& code);
+    bool resumeAfterRestart(QString& error);
     void buildResultsDock();
     void buildSceneBuilderDock(); // the "Конструктор": shapes with roles, no code (SceneBuilder)
+    static class QScrollArea* scrolled(QWidget* content); // an inspector tab: grows down, never sideways
     void connectSceneBuilder();
     // The big "Создать" bar (MainWindowToolbar.cpp): shapes, lights, camera, run / pause / stop / step,
     // undo / redo, the examples; on a narrow window it drops captions and shrinks icons, never cuts words.
@@ -94,7 +101,7 @@ private:
     void addDrawn(const CreateWhat& what, const ke::Vector3& position, const ke::Vector3& size, const ke::Vector3& target);
     void addLightButtons(class QToolBar* tb); // "Свет ▾" (Солнце, Лампа, Прожектор) and "Камера"
     void addSensorButton(class QToolBar* tb); // "Датчик ▾": the six kinds on the selected shape or its joint
-    class QToolButton* shapesButton_ = nullptr;
+    void addForceButton(class QToolBar* tb);  // "Сила ▾": Толчок, Взрыв, Тяга, Притяжение
     void addCompactButtons(class QToolBar* tb);
     void setToolbarLevel(int level);
     void fitMainToolbar();
@@ -109,13 +116,10 @@ private:
     void addManyActions(class QMenu* menu);
     void addSelectHelpers(class QMenu* menu);
     void showClonePopover(const QPointF& pos);
-    QString modeText() const;
-    // A beginner sees the builder and the 3D view; "Эксперт" brings back the frame's numbers and the
-    // probe's raw channels, "Графики" the readings and plots at the bottom.
+    // A beginner sees the builder and the 3D view; "Графики" brings the readings and plots at the bottom.
     void buildLayoutActions();
-    void setExpertMode(bool on);
     void setGraphsVisible(bool on);
-    // The layout buttons at the right end of the menu line, as in VS Code's title bar
+    // The layout buttons at the right end of the menu line
     // (MainWindowLayout.cpp): the left, bottom and right dock areas close and open with what was
     // open in them; a menu lists every panel, the status line, the tool shelf and "only the 3D view".
     void addLayoutButtons();
@@ -131,12 +135,12 @@ private:
     // Runtime
     void poll();
     void onSnapshot(const std::shared_ptr<const ke::Frame>& s);
-    void updateInfo(const ke::Frame& s);
-    void updateSensors(const ke::Frame& s); // the probe's channels
     void togglePlay();
 
     // File operations
-    void importModel(); // an OBJ / STL model as a new object of the builder
+    void importModel(); // «Импорт…»: an OBJ / STL model as a new object, or a file a plugin opens (URDF)
+    void importFile(const QString& path); // ... that file: by its extension
+    void runScript();                     // «Выполнить скрипт…»: a Python file that builds or changes the scene, once
     void exportCsv();
     void screenshot();
     void showHelp();
@@ -146,7 +150,7 @@ private:
     // The first minute (MainWindowStart.cpp)
     void startFirstMinute();
     void showFirstMinuteStep();
-    void onFirstMinuteAction();
+    void onFirstMinuteOp(const QString& name, const QJsonObject& args, const QJsonObject& answer);
     void finishFirstMinute();
 
     // Keys and mouse schemes (MainWindowControls.cpp)
@@ -164,14 +168,15 @@ private:
     void appendShortcutTips();
     void connectViewportControls();
 
-    // The Laboratory (MainWindowLab.cpp): a physics debugger in the spirit of PhysX PVD - the probe's
+    // The Laboratory (MainWindowLab.cpp): a physics debugger - the probe's
     // debug layers by group, the card of a clicked contact or body, the timeline of the last frames,
     // the live profiler. Opened by «Лаборатория» on the top bar or F8; a beginner never sees it closed.
     void buildLaboratory();
     void connectLaboratory();
     void setLaboratoryVisible(bool on);
-    void labRecord(const std::vector<std::shared_ptr<const ke::Frame>>& frames); // every published frame
-    bool labOnSnapshot(); // before a frame is drawn; false: a kept frame stays on screen
+    void labProfile(const std::vector<std::shared_ptr<const ke::Frame>>& frames); // every new frame, timed
+    void labSync(); // before a frame is drawn: the layer boxes follow the Probe
+    uint64_t labFrame_ = 0; // the last frame the profiler timed
     void onLabClicked(QPointF pos);           // a click in the view: the contact under it, else the body
     void showContactCard(const ke::Frame& s, int index);
     // What the card says about a body; `live` ones come from the simulation thread, the others from the
@@ -187,9 +192,6 @@ private:
     };
     void showBodyCard(int body);       // index into the frame's bodies
     void fillBodyCard(const LabBodyFacts& f);
-    void labScrubStarted();                   // the timeline was taken: the scene pauses
-    void labWentLive();                       // back to the newest frame: the scene runs on if it ran
-    void updateLabTimeline();                 // shown while the Laboratory is open and the scene is not edited
     bool sceneRunning() const;
     void labPlot(const QString& channel);     // «Построить график»: the channel into the plots, the plots shown
 
@@ -201,12 +203,10 @@ private:
     QString watchLabel(int object) const;     // the name a body's channels go under (by its entity id)
     void watchBody(int object);               // this body's channels measured from the next frame on
     void updatePlotObjects(const ke::Frame& snapshot);
-    std::string plotObjectsScene_;
     void watchSelected();                     // the selected object's body, while the scene runs
     bool watchArm();                          // an IK goal selected: its arm's motors and miss in the plots
     bool armWatched_ = false;
     void forgetWatched();                     // editing again or another scene: no body watched
-    void labSeekTime(double t);               // a click on a plot: the timeline to that moment
     void saveVisibleCsv();                    // «Сохранить CSV»: the lines on the charts
     void autoOpenPlots();                     // the first ▶: the plots open by themselves, compact
     void recordFrames(const std::vector<SimController::Reading>& readings); // every simulated frame
@@ -219,26 +219,36 @@ private:
     std::unique_ptr<SimController> ctrl_;
     Viewport* view_ = nullptr;
     QTimer* timer_ = nullptr;
-    uint64_t lastFrame_ = 0;
-    std::string lastSceneName_;
-    qint64 lastInfoUpdate_ = 0;
 
-    QAction* expertAct_ = nullptr;
     QAction* graphsAct_ = nullptr;
     QAction* collidersAct_ = nullptr; // every object's collider as a green wireframe, not only the selected one's
     class QTabWidget* inspectorTabs_ = nullptr; // "Сцена" | "Объект"
     QAction* playAct_ = nullptr;
+    QAction* recordAct_ = nullptr; // ▶ with a take: sim_record (MainWindowPlay.cpp)
+    class ControllerKeys* controllerKeys_ = nullptr; // a person's keys to the scene's panels while it plays
+    class PluginHost* plugins_ = nullptr;            // plugins as processes (MainWindowPlugins.cpp)
+    class ScriptRunner* scripts_ = nullptr;          // a script run once: script_run (ScriptRunner.h)
+    std::unique_ptr<class RunHooks> runHooks_;       // their hooks of a run: a wire and a thread apart from this one's
+    std::shared_ptr<std::atomic<bool>> runLive_;     // this run's commands still have a world to go to (false at Stop)
+    bool runSeen_ = false; // the plugins' hooks were told a run started (and not yet that it stopped)
+    bool commandWarned_ = false; // a tick's command that did nothing was said this run
+    void buildPlugins();
+    class QTimer* recordBlink_ = nullptr;
+    QAction* bottomWideAct_ = nullptr; // the bottom panel the window's whole width (MainWindowLayout.cpp)
+    qint64 recordSince_ = 0;       // when the take started: a second press within 0.5 s is a double click's, not a stop
+    void buildRecordAction();
+    void syncRecord();             // the button as the take is: on, blinking, or off
     QAction* pauseAct_ = nullptr;
     QAction* stopAct_ = nullptr;
     QAction* stepAct_ = nullptr;
     QAction* localAct_ = nullptr;
     class QActionGroup* toolGroup_ = nullptr;
-    QTableWidget* info_ = nullptr;
-    QTableWidget* sensors_ = nullptr; // every probe channel, by name
     PlotPanel* plots_ = nullptr;
     SceneBuilder* builder_ = nullptr;
     void buildOperators(); // the API's operations and the magnet, before the top bar
     void buildConsoleDock(); // the API console: every call as a Python line, and a line to type calls
+    void buildSequencerDock(); // the Sequencer: a tab of the bottom panel (MainWindowPlots.cpp)
+    class SequencerPanel* sequencer_ = nullptr;
     class EditorOps* ops_ = nullptr;
     class EditorServer* apiServer_ = nullptr; // the API, once started (apiPort)
     class MagnetController* magnet_ = nullptr;
@@ -246,18 +256,18 @@ private:
     class QLabel* apiBanner_ = nullptr;
     class QTimer* apiIdle_ = nullptr;
     QString startScene_;
+    QString restartFile_;
     class QToolBar* createBar_ = nullptr;
     std::vector<class QToolButton*> createButtons_; // shapes, model, lights, camera: first to lose captions
     std::vector<class QToolButton*> runButtons_;    // run / pause / stop / step, undo / redo
-    int toolbarLevel_ = 0;                          // how much room the bar gave up (setToolbarLevel)
     class FirstStartHint* hint_ = nullptr;
     QAction* deleteAct_ = nullptr;
     QAction* duplicateAct_ = nullptr;
     class QActionGroup* schemeGroup_ = nullptr;
     QLabel* hintLabel_ = nullptr; // the status bar: what the mouse buttons and keys do now
-    int hintStep_ = 0; // 0: press Куб, 1: the tile Твёрдое, 2: ▶
+    int hintStep_ = 0; // 0: «Запись», 1: the arm by its keys and ■, 2: the playhead, 3: what is next
+    bool firstMinuteHeard_ = false; // the listener of the operations is there (once per window)
     bool forceFirstStart_ = false;
-    QLabel* status_ = nullptr;
     class SimulationBar* simulationBar_ = nullptr;
     class CameraPicker* cameraPicker_ = nullptr;
     class CommandSearch* search_ = nullptr;
@@ -270,9 +280,6 @@ private:
     QStringList onlyViewDocks_;                     // what "only the 3D view" closed (docks, then "shelf", "status")
     class QDockWidget* labDock_ = nullptr;
     class LabPanel* lab_ = nullptr;
-    class LabTimeline* timeline_ = nullptr;
-    bool labResume_ = false;       // the timeline paused a running scene: «Вживую» lets it run on
-    bool labFresh_ = false;        // new frames were recorded since the view last drew one
 
     struct Automation {
         bool active = false;

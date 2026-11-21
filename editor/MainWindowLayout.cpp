@@ -1,17 +1,21 @@
-// The window's layout, as VS Code lays out its own (see MainWindow.h): three buttons at the right end
-// of the menu line - where VS Code has them, in its title bar, and where they take no room from the
+// The window's layout (see MainWindow.h): three buttons at the right end
+// of the menu line - where they take no room from the
 // top bar - close and open the left, the bottom and the right dock area together with whatever
-// was open in them (Ctrl+B, Ctrl+J, Ctrl+Alt+B, the keys of VS Code), and a fourth opens the layout
+// was open in them (Ctrl+B, Ctrl+J, Ctrl+Alt+B), and a fourth opens the layout
 // menu - the three areas, every panel on its own, the status line, the tool shelf and "only the 3D
-// view" (F11, the editor's Zen mode). An area opened with nothing remembered shows its main panel:
+// view" (F11). An area opened with nothing remembered shows its main panel:
 // the Laboratory on the left, the graphs at the bottom, the inspector on the right. The buttons follow
-// the panels however they open and close (their ✕, F8, F9, "Эксперт").
+// the panels however they open and close (their ✕, F8, F9).
 #include "MainWindow.h"
+#include "UiLanguage.h"
+
+#include "SequencerPanel.h"
 
 #include "Icons.h"
 
 #include <QAction>
 #include <QDockWidget>
+#include <QSettings>
 #include <QHBoxLayout>
 #include <QMenu>
 #include <QMenuBar>
@@ -37,12 +41,12 @@ const char* const kDocks[] = {"inspectorDock", "labDock", "resultsDock"};
 void MainWindow::addLayoutButtons() {
     struct Area { QAction** act; Qt::DockWidgetArea area; LayoutIcon icon; const char* name, *text, *key, *tip; };
     const Area areas[] = {
-        {&leftBarAct_, Qt::LeftDockWidgetArea, LayoutIcon::LeftBar, "actionLeftBar", "Левая панель", "Ctrl+B",
-         "Скрыть или показать левую панель (Ctrl+B): Лаборатория"},
-        {&bottomPanelAct_, Qt::BottomDockWidgetArea, LayoutIcon::BottomPanel, "actionBottomPanel", "Нижняя панель", "Ctrl+J",
-         "Скрыть или показать нижнюю панель (Ctrl+J): графики и показания"},
-        {&rightBarAct_, Qt::RightDockWidgetArea, LayoutIcon::RightBar, "actionRightBar", "Правая панель", "Ctrl+Alt+B",
-         "Скрыть или показать правую панель (Ctrl+Alt+B): инспектор"}};
+        {&leftBarAct_, Qt::LeftDockWidgetArea, LayoutIcon::LeftBar, "actionLeftBar", uiText("Kinetica", "Левая панель"), "Ctrl+B",
+         uiText("Kinetica", "Скрыть или показать левую панель (Ctrl+B): Лаборатория")},
+        {&bottomPanelAct_, Qt::BottomDockWidgetArea, LayoutIcon::BottomPanel, "actionBottomPanel", uiText("Kinetica", "Нижняя панель"), "Ctrl+J",
+         uiText("Kinetica", "Скрыть или показать нижнюю панель (Ctrl+J): графики и показания")},
+        {&rightBarAct_, Qt::RightDockWidgetArea, LayoutIcon::RightBar, "actionRightBar", uiText("Kinetica", "Правая панель"), "Ctrl+Alt+B",
+         uiText("Kinetica", "Скрыть или показать правую панель (Ctrl+Alt+B): инспектор")}};
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     viewMenu->addSeparator();
     for (const Area& a : areas) {
@@ -56,9 +60,22 @@ void MainWindow::addLayoutButtons() {
         viewMenu->addAction(act);
         *a.act = act;
     }
-    // Small and flat, as in VS Code: the filled area of the icon tells open from closed, so a checked
+    // The bottom panel under the inspector too, the window's whole width (the Sequencer's ⇔).
+    bottomWideAct_ = new QAction(uiText("Kinetica", "Нижняя панель во всю ширину"), this);
+    bottomWideAct_->setObjectName("actionBottomWide");
+    bottomWideAct_->setCheckable(true);
+    bottomWideAct_->setToolTip(uiText("Kinetica", "Нижняя панель — Секвенсор, графики, консоль — во всю ширину окна, и под инспектором"));
+    connect(bottomWideAct_, &QAction::toggled, this, [this](bool on) {
+        setCorner(Qt::BottomRightCorner, on ? Qt::BottomDockWidgetArea : Qt::RightDockWidgetArea);
+        setCorner(Qt::BottomLeftCorner, on ? Qt::BottomDockWidgetArea : Qt::LeftDockWidgetArea);
+        QSettings().setValue("layout/bottomWide", on);
+    });
+    bottomWideAct_->setChecked(QSettings().value("layout/bottomWide", false).toBool());
+    viewMenu->addAction(bottomWideAct_);
+    if (sequencer_) sequencer_->addBarAction(bottomWideAct_, "⇔"); // the Sequencer is built before
+    // Small and flat: the filled area of the icon tells open from closed, so a checked
     // button gets no highlight of its own, and the menu button no arrow.
-    // Small and flat, as in VS Code: the filled area of the icon tells open from closed, so a checked
+    // Small and flat: the filled area of the icon tells open from closed, so a checked
     // button gets no highlight of its own, and the menu button no arrow.
     auto* corner = new QWidget;
     corner->setObjectName("layoutButtons");
@@ -82,7 +99,7 @@ void MainWindow::addLayoutButtons() {
     auto* menuButton = new QToolButton;
     menuButton->setObjectName("layoutMenuButton");
     menuButton->setIcon(layoutIcon(LayoutIcon::Customize, 16));
-    menuButton->setToolTip("Раскладка окна: какие панели видны");
+    menuButton->setToolTip(uiText("Kinetica", "Раскладка окна: какие панели видны"));
     menuButton->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(menuButton);
     menu->setObjectName("layoutMenu");
@@ -105,19 +122,19 @@ void MainWindow::addLayoutButtons() {
 
 // The menu behind the fourth button: the areas, the panels one by one, and the modes.
 void MainWindow::buildLayoutMenu(QMenu* menu) {
-    menu->addSection("Области");
+    menu->addSection(uiText("Kinetica", "Области"));
     for (QAction* a : {leftBarAct_, bottomPanelAct_, rightBarAct_}) menu->addAction(a);
-    auto* status = menu->addAction("Строка состояния");
+    auto* status = menu->addAction(uiText("Kinetica", "Строка состояния"));
     status->setCheckable(true);
     status->setChecked(true);
     connect(status, &QAction::toggled, statusBar(), &QWidget::setVisible);
     connect(menu, &QMenu::aboutToShow, status, [this, status] { status->setChecked(!statusBar()->isHidden()); });
-    QAction* panels = menu->addSection("Панели");
+    QAction* panels = menu->addSection(uiText("Kinetica", "Панели"));
     // The tool shelf is built after the top bar: its switch joins the menu when the menu first opens.
     connect(menu, &QMenu::aboutToShow, this, [this, menu, panels] {
         auto* shelf = findChild<QToolBar*>("toolShelf");
         if (!shelf || menu->actions().contains(shelf->toggleViewAction())) return;
-        shelf->toggleViewAction()->setText("Полка инструментов");
+        shelf->toggleViewAction()->setText(uiText("Kinetica", "Полка инструментов"));
         menu->insertAction(panels, shelf->toggleViewAction());
     });
     for (const char* name : kDocks) {
@@ -128,12 +145,12 @@ void MainWindow::buildLayoutMenu(QMenu* menu) {
         else if (QString(name) == "labDock") menu->addAction(labAct_);
         else menu->addAction(dock->toggleViewAction());
     }
-    menu->addSection("Режим");
-    onlyViewAct_ = menu->addAction("Только 3D-вид");
+    menu->addSection(uiText("Kinetica", "Режим"));
+    onlyViewAct_ = menu->addAction(uiText("Kinetica", "Только 3D-вид"));
     onlyViewAct_->setObjectName("actionOnlyViewport");
     onlyViewAct_->setCheckable(true);
-    onlyViewAct_->setShortcut(QKeySequence("F11")); // VS Code's Zen mode is Ctrl+K Z, but Ctrl+K finds commands here
-    onlyViewAct_->setToolTip("Убрать все панели, полку инструментов и строку состояния (F11); ещё раз — вернуть");
+    onlyViewAct_->setShortcut(QKeySequence("F11")); // Ctrl+K finds commands here
+    onlyViewAct_->setToolTip(uiText("Kinetica", "Убрать все панели, полку инструментов и строку состояния (F11); ещё раз — вернуть"));
     addAction(onlyViewAct_); // the key works while the menu is closed
     connect(onlyViewAct_, &QAction::toggled, this, &MainWindow::setOnlyViewport);
 }

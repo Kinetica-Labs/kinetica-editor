@@ -32,12 +32,26 @@ jobs:
         run: cmake --build build --parallel 4 # without a number make starts every compile at once and runs out of memory
       - name: Tests
         run: ctest --test-dir build --output-on-failure
+      - name: Python - стенд испытателей, SDK плагинов, сервер MCP и ke.Scene()
+        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples
+      - name: Окно и kinetica-core отвечают одинаково
+        timeout-minutes: 10
+        env:
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" python3 tools/test_hosts_agree.py
       - name: Самотест окна (программный OpenGL)
         timeout-minutes: 20
         env:
           KE_SOFTWARE_GL: "1"
           LIBGL_ALWAYS_SOFTWARE: "1"
         run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --self-test
+      - name: Английский интерфейс и выбор языка
+        env:
+          KE_EDITOR_TEST: language
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --language en --self-test
 
   windows:
     name: Windows MSVC
@@ -57,13 +71,19 @@ jobs:
         run: cmake --build build --config Release --parallel 4
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
+      - name: Python - ke.Scene() и kinetica-core.exe
+        run: cd tools && python -m unittest test_scene_core test_examples
       - name: Готовая программа
         shell: pwsh
         run: |
           New-Item -ItemType Directory dist | Out-Null
-          Copy-Item build/Release/kinetica.exe dist/
+          Copy-Item build/Release/kinetica.exe, build/Release/kinetica-core.exe dist/
           windeployqt --release --no-translations dist/kinetica.exe
-          Copy-Item -Recurse examples, python dist/
+          Copy-Item -Recurse examples, python, data dist/
+          # The plugins that ship with the editor (plugins/urdf): its host scans the folder next to the program
+          New-Item -ItemType Directory dist/plugins | Out-Null
+          Get-ChildItem plugins -Directory | Where-Object { Test-Path "$($_.FullName)/plugin.py" } | ForEach-Object { Copy-Item -Recurse $_.FullName dist/plugins/ }
+          if (!(Test-Path dist/plugins/urdf/plugin.py)) { throw "the URDF plugin is not in the program" }
           New-Item -ItemType Directory dist/tools | Out-Null
           Copy-Item tools/ke_editor.py, tools/ke_editor_mcp.py dist/tools/
           Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md dist/
@@ -99,7 +119,7 @@ jobs:
       - name: Build
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=OFF -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
-          cmake --build build --parallel 4 --target kinetica
+          cmake --build build --parallel 4 --target kinetica kinetica-core
       - name: Программа, библиотеки Qt, примеры, лицензии - в одну папку
         run: packaging/bundle-linux.sh build "${{ env.QT_ROOT_DIR }}/bin/qmake"
       - uses: actions/upload-artifact@v4
@@ -129,6 +149,11 @@ jobs:
           xvfb-run -a -s "-screen 0 1600x1000x24" ./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/ur5e.kscene \
             --play --frames 120 --window --screenshot ur5e-${{ matrix.os }}.png
           test -s ur5e-${{ matrix.os }}.png
+      - name: ke.Scene() из самой папки, без окна
+        run: |
+          cd kinetica-linux/usr/bin
+          python3 -c "import sys; sys.path.insert(0, 'python'); import kinetica as ke; s = ke.Scene(); print(s.add('box').id); s.close()"
+          python3 examples/python/01_hello.py
       - name: API для скриптов и агентов
         run: |
           xvfb-run -a ./kinetica-linux/kinetica --agent-eval --api 47801 --scene kinetica-linux/usr/bin/examples/ur5e.kscene &

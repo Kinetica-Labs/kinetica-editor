@@ -1,12 +1,15 @@
 #pragma once
-// The gizmo: the handles on the selected object that move, turn and scale it with the mouse, as in
-// Blender, Maya or 3ds Max. W shows three arrows (X red, Y green, Z blue) with three small squares for
+// The gizmo: the handles on the selected object that move, turn and scale it with the mouse. W shows three arrows (X red, Y green, Z blue) with three small squares for
 // moving in a plane (in the quadrant facing the camera) and a white circle in the centre for moving in
 // the view plane; E shows three rings (their far halves dimmed) and a white outer ring facing the
 // camera; R shows three shafts ending in cubes and a centre square for scaling evenly. The handle
 // under the mouse turns yellow; while one is dragged the others fade, a thin guide runs along its
 // axis, a turn shows a pie slice from where it started, and the amount is written next to the cursor.
 // The gizmo keeps its size on screen (110 px) however far the object is, and is drawn over everything.
+//
+// A turn is most often a quarter of one. While a ring is dragged, small points stand on it at every quarter of a turn
+// from where the drag began: hints. The turn itself stays free; let go within 6 degrees of a point, it is completed to
+// that quarter exactly (settle) - the point that would take it is lit, and the label says «→ 90°».
 //
 // This file is only the geometry and the arithmetic - no widgets, no OpenGL - so the self-test can
 // check it with numbers: which handle is under a pixel, where the object goes when a handle is
@@ -24,7 +27,7 @@
 //             centre square scales evenly as the mouse goes right / up.
 // Ctrl snaps: 0.1 m, 15 degrees, 10 %. (Shift for fine moves is applied by the viewport to the mouse.)
 //
-// Keyboard transforms, as in Blender: G (move), Shift+R (turn), Shift+S (scale) start a transform
+// Keyboard transforms: G (move), Shift+R (turn), Shift+S (scale) start a transform
 // that follows the mouse without grabbing a handle; X / Y / Z then limit it to an axis (the world
 // axis, pressed again the object's own axis, a third time free again); typing a number sets the
 // exact amount (metres, degrees, a factor); Enter or a click confirms, Esc or the right button
@@ -95,21 +98,21 @@ public:
     // Shift+drag of an object: slide it on the horizontal plane through the point that was hit.
     void beginFloorDrag(const GizmoView& v, const ke::Vector2& mouse, const ke::Vector3& hit);
     GizmoPose drag(const GizmoView& v, const ke::Vector2& mouse, bool snap);
+    // The release of a turn near a quarter of one (90, 180, 270 degrees from its start; never back to 0): true, and the
+    // pose completed to that quarter. Else false - the turn stays where the hand left it.
+    static constexpr float kQuarterDegrees = 6.0f;
+    bool settle(GizmoPose& pose);
     void end();
     // During a handle drag: X / Y / Z switch it to that axis, Shift+X / Y / Z to the plane across it
-    // (moving only), as if that handle had been grabbed at the press (Blender's axis locking).
+    // (moving only), as if that handle had been grabbed at the press (axis locking).
     void switchHandle(GizmoHandle h, const GizmoView& v);
     bool dragging() const { return active_ != GizmoHandle::None; }
-    GizmoHandle activeHandle() const { return active_; }
     float dragAngleDeg() const { return angleDeg_; } // the turn so far
-    const GizmoPose& lastPose() const { return last_; }
-    const ke::Vector3& dragStart() const { return startPosition_; }
 
     // Keyboard transforms (see the top of the file)
     void beginModal(GizmoMode m, const GizmoView& v, const ke::Vector2& mouse);
     void constrainModal(int axis, const GizmoView& v); // X / Y / Z pressed: world, local, free in turn
     bool modal() const { return modal_; }
-    int modalAxis() const { return modalAxis_; }
     void setTyped(bool typed, float value) { typed_ = typed, typedValue_ = value; }
     // The live amount next to the cursor: "X +0.350 м", "Z +45.0°", "×1.20".
     std::string dragLabel() const;
@@ -137,6 +140,7 @@ private:
     GizmoPose dragRotate(const GizmoView& v, const ke::Vector2& mouse, bool snap);
     GizmoPose dragScale(const GizmoView& v, const ke::Vector2& mouse, bool snap);
     void applyTyped();
+    float nearQuarter() const; // the quarter, degrees, the turn in hand would be completed to; 0: none
     void ringBasis(GizmoHandle h, const GizmoView& v, ke::Vector3& axis, ke::Vector3& u, ke::Vector3& w) const;
     void addArrows(Writer& out, bool cubes) const;
     void addPlaneSquares(Writer& out) const;

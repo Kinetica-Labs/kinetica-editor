@@ -1,6 +1,6 @@
 // Selection outlines: the selected (red channel), hovered (green) and role-less (blue) objects are
 // drawn flat into a mask; this pass lights the pixels just outside each silhouette - within uRadius
-// pixels of the mask but not in it - so every shape gets its own contour, as in Blender or Maya.
+// pixels of the mask but not in it - so every shape gets its own contour.
 // The host prepends #version 130 or #version 330 core.
 in vec2 uv;
 out vec4 o;

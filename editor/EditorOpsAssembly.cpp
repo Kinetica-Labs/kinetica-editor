@@ -71,7 +71,7 @@ QJsonObject previewJson(const SceneGraph& g, const Entity& target, const QJsonOb
 
 void EditorOps::addPreviewOps() {
     addSync("assembly_preview", "What assembly_preset would add, without adding it: the new objects' blocks and their joints in the world",
-            "{target: int, preset: str, face?|point?+normal?, axis?, flip?, mirror?}", [this](const QJsonObject& a) {
+            "{target: int, preset: str, face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z], axis?: 0|1|2, flip?: bool, mirror?: bool}", [this](const QJsonObject& a) {
         LinkPreset p;
         const Entity* e = entityOf(builder_->graph(), a);
         if (!e || !presetFromWord(a.value("preset").toString().toStdString(), p)) return error("needs a shape's id and a known preset");

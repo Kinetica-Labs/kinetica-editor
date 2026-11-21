@@ -10,14 +10,16 @@
 #include <QString>
 
 // The components as the editor shows them, in the order of ke::Role: the rigid body and its collider
-// (what it collides with - a component of its own, as in Unity: alone it is a fixed obstacle, with
+// (what it collides with - a component of its own: alone it is a fixed obstacle, with
 // Rigid a moving body).
 enum class RoleIcon { Rigid, Collider, Count };
 
-// Buttons of the simulation: run, pause, stop, one step, back to the start, undo, redo, eye, lock,
+// Buttons of the simulation: run, run and record (▶ with a red dot; the dot lit while it records, the two in turns blink),
+// pause, stop, one
+// step, back to the start, undo, redo, eye, lock,
 // and the tools of the edit mode: select, move, rotate, scale.
 enum class ControlIcon {
-    Play, Pause, Stop, Step, Reset, Undo, Redo, Visible, Hidden, Locked, Unlocked,
+    Play, Record, Recording, Pause, Stop, Step, Reset, Undo, Redo, Visible, Hidden, Locked, Unlocked,
     ToolSelect, ToolMove, ToolRotate, ToolScale, Count
 };
 
@@ -31,15 +33,17 @@ QIcon colliderIcon(ke::ColliderKind kind, int size = 28);
 // grid, a circle of small cubes.
 enum class ObjectIcon { Group, ArrayLine, ArrayGrid, ArrayCircle, Count };
 QIcon objectIcon(ObjectIcon kind, int size = 28);
-// Lights and cameras of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera.
-enum class SceneIcon { Sun, Bulb, Spot, Camera, Count };
+// Lights, a camera and forces of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera, an arrow (a
+// directional force), a ball with arrows (a radial one).
+enum class SceneIcon { Sun, Bulb, Spot, Camera, Force, ForceArrow, ForceBall, Count };
 QIcon sceneIcon(SceneIcon kind, int size = 28);
 
-// The devices of mechatronics: the sensors (in the order of ke::SensorKind) and the electrics.
-enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Battery, Driver, Joint, Controller, Count }; // ke::SensorKind first
+// The devices of mechatronics: the sensors (in the order of ke::SensorKind), the electrics, and Sensor - any sensor, the
+// toolbar's button that opens their list.
+enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Battery, Driver, Joint, Controller, Sensor, Count }; // ke::SensorKind first
 QIcon deviceIcon(DeviceIcon kind, int size = 28);
 
-// The layout buttons of the window, as in VS Code's title bar: the left side bar, the layout menu,
+// The layout buttons of the window: the left side bar, the layout menu,
 // the bottom panel, the right side bar. The area is filled while it is open (the icon's On state).
 // The magnet's elements (ke::kMagnetPresets): a turn, a travel, a wheel, a weld, a ball.
 enum class LinkIcon { Rotary, Linear, Wheel, Weld, Ball, Count };
@@ -49,5 +53,3 @@ QPixmap linkPixmap(LinkIcon kind, int size);
 enum class LayoutIcon { LeftBar, Customize, BottomPanel, RightBar, Count };
 QIcon layoutIcon(LayoutIcon kind, int size = 20);
 
-// Writes every icon as a PNG into `dir` (for the README and a quick look); returns the file count.
-int dumpIcons(const QString& dir, int size = 96);

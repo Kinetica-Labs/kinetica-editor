@@ -8,7 +8,7 @@
 //   4. on the chart: the title's ▾ switches the quantity; the right click adds and removes a line;
 //      a legend click hides a line, a double click shows it alone;
 //   5. «Наложить»: the energy's three lines are one chart, another unit is another chart; colours
-//      stay with their lines; «Дорожками»: one time axis and the Laboratory's cursor, both ways;
+//      stay with their lines; «Дорожками»: one time axis;
 //      «Нормировать»: every line 0 … 1;
 //   6. bounded cost: 30 simulated minutes of a real scene's channels - the history grows by less than
 //      20 MB after the first minute, a paint of twelve lines costs the same at the end as at the start.
@@ -17,7 +17,6 @@
 // plots-normalized.png.
 #include "SelfTestSupport.h"
 
-#include "LabTimeline.h"
 #include "PlotPanel.h"
 
 #include <QAction>
@@ -26,7 +25,6 @@
 #include <QLineEdit>
 #include <QMenu>
 #include <QRegularExpression>
-#include <QSlider>
 #include <QTreeWidget>
 
 #include <cmath>
@@ -40,10 +38,8 @@ struct Plots {
     PlotPanel* panel = nullptr;
     QAction* graphs = nullptr;
     QDockWidget* dock = nullptr;
-    LabTimeline* timeline = nullptr;
 };
 
-bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
 
 void click(QWidget* w, const QPointF& p) {
     QMouseEvent press(QEvent::MouseButtonPress, p, w->mapToGlobal(p), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
@@ -217,7 +213,7 @@ void testTitleList(Checker& c, QMainWindow& w, const Plots& p, const QString& di
     std::printf("  the title's ▾ %s the list; after a click on «импульс» the chart is «%s»\n", opened ? "opens" : "does NOT open",
                 qPrintable(p.panel->views()[0]->title()));
     c.check(opened && switched, "a click on a chart's title opens its list; a row there switches the chart to that quantity");
-    p.panel->applyPreset("Сбросить");
+    p.panel->applyPreset(ChannelList::Preset::Reset);
     pump(80);
 }
 
@@ -255,7 +251,7 @@ void testContextMenu(Checker& c, QMainWindow& w, const Plots& p, const QString& 
                 p.panel->charts()[0].ids.size());
     c.check(added == 4 && removeText.contains("Энергия вращения", Qt::CaseInsensitive) && p.panel->charts()[0].ids.size() == 3,
             "the right click adds a line («Добавить величину…») and removes the line under the mouse («Убрать линию»)");
-    p.panel->applyPreset("Сбросить"); // the energy chart with its own title again
+    p.panel->applyPreset(ChannelList::Preset::Reset); // the energy chart with its own title again
     pump(80);
 }
 
@@ -317,31 +313,8 @@ void testLanes(Checker& c, QMainWindow& w, SceneBuilder& b, const Plots& p, cons
         shared = lanes[i]->timeRange() == lanes[0]->timeRange() && std::fabs(lanes[i]->xAtTime(1.0) - lanes[0]->xAtTime(1.0)) < 1e-6;
     c.check(shared, "«Дорожками»: the charts stacked on one time axis (same span, same margins)");
 
-    trigger(w, "actionLaboratory");
-    pump(200);
-    const int k = p.timeline->count() / 3;
-    p.timeline->findChild<QSlider*>("labScrubber")->setValue(k); // the scrubber taken: the scene pauses
-    pump(100);
-    const double at = p.timeline->frameAt(k)->time;
-    bool cursor = !p.panel->views().empty();
-    for (const TrackChart* lane : p.panel->views()) cursor = cursor && lane->cursorTime() == at;
-    c.check(cursor, "the Laboratory's scrubber moves the plots' cursor on every lane");
-
-    const int target = p.timeline->count() * 2 / 3;
-    TrackChart* lane = p.panel->views().front();
-    click(lane, QPointF(lane->xAtTime(p.timeline->frameAt(target)->time), lane->plotArea().center().y()));
-    const int landed = p.timeline->position();
-    std::printf("  the scrubber at frame %d: the cursor there on every lane: %s; a click at frame %d's moment -> frame %d\n", k,
-                cursor ? "yes" : "no", target, landed);
-    c.check(std::abs(landed - target) <= 1 && p.panel->views().front()->cursorTime() == p.timeline->frameAt(landed)->time,
-            "a click on a plot takes the Laboratory's timeline to that moment");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-lanes.png");
-    p.timeline->goLive();
-    pump(100);
-    c.check(std::isnan(p.panel->views().front()->cursorTime()), "«Вживую» takes the cursor off the plots");
     b.pause();
-    trigger(w, "actionLaboratory");
-    pump(100);
 }
 
 void testNormalized(Checker& c, QMainWindow& w, const Plots& p, const QString& dir) {
@@ -359,7 +332,7 @@ void testNormalized(Checker& c, QMainWindow& w, const Plots& p, const QString& d
     c.check(fits, "«Нормировать»: every line on one chart, each scaled to 0 … 1");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-normalized.png");
     p.panel->setArrangement(PlotPanel::Arrangement::Overlay);
-    p.panel->applyPreset("Сбросить");
+    p.panel->applyPreset(ChannelList::Preset::Reset);
 }
 
 // --- 6. Thirty minutes ----------------------------------------------------------------------------
@@ -423,10 +396,9 @@ void testThirtyMinutes(Checker& c, Viewport* v) {
 
 int runPlotTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
-    Plots p{w.findChild<PlotPanel*>(), w.findChild<QAction*>("actionGraphs"), w.findChild<QDockWidget*>("resultsDock"),
-            v->findChild<LabTimeline*>()};
-    if (!p.panel || !p.graphs || !p.dock || !p.timeline) {
-        c.check(false, "the window has the plots, their action and dock, the Laboratory's timeline");
+    Plots p{w.findChild<PlotPanel*>(), w.findChild<QAction*>("actionGraphs"), w.findChild<QDockWidget*>("resultsDock")};
+    if (!p.panel || !p.graphs || !p.dock) {
+        c.check(false, "the window has the plots, their action and dock");
         return c.failures;
     }
     testZeroClicks(c, w, b, v, p, shotsDir);

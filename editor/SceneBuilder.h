@@ -1,6 +1,5 @@
 #pragma once
-// The scene builder ("Конструктор"): a scene made without code, in two modes, as in Unity, Unreal or
-// Blender.
+// The scene builder ("Конструктор"): a scene made without code, in two modes: edit and play.
 //   ПРАВКА (edit, the default) - a plain 3D editor. The big buttons create GEOMETRY ONLY: a shape
 //     with no role that stands where it was put; nothing moves, nothing falls, nothing is simulated.
 //     Objects are selected with the mouse (again on the same spot: the one behind), moved, turned
@@ -8,7 +7,7 @@
 //     joints, drives, sensors. In edit mode a component only marks the object.
 //   ▶ ПУСК (play) - the robot's world is built from the graph once and runs; ⏸ pauses it; ■ СТОП
 //     throws it away and shows the scene exactly as it was before Play (the arm back in its pose,
-//     the cube back in place). As in Unity, edits made while playing are not kept after Stop.
+//     the cube back in place). Edits made while playing are not kept after Stop.
 //
 // The scene has three layers: SOURCES (geometry: never destroyed by physics), OBJECTS (a source with
 // a pose and roles - what the gizmo and the inspector edit) and META-OBJECTS (the bodies and joints
@@ -20,15 +19,15 @@
 // scene built again: then the builder stops with the edit kept and says why. On pause the gizmo works
 // on the object where it is now.
 //
-// The builder owns an ke::SceneGraph (saved as *.kscene) and shows two tabs, as Unity's hierarchy
-// and inspector: "Сцена" (what is there, the eye and the lock of each thing, and the world) and
+// The builder owns an ke::SceneGraph (saved as *.kscene) and shows two tabs, a hierarchy
+// and an inspector: "Сцена" (what is there, the eye and the lock of each thing, and the world) and
 // "Объект" (the selected thing, top to bottom: a quick palette of components, the "Объект" card
 // every thing has - name, visibility, lock, colour, position, rotation, size -, the "Геометрия" card
 // - what it looks like, which physics never changes -, then only the COMPONENTS it has, each a card
 // with an ✕, and "+ Добавить компонент"). The collider is a component of its own: alone it makes a
-// fixed obstacle, with "Твёрдое тело" a moving body; adding "Твёрдое тело" adds a collider "Авто",
-// as Unity's primitives come with theirs. The collider is drawn as a thin green wireframe over the
-// geometry (Houdini's collision guide): always for the selected object, for all with "Коллайдеры".
+// fixed obstacle, with "Твёрдое тело" a moving body; adding "Твёрдое тело" adds a collider "Авто"
+// of its own. The collider is drawn as a thin green wireframe over the
+// geometry: always for the selected object, for all with "Коллайдеры".
 //
 // Many objects at once: the selection may hold several objects, and a thing in
 // the scene is an ke::SceneObject - a shape (Entity), a group (Ctrl+G: its members move with it) or
@@ -41,17 +40,21 @@
 // toolbar's "Свет ▾" (Солнце, Лампа, Прожектор) and "Камера" make them, the viewport draws them as
 // wireframes (SceneMarkers.h) that the mouse picks and the gizmo moves and turns (a scale does
 // nothing to them), the "Свет" and "Камера" cards edit them, and "Смотреть через камеру" makes the
-// view that camera: moving the view then moves the camera (Blender's "lock camera to view").
+// view that camera: moving the view then moves the camera.
 #include "ColliderGuides.h"
 #include "EditView.h"
 #include "Gizmo.h"
 #include "Icons.h"
 #include "SceneMarkers.h"
+#include "scene/Document.h"
 #include "scene/Kinematics.h"
+#include "scene/LiveEdit.h"
 #include "SimController.h"
 #include "scene/SceneGraph.h"
 
 #include <QElapsedTimer>
+
+#include <optional>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
@@ -60,12 +63,11 @@
 #include <algorithm>
 #include <functional>
 #include <map>
+#include <unordered_map>
 #include <memory>
 #include <string>
 #include <vector>
 
-class ArrayPanel;
-class ColliderPanel;
 class ComponentCard;
 class GroupPanel;
 class InlineBanner;
@@ -95,7 +97,7 @@ class Vec3Row;
 class SceneBuilder : public QObject {
     Q_OBJECT
 public:
-    enum class Mode { Edit, Playing, Paused };
+    using Mode = ke::PlayMode;
     // What a Shift + gizmo drag makes (the "Клонировать" popover): independent copies, instances of
     // the originals (one geometry, one set of components), or one array per original.
     enum class CloneKind { Copy, Instance, Array };
@@ -108,9 +110,8 @@ public:
     const std::vector<QAction*>& createActions() const { return createActions_; } // Куб, Сфера ...
     QAction* undoAction() const { return undoAct_; }
     QAction* redoAction() const { return redoAct_; }
-    QAction* deselectAction() const { return deselectAct_; }
 
-    // The window's actions as code (SceneBuilderCode.cpp), as Blender's Info shows the operator a button
+    // The window's actions as code (SceneBuilderCode.cpp), as the call a button
     // ran: an action as the one call of the object model that does it (scene.add("box"), a gizmo drag as
     // .move(...)), a click's selection and the tool shelf as editor.select(...) / editor.gizmo.tool, an
     // edit of a field a moment after it as the core edits it was (ke::diffEdits) - executable, replayed
@@ -129,16 +130,19 @@ public:
     // The scene as a snapshot of the journal (EditorJournal.cpp): the scene file, its folder, the next id the builder gives out - all a replay needs to give the same ids; and back, as one
     // undo step (a restore can be undone).
     QString snapshotText() const;
-    uint32_t nextIdToGive() const { return nextId_; }
+    uint32_t nextIdToGive() const { return doc_.nextIdToGive(); }
     bool restoreSnapshot(const QString& text, const QString& baseDirectory, uint32_t nextId, QString& error);
+    QJsonObject restartSnapshot();
+    bool restoreRestartSnapshot(const QJsonObject& snapshot, QString& error);
     const ke::SceneGraph& graph() const { return graph_; }
-    static std::string sceneName() { return "Конструктор"; } // the simulation's name of the builder's scene
 
     // Play / pause / stop / one step.
-    Mode mode() const { return mode_; }
-    bool editing() const { return mode_ == Mode::Edit; }
-    bool gizmoAllowed() const { return mode_ != Mode::Playing; } // edit mode, or paused
-    // IK goals alone are selected: handles, as MuJoCo's mocap bodies - the simulation never moves them, so their
+    Mode mode() const { return doc_.mode; }
+    bool editing() const { return doc_.mode == Mode::Edit; }
+    void watchHands(bool on) { handWatched_ = on; } // handPlaced is worked out only while someone asks for it
+    ke::LiveEdit::Reload lastReload() const { return lastReload_; }
+    bool gizmoAllowed() const { return doc_.mode != Mode::Playing; } // edit mode, or paused
+    // IK goals alone are selected: handles - the simulation never moves them, so their
     // gizmo works while the scene plays too, and the arm follows by its motors (followGoals).
     bool goalSelected() const;
     bool gizmoOnSelection() const { return gizmoAllowed() || goalSelected(); }
@@ -146,11 +150,12 @@ public:
     uint32_t entityOfBody(int body) const; // the drawn id of a body: an entity, an array's copy... (0: none)
     // Play mode: the simulation's newest picture (the live pose of the selected object on pause).
     void onSimulationSnapshot(const ke::Frame& s);
+    void playRangeEnded(bool recording); // the run reached the scene's play range end (world duration)
     void play();
     void pause();
     void stop();
     void step();
-    // K in play or on pause (SceneBuilderKeep.cpp, Unreal's "Keep Simulation Changes"): the live poses
+    // K in play or on pause (SceneBuilderKeep.cpp): the live poses
     // of the selected objects (all, if none is selected) stay after Stop; one undo step after Stop.
     void keepSimulationPoses();
 
@@ -158,6 +163,7 @@ public:
     // A hit's id is what a click there selects (clickTarget): the topmost group of the thing first;
     // with that group selected, the next level down, and so on to the thing itself.
     std::vector<PickHit> pickAll(const Ray& ray);
+    bool objectPoseNow(uint32_t id, ke::Vector3& position, ke::Quaternion& rotation) const; // where it is now: for what the view draws on an object (view_draw's fill)
     uint32_t clickTarget(uint32_t drawnId) const;
     bool drawnSelected(uint32_t drawnId) const; // the thing, or a group or array it belongs to, is selected
     void onEntityClicked(uint32_t id);
@@ -168,6 +174,19 @@ public:
     const ke::ControllerObject* controllerById(uint32_t id) const;
     void onGizmoFinished();
     void onGizmoCancelled();
+    // The collider mode (SceneBuilderColliders.cpp): the gizmo and the points
+    // in the view hold the selected shape's collider, not the shape - its place, turn and size by its kind's own numbers,
+    // each drag one undo step and one scene_collider line. Off: Esc, another selection, Пуск. A hull follows the geometry:
+    // no mode, a word why.
+    void setColliderEdit(bool on);
+    bool colliderEditing() const { return colliderEdit_ != 0; }
+    void onShapeHandle(int index, ke::Vector3 point, int phase); // a point dragged: 0 pressed, 1 moved, 2 released, 3 Esc
+    // The plugins' components (SceneBuilderComponents.cpp): the types a running plugin declares ({name, label, help,
+    // fields: {name: schema with handle?}, order}) - set again when it registers, emptied when it goes.
+    void setPluginComponents(const QString& plugin, const QJsonArray& types);
+    QJsonObject componentType(const std::string& type) const; // {} : no running plugin declares it
+    void setComponent(uint32_t id, const QString& type, const QJsonObject& values); // one component_set from the window
+    void removeComponent(uint32_t id, const QString& type);
     // A line of the window said for what lives outside the builder (the tool shelf: the gizmo's tool).
     void sayAction(const QString& op, const QString& py, QJsonObject args = {}) { codeAction(op, py, std::move(args)); }
     void onCloneDragStarted(); // Shift was held when the drag began: the drag moves copies (SceneBuilderClone.cpp)
@@ -206,7 +225,6 @@ public:
     void setGlued(uint32_t groupId, bool glued); // "Склеить в одно тело": the members become one rigid body
     void makeArrayOfSelected();       // "Сделать массивом…": each selected shape becomes the template of a row of 5
     void explodeArray(uint32_t id);   // "Разобрать на объекты": every copy an object of its own
-    void editArray(uint32_t id, const std::function<void(ke::ArrayObject&)>& change);
     void unlinkInstance(uint32_t id); // "Отвязать": the instance gets its own geometry and components
     const ke::SceneObject* object(uint32_t id) const { return ke::findObject(graph_, id); }
     QString objectTitle(uint32_t id) const; // "Куб 1", "Группа 1", "Массив: 5 × Куб 1"
@@ -228,6 +246,8 @@ public:
     // it hangs on; updateSensorActions greys out what does not fit and says why.
     const std::vector<QAction*>& sensorActions();
     void updateSensorActions();
+    void fillAddMenu(QMenu* menu); // the components the selection does not have yet: «+ Добавить компонент», menu «Сцена»
+    void showPlaceRows(uint32_t id); // «Где» and «Поворот» hidden where the place is another's (a sensor on a joint)
     // In the air over a free spot, named after its shape ("Куб 2"); `adjust` changes it before it joins.
     void addEntity(ke::ShapeKind shape, const std::function<void(ke::Entity&)>& adjust = {});
     void setRoleOfSelected(RoleIcon role, bool on); // the role bar's click with its outcome given
@@ -244,11 +264,14 @@ public:
     void noteGoalSolves(const ke::SceneGraph& before);
     IkSolverView* ikView_ = nullptr;
     QPushButton* grip_ = nullptr; // «Схват: сжать / разжать» under an IK goal whose hand has fingers
+    QPushButton* goalButton_ = nullptr; // «Цель IK» on an arm's link; «Рука — к этому предмету» on a thing, an arm in the scene
+    uint32_t goalNear(uint32_t object) const; // the IK goal nearest the object (0: none in the scene)
     ke::IkResult lastIk_;      // the last solve a goal's drag made, of goal lastIkGoal_
     uint32_t lastIkGoal_ = 0;
     void followGoals(const std::vector<uint32_t>& moved);
     void addLight(ke::LightKind kind, const ke::Vector3* at = nullptr); // over `at`, else the selection or the scene's centre
     ke::Vector3 spawnTarget();          // the selection's place, else the centre of the shapes
+    void addForce(ke::ForceShape shape, ke::ForceMode mode); // «Сила ▾»: at the selection or the scene's centre (SceneBuilderForces.cpp)
     void addCamera(const ke::Vector3* eye = nullptr); // at `eye`, else the editor's eye, looking at the scene's centre
     void setViewEye(std::function<ke::Vector3()> eye) { viewEye_ = std::move(eye); }
     void editLight(uint32_t id, const std::function<void(ke::Light&)>& change);
@@ -260,6 +283,18 @@ public:
     uint32_t lookingThrough() const { return throughId_; }
     // Looking through a camera the view moved: the camera goes where the view is now.
     void onViewMovedThroughCamera(const ke::Vector3& eye, const ke::Vector3& forward, const ke::Vector3& up);
+
+    // The Sequencer's preview in edit mode (SceneBuilderSequence.cpp): the active sequence's poses at a time drawn while
+    // the playhead is dragged or played, no edit yet; ending it puts the graph back - the panel then makes the one edit,
+    // sequence_seek, an undo step and a line.
+    // One undo step for many edits: a plugin's command, whatever it changes through the API (PluginHost). Nested. Ended
+    // not kept (the call failed), the outermost group's edits are taken back: the scene as before it, no step left.
+    // True: something was taken back.
+    void beginUndoGroup();
+    bool endUndoGroup(bool keep = true);
+    void beginSequencePreview();
+    void previewSequence(double time);
+    void endSequencePreview();
 
     // Scripted edits (the self-test, later a script console): one undo step each.
     void select(uint32_t id) { setSelected(id); }
@@ -275,12 +310,15 @@ public:
     // Edit mode: the simulation built from the graph and left on pause, not one frame stepped (the
     // API steps exact frame counts from there). False when it cannot be built.
     bool loadPaused();
-    void undoStep() { undo(); }
-    void redoStep() { redo(); }
+    bool undoStep() { return doc_.history.steps() && (undo(), true); }
+    bool redoStep() { return doc_.history.canRedo() && (redo(), true); }
+    size_t undoSteps() const { return doc_.history.steps(); } // what Ctrl+Z can still take back
+    // The steps taken so far, the forgotten oldest among them: what an action added is a difference of two of these.
+    // (undoSteps() stands still once the history is full - "one step more" was never seen after a hundred edits.)
+    size_t undoTaken() const { return doc_.history.steps() + doc_.history.forgotten(); }
 
 signals:
     void statusMessage(const QString& text);               // "Коллайдер добавлен: без него тело провалится"
-    void simulationKept(int objects);                      // K took the live poses of this many objects
     void modeChanged();                                    // edit / playing / paused
     void editSnapshot(std::shared_ptr<const ke::Frame> s); // edit mode: what to draw
     void highlightBodies(const std::vector<int>& bodies);  // the bodies of the selected thing
@@ -291,9 +329,12 @@ signals:
     void frameRequested(const ke::AABB& box);              // show these objects (after a load or an add)
     void selectionChanged(uint32_t id);                    // the "Объект" tab shows it (0: nothing selected)
     void colliderGuides(std::vector<float> lines);         // green wireframes: pairs of points, x y z 0 each
+    void shapeHandles(std::vector<ShapeHandle> handles);   // the collider mode's points (none: the mode is off)
+    void colliderEditChanged(bool on);
+    void handPlaced(const std::vector<uint32_t>& ids);     // a hand moved or turned these objects (edit mode; the Sequencer's Auto Key keys them)
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
-    void firstAction();                                    // the user did something: the first-start hint goes
-    void sceneMarkers(std::vector<SceneMarker> markers);   // the lights and cameras to draw
+    void sceneMarkers(std::vector<SceneMarker> markers);   // the lights, cameras and forces to draw
+    void fireForceRequested(uint32_t id);                  // «Сработать» on a force's card
     // The view through a camera (on) or the editor's own view (off).
     void cameraView(bool on, ke::Vector3 eye, ke::Vector3 forward, ke::Vector3 up, float fovDeg, float nearClip, float farClip);
 
@@ -311,19 +352,17 @@ private:
     void buildColliderCard(QVBoxLayout* col);
     void buildAddComponent(QVBoxLayout* col);      // "+ Добавить компонент" and its menu
     void buildManyCards(QVBoxLayout* col);         // "Группа", "Массив" and the instance's link
-    void fillAddMenu();                            // the components the object does not have yet
-    ComponentCard* componentCard(QVBoxLayout* col, RoleIcon role, QFormLayout*& form);
-    QDoubleSpinBox* numberField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals);
-    QCheckBox* checkField(QFormLayout* f, const QString& text);
+    ComponentCard* componentCard(QVBoxLayout* col, RoleIcon role);
+    class FieldForm* shapeFields(ComponentCard* card, class FieldForm* SceneBuilder::*slot); // over the selected shapes' masters
+    class FieldForm* arrayFields();
     Vec3Row* vectorField(QFormLayout* f, const QString& label, double min, double max, double step, int decimals);
 
     // Editing
     void applyEdit(uint32_t entityId);          // every edit calls this after: edit mode redraws, play mode updates
     void applyEditDuringPlay(uint32_t entityId); // an edit while the simulation runs (see the top)
-    void reloadNeeded(const QString& why);
+    void reloadNeeded(ke::LiveEdit::Reload what);
     void onObjectEdited();
     void onDetailsEdited();
-    void onArrayEdited();
     void onWorldEdited(const ke::WorldSettings& settings);
     void onListClicked(QTreeWidgetItem* item, int column);
     void setSelected(uint32_t id);                              // just this one (0: nothing)
@@ -333,7 +372,7 @@ private:
     // Graph <-> widgets
     void fillInspector();
     void fillManyCards(const ke::SceneObject& o); // the group, array and instance cards of the active object
-    void fillDetails(const ke::Entity& e);
+    void fillDetails();
     void readDetails(ke::Entity& e) const;
     void fillWorld();
     void refreshList();
@@ -353,17 +392,20 @@ private:
     // Lights and cameras (SceneBuilderLights.cpp)
     void buildLightActions();
     void buildLightCards(QVBoxLayout* col);
-    QDoubleSpinBox* lightNumber(QFormLayout* f, const QString& label, double min, double max, double step, int decimals, bool camera);
     void fillLightCards(const ke::SceneObject& o);
-    void onLightEdited();
-    void onCameraEdited();
+    void aimSelectedCameras(); // the card's kind and target onto every selected camera: camera_aim, one undo step
     void addObjectDone(uint32_t id);            // select it, list it, show it
     void refreshLightsAndCameras();             // the wireframes and the view through a camera
     void refreshMarkers();
     void emitCameraView();
     std::vector<PickHit> pickMarkers(const Ray& ray) const;
-    QIcon kindIcon(uint32_t id, int size) const; // a light's or a camera's icon (null: neither)
+    QIcon kindIcon(uint32_t id, int size) const; // a light's, a camera's or a force's icon (null: none of them)
     ke::Light* lightById(uint32_t id);
+    ke::Force* forceById(uint32_t id);
+    void buildForceCard(QVBoxLayout* col);      // SceneBuilderForces.cpp
+    void fillForceCard(const ke::SceneObject& o);
+    std::vector<ShapeHandle> forceHandles();                       // the selected force's orange points: its arrow's end, its radius
+    void onForceHandle(int index, ke::Vector3 point, int phase);  // one dragged: the force turns to it, or its reach follows
     ke::Camera* cameraById(uint32_t id);
 
     // Sensors (SceneBuilderSensors.cpp): one put on the selected shape (an encoder on its joint, an IMU
@@ -371,8 +413,8 @@ private:
     // the scene plays. The electrics (SceneBuilderDevices.cpp): batteries and their drivers as rows of
     // the scene list and their cards - a driver's duty set by hand while the car drives.
     void addSensor(ke::SensorKind kind);
-    void fillSensorMenu(const ke::Entity& e);   // the "Датчики" part of "+ Добавить компонент"
-    void fillJointMenu(const ke::Entity& e);    // its «Сочленение с приводом» part (SceneBuilderActuators.cpp)
+    void fillSensorMenu(const ke::Entity& e, QMenu* menu); // the "Датчики" part of "+ Добавить компонент"
+    void fillJointMenu(const ke::Entity& e, QMenu* menu);  // its «Сочленение с приводом» part (SceneBuilderActuators.cpp)
     void addActuator(uint32_t link, uint32_t other, bool rotary, int axis); // assembly_actuator about / along a world axis
     void buildSensorCard(QVBoxLayout* col);
     void fillSensorCard(const ke::SceneObject& o);
@@ -384,9 +426,28 @@ private:
         *live = draft;
         afterCardEdit(live->id, click);
     }
+    // A card over every selected thing of its kind (`find`: what an id stands for, else null): fill shows the active
+    // one and "—" where they differ; an edit writes the one field into each of them, the rest of each stays its own.
+    template <class Form, class T, class Find> void fillSelected(Form* form, T& draft, Find find) {
+        std::vector<T*> all{find(selectedId_)};
+        if (!all.front()) return;
+        for (uint32_t id : selection_)
+            if (T* x = find(id); x && id != selectedId_) all.push_back(x);
+        form->fill(int(all.size()), [&](int i) { draft = *all[size_t(i)]; });
+    }
+    template <class Form, class T, class Find> void commitSelected(const Form* form, T& draft, Find find, bool click) {
+        if (filling_ || !find(selectedId_)) return;
+        remember(!click);
+        for (uint32_t id : selection_)
+            if (T* x = find(id)) draft = *x, form->repeat(), *x = draft;
+        draft = *find(selectedId_);
+        afterCardEdit(selectedId_, click);
+    }
+    ke::Entity* masterById(uint32_t id); // the shape an id shows (an instance's master), else null
     void afterCardEdit(uint32_t id, bool click);
     void pollLive();                            // the selected sensor's, battery's or driver's readings
     ke::SensorObject* sensorById(uint32_t id);
+    void loadSensorCatalog();                   // the tables of sensor models (scene/SensorSpec.h), read again on a change
     void addDeviceRows();                       // into the scene list: the batteries, their drivers under them
     bool isDevice(uint32_t id) const;           // a battery or a driver (no SceneObject)
     void buildDeviceCards(QVBoxLayout* col);
@@ -417,11 +478,12 @@ private:
     void remember(bool mergeWithLast = false);
     void undo();
     void redo();
-    void restore(ke::SceneGraph g);
+    ke::Document::Remember rememberer() { return [this] { remember(); return rememberedNow_; }; } // the window's decision, for the document
+    void restore(); // the window after the graph was replaced by a step of history
     void updateHistoryActions();
 
     // What the viewport shows
-    void setMode(Mode m);
+    void setMode(Mode m, Mode was); // was: what the buttons last showed; the document is already in the new mode after beginPlay / endPlay
     void returnToEdit(bool keepEdits); // throw the simulation away, show the scene (as before Play unless kept)
     bool loadIntoSimulation();  // build the simulation from the graph (play, or a step from edit)
     void refreshView();         // edit mode: draw the graph as it is now
@@ -432,6 +494,7 @@ private:
     // The collider wireframes: from the graph in edit mode, at the bodies' poses while the scene plays.
     void refreshColliderGuides();
     void playColliderGuides(const ke::Frame& s);
+    const ke::Frame::CameraPose* liveCamera(uint32_t id) const; // a camera's or a force's
     // The collider of an entity as the running world will build it (ke::colliderShapes), kept until its
     // geometry or collider changes; `key` gets what it depends on (the guides' cache key).
     const std::vector<ke::ShapeDesc>& colliderOf(const ke::Entity& e, std::string* key = nullptr);
@@ -458,9 +521,9 @@ private:
     // session gave out before (an undo may bring that object back).
     template <class F>
     auto coreEdit(F&& action) {
-        graph_.idFloor = nextId_;
+        graph_.idFloor = doc_.nextIdToGive();
         auto result = action(graph_);
-        nextId_ = std::max(nextId_, ke::nextId(graph_));
+        doc_.setNextId(std::max(doc_.nextIdToGive(), ke::nextId(graph_)));
         return result;
     }
     // A Shift + gizmo drag's copies (SceneBuilderClone.cpp): copy k of an original, moved and turned
@@ -473,15 +536,11 @@ private:
     };
     uint32_t placeClone(uint32_t original, const CloneStep& step, int k, bool instance);
     uint32_t cloneAsArray(uint32_t original, const CloneStep& step, int copies);
-    uint32_t newId();
     void pruneSelection(); // drops what is no longer in the graph
-    void adoptIds(); // give ids to entities that came without one (old files); nextId_ past all
 
     SimController* ctrl_;
-    ke::SceneGraph graph_;
-    ke::SceneGraph playBackup_;    // the graph as it was when Play was pressed: Stop brings it back
-    ke::SceneGraph simGraph_;      // what the simulation was last given (edits during play are diffed with it)
-    bool hasPlayBackup_ = false;
+    ke::Document doc_;             // the graph, its history and the ids: declared before graph_
+    ke::SceneGraph& graph_ = doc_.graph;
     // K (SceneBuilderKeep.cpp): a live pose read on the simulation's thread, and the scene as it was
     // before the first K of this play - Stop puts it into the history as one undo step.
     struct KeptPose {
@@ -492,27 +551,54 @@ private:
     void applyKeptPoses(const std::vector<KeptPose>& poses);
     ke::SceneGraph keptBefore_;
     bool hasKeptBefore_ = false;
-    size_t undoAtPlay_ = 0;        // the history's length at Play: steps made while playing go on Stop
     ke::Vector3 liveTarget_{0.0f}; // on pause: where the selected object's body is now
     bool liveTargetValid_ = false;
     std::map<uint32_t, std::pair<ke::Vector3, ke::Quaternion>> goalLive_; // the goals on paths, where the scene has walked them
-    Mode mode_ = Mode::Edit;
     EditView editView_;
-    uint32_t nextId_ = 1;          // ids are never reused within a session
     uint32_t selectedId_ = 0;      // 0: nothing selected
     uint32_t hoverId_ = 0;         // the object under the mouse (edit mode)
     QString fileName_;
     bool filling_ = false;         // widgets are being filled from the graph: not an edit
     std::vector<uint32_t> bodyEntity_; // drawn body -> id of its entity (edit view, or the simulation)
 
-    struct HistoryEntry { ke::SceneGraph graph; };
-    std::vector<HistoryEntry> undo_, redo_;
     QElapsedTimer lastRemember_;
+    std::optional<ke::SceneGraph> previewFrom_; // the graph before a Sequencer preview
+    int undoGroup_ = 0;          // open groups (beginUndoGroup)
+    bool undoGroupTaken_ = false; // the group's one step is remembered
+    bool rememberedNow_ = false;  // the last remember() made a step (a failed edit takes back only its own)
     bool goalDragging_ = false; // the mouse drags a goal (dragGoal): one undo step, its code said as it ends
     bool typing_ = false; // the last step was a typed number's: another typed within 0.7 s joins it, nothing else does
 
     ColliderGuides guides_;
     bool showAllColliders_ = false;
+    // The collider mode: the shape whose collider the gizmo holds, and a drag of it under way - its numbers, the scene and
+    // the points when it began.
+    uint32_t colliderEdit_ = 0;
+    bool colliderDrag_ = false;
+    ke::ColliderRole colliderStart_;
+    ke::SceneGraph colliderGraph_;
+    std::vector<ShapeHandle> colliderHandles_;
+    ke::Vector3 colliderBodyAt_;
+    ke::Quaternion colliderBodyTurn_;
+    ke::Entity* colliderEntity();                                  // its master: an instance collides as it (null: gone)
+    ke::ColliderRole heldNow(const ke::Entity& e) const;           // as numbers (scene/Collider.h), the mesh read only to fit
+    bool colliderBodyPose(ke::Vector3& p, ke::Quaternion& q) const; // where the shape stands in the world
+    std::vector<ShapeHandle> handlesOf(const ke::ColliderRole& c) const;
+    void emitShapeHandles();
+    void beginColliderDrag();
+    void showCollider(const ke::ColliderRole& c);                  // the numbers in, the wireframe and the points after them
+    void finishColliderDrag(bool cancelled);
+    QString colliderLine(QJsonObject& args) const;                 // ed.scene_collider(...) of what the drag made
+    std::map<QString, QJsonObject> componentTypes_;                // "<plugin>.<name>" -> its schema
+    struct ComponentHandleField { QString type, field, kind; int part = 0; }; // part: which of a box's three sizes
+    std::vector<ComponentHandleField> componentHandleFields_;      // what each orange point is (componentHandles' order)
+    ke::SceneGraph componentGraph_;                                // the scene when an orange point was taken (Esc, and its one edit)
+    bool componentDragging_ = false;
+    QVBoxLayout* pluginCards_ = nullptr;                           // the cards of the shape's plugin components
+    void fillPluginCards();
+    void addPluginComponentsTo(QMenu* menu, const ke::Entity& e);
+    std::vector<ShapeHandle> componentHandles();
+    void onComponentHandle(int index, ke::Vector3 point, int phase);
 
     // The gizmo: the active object it drags, every dragged object's world pose when the drag began,
     // and the whole graph then (Esc puts it back; a scale is always from the start sizes).
@@ -564,6 +650,7 @@ private:
     QLabel* emptyHint_ = nullptr;
     QLabel* playHint_ = nullptr;     // "Остановите ■, чтобы править"
     InlineBanner* banner_ = nullptr; // why something does not work, and the fix
+    ke::LiveEdit::Reload lastReload_ = ke::LiveEdit::Reload::None; // what the last edit that stopped the world could not be taken for
     bool stickyBanner_ = false;      // a message about the whole scene (a restart needed): kept until ▶
     QLabel* headerIcon_ = nullptr;
     QLabel* headerName_ = nullptr;
@@ -574,35 +661,46 @@ private:
     QLabel* modelFile_ = nullptr;
     TexturePanel* texture_ = nullptr;
     Vec3Row* size_ = nullptr;
+    class QDoubleSpinBox* opacity_ = nullptr; // how solid the shape looks, 1 .. 0.05
     ComponentCard* cards_[int(RoleIcon::Count)] = {};
     QWidget* sizeRow_ = nullptr;     // the size: a shape's only
     QWidget* shapePart_ = nullptr;   // "Геометрия", the components and "+ Добавить компонент"
     InlineBanner* instanceLink_ = nullptr; // "Экземпляр: связан с «Куб 1»" [Отвязать]
     ComponentCard *groupCard_ = nullptr, *arrayCard_ = nullptr;
     GroupPanel* groupPanel_ = nullptr;
-    ArrayPanel* arrayPanel_ = nullptr;
+    class FieldForm* arrayFields_ = nullptr;
+    ke::ArrayObject arrayDraft_;
     QPushButton* addComponent_ = nullptr;
     QMenu* addMenu_ = nullptr;
+    QPushButton* colliderEditButton_ = nullptr; // «Править коллайдер в виде» (setColliderEdit)
+    QWidget* textureTitle_ = nullptr;           // «Текстура» over its panel: hidden with it on a goal's card
+    QPushButton* ikMore_ = nullptr;             // «Подробно: решатель IK»: the solver's view folded under it
     InlineBanner* noCollider_ = nullptr; // in the rigid card: a body without a collider falls through
-    ColliderPanel* collider_ = nullptr;
-    QDoubleSpinBox *rigidDensity_ = nullptr, *friction_ = nullptr, *restitution_ = nullptr;
-    QCheckBox* fixed_ = nullptr;
-    Vec3Row *velocity_ = nullptr, *spin_ = nullptr;
-    // The "Свет" and "Камера" cards; what they showed (an edit is what differs, for every selected one)
+    class FieldForm *rigidFields_ = nullptr, *colliderFields_ = nullptr;
+    ke::Entity shapeDraft_; // the active shape's master, the rigid and collider cards' edits written here first
+    // The "Свет" and "Камера" cards over every selected light or camera
     ComponentCard *lightCard_ = nullptr, *cameraCard_ = nullptr;
-    QFormLayout *lightForm_ = nullptr, *cameraForm_ = nullptr;
-    QToolButton* lightKind_[3] = {};
-    QDoubleSpinBox *lightIntensity_ = nullptr, *lightRange_ = nullptr, *lightCone_ = nullptr, *lightSoftness_ = nullptr;
-    QCheckBox* lightShadows_ = nullptr;
-    QDoubleSpinBox *cameraFov_ = nullptr, *cameraNear_ = nullptr, *cameraFar_ = nullptr;
+    class FieldForm *lightFields_ = nullptr, *cameraFields_ = nullptr, *cameraAimFields_ = nullptr;
+    std::pair<double, double> cameraAim_{0, 0}; // the card's kind (0 free, 1 target) and target (0: its own cube)
+    std::unordered_map<uint32_t, ke::Vector3> liveObjectPositions_; // in play, for a target camera looked through: its target's pose
+    std::vector<ke::Frame::CameraPose> liveCameras_, liveForces_;   // in play: where the world has the cameras and forces it moves (Frame)
+    std::vector<uint32_t> firedForces_;                             // in play: the impulses that have fired (Frame::firedForces) - their arrows are not drawn
+    ke::Light lightDraft_;
+    // The "Сила" card over every selected force: its fields, the draft they edit, the tags «Действует на» lists
+    ComponentCard* forceCard_ = nullptr;
+    class FieldForm* forceFields_ = nullptr;
+    QPushButton* forceFire_ = nullptr;
+    QLabel* forceOwner_ = nullptr; // whose a directional force is: a body's own, or a field
+    ke::Force forceDraft_;
+    std::vector<std::string> forceTags_;
+    ke::Camera cameraDraft_;
     QPushButton* throughButton_ = nullptr;
-    ke::Light lightShown_;
-    ke::Camera cameraShown_;
     // The "Датчик" card; the electrics' cards, shown instead of the object's when one is selected
     ComponentCard* sensorCard_ = nullptr;
     QLabel *sensorMount_ = nullptr, *sensorLive_ = nullptr;
     class FieldForm* sensorFields_ = nullptr;
     ke::SensorObject sensorDraft_; // the sensor the card shows, its edits written here first
+    class QFileSystemWatcher* catalogWatch_ = nullptr;
     QWidget* deviceBody_ = nullptr;
     ComponentCard *batteryCard_ = nullptr, *driverCard_ = nullptr;
     QLabel *batteryLive_ = nullptr, *driverMount_ = nullptr, *driverLive_ = nullptr;
@@ -617,12 +715,16 @@ private:
     // The window's actions as code (SceneBuilderCode.cpp)
     void scheduleCode();
     void flushCode();
+    bool handWatched_ = false;
+    void announceHand(ke::SceneGraph& before); // handPlaced for what differs from `before` in place or turn, inside the step the hand's edit took
     void codeAction(const QString& op, const QString& py, QJsonObject args = {}, bool flushFirst = true);
     // An action on objects as its line: `scene.objects["Куб 1"].method()` for one, `scene.method(a, b)`
     // for several. Made before the action runs (the names it removes are still there).
     QString codeCall(const QString& method, const std::vector<uint32_t>& ids) const;
     QString codeRefs(const std::vector<uint32_t>& ids) const; // scene.objects["Куб 1"], scene.objects["Шар 1"]
     ke::SceneGraph coded_;                      // the scene as the lines of code so far make it
+    bool codePending_ = false;                  // a hand's edit since then (scheduleCode): only then the two are compared
+    void codeSynced() { coded_ = graph_, codePending_ = false; } // the lines so far make the scene as it is
     std::vector<uint32_t> codedSelection_;      // the selection as they make it (the active one last)
     QTimer* codeTimer_ = nullptr;
     int apiDepth_ = 0;
@@ -634,6 +736,7 @@ const char* shapeName(ke::ShapeKind k);
 // The names and icons of the kinds of light: "Солнце", "Лампа", "Прожектор".
 const char* lightName(ke::LightKind k);
 SceneIcon lightIcon(ke::LightKind k);
+SceneIcon forceIcon(ke::ForceShape s); // an arrow for a directional force, a ball for a radial one
 // The words of the API (SceneBuilderCode.cpp): "box", "sun", "rigid" - as the scene file and kinetica
 // say them; and back (-1: no such word).
 const char* shapeWord(ke::ShapeKind k);

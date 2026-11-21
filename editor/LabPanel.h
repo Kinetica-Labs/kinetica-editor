@@ -1,6 +1,6 @@
 #pragma once
 // The Laboratory's panel (the «Лаборатория» dock): everything the engine can show about itself, in one
-// calm column, the way PhysX Visual Debugger lays it out.
+// calm column.
 //   1. «Быстрые наборы» - four buttons that switch on a whole set of layers at once.
 //   2. «Что рисовать» - every debug layer (LabLayers.h), grouped: a checkbox, its colours, and a
 //      tooltip saying what it shows and how to read it.
@@ -19,6 +19,7 @@
 
 class LabCard;
 class ProfilerBar;
+class QAction;
 class QCheckBox;
 class QPushButton;
 class QVBoxLayout;
@@ -37,9 +38,11 @@ public:
     void applyPreset(const QString& name);
     // Switch these layers on (the others keep their state).
     QCheckBox* layerBox(ke::DrawLayer l) const;
+    // A row of a group that is the window's own drawing, not the engine's Probe: its checkbox is a checkable action (the
+    // colliders' wireframes, menu «Вид»), both always alike - what a person looks for among the drawings is there.
+    void addActionRow(const QString& group, QAction* action, const QColor& colour);
 
 signals:
-    void layersChanged(uint32_t mask); // the set of layers drawn changed (from a checkbox or a preset)
 
 private:
     void buildPresets(QVBoxLayout* col);

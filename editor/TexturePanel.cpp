@@ -1,5 +1,6 @@
 // One image choice/drop assigns appearance; advanced path and scale stay optional.
 #include "TexturePanel.h"
+#include "UiLanguage.h"
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDoubleSpinBox>
@@ -39,21 +40,21 @@ TexturePanel::TexturePanel(QWidget* parent) : QWidget(parent) {
     auto* row = new QHBoxLayout;
     preview_ = new QLabel; preview_->setFixedSize(64, 48); preview_->setAlignment(Qt::AlignCenter);
     preview_->setObjectName("texturePreview");
-    auto* choose = new QPushButton("Выбрать изображение…"); choose->setObjectName("textureChoose");
+    auto* choose = new QPushButton(uiText("Kinetica", "Выбрать изображение…")); choose->setObjectName("textureChoose");
     row->addWidget(preview_); row->addWidget(choose, 1); col->addLayout(row);
     kind_ = new QComboBox; kind_->setObjectName("textureKind");
-    kind_->addItems({"Без текстуры", "Шахматная", "Изображение", "Крапинка (для стерео)", "Камень (гранит)"}); col->addWidget(kind_);
+    kind_->addItems({uiText("Kinetica", "Без текстуры"), uiText("Kinetica", "Шахматная"), uiText("Kinetica", "Изображение"), uiText("Kinetica", "Крапинка (для стерео)"), uiText("Kinetica", "Камень (гранит)")}); col->addWidget(kind_);
     status_ = new QLabel; status_->setWordWrap(true); col->addWidget(status_);
-    auto* advanced = new QToolButton; advanced->setText("Масштаб и путь");
+    auto* advanced = new QToolButton; advanced->setText(uiText("Kinetica", "Масштаб и путь"));
     advanced->setCheckable(true); advanced->setArrowType(Qt::RightArrow);
     advanced->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
     auto* details = new QWidget; auto* form = new QFormLayout(details); form->setContentsMargins(0, 0, 0, 0);
     repeats_ = new QDoubleSpinBox; repeats_->setObjectName("textureRepeats");
-    repeats_->setRange(0.001, 10000); repeats_->setDecimals(3); repeats_->setValue(8); repeats_->setSuffix(" / м");
-    repeats_->setToolTip("Число повторений рисунка на метр; две шахматные клетки составляют один период.");
+    repeats_->setRange(0.001, 10000); repeats_->setDecimals(3); repeats_->setValue(8); repeats_->setSuffix(uiText("Kinetica", " / м"));
+    repeats_->setToolTip(uiText("Kinetica", "Число повторений рисунка на метр; две шахматные клетки составляют один период."));
     file_ = new QLineEdit; file_->setObjectName("textureFile");
-    auto* fit = new QPushButton("По размеру объекта");
-    form->addRow("Повторения", repeats_); form->addRow(fit); form->addRow("Файл", file_);
+    auto* fit = new QPushButton(uiText("Kinetica", "По размеру объекта"));
+    form->addRow(uiText("Kinetica", "Повторения"), repeats_); form->addRow(fit); form->addRow(uiText("Kinetica", "Файл"), file_);
     buildBumpControls(col, form);
     col->addWidget(advanced); col->addWidget(details); details->hide();
     connect(advanced, &QToolButton::toggled, this, [advanced, details](bool on) {
@@ -65,8 +66,8 @@ TexturePanel::TexturePanel(QWidget* parent) : QWidget(parent) {
     connect(file_, &QLineEdit::editingFinished, this, changed);
     connect(fit, &QPushButton::clicked, this, [this] { repeats_->setValue(fitRepeats_); });
     connect(choose, &QPushButton::clicked, this, [this] {
-        const QString file = QFileDialog::getOpenFileName(this, "Текстура поверхности", directory_,
-            "Изображения (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;Все файлы (*)");
+        const QString file = QFileDialog::getOpenFileName(this, uiText("Kinetica", "Текстура поверхности"), directory_,
+            uiText("Kinetica", "Изображения (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;Все файлы (*)"));
         if (!file.isEmpty()) assignImage(file);
     });
     refresh();
@@ -80,7 +81,7 @@ void TexturePanel::refresh() {
         if (previewKey_ != key) { previewImage_ = validPath(path) ? thumbnail(path) : QImage(); previewKey_ = key; }
         preview_->setPixmap(QPixmap::fromImage(previewImage_).scaled(64, 48, Qt::KeepAspectRatio, Qt::SmoothTransformation));
         preview_->setToolTip(path);
-        status_->setText(previewImage_.isNull() ? "Файл не читается. Выберите изображение до 64 Мп." : info.fileName());
+        status_->setText(previewImage_.isNull() ? uiText("Kinetica", "Файл не читается. Выберите изображение до 64 Мп.") : info.fileName());
         status_->setToolTip(path);
         return;
     }
@@ -95,10 +96,10 @@ void TexturePanel::refresh() {
             painter.fillRect(x * 4, y * 4, 4, 4, QColor(grey, grey, grey));
         }
     }
-    preview_->setPixmap(icon); preview_->setToolTip("Перетащите сюда своё изображение"); status_->setToolTip({});
-    const char* said[] = {"Перетащите PNG/JPEG сюда или на объект.", "Встроенный шахматный рисунок.", "",
-                          "Встроенная крапинка: серые клетки без периода — по ней стереокамера находит глубину.",
-                          "Встроенный гранит: шум в четыре октавы и вкрапления — выглядит как камень, стерео по нему работает."};
+    preview_->setPixmap(icon); preview_->setToolTip(uiText("Kinetica", "Перетащите сюда своё изображение")); status_->setToolTip({});
+    const char* said[] = {uiText("Kinetica", "Перетащите PNG/JPEG сюда или на объект."), uiText("Kinetica", "Встроенный шахматный рисунок."), "",
+                          uiText("Kinetica", "Встроенная крапинка: серые клетки без периода — по ней стереокамера находит глубину."),
+                          uiText("Kinetica", "Встроенный гранит: шум в четыре октавы и вкрапления — выглядит как камень, стерео по нему работает.")};
     status_->setText(said[kind_->currentIndex()]);
 }
 void TexturePanel::setTexture(const ke::SurfaceTexture& value, const QString& directory, ke::Vector3 size) {
@@ -107,13 +108,14 @@ void TexturePanel::setTexture(const ke::SurfaceTexture& value, const QString& di
     bumpHeight_->setValue(value.bumpHeight > 0 ? value.bumpHeight * 1000 : 1);
     bumpHeight_->setEnabled(value.bumpHeight > 0);
     heightFile_->setText(QString::fromStdString(value.heightFile));
+    normalFile_->setText(QString::fromStdString(value.normalFile));
     fitRepeats_ = 1.0 / std::max(0.0001f, ke::maxComp(size));
     kind_->setCurrentIndex(int(value.kind)); repeats_->setValue(value.repeats);
     file_->setText(QString::fromStdString(value.file)); refresh(); filling_ = false;
 }
 bool TexturePanel::assignImage(const QString& file) {
     if (!validPath(file) || thumbnail(file).isNull()) {
-        status_->setText("Файл не читается. Выберите изображение до 64 Мп без кавычек в пути."); return false;
+        status_->setText(uiText("Kinetica", "Файл не читается. Выберите изображение до 64 Мп без кавычек в пути.")); return false;
     }
     filling_ = true;
     file_->setText(file); kind_->setCurrentIndex(2); repeats_->setValue(fitRepeats_);
@@ -124,6 +126,7 @@ void TexturePanel::writeTo(ke::SurfaceTexture& value) const {
     if (validPath(file_->text())) value.file = file_->text().toStdString();
     value.bumpHeight = bump_->isChecked() ? float(bumpHeight_->value() * 0.001) : 0;
     if (validPath(heightFile_->text())) value.heightFile = heightFile_->text().toStdString();
+    if (validPath(normalFile_->text())) value.normalFile = normalFile_->text().toStdString();
 }
 void TexturePanel::dragEnterEvent(QDragEnterEvent* e) {
     const auto urls = e->mimeData()->urls();

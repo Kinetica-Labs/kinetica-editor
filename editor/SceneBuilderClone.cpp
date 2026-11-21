@@ -1,4 +1,4 @@
-// Shift + gizmo = clone, as in 3ds Max (see SceneBuilder.h). Shift held when a
+// Shift + gizmo = clone (see SceneBuilder.h). Shift held when a
 // gizmo drag starts: the selected objects stay, a copy of each follows the gizmo. When the button is
 // released the popover asks how many copies and of what kind; the copies then repeat the drag's step
 // from the original: copy k is moved and turned k times as the dragged copy was (a move d: d, 2d,
@@ -9,9 +9,9 @@
 //               hidden template, so one number changes how many there are.
 // The drag, the popover and the copies are one undo step; Esc or Отмена leaves the scene as it was.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "scene/SceneActions.h"
-#include "RuPlural.h"
 
 #include <cmath>
 
@@ -71,7 +71,7 @@ uint32_t SceneBuilder::placeClone(uint32_t original, const CloneStep& step, int 
 uint32_t SceneBuilder::cloneAsArray(uint32_t original, const CloneStep& step, int copies) {
     Entity& t = *entityById(original);
     ArrayObject a;
-    a.id = newId();
+    a.id = doc_.newId();
     a.templateId = original;
     a.name = "Массив: " + t.name;
     a.parent = t.parent;
@@ -110,10 +110,10 @@ void SceneBuilder::finishClone(int copies, CloneKind kind) {
     refreshList();
     setSelection(made, made.empty() ? 0 : made.back());
     applyEdit(0);
-    const QString what = kind == CloneKind::Array      ? ruPlural(int(made.size()), "массив", "массива", "массивов")
-                         : kind == CloneKind::Instance ? ruPlural(int(made.size()), "экземпляр", "экземпляра", "экземпляров")
-                                                       : ruPlural(int(made.size()), "копия", "копии", "копий");
-    emit statusMessage("Клонировано: " + what + " · Ctrl+Z — отменить всё сразу");
+    const QString what = kind == CloneKind::Array      ? uiCount(int(made.size()), UiCount::Array)
+                         : kind == CloneKind::Instance ? uiCount(int(made.size()), UiCount::Instance)
+                                                       : uiCount(int(made.size()), UiCount::Copy);
+    emit statusMessage(uiText("Kinetica", "Клонировано: ") + what + uiText("Kinetica", " · Ctrl+Z — отменить всё сразу"));
 }
 
 // Отмена, Esc or a click past the popover: the scene as before the drag, and no undo step for it.
@@ -121,7 +121,7 @@ void SceneBuilder::cancelClone() {
     if (!clonePending_) return;
     clonePending_ = false;
     graph_ = gizmoGraph_;
-    if (!undo_.empty()) undo_.pop_back();
+    doc_.history.pop();
     updateHistoryActions();
     std::vector<uint32_t> originals;
     for (const auto& [original, preview] : cloneOf_) originals.push_back(original);

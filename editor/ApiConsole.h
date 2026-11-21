@@ -1,7 +1,6 @@
 #pragma once
-// The API console - the editor's Info and Python line, as Blender's Info editor, Maya's script editor
-// and 3ds Max's listener echo every action as code. A typed line runs in a Python process of its own
-// (kinetica.console of python/kinetica, as DaVinci Resolve's console runs a Python of the system): the whole object
+// The API console - the editor's Info and Python line: every action is echoed as code. A typed line runs in a
+// Python process of its own (kinetica.console of python/kinetica, a Python of the system): the whole object
 // model - scene, scene.objects["Куб 1"].move(...), loops on one line - connected to this window over its
 // API, so the window stays a client and needs no Python inside; with no Python, a line is one call. Every call of the operator registry (EditorOps)
 // shows up as the Python line that makes it, whoever made it - an agent or a script over the network,
@@ -36,6 +35,8 @@ public:
     // The port of the window's API for the console's Python (MainWindow starts the server when it is not
     // serving; 0: none - a line is then one call).
     void setApiPort(std::function<quint16()> port) { apiPort_ = std::move(port); }
+    // A line a plugin printed (its print(), its traceback): in the log as it comes, under the plugin's name.
+    void pluginLine(const QString& plugin, const QString& line);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;

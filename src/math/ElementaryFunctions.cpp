@@ -1,7 +1,6 @@
 // The elementary functions of ElementaryFunctions.h, built only from + - * /, sqrt and the exact
 // floor, fmod, frexp and ldexp, so IEEE 754 gives the same bits on every machine. Each function
-// reduces its argument to a small interval and sums a Taylor series there (J.-M. Muller,
-// "Elementary Functions: Algorithms and Implementation", 3rd ed., Birkhauser 2016, ch. 11), keeping
+// reduces its argument to a small interval and sums a Taylor series there, keeping
 // the rounding error of the reduction in a second double where it matters. This file is compiled
 // with -ffp-contract=off in every build: a fused multiply-add would change the bits and break the
 // exact products below. The constants are hex literals, which every compiler reads to
@@ -66,15 +65,14 @@ double horner(const double* c, int n, double z) {
     return p;
 }
 
-// s + e = a + b exactly (Knuth, TAOCP vol. 2, 4.2.2, theorem B): no condition on |a|, |b|.
+// s + e = a + b exactly (Knuth's two-sum): no condition on |a|, |b|.
 void twoSum(double a, double b, double& s, double& e) {
     s = a + b;
     const double bb = s - a;
     e = (a - (s - bb)) + (b - bb);
 }
 
-// p + e = a b exactly (T. J. Dekker, "A floating-point technique for extending the available
-// precision", Numer. Math. 18, 1971): Veltkamp's split in two 26-bit halves whose products are
+// p + e = a b exactly (Dekker's product): Veltkamp's split in two 26-bit halves whose products are
 // exact. Needs no fused multiply-add, hence -ffp-contract=off. |a|, |b| < 2^995.
 void twoProduct(double a, double b, double& p, double& e) {
     constexpr double kSplit = 134217729.0; // 2^27 + 1
@@ -84,8 +82,8 @@ void twoProduct(double a, double b, double& p, double& e) {
     e = ((ah * bh - p) + ah * bl + al * bh) + al * bl;
 }
 
-// x = n pi/2 + (y0 + y1), |y0 + y1| <= pi/4 (a hair more), returns n mod 4. Cody & Waite
-// (1980, ch. 8): pi/2 = P0 + P1 + P2 + P3 with P0..P2 of 33 bits, so n Pk is exact for n < 2^20
+// x = n pi/2 + (y0 + y1), |y0 + y1| <= pi/4 (a hair more), returns n mod 4. Cody-Waite
+// reduction: pi/2 = P0 + P1 + P2 + P3 with P0..P2 of 33 bits, so n Pk is exact for n < 2^20
 // and x - n P0 is exact (Sterbenz); twoSum keeps what the next two subtractions round off. Past
 // 2^20 pi/2 (1.6e6 rad, never met in a simulation) x is first cut by the exact fmod with the
 // double nearest 2 pi: the same bits everywhere, the accuracy of a few digits less.
@@ -111,7 +109,7 @@ double sinKernel(double x, double y) {
 }
 
 // cos(x + y) = 1 - x^2/2 + x^4 (C2 + ...) - x y (A&S 4.3.66). w = 1 - x^2/2 rounds; (1 - w) - x^2/2
-// is that rounding error (1 - w is exact by Sterbenz) and goes back in, as in Sun's fdlibm k_cos.c.
+// is that rounding error (1 - w is exact by Sterbenz) and goes back in.
 double cosKernel(double x, double y) {
     const double z = x * x, hz = 0.5 * z, w = 1.0 - hz;
     return w + (((1.0 - w) - hz) + (z * z * horner(kCos, 8, z) - x * y));
@@ -154,7 +152,7 @@ double atanRatio(double n, double d) {
     return atanUnit(q, ql);
 }
 
-// exp(x + xl) for |x| <= kExpMax: x = k ln2 + r, |r| <= ln2/2 (Cody & Waite 1980, ch. 6; ln 2 is a
+// exp(x + xl) for |x| <= kExpMax: x = k ln2 + r, |r| <= ln2/2 (Cody-Waite; ln 2 is a
 // 40-bit head, so k head is exact and x - k head is exact by Sterbenz), e^r by its Taylor series to
 // r^15 (A&S 4.2.1), then 2^k by the exact ldexp. xl carries the low half of pow's product.
 double expParts(double x, double xl) {
@@ -166,7 +164,7 @@ double expParts(double x, double xl) {
 
 // log x = e ln2 + log(1 + f) for x = 2^e (1 + f), sqrt(1/2) <= 1 + f < sqrt(2), f exact. With
 // s = f / (2 + f), log(1 + f) = 2 atanh s = f - f^2/2 + s (f^2/2 + R), R = sum 2 s^2k / (2k + 1)
-// (A&S 4.1.29; the split around f - f^2/2 is that of Sun's fdlibm e_log.c). Returns
+// (A&S 4.1.29). Returns
 // log(1 + f) - f, which is small, and e and f, so callers add the big parts exactly.
 double logParts(double x, int& e, double& f) {
     double m = std::frexp(x, &e);

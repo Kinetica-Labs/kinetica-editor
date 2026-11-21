@@ -7,21 +7,15 @@
 using namespace ke;
 
 bool SceneBuilder::transact(const std::function<bool(SceneGraph&, std::string&)>& change, std::string& error) {
-    SceneGraph before = graph_;
-    remember();
-    graph_.idFloor = nextId_; // the core's new ids never take one this session gave out before
-    if (!change(graph_, error)) {
-        graph_ = std::move(before);
-        if (!undo_.empty()) undo_.pop_back();
+    if (!doc_.transact(change, error, rememberer())) {
+        if (rememberedNow_ && undoGroup_ > 0) undoGroupTaken_ = false; // a group's first edit failed: the next one takes the step
         updateHistoryActions();
         return false;
     }
-    adoptIds();
     pruneSelection();
     refreshList();
     fillInspector();
     applyEdit(0);
-    emit firstAction();
     return true;
 }
 
@@ -39,6 +33,6 @@ bool SceneBuilder::pickShape(const Ray& ray, uint32_t& id, Vector3& point, Vecto
 bool SceneBuilder::loadPaused() {
     if (!editing()) return true;
     if (!loadIntoSimulation()) return false;
-    setMode(Mode::Paused);
+    setMode(Mode::Paused, Mode::Edit);
     return true;
 }

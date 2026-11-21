@@ -1,8 +1,8 @@
 #pragma once
 // An editor's actions as edits of the scene graph - the core every client of the API calls: the
 // editor's buttons and its operations (EditorOps), a script over the API, an agent over MCP. Add a shape, a light, a camera; delete, duplicate, group, ungroup, make an array,
-// show everything; give or take a role; move, turn and scale objects (what a gizmo drag does). As
-// Blender's operators sit in its kernel and the window only calls them, the same call here makes the
+// show everything; give or take a role; move, turn and scale objects (what a gizmo drag does). The
+// logic sits in this core and the window only calls it, so the same call makes the
 // same scene to the bit whoever calls it.
 //
 // The objects are always named by id: which ones are selected is the client's business. New ids come
@@ -10,6 +10,7 @@
 // given out. Each function is one edit; undo is the client's (it keeps the graph from before).
 #include "scene/SceneGraph.h"
 
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -25,6 +26,7 @@ void setRole(Entity& e, Role r, bool on); // the component alone, nothing else c
 // The names new objects get, in Russian as the scene file keeps them: "Куб", "Солнце".
 const char* shapeTitle(ShapeKind k);
 const char* lightTitle(LightKind k);
+const char* forceTitle(ForceShape shape, ForceMode mode); // «Толчок», «Взрыв», «Тяга», «Притяжение»
 
 // The hierarchy: the object, its parent, its parent's parent... (a cycle ends it); whether `id` is
 // `ancestor` or inside it; the objects whose parent it is; of `ids`, those not inside another of them
@@ -34,16 +36,25 @@ bool isInside(const SceneGraph& g, uint32_t id, uint32_t ancestor);
 std::vector<uint32_t> childrenOf(const SceneGraph& g, uint32_t id);
 std::vector<uint32_t> topmost(const SceneGraph& g, const std::vector<uint32_t>& ids);
 uint32_t masterOf(const SceneGraph& g, uint32_t entity);
-// The world box of what the object shows (its shapes, an array's copies; a light or a camera: 0.3 m
-// around it). Invalid when it shows nothing.
-AABB objectBounds(const SceneGraph& g, uint32_t id);
+// The object an array's copy is drawn for: its array (an ordinary id is its own; 0: no such array).
+uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId);
+// The world box of what the object shows (its shapes, an array's copies; a light, a camera or a force: 0.3 m
+// around it). Invalid when it shows nothing. entityBox: a shape's box as a viewer knows it (a model's
+// mesh it has loaded); empty, the core's own estimate.
+AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(const Entity&)>& entityBox = {});
 AABB sceneBounds(const SceneGraph& g); // the visible shapes one can edit (not a locked floor)
 
 // New objects: their id.
 uint32_t addShape(SceneGraph& g, ShapeKind shape);  // "Куб 2": 0.8 m over a free spot of the floor
 uint32_t addLight(SceneGraph& g, LightKind kind, const Vector3& at); // the sun high at a slant over `at`
 uint32_t placeLight(SceneGraph& g, LightKind kind, const Vector3& position, const Vector3& target); // at `position`, shining at `target`
+uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3& at); // the kind's defaults, standing at `at`
 uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre); // at `eye`, looking at `centre`
+// A camera made a target camera (SceneGraph.h): it looks at object `target` always, or (0) at `point`, or (neither) at
+// the point it looks at now; its stored turn follows, so set free again it keeps looking there. False: no such camera,
+// or the target is no object (or the camera itself).
+bool aimCamera(SceneGraph& g, uint32_t camera, uint32_t target, const Vector3* point);
+bool freeCamera(SceneGraph& g, uint32_t camera); // a free camera again, looking where it looked
 
 // The objects with everything under them, the joints that lose a link, the sensors on them; an
 // array whose template goes; batteries and drivers named in `ids`.

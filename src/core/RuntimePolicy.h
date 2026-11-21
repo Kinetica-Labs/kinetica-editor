@@ -20,7 +20,7 @@ public:
 
     struct Limits {
         double maxFps = 60;
-        double idleTimeoutMs = 60000;
+        double idleTimeoutMs = 300000; // 5 min: a model thinks between calls; a minute ended its editor mid-thought
         uint32_t maxBackgroundTasks = 2;
     };
     struct Usage {

@@ -1,3 +1,16 @@
+<p align="center">
+  <img src="docs/images/kinetica-editor-logo.png" alt="Kinetica Editor" width="700">
+</p>
+
+<p align="center"><b>Редактор робототехники: собрать робота, оживить физикой, записать и повторить — руками, кодом или ИИ-агентом</b></p>
+
+<p align="center">
+  <a href="https://github.com/Kinetica-Labs/kinetica-editor/releases/latest">Скачать</a> ·
+  <a href="https://kinetica-labs.github.io/kinetica-docs/">Руководство в картинках · Guide</a> ·
+  <a href="docs/contracts/README.md">Контракты и плагины</a> ·
+  <a href="docs/constitution.md">Конституция</a>
+</p>
+
 # Kinetica Editor
 
 Редактор робототехники на C++17 и Qt 6: рука-манипулятор, дрон, колёсный робот, их суставы, приводы и
@@ -6,11 +19,20 @@
 ([docs/box3d-backend.md](docs/box3d-backend.md)).
 
 Каждое действие в окне — операция API и строка Python в консоли: то же самое делают скрипт и ИИ-агент
-по сети (`--api`, MCP). Плагины пишутся по контрактам [docs/contracts](docs/contracts/README.md).
+по сети (`--api`, MCP). **Скрипты** — сцена кодом: файл Python строит или меняет сцену и
+заканчивается («Файл → Выполнить скрипт…», `--script`; примеры — `examples/scripts/`, руководство —
+[docs/scripts.md](docs/scripts.md)). **Плагины** остаются в редакторе и дают ему новые умения: один файл на
+Python, `@command` становится кнопкой, строкой консоли и инструментом MCP для ИИ-агента; сохранили —
+перезапустился ([docs/plugins.md](docs/plugins.md), контракты — [docs/contracts](docs/contracts/README.md)).
+Плагины проекта — в отдельном репозитории kinetica-plugins.
+
+Вторая программа — `kinetica-core`, та же сцена и те же операции без окна: `ke.Scene()` в Python
+(`python3 examples/python/01_hello.py` — первая из девяти ступеней: от падающего куба до дрона и анимации, `docs/scripts.md`) или `ke::Scene` в C++ (`examples/cpp/hello.cpp`); начать с неё —
+[docs/scripts.md](docs/scripts.md), «Без окна».
 
 Состояние: готовы ядро, модель сцены робота, физика на Box3D, мир робота с суставами, приводами и целями
 ИК, всё окно редактора. Пример — UR5e с целью ИК, схватом и кубиками (`examples/ur5e.kscene`).
-Дальше: SDK плагинов, датчики в живом мире, импорт URDF/SDF, стерео, дрон.
+Дальше: панели и компоненты плагинов, датчики в живом мире, импорт URDF/SDF, стерео, дрон.
 
 ## Готовая программа
 
@@ -71,13 +93,21 @@ C:\Qt\6.7.3\msvc2019_64\bin\windeployqt build\Release\kinetica.exe   # библ�
 
 ## Запуск и проверка
 
+Язык окна выбирается в **Настройки → Язык** (**Settings → Language**). Редактор сохраняет выбор, сам перезапускается
+и открывает текущую сцену вместе с несохранёнными правками. Для разового запуска на английском используйте `build/kinetica --language en`.
+Каталог английских подписей лежит в `translations/kinetica_en.ts`. После изменения исходных строк
+обновите его командой `cmake --build build --target update_translations`.
+
 ```sh
 build/kinetica --scene examples/ur5e.kscene   # окно со сценой UR5e (Windows: build\Release\kinetica.exe)
 build/ke_tests                                # тесты ядра
 build/kinetica --self-test                    # самотест окна: жмёт кнопки, тащит гизмо; код выхода = ошибки
+build/kinetica-core --version                 # программа без окна; python3 examples/python/01_hello.py
 ```
 
 Скрипты и ИИ-агенты: `build/kinetica --api 47801` слушает API на 127.0.0.1 (JSON по строке на вызов).
 Клиент на Python — `tools/ke_editor.py`, сервер MCP для агентов — `tools/ke_editor_mcp.py` (подключён в `.mcp.json`).
 
 Лицензия — MIT ([LICENSE](LICENSE)); чужой код и его лицензии — [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+<p align="center"><img src="docs/images/kinetica-labs.png" alt="Kinetica Labs" width="200"></p>

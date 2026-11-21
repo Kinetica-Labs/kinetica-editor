@@ -1,11 +1,14 @@
 // The inspector's building blocks (see InspectorWidgets.h).
 #include "InspectorWidgets.h"
+#include "UiLanguage.h"
 
 #include <QBoxLayout>
+#include <QButtonGroup>
 #include <QCheckBox>
 #include <QComboBox>
 #include <QFormLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QSlider>
 #include <QSignalBlocker>
@@ -132,7 +135,7 @@ ComponentCard::ComponentCard(const QString& title, const QIcon& icon, QWidget* p
     remove_ = new QToolButton;
     remove_->setText(QString(QChar(0x2715))); // ✕
     remove_->setObjectName("cardRemove");
-    remove_->setToolTip("Убрать компонент «" + title + "»");
+    remove_->setToolTip(uiText("Kinetica", "Убрать компонент «") + title + "»");
     connect(remove_, &QToolButton::clicked, this, &ComponentCard::removeClicked);
     top->addWidget(header_, 1);
     top->addWidget(remove_);
@@ -185,6 +188,7 @@ void InlineBanner::clearMessage() {
 
 FieldForm::FieldForm(std::function<void(bool)> edited, QWidget* parent) : QWidget(parent), layout_(new QFormLayout(this)), edited_(std::move(edited)) {
     layout_->setContentsMargins(0, 0, 0, 0);
+    layout_->setSpacing(6);
 }
 
 FieldForm& FieldForm::add(const QString& label, Row row) {
@@ -195,18 +199,46 @@ FieldForm& FieldForm::add(const QString& label, Row row) {
     return *this;
 }
 
-void FieldForm::report(size_t k, double value, bool click) {
+std::vector<double> FieldForm::Row::read() const {
+    if (getVector) {
+        const ke::Vector3 v = getVector();
+        return {double(v.x), double(v.y), double(v.z)};
+    }
+    return get ? std::vector<double>{get()} : std::vector<double>{};
+}
+
+void FieldForm::report(size_t k, double value, bool click, int axis) {
     if (filling_) return;
-    Row& r = rows_[k];
-    r.set(qobject_cast<QComboBox*>(r.widget) ? r.values[size_t(value)] : value / (r.unit ? r.unit().scale : 1));
+    const Row& r = rows_[k];
+    last_ = {k, axis, qobject_cast<QComboBox*>(r.widget) ? r.values[size_t(value)] : value / (r.unit ? r.unit().scale : 1)};
+    repeat();
     edited_(click);
     texts();
+}
+
+void FieldForm::repeat() const {
+    if (last_.row >= rows_.size()) return;
+    const Row& r = rows_[last_.row];
+    if (!r.setVector) return r.set(last_.value);
+    ke::Vector3 v = r.getVector();
+    v[last_.axis] = ke::Real(last_.value);
+    r.setVector(v);
 }
 
 FieldForm& FieldForm::number(const QString& label, double min, double max, double step, int decimals, Get get, Set set) {
     QDoubleSpinBox* s = makeSpin(min, max, step, decimals);
     connect(s, &QDoubleSpinBox::valueChanged, this, [this, k = rows_.size()](double v) { report(k, v, false); });
     return add(label, {s, step, std::move(get), std::move(set)});
+}
+
+FieldForm& FieldForm::vector(const QString& label, double min, double max, double step, int decimals, GetVector get, SetVector set) {
+    auto* v = new Vec3Row(min, max, step, decimals);
+    for (int axis = 0; axis < 3; ++axis) // an edit is the one number typed: with several selected the other two stay each its own
+        connect(v->spin(axis), &QDoubleSpinBox::valueChanged, this, [this, k = rows_.size(), axis](double x) { report(k, x, false, axis); });
+    Row r{v, step};
+    r.getVector = std::move(get);
+    r.setVector = std::move(set);
+    return add(label, std::move(r));
 }
 
 FieldForm& FieldForm::toggle(const QString& label, Get get, Set set) {
@@ -231,6 +263,27 @@ FieldForm& FieldForm::choice(const QString& label, const QStringList& items, Get
     }, std::move(get), std::move(set));
 }
 
+FieldForm& FieldForm::tiles(const std::vector<Tile>& tiles, int iconSize, Get get, Set set) {
+    auto* row = new QWidget;
+    auto* line = new QHBoxLayout(row);
+    line->setContentsMargins(0, 0, 0, 0);
+    line->setSpacing(3);
+    auto* group = new QButtonGroup(row);
+    for (const Tile& t : tiles) {
+        auto* b = new QToolButton;
+        b->setCheckable(true);
+        b->setIcon(t.icon);
+        b->setIconSize(QSize(iconSize, iconSize));
+        b->setToolTip(t.tip);
+        if (!t.text.isEmpty()) b->setText(t.text), b->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
+        group->addButton(b, group->buttons().size());
+        line->addWidget(b);
+    }
+    line->addStretch(1);
+    connect(group, &QButtonGroup::idClicked, this, [this, k = rows_.size()](int i) { report(k, i, true); });
+    return add({}, {row, 0, std::move(get), std::move(set)});
+}
+
 FieldForm& FieldForm::slider(const QString& label, int min, int max, Get get, Set set, int detent) {
     auto* row = new QWidget;
     auto* line = new QHBoxLayout(row);
@@ -252,6 +305,19 @@ FieldForm& FieldForm::slider(const QString& label, int min, int max, Get get, Se
     return add(label, std::move(r));
 }
 
+FieldForm& FieldForm::text(const QString& label, Text get, std::function<void(const QString&)> set) {
+    auto* line = new QLineEdit;
+    connect(line, &QLineEdit::editingFinished, this, [this, line, set = std::move(set)] {
+        if (filling_ || !line->isModified()) return; // left as it was: no edit
+        line->setModified(false);
+        set(line->text());
+        edited_(true);
+    });
+    Row row{line};
+    row.words = std::move(get);
+    return add(label, std::move(row));
+}
+
 FieldForm& FieldForm::note(Text text) {
     auto* words = new QLabel;
     words->setWordWrap(true);
@@ -264,11 +330,19 @@ FieldForm& FieldForm::unit(std::function<Unit()> unit) { return rows_.back().uni
 FieldForm& FieldForm::unit(const QString& suffix, double scale) { return unit([=] { return Unit{suffix, scale}; }); }
 FieldForm& FieldForm::shown(std::function<bool()> shown) { return rows_.back().shown = std::move(shown), *this; }
 FieldForm& FieldForm::label(Text text) { return rows_.back().text = std::move(text), *this; }
-FieldForm& FieldForm::name(const QString& objectName) { return rows_.back().input->setObjectName(objectName), *this; }
 FieldForm& FieldForm::tip(const QString& text) { return rows_.back().input->setToolTip(text), *this; }
+
+FieldForm& FieldForm::name(const QString& objectName) {
+    rows_.back().input->setObjectName(objectName);
+    for (QToolButton* b : rows_.back().widget->findChildren<QToolButton*>()) b->setObjectName(objectName);
+    return *this;
+}
 
 void FieldForm::texts() {
     for (Row& r : rows_) {
+        auto* box = qobject_cast<QComboBox*>(r.widget);
+        if (const auto options = box && r.options ? r.options() : std::vector<Option>(); int(options.size()) == (box ? box->count() : -1))
+            for (int i = 0; i < box->count(); ++i) box->setItemText(i, options[size_t(i)].text); // a choice's words follow an edit too
         if (!r.text) continue;
         if (auto* box = qobject_cast<QCheckBox*>(r.widget)) box->setText(r.text());
         else if (auto* words = qobject_cast<QLabel*>(r.widget)) words->setText(r.text());
@@ -276,28 +350,69 @@ void FieldForm::texts() {
     }
 }
 
-void FieldForm::fill() {
-    filling_ = true;
-    for (Row& r : rows_) {
-        const Unit u = r.unit ? r.unit() : Unit{};
-        if (auto* s = qobject_cast<QSlider*>(r.input)) {
-            s->setValue(int(std::lround(r.get() * u.scale)));
-            r.widget->findChild<QLabel*>()->setText(QString::number(s->value()) + u.suffix);
+void FieldForm::fill(int count, const std::function<void(int)>& load) {
+    std::vector<std::vector<double>> first(rows_.size());
+    std::vector<std::vector<bool>> mixed(rows_.size());
+    for (int i = count - 1; i >= 0; --i) { // the active one last: the fields read it when shown
+        if (load) load(i);
+        for (size_t k = 0; k < rows_.size(); ++k) {
+            const std::vector<double> v = rows_[k].read();
+            if (i == count - 1) first[k] = v, mixed[k].assign(v.size(), false);
+            for (size_t a = 0; a < v.size(); ++a) mixed[k][a] = mixed[k][a] || v[a] != first[k][a];
         }
-        else if (auto* s = qobject_cast<QDoubleSpinBox*>(r.widget)) {
-            s->setSuffix(u.suffix);
-            s->setSingleStep(u.step > 0 ? u.step : r.step);
-            s->setValue(r.get() * u.scale);
-        } else if (auto* box = qobject_cast<QCheckBox*>(r.widget)) box->setChecked(r.get() != 0);
-        else if (auto* box = qobject_cast<QComboBox*>(r.widget)) {
-            box->clear();
-            r.values.clear();
-            for (const Option& o : r.options()) box->addItem(o.text), r.values.push_back(o.value);
-            const auto at = std::find(r.values.begin(), r.values.end(), r.get());
-            box->setCurrentIndex(at == r.values.end() ? 0 : int(at - r.values.begin()));
-        }
-        layout_->setRowVisible(r.widget, !r.shown || r.shown());
     }
+    filling_ = true;
+    clearMixed(this);
+    for (Row& r : rows_) show(r);
     texts();
+    for (size_t k = 0; k < rows_.size(); ++k) showMixed(rows_[k], mixed[k]);
     filling_ = false;
+}
+
+void FieldForm::show(Row& r) {
+    const Unit u = r.unit ? r.unit() : Unit{};
+    if (auto* s = qobject_cast<QSlider*>(r.input)) {
+        s->setValue(int(std::lround(r.get() * u.scale)));
+        r.widget->findChild<QLabel*>()->setText(QString::number(s->value()) + u.suffix);
+    } else if (auto* s = qobject_cast<QDoubleSpinBox*>(r.widget)) {
+        s->setSuffix(u.suffix);
+        s->setSingleStep(u.step > 0 ? u.step : r.step);
+        s->setValue(r.get() * u.scale);
+    } else if (auto* v = qobject_cast<Vec3Row*>(r.widget)) {
+        v->setValue(r.getVector());
+    } else if (auto* line = qobject_cast<QLineEdit*>(r.widget)) {
+        line->setText(r.words());
+        line->setModified(false);
+    } else if (auto* box = qobject_cast<QCheckBox*>(r.widget)) {
+        box->setChecked(r.get() != 0);
+    } else if (auto* box = qobject_cast<QComboBox*>(r.widget)) {
+        box->clear();
+        r.values.clear();
+        for (const Option& o : r.options()) box->addItem(o.text), r.values.push_back(o.value);
+        const auto at = std::find(r.values.begin(), r.values.end(), r.get());
+        box->setCurrentIndex(at == r.values.end() ? 0 : int(at - r.values.begin()));
+    } else if (auto* group = r.widget->findChild<QButtonGroup*>()) {
+        if (QAbstractButton* b = group->button(int(r.get()))) b->setChecked(true);
+    }
+    layout_->setRowVisible(r.widget, !r.shown || r.shown());
+}
+
+// "—" where the selected things differ: a number or one of three, a checkbox unchecked saying so, no tile pressed.
+void FieldForm::showMixed(Row& r, const std::vector<bool>& mixed) {
+    for (size_t a = 0; a < mixed.size(); ++a) {
+        if (!mixed[a]) continue;
+        if (auto* v = qobject_cast<Vec3Row*>(r.widget)) ::showMixed(v->spin(int(a)));
+        else if (auto* s = qobject_cast<QDoubleSpinBox*>(r.widget)) ::showMixed(s);
+        else if (auto* box = qobject_cast<QCheckBox*>(r.widget)) {
+            box->setProperty("realText", box->text());
+            box->setText(box->text() + uiText("Kinetica", "  (—: у всех разное)"));
+            box->setChecked(false);
+        } else if (auto* box = qobject_cast<QComboBox*>(r.widget)) {
+            box->setCurrentIndex(-1);
+        } else if (auto* group = r.widget->findChild<QButtonGroup*>()) {
+            group->setExclusive(false);
+            for (QAbstractButton* b : group->buttons()) b->setChecked(false);
+            group->setExclusive(true);
+        }
+    }
 }

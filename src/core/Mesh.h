@@ -15,7 +15,7 @@ struct TriMesh {
     std::vector<Vector3> positions;
     std::vector<std::array<uint32_t, 3>> triangles;
     // A colour a triangle, linear RGB 0..1 - a model's materials (an OBJ's vertex colours "v x y z r g b"); empty: the
-    // whole mesh takes its object's colour. Kept by weld, removeDegenerate and append; a viewer uses it only when there
+    // whole mesh takes its object's colour. Kept by weld and removeDegenerate; a viewer uses it only when there
     // is one a triangle (an operation that remakes the triangles drops it).
     std::vector<Vector3> triangleColors;
     bool coloured() const { return !triangleColors.empty() && triangleColors.size() == triangles.size(); }
@@ -29,7 +29,6 @@ struct TriMesh {
     // sliver triangle cannot report a convex mesh as concave.
 
 
-    void append(const TriMesh& other);
     void transform(const Matrix3x3& R, const Vector3& scale, const Vector3& translation); // p' = R*(scale*p)+t
     void translate(const Vector3& t);
     void flipWinding();

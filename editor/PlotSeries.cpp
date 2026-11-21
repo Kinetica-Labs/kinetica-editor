@@ -23,7 +23,6 @@ void PlotSeries::clear() {
     t_.clear();
     v_.clear();
     begin_ = 0;
-    thinnedUntil_ = -std::numeric_limits<double>::infinity();
 }
 
 // The bounds, after every sample:
@@ -48,7 +47,6 @@ void PlotSeries::trim() {
 // The samples before `end`, 4 at a time, become 2: the lowest and the highest, in the order they came.
 // A group with a gap in it stays as it is (gaps are rare: a channel that stopped being measured).
 void PlotSeries::thinOld(size_t end) {
-    if (end > begin_) thinnedUntil_ = std::max(thinnedUntil_, t_[end - 1]);
     size_t out = begin_, i = begin_;
     for (; i + 4 <= end; i += 4) {
         size_t lo = i, hi = i;
@@ -82,8 +80,4 @@ double PlotSeries::latest() const {
 double PlotSeries::valueAt(double t) const {
     const size_t after = size_t(std::upper_bound(t_.begin() + std::ptrdiff_t(begin_), t_.end(), t) - t_.begin());
     return after > begin_ ? v_[after - 1] : std::nan("");
-}
-
-size_t PlotSeries::firstRaw() const {
-    return size_t(std::upper_bound(t_.begin() + std::ptrdiff_t(begin_), t_.end(), thinnedUntil_) - t_.begin()) - begin_;
 }

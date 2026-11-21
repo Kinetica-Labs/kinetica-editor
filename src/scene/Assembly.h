@@ -1,5 +1,5 @@
 #pragma once
-// Assembling a mechanism out of shapes, as the assembly of a CAD program does it: a shape put flat
+// Assembling a mechanism out of shapes, by assembly: a shape put flat
 // against a face of another - the editor's "magnet": the six faces of a box are the six directions
 // a link can grow in - and a joint between the two at that face (a hinge, a slider, a ball, a weld).
 // These are plain edits of a SceneGraph, no physics involved: the editor's buttons and an agent that
@@ -44,6 +44,8 @@ Vector3 snapAxis(const FaceSnap& s, int axis);
 // A joint between two entities (b = 0: the world) at a world point along a world direction - written
 // into b's frame (JointObject). Returns its id.
 uint32_t addJoint(SceneGraph& g, JointType type, uint32_t a, uint32_t b, const Vector3& worldAnchor, const Vector3& worldAxis);
+// A joint put anew at a world point along a world axis, its links where they stand (the card's «Ось» and «Точка оси»).
+void placeJoint(const SceneGraph& g, JointObject& j, const Vector3& worldAnchor, const Vector3& worldAxis);
 const JointObject* findJoint(const SceneGraph& g, uint32_t id);
 // The joints that hold the entity (as a or b) go, as when the entity is deleted. Returns how many.
 int removeJointsOf(SceneGraph& g, uint32_t entity);
@@ -51,7 +53,7 @@ int removeJointsOf(SceneGraph& g, uint32_t entity);
 void jointWorldFrames(const SceneGraph& g, const JointObject& j, Vector3& originA, Quaternion& frameA, Vector3& originB, Quaternion& frameB);
 // Frame b's origin and x axis in the world: where the joint is and what it turns about (slides along).
 void jointWorldFrame(const SceneGraph& g, const JointObject& j, Vector3& anchor, Vector3& axis);
-// The six coordinates at the graph's poses (GenericJoint.h: travel, then turns of frame a from b).
+// The six coordinates at the graph's poses (JointModel.h: travel, then turns of frame a from b).
 void jointCoordinates(const SceneGraph& g, const JointObject& j, Real out[6]);
 // The joint's main freedom - the turn about x when free, else the first free one (-1: a weld) - and
 // its coordinate: a hinge's angle [rad], a slider's travel [m].
@@ -108,7 +110,7 @@ Attached attachToFace(SceneGraph& g, uint32_t target, BoxFace face, const Entity
 // A sensor put on a body at a place found by a snap (SensorObject: a child of what carries it), named
 // by its kind and number. A sonar looks out of the face: its x along the normal. An IMU lies flat on
 // it as a chip on a board: its z out of the face, its x along the face's first direction across - on
-// a top face at rest it reads +g on z, as an MPU-6050 on a table does. Returns its id (0: no place).
+// a top face at rest it reads +g on z, as an IMU on a table does. Returns its id (0: no place).
 uint32_t attachSensor(SceneGraph& g, uint32_t target, const FaceSnap& at, SensorKind kind);
 // An encoder on a joint's main freedom (rx of a hinge, tx of a slider), `lines` a turn (or a metre) - or
 // on a point wheel (WheelObject), counting its turns.
@@ -146,7 +148,7 @@ bool presetFromWord(const std::string& word, LinkPreset& p);
 // How a preset is put: `axis` (0, 1, 2 as snapAxis; -1: the preset's own) turns a copied link's joint -
 // the hinge of Hinge and Elbow, the slide of Shock (a wheel always turns about the normal); `flip`
 // reverses the joint's axis; `mirror` puts the same link mirrored on the other side of the target too -
-// across its middle plane parallel to the face - driven the mirrored way (Kerbal's symmetry: two legs,
+// across its middle plane parallel to the face - driven the mirrored way (two legs,
 // two wheels, two arms in one click). A car is mirrored already.
 struct PresetOptions {
     int axis = -1;
@@ -156,10 +158,9 @@ struct PresetOptions {
 std::vector<Attached> applyPreset(SceneGraph& g, uint32_t target, const FaceSnap& at, LinkPreset p, const PresetOptions& o = {});
 // The place mirrored across the target's middle plane parallel to the face (the opposite face of a box).
 FaceSnap mirroredPlace(const SceneGraph& g, uint32_t target, const FaceSnap& at);
-// Modules (AssemblyPresets.cpp): a working unit put on a body in one call - as a Prefab in Unity, a part in
-// Kerbal, a component in Fusion - made of the same links, joints, sensors and electrics as by hand, so its
+// Modules (AssemblyPresets.cpp): a working unit put on a body in one call, made of the same links, joints, sensors and electrics as by hand, so its
 // physics is full. A module is placed by meaning: at a side of the body in the body's own frame - forward
-// +x, up +y, left -z (ROS's x forward, y left, z up, turned to y up) - and its parts are named by that
+// +x, up +y, left -z - and its parts are named by that
 // side ("Колесо спереди слева"), so a scene reads as what it is.
 enum class Side { FrontLeft, FrontRight, RearLeft, RearRight, Left, Right };
 constexpr int kSides = 6;

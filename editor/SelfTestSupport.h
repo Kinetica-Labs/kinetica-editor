@@ -9,6 +9,8 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+
+#include <functional>
 #include <QMainWindow>
 #include <QMouseEvent>
 #include <QPainter>
@@ -18,7 +20,11 @@
 #include <algorithm>
 #include <cstdio>
 
+class EditorOps;
+
 namespace selftest {
+
+inline const ke::Entity* entity(const SceneBuilder& b, uint32_t id) { return ke::findEntity(b.graph(), id); }
 
 struct Checker {
     int failures = 0;
@@ -37,6 +43,15 @@ inline void pump(int ms) {
         QCoreApplication::processEvents(QEventLoop::AllEvents, 10);
         QThread::msleep(2);
     } while (t.elapsed() < ms);
+}
+
+// Lets the window work until `done` holds, at most `ms`: a check waits for what it checks, not for a guessed time - a
+// busy machine (a build beside it) is slower, not wrong.
+inline bool waitUntil(const std::function<bool()>& done, int ms) {
+    QElapsedTimer t;
+    t.start();
+    while (!done() && t.elapsed() < ms) pump(20);
+    return done();
 }
 
 // Presses the role button with this label (the role bar's own button, as a mouse click would).
@@ -63,6 +78,20 @@ inline QPointF toPoint(const ke::Vector2& p) { return QPointF(p.x, p.y); }
 
 // The whole window as it is on the screen: a widget grab draws the 3D view without its painted
 // overlay (the caption, the navigation cube, the selection box), so the view's own frame is laid over it.
+// A drag of the gizmo's X arrow from 60 % of its length by `metres` along X, with these keys held
+// from the press to the release (Shift: a clone; Ctrl: steps of 0.1 m, so the distance is exact).
+inline void dragArrowX(Viewport* v, float metres, Qt::KeyboardModifiers keys) {
+    const GizmoView gv = v->gizmoView();
+    const Gizmo& g = v->gizmo();
+    const ke::Vector3 grab = g.position() + g.axis(0) * (0.6f * g.armLength(gv));
+    const QPointF from = toPoint(gv.project(grab)), to = toPoint(gv.project(grab + ke::Vector3(metres, 0, 0)));
+    sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton, keys);
+    for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton, keys);
+    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton, keys);
+    pump(60);
+}
+
 inline QImage windowShot(QMainWindow& w) {
     QImage shot = w.grab().toImage();
     if (auto* v = w.findChild<Viewport*>()) {
@@ -71,6 +100,13 @@ inline QImage windowShot(QMainWindow& w) {
         for (QWidget* c : v->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly)) // the play banner, ▶ ⏸ ■
             if (c->isVisible()) c->render(&p, c->mapTo(&w, QPoint(0, 0)), QRegion(), QWidget::DrawChildren); // rounded: no square backdrop
     }
+    return shot;
+}
+
+inline QImage windowWithPopup(QMainWindow& w, QWidget* popup) {
+    QImage shot = windowShot(w);
+    QPainter p(&shot);
+    p.drawPixmap(w.mapFromGlobal(popup->pos()), popup->grab());
     return shot;
 }
 
@@ -121,6 +157,8 @@ inline bool waitFrames(Viewport* v, uint64_t frames, int timeoutMs) {
     return false;
 }
 
+inline bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
+
 } // namespace selftest
 
 // The component tests and their screenshots (SelfTestComponents.cpp): the inspector's cards, the
@@ -128,16 +166,21 @@ inline bool waitFrames(Viewport* v, uint64_t frames, int timeoutMs) {
 int runComponentTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // The keys and the mouse of the edit mode (SelfTestControls.cpp).
 int runControlTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
-// Shapes drawn with the mouse, as in 3ds Max: footprint, height, click (SelfTestCreate.cpp).
+// Shapes drawn with the mouse: footprint, height, click (SelfTestCreate.cpp).
 int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Many objects at once: Shift-clone, instances, arrays, groups, multi-edit (SelfTestMany.cpp).
 int runManyTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Lights and cameras: made, picked, moved, lighting a cube, looked through (SelfTestLights.cpp).
 int runLightTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
+// Forces: «Сила ▾», their card, marks and «Сработать» (SelfTestForces.cpp).
+int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
+int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir); // SelfTestSequencer.cpp
+int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestPlugins.cpp
+int runScriptTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestScripts.cpp: script_run
 // The play-mode pass: the top bar's widths, the same look in play, the banner, K, Ctrl+K, the
 // orbit pivot, the blank-window check (SelfTestPlay.cpp).
 int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
-// The layout buttons of the top bar, as in VS Code (SelfTestLayout.cpp).
+// The layout buttons of the top bar (SelfTestLayout.cpp).
 int runLayoutTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Shadows by the checkbox: a spotlight's and a lamp's shadow on the floor, on and off, the budget,
 // the checkbox through undo and a saved file (SelfTestShadows.cpp).
@@ -157,11 +200,10 @@ int runShaderTests(Viewport*);
 int runBumpTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 // The «Мир» tab: the world's settings through the panel, undo and the scene file (SelfTestWorld.cpp).
 int runWorldTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
+// The core's JSON text against Qt's, byte for byte and tree for tree (SelfTestHosts.cpp).
+int runWireParityTests();
 
 // The IK goal dragged by its gizmo while the scene plays (SelfTestGoal.cpp).
 int runGoalTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 // The journal as a way back: a session restored to the bit, to a line, a crash found (SelfTestJournal.cpp).
 int runJournalTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
-
-// Research: exact histograms, body selection and the simulation's recorded measurements.
-int runResearchTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);

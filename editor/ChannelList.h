@@ -30,6 +30,7 @@ class ChannelList : public QFrame {
     Q_OBJECT
 public:
     enum class Mode { Chart, Checklist };
+    enum class Preset { Energy, Engine, Reset };
 
     // One row of the list.
     struct Row {
@@ -60,14 +61,13 @@ public:
     // For the self-test.
     QLineEdit* search() const { return search_; }
     QTreeWidget* tree() const { return tree_; }
-    std::vector<std::string> visibleChannels() const; // the rows the filter lets through, top to bottom
     QTreeWidgetItem* rowOf(const std::string& id) const;
     std::vector<QString> shownTexts() const;          // every word the open list shows
 
 signals:
     void chosen(std::string id);
     void toggled(std::string id, bool on);
-    void presetChosen(QString name);
+    void presetChosen(Preset preset);
 
 private:
     void applyFilter();

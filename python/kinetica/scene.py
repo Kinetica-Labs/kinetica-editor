@@ -7,12 +7,13 @@
 """
 import json
 
-from . import blocks
 from .client import Client
-from .objects import (Battery, Body, Controller, Driver, Effort, Encoder, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
+from .core import Core
+from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Light, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench,
+                      _axis,
                       _q, _t)
 
-_KINDS = {"entity": Body, "group": Group, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller}
+_KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller, "force": Force, "light": Light}
 _SENSORS = {"encoder": Encoder, "imu": Imu, "sonar": Sonar, "touch": Touch, "wrench": Wrench, "effort": Effort, "stereo": Sensor}
 
 
@@ -33,8 +34,8 @@ class Objects:
     def _wrap(self, row):
         kind, id = row["kind"], row["id"]
         if kind == "sensor":
-            text = self._scene._call("scene_get", id=id)["text"]
-            word = next((w for w in _SENSORS if blocks.line(text, w)), "encoder")
+            have = {words[0] for words in self._scene._call("scene_get", id=id)["lines"]}
+            word = next((w for w in _SENSORS if w in have), "encoder")
             return _SENSORS[word](self._scene, id)
         return _KINDS.get(kind, SceneObject)(self._scene, id)
 
@@ -46,6 +47,10 @@ class Objects:
 
     def __iter__(self):
         return iter([self._wrap(row) for row in self._list()])
+
+    def tagged(self, word):
+        """The objects marked with the tag: ``for o in scene.objects.tagged("target"): ...``"""
+        return [self._wrap(row) for row in self._scene._call("scene_list", tag=word)["objects"]]
 
     def __len__(self):
         return len(self._list())
@@ -60,22 +65,16 @@ class World:
     def __init__(self, scene):
         self._scene = scene
 
-    def _text(self):
-        return self._scene._call("world_get")["text"]
+    def _get(self, line, key, count=1):
+        values = self._scene._call("world_get", line=line, key=key, count=count)["values"]
+        return values[0] if count == 1 else tuple(values)
 
     def _put(self, line, key, values, py):
-        words = []
-        for text in self._text().splitlines():
-            parts = text.split()
-            if parts and parts[0] == line and key in parts:
-                at = parts.index(key) + 1
-                parts[at:at + len(values)] = [str(v) for v in values]
-            words.append(" ".join(parts))
-        self._scene._call("world_set", py, text="\n".join(words) + "\n")
+        self._scene._call("world_set", py, line=line, key=key, values=values)
 
     @property
     def gravity(self):
-        return blocks.value("world\n" + self._text(), "world", "gravity", 3)
+        return self._get("world", "gravity", 3)
 
     @gravity.setter
     def gravity(self, g):
@@ -84,16 +83,25 @@ class World:
     @property
     def size(self):
         """The box everything lives in, m (the floor at y = 0, the walls at +-x/2, +-z/2)."""
-        return blocks.value("world\n" + self._text(), "world", "size", 3)
+        return self._get("world", "size", 3)
 
     @size.setter
     def size(self, s):
         self._put("world", "size", list(s), f"scene.world.size = {tuple(s)}")
 
     @property
+    def duration(self):
+        """The play range's end, s (0: none): the window's play and take stop there."""
+        return (self._scene._call("world_get", line="world", key="duration", count=1)["values"] or [0.0])[0]
+
+    @duration.setter
+    def duration(self, seconds):
+        self._put("world", "duration", [float(seconds)], f"scene.world.duration = {float(seconds)}")
+
+    @property
     def substeps(self):
         """The physics engine's substeps per frame of 1/60 s."""
-        return int(blocks.value("world\n" + self._text(), "physics", "substeps"))
+        return int(self._get("physics", "substeps"))
 
     @substeps.setter
     def substeps(self, n):
@@ -157,15 +165,44 @@ class View:
         self.scene._call("view_frame", f"editor.view.frame({obj.ref if obj else ''})", **({"id": obj.id} if obj else {}))
 
 
+class Operations:
+    """ed.<operation>(**args): any operation of the editor by its name - the console's ``ed`` and a plugin's ``scene.ed``
+    are the same, so a line tried in the console is pasted into a plugin as it is."""
+
+    def __init__(self, scene):
+        self._scene = scene
+
+    def __getattr__(self, name):
+        if name.startswith("_"):
+            raise AttributeError(name)
+        return lambda **args: self._scene._call(name, **args)
+
+
 class Scene:
-    def __init__(self, client):
-        self.client = client
+    """The scene as objects. ``Scene()`` starts kinetica-core, a world with no window (the clock, the selection and the
+    view are the editor's: their operations answer that kinetica-core has none); ``connect()`` is the scene of a window.
+    ``Scene().open(path)`` begins with a file; ``close()`` or a ``with`` block ends the program."""
+
+    def __init__(self, client=None, *, executable=None):
+        if isinstance(client, str):
+            raise TypeError("Scene() takes a connection or nothing; to open a file: Scene().open(path)")
+        self._client = client if client is not None else Core(executable)  # the wire (client.py, core.py): a call goes through an operation's own method or `ed`, never past them
         self.objects = Objects(self)
         self.world = World(self)
         self.editor = Editor(self)
+        self.ed = Operations(self)
+
+    def close(self):
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
     def _call(self, op, py=None, **args):
-        return self.client.call(op, py, **args)
+        return self._client.call(op, py, **args)
 
     def _live(self, part, id):
         state = self._call("sim_state")
@@ -206,18 +243,6 @@ class Scene:
         """An object from its block of the scene file (new, or the one of its id replaced): the object."""
         return self.objects[self._call("scene_put", block=block)["id"]]
 
-    def add_box(self, name, size=(0.2, 0.2, 0.2), position=(0, 0.5, 0), shape="box", fixed=False, density=1000.0,
-                color=(0.7, 0.7, 0.72)):
-        """A rigid shape (box, sphere, cylinder, cone) with a collider; its body."""
-        v = lambda t: " ".join(str(x) for x in t)
-        block = (f'entity {json.dumps(name, ensure_ascii=False)}\n  object id 0 visible 1 locked 0\n'
-                 f'  shape {shape} size {v(size)} position {v(position)} rotation 0 0 0 color {v(color)}\n'
-                 f'  rigid density {density} friction 0.5 restitution 0.2 fixed {int(fixed)} velocity 0 0 0 spin 0 0 0\n'
-                 f'  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0\nend\n')
-        py = f"scene.add_box({json.dumps(name, ensure_ascii=False)}, size={tuple(size)}, position={tuple(position)}" + \
-             (f", shape={shape!r}" if shape != "box" else "") + (", fixed=True" if fixed else "") + ")"
-        return self.objects[self._call("scene_put", py, block=block)["id"]]
-
     def _objects(self, ids):
         return [self.objects[id] for id in ids]
 
@@ -225,13 +250,16 @@ class Scene:
     def _refs(objects):
         return ", ".join(o.ref for o in objects)
 
-    def add(self, shape="box", name=None, position=None, size=None):
-        """A shape as the toolbar's button adds it - in the air over a free spot, named "Куб 2" - or with
-        what is given: its body (no role yet: ``.roles.add("rigid")`` makes it fall)."""
-        args = {k: v for k, v in (("name", name), ("position", position), ("size", size)) if v is not None}
-        shown = "".join(f", {k}={_q(v) if k == 'name' else tuple(v)}" for k, v in args.items())
+    def add(self, shape="box", name=None, position=None, size=None, role=None, fixed=None, kinematic=None):
+        """A shape as the toolbar's button adds it - in the air over a free spot, named "Куб 2" - or with what is given:
+        its body. No role: geometry that stands where it is put; role="rigid": a body that falls (fixed=True: held still
+        in the world; kinematic=True: it moves as its velocity says and pushes what it meets); role="collider": an obstacle."""
+        given = {k: v for k, v in (("name", name), ("position", position), ("size", size), ("role", role), ("fixed", fixed),
+                                   ("kinematic", kinematic)) if v is not None}
+        show = {"name": _q, "role": _q, "fixed": repr, "kinematic": repr}  # the rest are three numbers
+        shown = "".join(f", {k}={show.get(k, tuple)(v)}" for k, v in given.items())
         return self.objects[self._call("scene_add", f"scene.add({_q(shape)}{shown})", shape=shape,
-                                       **{k: list(v) if k != "name" else v for k, v in args.items()})["id"]]
+                                       **{k: v if k in show else list(v) for k, v in given.items()})["id"]]
 
     def add_light(self, kind="sun", at=None, position=None, target=None):
         """The sun high at a slant, a lamp ("point") or a spot ("spot") over `at` - else over the selected
@@ -240,10 +268,44 @@ class Scene:
         shown = "".join(f", {k}={_t(v)}" for k, v in args.items())
         return self.objects[self._call("scene_add_light", f"scene.add_light({_q(kind)}{shown})", kind=kind, **args)["id"]]
 
-    def add_camera(self, eye=None, target=None):
-        """A camera at `eye` (else the editor's eye), looking at `target` (else the scene's centre)."""
+    def add_force(self, shape="directional", mode="impulse", at=None, strength=None, radius=None, body=None):
+        """A force as the menu adds it, with its kind's own strength and radius unless given: it stands at `at`, else
+        at the scene's centre. A directional one pushes along its +Y, a radial one outward from its place. `body`: a
+        directional force made that body's own - at its centre of mass (or at `at`), acting on it alone at its own
+        point, its strength sized by the body's mass."""
+        args = {k: v for k, v in (("strength", strength), ("radius", radius)) if v is not None}
+        shown = "".join(f", {k}={v!r}" for k, v in args.items())
+        if body is not None:
+            args["body"] = body.id
+            shown += f", body={body.ref}"
+        if at is not None:
+            args["at"] = list(at)
+            shown += f", at={_t(at)}"
+        return self.objects[self._call("scene_add_force", f"scene.add_force({_q(shape)}, {_q(mode)}{shown})", shape=shape, mode=mode,
+                                       **args)["id"]]
+
+    def add_joint(self, a, b=None, kind="hinge", anchor=(0, 0, 0), axis=None):
+        """A joint between body `a` and body `b` (None: the world) at a world point `anchor`, along a world direction
+        `axis`: kind "hinge", "slider", "weld", "ball", "cylinder", "universal" or "planar". A shape with no physics
+        becomes a body - `a` the moving link, `b` held still."""
+        args = {"a": a.id, "b": b.id if b is not None else 0, "type": kind, "anchor": list(anchor)}
+        shown = a.ref + (f", {b.ref}" if b is not None else "") + f", kind={_q(kind)}, anchor={_t(anchor)}"
+        if axis is not None:
+            args["axis"] = list(axis)
+            shown += f", axis={_t(axis)}"
+        return self.objects[self._call("assembly_joint", f"scene.add_joint({shown})", **args)["id"]]
+
+    def add_camera(self, eye=None, target=None, kind=None, at=None):
+        """A camera at `eye` (else the editor's eye), looking at `target` (else the scene's centre). kind="target": a
+        target camera that always looks there - or at object `at`, which it follows in play."""
         args = {k: list(v) for k, v in (("eye", eye), ("target", target)) if v is not None}
         shown = ", ".join(f"{k}={_t(v)}" for k, v in args.items())
+        if kind is not None:
+            args["kind"] = kind
+            shown += (", " if shown else "") + f'kind="{kind}"'
+        if at is not None:
+            args["at"] = at.id
+            shown += (", " if shown else "") + f"at={at.ref}"
         return self.objects[self._call("scene_add_camera", f"scene.add_camera({shown})", **args)["id"]]
 
     def _act(self, op, method, objects):
@@ -267,9 +329,12 @@ class Scene:
         """The groups dissolved, their members kept where they stand: the members."""
         return self._objects(self._act("scene_ungroup", "ungroup", groups)["ids"])
 
-    def make_array(self, *shapes):
-        """Each shape becomes the hidden template of a row of 5 copies along x: the arrays."""
-        return self._objects(self._call("scene_array", f"scene.make_array({self._refs(shapes)})", ids=[o.id for o in shapes])["ids"])
+    def make_array(self, *shapes, **row):
+        """Each shape becomes the hidden template of a row of copies - ``count`` of them (5), ``step`` apart (its width
+        and a gap, along x): the arrays. ``scene.make_array(brick, count=10, step=(0, 0.11, 0))``."""
+        shown = "".join(f", {key}={value!r}" for key, value in row.items())
+        return self._objects(self._call("scene_array", f"scene.make_array({self._refs(shapes)}{shown})", ids=[o.id for o in shapes],
+                                        **{key: list(value) if key == "step" else value for key, value in row.items()})["ids"])
 
     def show_all(self):
         """Every hidden object shown again (Alt+H)."""
@@ -304,15 +369,17 @@ class Scene:
         self._call("sim_pause", "scene.pause()")
 
     def stop(self):
-        """Back to the scene as it was before it ran (edits made while running go, as in Unity)."""
+        """The world dropped: the scene is as it was before it ran, except that an edit which stopped the world (a body
+        added, a joint changed) is kept; an edit the world took while it ran is gone with it."""
         self._call("sim_stop", "scene.stop()")
 
     def step(self, frames=1):
-        """`frames` frames of 1/60 s, then paused; the state after them."""
+        """`frames` frames of 1/60 s, then paused; the state after them. One call takes at most 6000 frames (100 s):
+        more is cut to 6000 and the answer's completed_frames says how many ran."""
         return self._call("sim_step", f"scene.step({frames})", frames=frames)
 
     def run(self, seconds):
-        """`seconds` of simulation (whole frames), then paused; the state after them."""
+        """`seconds` of simulation (whole frames, at least one, at most 100 s per call), then paused; the state after them."""
         frames = max(1, round(seconds * 60))
         return self._call("sim_step", f"scene.run({seconds})", frames=frames)
 
@@ -323,6 +390,24 @@ class Scene:
         args = {k: v for k, v in (("objects", ids(objects)), ("group", ids(group)), ("joints", ids(joints)), ("goals", ids(goals))) if v}
         answer = self._call("sim_measure", scene=bool(scene), **args)
         return {c["id"]: c["value"] for c in answer["channels"]}
+
+    def key(self, *objects, time=None, interp=None):
+        """A key of each object at `time` s (the playhead when none) where it stands now - what the Sequencer's ◆ and its
+        «◈ Автоключ» make: between keys an object goes in a line ("smooth": a curve through them, "step": held). A keyed
+        body is led along its track while the scene plays and pushes what it meets; a camera or a light only moves."""
+        args = {"ids": [o.id for o in objects], **({"time": float(time)} if time is not None else {}), **({"interp": interp} if interp else {})}
+        shown = ", ".join([o.ref for o in objects] + ([f"time={time!r}"] if time is not None else []) + ([f"interp={_q(interp)}"] if interp else []))
+        return self._call("sequence_key", f"scene.key({shown})", **args)
+
+    def seek(self, time):
+        """The sequence's playhead at `time` s: every keyed object stands where its keys have it then."""
+        return self._call("sequence_seek", f"scene.seek({time!r})", time=float(time))
+
+    def command(self, commands):
+        """Commands to the running world, not edits of the scene: {joint: {"target": rad or m} or {"velocity": ...},
+        driver: {"duty": -1..1}, force: {"strength": N}, body: {"force": [x, y, z], "torque": [x, y, z]}} - a joint's, a
+        driver's and a force's held until commanded again, a body's force over the next frame. Stop forgets them."""
+        return self._call("robot_command", commands={str(getattr(k, "id", k)): v for k, v in commands.items()})
 
     def push(self, body, impulse, point=None):
         """One impulse on a running body, N s (at `point`, world metres; else at its centre of mass)."""

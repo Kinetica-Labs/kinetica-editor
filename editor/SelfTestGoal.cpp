@@ -3,9 +3,13 @@
 // once; the gizmo's X arrow dragged by the mouse in play moves the cube, the servos get new targets and the
 // hand follows by its motors; a click on the cube in play selects it again, not grabbing the hand inside.
 #include "SelfTestSupport.h"
+#include <QLabel>
+#include <QKeyEvent>
+#include <QApplication>
 
 #include "EditorOps.h"
 #include "IkSolverView.h"
+#include "ControllerKeys.h"
 #include "MainWindow.h"
 #include "PlotPanel.h"
 #include "PlotSeries.h"
@@ -57,12 +61,6 @@ SceneGraph standingArm() {
     weld.id = 12, weld.a = 4, weld.b = 3, weld.anchorA = {0, -0.02f, 0}, weld.anchorB = {0, 0.15f, 0};
     g.joints.push_back(weld);
     return g;
-}
-
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
 }
 
 // The hand's live position: its body in the newest snapshot.
@@ -135,6 +133,8 @@ void testGoalInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
     auto* plots = w.findChild<PlotPanel*>();
     const PlotSeries* elbow = plots ? plots->series("Шарнир 11/rx coordinate") : nullptr;
     const PlotSeries* miss = plots ? plots->series(entity(b, goal)->name + "/miss") : nullptr;
+    if (auto* more = w.findChild<QPushButton*>("ikMore"); more && !more->isChecked()) more->click(); // «Подробно»: the solver
+    pump(30);
     auto* ik = dynamic_cast<IkSolverView*>(w.findChild<QWidget*>("ikSolverView"));
     std::printf("  plots: «%s», %zu charts; the elbow's angle %s, the miss %s; the solver's card %s with %zu rounds\n",
                 plots ? plots->objectTitle().toStdString().c_str() : "?", plots ? plots->charts().size() : 0, elbow ? "recorded" : "missing",
@@ -160,7 +160,7 @@ void testGoalInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
 // the whole robot selected shows its collider guides at once.
 void testGripButton(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     QString error;
-    const bool opened = b.openFile(QString(KE_EXAMPLES) + "/ur5e.kscene", error);
+    const bool opened = b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error);
     c.check(opened, "examples/ur5e.kscene opens");
     if (!opened) return;
     // The whole UR5e selected: its links' collider guides drawn at once - from the points the engine gets (HullPoints.h),
@@ -268,10 +268,61 @@ void testGoalDragInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v
     pump(100);
 }
 
+// The UR5e's panel by hand: ▶ gives it the keys (the simulation bar says them); D held 1 s takes the IK goal 0.15 m
+// along x and the arm after it; Space closes the gripper - it does not pause; T gives the keys back to the window, and
+// Space pauses again.
+void testPanelKeys(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    QString error;
+    if (!b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error)) {
+        c.check(false, "examples/ur5e.kscene opens");
+        return;
+    }
+    b.play();
+    if (!waitFrames(v, 30, 15000)) return c.check(false, "the UR5e plays");
+    uint32_t effector = 0; // the hand the panel's goal leads
+    for (const Entity& e : b.graph().entities)
+        if (e.goalOf) effector = e.goalOf;
+    const auto goalX = [v, effector] { // the hand, as the frame draws it
+        if (v->snapshot())
+            for (const auto& body : v->snapshot()->bodies)
+                if (body.object == effector) return double(body.pos.x);
+        return 0.0;
+    };
+    const auto key = [&w](QEvent::Type t, Qt::Key k, const QString& text) {
+        QWidget* to = QApplication::focusWidget() ? QApplication::focusWidget() : &w;
+        QKeyEvent over(QEvent::ShortcutOverride, k, Qt::NoModifier, text);
+        QCoreApplication::sendEvent(to, &over);
+        if (over.isAccepted() && t == QEvent::ShortcutOverride) return;
+        QKeyEvent e(t, k, Qt::NoModifier, text);
+        QCoreApplication::sendEvent(to, &e);
+    };
+    auto* keys = w.findChild<ControllerKeys*>();
+    const QString note = keys ? keys->note() : QString();
+    const double x0 = goalX();
+    key(QEvent::KeyPress, Qt::Key_D, "d");
+    pump(1000);
+    key(QEvent::KeyRelease, Qt::Key_D, "d");
+    pump(300);
+    const double moved = goalX() - x0;
+    key(QEvent::KeyPress, Qt::Key_Space, " ");
+    key(QEvent::KeyRelease, Qt::Key_Space, " ");
+    pump(200);
+    const bool stillPlaying = b.mode() == SceneBuilder::Mode::Playing;
+    key(QEvent::KeyPress, Qt::Key_T, "t");
+    key(QEvent::KeyRelease, Qt::Key_T, "t");
+    pump(100);
+    std::printf("  the UR5e's panel: the bar says «%s»; D held 1 s - the hand %.3f m along x; Space - still playing %s\n",
+                note.left(60).toUtf8().constData(), moved, stillPlaying ? "yes" : "no");
+    c.check(!note.isEmpty() && moved > 0.1 && moved < 0.2 && stillPlaying, "▶ gives the panel the keys: D moves the arm, Space grips, not pauses");
+    b.stop();
+    pump(100);
+}
+
 int runGoalTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
     testGoalInPlay(c, w, b, v, shotsDir);
     testGripButton(c, w, b, v);
     testGoalDragInPlay(c, w, b, v);
+    testPanelKeys(c, w, b, v);
     return c.failures;
 }

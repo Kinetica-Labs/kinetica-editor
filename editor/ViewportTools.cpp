@@ -2,6 +2,7 @@
 // around), the grab tool of play mode (a mouse joint on a body), the edit tool (select, box select,
 // gizmo drags, Shift-clone, keyboard transforms), the assembly magnet's tool and making shapes.
 #include "ViewportTools.h"
+#include "UiLanguage.h"
 
 #include "ColliderGuides.h"
 #include "SceneMarkers.h"
@@ -149,7 +150,18 @@ void EditTool::press(Viewport& v, QMouseEvent* e) {
 }
 
 // A keyboard transform: left confirms, right cancels. A handle drag: the right button puts it back.
+void EditTool::cancelHandle(Viewport& v) {
+    if (handle_ < 0) return;
+    const int h = handle_;
+    handle_ = -1;
+    emit v.shapeHandleDragged(h, handleStart_.centre + handleStart_.axis * handleStart_.reach, 3);
+}
+
 bool EditTool::pressTransform(Viewport& v, QMouseEvent* e) {
+    if (handle_ >= 0) {
+        if (e->button() == Qt::RightButton) cancelHandle(v);
+        return true;
+    }
     if (v.gizmo().modal()) {
         if (e->button() == Qt::LeftButton) v.finishModal();
         else if (e->button() == Qt::RightButton) v.cancelModal();
@@ -165,6 +177,11 @@ bool EditTool::pressTransform(Viewport& v, QMouseEvent* e) {
 void EditTool::pressLeft(Viewport& v, QMouseEvent* e) {
     pressPos_ = boxEnd_ = e->position();
     pressShift_ = e->modifiers() & Qt::ShiftModifier;
+    if (const int h = v.shapeHandleAt(e->position()); h >= 0) { // a collider point: before the gizmo, it sits on the collider
+        handle_ = h, handleStart_ = v.shapeHandles()[size_t(h)], handleAt_ = handleStart_.centre + handleStart_.axis * handleStart_.reach;
+        emit v.shapeHandleDragged(h, handleAt_, 0);
+        return;
+    }
     if (v.gizmoShown()) {
         pending_ = v.gizmo().hitTest(v.gizmoView(), pixel(e));
         if (pending_ != GizmoHandle::None) return; // the drag starts once the mouse has moved 3 px
@@ -185,11 +202,13 @@ void EditTool::startFloorDrag(Viewport& v, QMouseEvent* e) {
     moveGizmo(v, e);
 }
 
-// The left button went 4 px from where it was pressed: on an object with Shift a floor slide, from
+// The left button went 4 px from where it was pressed: on an object a floor slide - with the move tool on as with Shift, so
+// the tool takes an object by its body (a newcomer dragged the IK goal by its body and nothing moved) - from
 // empty space the selection box.
 void EditTool::startLeftDrag(Viewport& v, QMouseEvent* e) {
     clickPending_ = false;
-    if (pressedEntity_ && (e->modifiers() & Qt::ShiftModifier)) startFloorDrag(v, e);
+    const bool slide = (e->modifiers() & Qt::ShiftModifier) || v.gizmo().mode() == GizmoMode::Translate;
+    if (pressedEntity_ && slide && !v.colliderMode()) startFloorDrag(v, e); // the collider mode moves the collider, not the body
     else if (!pressedEntity_) box_ = true;
 }
 
@@ -207,7 +226,7 @@ bool EditTool::moveGizmo(Viewport& v, QMouseEvent* e) {
         pending_ = GizmoHandle::None;
         floorDrag_ = false;
         virtualMouse_ = lastMouse_ = press;
-        cloning_ = cloneShiftHeld_ = pressShift_ && v.editMode(); // Shift at the start: a clone, as in 3ds Max (not of a goal in play)
+        cloning_ = cloneShiftHeld_ = pressShift_ && v.editMode() && !v.colliderMode(); // Shift: a clone (not of a goal, not of a collider)
         emit v.gizmoStarted();
         if (cloning_) emit v.cloneDragStarted();
     }
@@ -223,6 +242,11 @@ bool EditTool::moveGizmo(Viewport& v, QMouseEvent* e) {
 }
 
 void EditTool::move(Viewport& v, QMouseEvent* e) {
+    if (handle_ >= 0) {
+        handleAt_ = v.handlePoint(handleStart_, e->position());
+        emit v.shapeHandleDragged(handle_, handleAt_, 1);
+        return;
+    }
     if (moveGizmo(v, e)) return;
     if (rightClickPending_ && (QLineF(e->position(), rightPressPos_).length() > 4 || v.flying())) rightClickPending_ = false;
     if (box_) {
@@ -242,6 +266,9 @@ void EditTool::move(Viewport& v, QMouseEvent* e) {
 }
 
 void EditTool::hover(Viewport& v, QMouseEvent* e) {
+    const int point = v.shapeHandleAt(e->position());
+    v.setHoveredHandle(point);
+    if (point >= 0) return v.setHoveredEntity(0);
     const GizmoHandle h = v.gizmoShown() ? v.gizmo().hitTest(v.gizmoView(), pixel(e)) : GizmoHandle::None;
     if (h != v.gizmo().hover()) {
         v.gizmo().setHover(h);
@@ -252,6 +279,12 @@ void EditTool::hover(Viewport& v, QMouseEvent* e) {
 }
 
 void EditTool::release(Viewport& v, QMouseEvent* e) {
+    if (handle_ >= 0 && e->button() == Qt::LeftButton) {
+        const int h = handle_;
+        handle_ = -1;
+        emit v.shapeHandleDragged(h, handleAt_, 2);
+        return;
+    }
     camera_.release(v, e);
     if (e->button() == Qt::RightButton) {
         if (rightClickPending_ && !v.flewThisPress()) emit v.editContextMenu(e->position());
@@ -259,12 +292,13 @@ void EditTool::release(Viewport& v, QMouseEvent* e) {
         return;
     }
     if (e->button() != Qt::LeftButton) return;
-    if (pending_ != GizmoHandle::None) { // pressed and released on a handle without moving: a click through it -
-        pending_ = GizmoHandle::None;    // the gizmo sits on the selection, so clicking there again walks the ray on
-        if (!(e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier))) v.clickSelect(e->position(), false);
-        return;
+    if (pending_ != GizmoHandle::None) { // pressed and released on a handle without moving: nothing - a handle never changes
+        pending_ = GizmoHandle::None;    // the selection (the cursor on a freedom takes that freedom, no
+        return;                          // accidental click; it walked the ray on to what stood behind the gizmo)
     }
     if (v.gizmo().dragging() && !v.gizmo().modal()) {
+        if (GizmoPose quarter; !(e->modifiers() & Qt::ShiftModifier) && v.gizmo().settle(quarter)) // a turn let go near a quarter
+            emit v.gizmoMoved(quarter);                                                             // of one: completed (Shift: as it is)
         v.gizmo().end();
         floorDrag_ = false;
         const bool cloned = cloning_;
@@ -343,8 +377,8 @@ bool isPlaced(const CreateWhat& w) { return w.kind != CreateWhat::Kind::Shape; }
 bool isCamera(const CreateWhat& w) { return w.kind == CreateWhat::Kind::Camera; }
 
 QString titleOf(const CreateWhat& w) {
-    if (isCamera(w)) return "Камера";
-    return w.kind == CreateWhat::Kind::Light ? QString(ke::lightTitle(w.light)) : QString(ke::shapeTitle(w.shape));
+    if (isCamera(w)) return w.target ? uiText("Kinetica", "Камера с целью") : uiText("Kinetica", "Камера");
+    return uiText("Kinetica", w.kind == CreateWhat::Kind::Light ? ke::lightTitle(w.light) : ke::shapeTitle(w.shape));
 }
 
 QString metres(float x) { return QString::number(double(x), 'f', 2); }
@@ -547,16 +581,16 @@ QString CreateTool::sizeText(const CreateWhat& w) const {
     if (step_ == 0) return {};
     const Step step = stepsOf(w)[size_t(step_)];
     if (isPlaced(w)) {
-        const QString high = "высота " + metres(position_.y - start_.y) + " м";
+        const QString high = uiText("Kinetica", "высота ") + metres(position_.y - start_.y) + uiText("Kinetica", " м");
         const ke::Vector3 to = target_ - position_;
         const float far = ke::length(to);
         if (step != Step::Aim || far < kLeast) return high;
         if (w.kind == CreateWhat::Kind::Light && w.light == ke::LightKind::Sun)
-            return high + ", " + QString::number(qRound(std::asin(std::clamp(-to.y / far, -1.0f, 1.0f)) * 57.29578f)) + "° к горизонту";
-        return high + ", до цели " + metres(far) + " м";
+            return high + ", " + QString::number(qRound(std::asin(std::clamp(-to.y / far, -1.0f, 1.0f)) * 57.29578f)) + uiText("Kinetica", "° к горизонту");
+        return high + uiText("Kinetica", ", до цели ") + metres(far) + uiText("Kinetica", " м");
     }
-    const QString base = isRound(w.shape) ? "радиус " + metres(0.5f * size_.x) + " м" : metres(size_.x) + " × " + metres(size_.z) + " м";
-    return step == Step::Height ? base + ", высота " + metres(size_.y) + " м" : base;
+    const QString base = isRound(w.shape) ? uiText("Kinetica", "радиус ") + metres(0.5f * size_.x) + uiText("Kinetica", " м") : metres(size_.x) + " × " + metres(size_.z) + uiText("Kinetica", " м");
+    return step == Step::Height ? base + uiText("Kinetica", ", высота ") + metres(size_.y) + uiText("Kinetica", " м") : base;
 }
 
 // «Куб · шаг 2/3 ●●○ · противоположный угол, щелчок — дальше · 0.40 × 0.30 м · Backspace — шаг назад ...»
@@ -567,20 +601,38 @@ QString CreateTool::hint(const CreateWhat& w) const {
     QString doing;
     switch (step) {
     case Step::Place:
-        doing = isPlaced(w)                        ? "щёлкните место на полу или на теле"
-                : w.shape == ke::ShapeKind::Sphere ? "щёлкните центр шара"
-                : round                            ? "щёлкните центр основания"
-                                                   : "щёлкните первый угол основания (или сразу тяните)";
+        doing = isPlaced(w)                        ? uiText("Kinetica", "щёлкните место на полу или на теле")
+                : w.shape == ke::ShapeKind::Sphere ? uiText("Kinetica", "щёлкните центр шара")
+                : round                            ? uiText("Kinetica", "щёлкните центр основания")
+                                                   : uiText("Kinetica", "щёлкните первый угол основания (или сразу тяните)");
         break;
-    case Step::Base: doing = round ? "радиус" : "противоположный угол"; break;
-    case Step::Height: doing = "высота — ведите мышь вверх"; break;
-    case Step::Aim: doing = isCamera(w) ? "куда смотрит — наведите на точку" : "куда светит — наведите на точку"; break;
+    case Step::Base: doing = round ? uiText("Kinetica", "радиус") : uiText("Kinetica", "противоположный угол"); break;
+    case Step::Height: doing = uiText("Kinetica", "высота — ведите мышь вверх"); break;
+    case Step::Aim: doing = isCamera(w) ? (w.target ? uiText("Kinetica", "цель — наведите на объект или точку") : uiText("Kinetica", "куда смотрит — наведите на точку")) : uiText("Kinetica", "куда светит — наведите на точку"); break;
     }
-    if (step != Step::Place) doing += size_t(step_) + 1 == steps.size() ? ", щелчок — готово" : ", щелчок — дальше";
+    if (step != Step::Place) doing += size_t(step_) + 1 == steps.size() ? uiText("Kinetica", ", щелчок — готово") : uiText("Kinetica", ", щелчок — дальше");
     QString dots;
     for (size_t k = 0; k < steps.size(); ++k) dots += int(k) <= step_ ? QString("●") : QString("○");
-    QString text = QString("%1 · шаг %2/%3 %4 · %5").arg(titleOf(w)).arg(step_ + 1).arg(steps.size()).arg(dots, doing);
+    QString text = QString(uiText("Kinetica", "%1 · шаг %2/%3 %4 · %5")).arg(titleOf(w)).arg(step_ + 1).arg(steps.size()).arg(dots, doing);
     const QString size = sizeText(w);
     if (!size.isEmpty()) text += " · " + size;
-    return text + (step_ == 0 ? " · Esc — выход" : " · Backspace — шаг назад · Esc — отмена") + " · Ctrl — сетка 5 см";
+    return text + (step_ == 0 ? uiText("Kinetica", " · Esc — выход") : uiText("Kinetica", " · Backspace — шаг назад · Esc — отмена")) + uiText("Kinetica", " · Ctrl — сетка 5 см");
+}
+
+void PluginTool::press(Viewport&, QMouseEvent* e) { pressed_ = now_ = e->position(), dragging_ = false; }
+
+void PluginTool::move(Viewport& v, QMouseEvent* e) {
+    if (!v.pluginToolDrags() || !(e->buttons() & Qt::LeftButton)) return;
+    now_ = e->position();
+    dragging_ = dragging_ || QLineF(pressed_, now_).length() >= 4;
+    v.update();
+}
+
+void PluginTool::release(Viewport& v, QMouseEvent* e) {
+    if (e->button() != Qt::LeftButton) return;
+    const bool dragged = dragging_;
+    dragging_ = false;
+    if (v.pluginToolDrags()) v.dragTool(pressed_, dragged ? e->position() : pressed_);
+    else if (QLineF(pressed_, e->position()).length() < 4) v.clickTool(e->position());
+    v.update();
 }

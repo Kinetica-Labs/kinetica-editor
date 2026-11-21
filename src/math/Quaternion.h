@@ -113,7 +113,6 @@ struct Quaternion {
 
 inline Real dot(const Quaternion& a, const Quaternion& b) { return a.w * b.w + a.x * b.x + a.y * b.y + a.z * b.z; }
 // |q|^2 in double (exact products), for the unit-norm checks of the solvers.
-inline double normSquaredDouble(const Quaternion& q) { return double(q.w) * q.w + double(q.x) * q.x + double(q.y) * q.y + double(q.z) * q.z; }
 
 // Spherical linear interpolation along the shortest arc (t = 0 -> a, t = 1 -> b).
 inline Quaternion slerp(const Quaternion& a, Quaternion b, Real t) {
@@ -128,9 +127,8 @@ inline Quaternion slerp(const Quaternion& a, Quaternion b, Real t) {
     return Quaternion{a.w * wa + b.w * wb, a.x * wa + b.x * wb, a.y * wa + b.y * wb, a.z * wa + b.z * wb}.normalized();
 }
 
-// Rotational part R of a 3x3 matrix A (A = R S, the polar decomposition), found iteratively
-// (Mueller, Bender, Chentanez, Macklin 2016, "A Robust Method to Extract the Rotational Part of
-// Deformations"): each step rotates R towards the columns of A. Robust for degenerate / inverted A;
+// Rotational part R of a 3x3 matrix A (A = R S, the polar decomposition), found iteratively:
+// each step rotates R towards the columns of A. Robust for degenerate / inverted A;
 // start from last frame's rotation and a few iterations suffice.
 inline Quaternion extractRotation(const Matrix3x3& A, Quaternion q, int iterations = 20) {
     for (int it = 0; it < iterations; ++it) {

@@ -2,8 +2,11 @@
 // and off together with what they need, the gizmo's edits, the undo history, the edit / play / stop
 // modes and what the viewport shows in each. The panels are built in SceneBuilderPanels.cpp.
 #include "SceneBuilder.h"
-#include "core/Probe.h"
-#include "devices/Hcsr04.h"
+#include "UiLanguage.h"
+#include "scene/Collider.h"
+#include "sim/WorldOps.h"
+#include "scene/SensorSpec.h"
+#include "scene/Animation.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
 #include "WorldPanel.h"
@@ -20,6 +23,7 @@
 #include <QFile>
 #include <QFileInfo>
 #include <QLabel>
+#include <QLocale>
 #include <QPointer>
 #include <QSaveFile>
 #include <QSignalBlocker>
@@ -29,11 +33,10 @@
 #include <cmath>
 #include <cstdio>
 #include <memory>
-#include <set>
 
 using namespace ke;
 
-const char* shapeName(ShapeKind k) { return ke::shapeTitle(k); }
+const char* shapeName(ShapeKind k) { return uiText("Kinetica", ke::shapeTitle(k)); }
 
 SceneBuilder::SceneBuilder(SimController* ctrl, QObject* parent) : QObject(parent), ctrl_(ctrl) {
     lastRemember_.start();
@@ -43,6 +46,7 @@ SceneBuilder::SceneBuilder(SimController* ctrl, QObject* parent) : QObject(paren
     buildWorldPanel();
     connect(this, &SceneBuilder::modeChanged, this, [this] { worldPanel_->setEditable(editing()); });
     buildInspector();
+    loadSensorCatalog();
     fillWorld();
     refreshList();
     fillInspector();
@@ -64,101 +68,70 @@ void SceneBuilder::afterCardEdit(uint32_t id, bool click) {
     if (click) fillInspector();
 }
 
-namespace {
-std::string arrayText(const SceneGraph& g) {
-    SceneGraph arrays;
-    arrays.arrays = g.arrays;
-    return arrays.save();
-}
-std::string entitiesText(const SceneGraph& g) {
-    SceneGraph entities;
-    entities.entities = g.entities;
-    return entities.save();
-}
-std::string worldText(const SceneGraph& g) {
-    SceneGraph world;
-    world.world = g.world;
-    return world.save();
-}
-std::string lightsText(const SceneGraph& g) {
-    SceneGraph lights;
-    lights.lights = g.lights;
-    lights.cameras = g.cameras;
-    return lights.save();
-}
-std::string jointsText(const SceneGraph& g) {
-    SceneGraph joints;
-    joints.joints = g.joints;
-    return joints.save();
-}
-std::string devicesText(const SceneGraph& g) {
-    SceneGraph devices;
-    devices.batteries = g.batteries;
-    devices.drivers = g.drivers;
-    devices.controllers = g.controllers;
-    devices.sensors = g.sensors;
-    devices.wheels = g.wheels;
-    return devices.save();
-}
-std::string groupsText(const SceneGraph& g) {
-    SceneGraph groups;
-    groups.groups = g.groups;
-    return groups.save();
-}
-} // namespace
-
 // An edit while the robot's world runs. What the world can take in place goes to it between frames:
-// the lights and cameras (the physics never sees them, the next frame shows them) and the joints' drives
-// - a servo's target typed, an IK goal dragged (RobotWorld::setJoints). What the world is built of - the
+// the lights and cameras (the physics never sees them, the next frame shows them), the joints' drives
+// - a servo's target typed, an IK goal dragged (RobotWorld::setJoints) - and the drivers' duties (setDuties). What the world is built of - the
 // bodies and their colliders, the arrays and groups, the world itself, the devices - needs it built
 // again: the builder stops with the edit kept and says why. An IK goal is no body: dragging it while
 // the scene plays moves the goal's mark in the running world (RobotWorld::setGoals) and its arm's targets.
 void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     (void)entityId; // every change is found by comparing, whichever edit made it
-    if (worldText(graph_) != worldText(simGraph_)) return reloadNeeded("Тяжесть, размер мира и настройки физики меняют только перезапуском сцены");
-    if (groupsText(graph_) != groupsText(simGraph_)) return reloadNeeded("Группы меняют только перезапуском сцены");
-    if (arrayText(graph_) != arrayText(simGraph_)) return reloadNeeded("Массивы меняют только перезапуском сцены");
-    if (devicesText(graph_) != devicesText(simGraph_)) return reloadNeeded("Датчики, колёса, батареи и пульты меняют только перезапуском сцены");
-    SceneGraph goalsAside = graph_, before = simGraph_; // the goals are handles: no body of the world
-    for (SceneGraph* g : {&goalsAside, &before})
-        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return e.goalOf != 0; }), g->entities.end());
-    if (entitiesText(goalsAside) != entitiesText(before)) return reloadNeeded("Тела и коллайдеры меняют только перезапуском сцены");
+    ctrl_->setEndTime(double(graph_.world.duration)); // the play range moved while the scene runs: taken at once
+    const LiveEdit le = ke::liveEdit(doc_.running, graph_);
+    if (le.reload != LiveEdit::Reload::None) return reloadNeeded(le.reload);
+    if (le.duties) { // a driver's duty: the bridge takes it at the next substep
+        const std::vector<DriverObject> drivers = graph_.drivers;
+        ctrl_->post([drivers](Simulation& s) {
+            if (s.robot()) s.robot()->setDuties(drivers);
+        }, "duties");
+    }
     refreshLightsAndCameras();
-    if (lightsText(graph_) != lightsText(simGraph_)) {
+    if (le.lights) {
         const std::vector<Light> lights = graph_.lights;
         const std::vector<Camera> cameras = graph_.cameras;
         ctrl_->post([lights, cameras](Simulation& s) {
             if (s.robot()) s.robot()->setLightsAndCameras(lights, cameras);
         }, "lights");
     }
-    std::vector<Entity> goals, goalsBefore; // made, moved or removed: the running world's marks and goal channels follow
-    for (const Entity& e : graph_.entities)
-        if (e.goalOf != 0) goals.push_back(e);
-    for (const Entity& e : simGraph_.entities)
-        if (e.goalOf != 0) goalsBefore.push_back(e);
-    SceneGraph a, z;
-    a.entities = goals, z.entities = goalsBefore;
-    if (a.save() != z.save())
+    if (le.forces) {
+        const std::vector<Force> forces = graph_.forces;
+        ctrl_->post([forces](Simulation& s) {
+            if (s.robot()) s.robot()->setForces(forces);
+        }, "forces");
+    }
+    if (le.goals) { // made, moved or removed: the running world's marks and goal channels follow
+        std::vector<Entity> goals; // the handles: IK goals and cameras' targets
+        for (const Entity& e : graph_.entities)
+            if (isHandle(e)) goals.push_back(e);
         ctrl_->post([goals](Simulation& s) {
             if (s.robot()) s.robot()->setGoals(goals);
         }, "goals");
-    if (jointsText(graph_) != jointsText(simGraph_)) {
+    }
+    if (le.joints) {
         const std::vector<JointObject> joints = graph_.joints;
         QPointer<SceneBuilder> self(this);
         ctrl_->post([joints, self](Simulation& s) {
             if (!s.robot() || s.robot()->setJoints(*s.physics(), joints)) return;
             QMetaObject::invokeMethod(self, [self] {
-                if (self && !self->editing()) self->reloadNeeded("Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены");
+                if (self && !self->editing()) self->reloadNeeded(LiveEdit::Reload::Joints);
             }, Qt::QueuedConnection);
         }, "joints");
     }
-    simGraph_ = graph_;
+    doc_.running = graph_;
 }
 
 // A change the running simulation cannot take: stop with the edit kept, and say what to do.
-void SceneBuilder::reloadNeeded(const QString& why) {
+void SceneBuilder::reloadNeeded(LiveEdit::Reload what) {
+    static const std::map<LiveEdit::Reload, const char*> why = {
+        {LiveEdit::Reload::World, QT_TRANSLATE_NOOP("Kinetica", "Тяжесть, размер мира и настройки физики меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Groups, QT_TRANSLATE_NOOP("Kinetica", "Группы меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Arrays, QT_TRANSLATE_NOOP("Kinetica", "Массивы меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Devices, QT_TRANSLATE_NOOP("Kinetica", "Датчики, колёса, батареи и пульты меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Bodies, QT_TRANSLATE_NOOP("Kinetica", "Тела и коллайдеры меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Joints, QT_TRANSLATE_NOOP("Kinetica", "Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены")}};
+    lastReload_ = what;
     returnToEdit(true);
-    showBanner(why + ". Правка сохранена.", "▶ Пуск", [this] { play(); });
+    showBanner(QString(uiText("Kinetica", why.at(what))) + uiText("Kinetica", ". Правка сохранена."), uiText("Kinetica", "▶ Пуск"), [this] { play(); });
     stickyBanner_ = true;
 }
 
@@ -178,7 +151,6 @@ void SceneBuilder::addEntity(ShapeKind shape, const std::function<void(Entity&)>
     refreshList();
     applyEdit(id);
     frameObjects();
-    emit firstAction();
     codeAction("scene_add", QString("scene.add(\"%1\")").arg(shapeWord(shape)), {{"shape", shapeWord(shape)}}, false);
 }
 
@@ -190,7 +162,7 @@ bool SceneBuilder::importModel(const QString& path, QString& error) {
     std::string err;
     const TriMesh m = entityLocalMesh(probe, graph_.baseDirectory, &err);
     if (m.triangles.empty()) {
-        error = err.empty() ? QString("в файле нет треугольников") : QString::fromStdString(err);
+        error = err.empty() ? QString(uiText("Kinetica", "в файле нет треугольников")) : QString::fromStdString(err);
         return false;
     }
     const Vector3 extent = m.bounds().extent();
@@ -259,7 +231,7 @@ void SceneBuilder::toggleRole(RoleIcon role) {
 
 void SceneBuilder::setRoleOfSelected(RoleIcon role, bool on) {
     if (selectedEntities().empty()) {
-        emit statusMessage("Сначала выберите объект — или создайте его кнопкой сверху");
+        emit statusMessage(uiText("Kinetica", "Сначала выберите объект — или создайте его кнопкой сверху"));
         return;
     }
     std::vector<uint32_t> ids;
@@ -271,11 +243,10 @@ void SceneBuilder::setRoleOfSelected(RoleIcon role, bool on) {
     flushCode();
     remember();
     const std::string note = ke::setRoles(graph_, ids, ke::Role(int(role)), on);
-    if (!note.empty()) emit statusMessage(QString::fromStdString(note));
+    if (!note.empty()) emit statusMessage(uiText("Kinetica", note.c_str()));
     fillInspector();
     refreshList();
     applyEdit(selectedId_);
-    emit firstAction();
     codeAction("scene_role", lines.join("; "), {{"ids", jsonIds(ids)}, {"role", roleWord(role)}, {"on", on}}, false);
 }
 
@@ -316,43 +287,51 @@ void SceneBuilder::onListClicked(QTreeWidgetItem* item, int column) {
 // ---------------------------------------------------------------------------
 // Called before a change. Typing or dragging a number makes many small changes within a moment:
 // those merge into one step, so one Ctrl+Z undoes the whole drag.
+void SceneBuilder::beginUndoGroup() {
+    if (undoGroup_++ == 0) undoGroupTaken_ = false;
+}
+
+bool SceneBuilder::endUndoGroup(bool keep) {
+    undoGroup_ = std::max(0, undoGroup_ - 1);
+    if (keep || undoGroup_ > 0 || !undoGroupTaken_ || !doc_.history.steps()) return false;
+    graph_ = doc_.history.pop(); // the scene before the group's first edit
+    undoGroupTaken_ = false;
+    restore();
+    return true;
+}
+
 void SceneBuilder::remember(bool mergeWithLast) {
-    const bool join = mergeWithLast && typing_ && lastRemember_.elapsed() < 700 && !undo_.empty();
+    rememberedNow_ = false;
+    if (undoGroup_ > 0 && undoGroupTaken_) return; // a group's later edits: inside its one step
+    const bool join = mergeWithLast && typing_ && lastRemember_.elapsed() < 700 && doc_.history.steps();
     lastRemember_.restart();
     typing_ = mergeWithLast;
     if (join) return;
-    undo_.push_back({graph_});
-    if (undo_.size() > 100) undo_.erase(undo_.begin());
-    redo_.clear();
+    if (undoGroup_ > 0) undoGroupTaken_ = true;
+    rememberedNow_ = true;
+    doc_.history.push(graph_);
     updateHistoryActions();
 }
 
 void SceneBuilder::undo() {
-    if (undo_.empty()) return;
+    if (!doc_.history.steps()) return;
     flushCode();
     typing_ = false;
-    redo_.push_back({graph_});
-    HistoryEntry entry = std::move(undo_.back());
-    SceneGraph g = std::move(entry.graph);
-    undo_.pop_back();
-    restore(std::move(g));
+    doc_.undo();
+    restore();
     codeAction("edit_undo", "scene.undo()", {}, false); // the scene it brought back is the action, not an edit
 }
 
 void SceneBuilder::redo() {
-    if (redo_.empty()) return;
+    if (!doc_.history.canRedo()) return;
     flushCode();
     typing_ = false;
-    undo_.push_back({graph_});
-    HistoryEntry entry = std::move(redo_.back());
-    SceneGraph g = std::move(entry.graph);
-    redo_.pop_back();
-    restore(std::move(g));
+    doc_.redo();
+    restore();
     codeAction("edit_redo", "scene.redo()", {}, false); // the scene it brought back is the action, not an edit
 }
 
-void SceneBuilder::restore(SceneGraph g) {
-    graph_ = std::move(g);
+void SceneBuilder::restore() {
     pruneSelection();
     lastRemember_.restart();
     fillWorld();
@@ -364,24 +343,24 @@ void SceneBuilder::restore(SceneGraph g) {
 }
 
 void SceneBuilder::updateHistoryActions() {
-    undoAct_->setEnabled(!undo_.empty());
-    redoAct_->setEnabled(!redo_.empty());
+    undoAct_->setEnabled(doc_.history.steps());
+    redoAct_->setEnabled(doc_.history.canRedo());
 }
 
 // ---------------------------------------------------------------------------
 // Edit / play / stop
 // ---------------------------------------------------------------------------
-void SceneBuilder::setMode(Mode m) {
-    const Mode was = mode_;
-    mode_ = m;
+void SceneBuilder::setMode(Mode m, Mode was) {
+    doc_.mode = m;
+    if (m != Mode::Edit && colliderEdit_) colliderEdit_ = 0, colliderDrag_ = false, emit shapeHandles({}), emit colliderEditChanged(false);
     if (m != was) // the buttons as the operations they are; Stop's restored scene is no edit of its own
         codeAction(m == Mode::Playing ? "sim_play" : m == Mode::Paused ? "sim_pause" : "sim_stop",
                    m == Mode::Playing ? "scene.play()" : m == Mode::Paused ? "scene.pause()" : "scene.stop()", {}, m != Mode::Edit);
     worldPanel_->setEditable(editing());
     liveTargetValid_ = false;
     playHint_->setVisible(!editing());
-    playHint_->setText("Идёт симуляция: свет, камеры и приводы суставов меняются на лету, на паузе работает гизмо; "
-                       "остальное — после ■ Стоп, который вернёт сцену, какой она была до ▶.");
+    playHint_->setText(uiText("Kinetica", "Идёт симуляция: свет, камеры и приводы суставов меняются на лету, на паузе работает гизмо; "
+                       "остальное — после ■ Стоп, который вернёт сцену, какой она была до ▶."));
     if (editing()) refreshView();
     else refreshColliderGuides(); // the play-mode lines come with the next snapshot
     refreshLightsAndCameras();
@@ -392,78 +371,86 @@ void SceneBuilder::setMode(Mode m) {
 }
 
 void SceneBuilder::play() {
-    if (mode_ == Mode::Playing) return;
+    if (doc_.mode == Mode::Playing) return;
     stickyBanner_ = false;
     refreshBanner();
-    emit firstAction();
+    const Mode was = doc_.mode;
     if (editing() && !loadIntoSimulation()) return;
+    ctrl_->setEndTime(double(graph_.world.duration));
     ctrl_->setRunning(true);
-    setMode(Mode::Playing);
+    setMode(Mode::Playing, was);
+}
+
+// The play range's end reached (SimController::rangeEnded; the simulation has stopped itself on that frame). A take
+// ends there as ■ Стоп ends it; a looping sequence starts the run over; otherwise the scene stays paused on its last frame.
+void SceneBuilder::playRangeEnded(bool recording) {
+    if (doc_.mode != Mode::Playing) return;
+    const ke::SequenceObject* q = ke::activeSequence(graph_);
+    if (recording) return stop();
+    if (q && q->loop) {
+        stop();
+        return play();
+    }
+    setMode(Mode::Paused, Mode::Playing);
+    emit statusMessage(QString(uiText("Kinetica", "Время проигрывания вышло — %1 с. ■ Стоп вернёт сцену; время задаётся в секвенсоре, поле «До»"))
+                           .arg(QLocale().toString(double(graph_.world.duration), 'f', 2)));
 }
 
 void SceneBuilder::pause() {
-    if (mode_ != Mode::Playing) return;
+    if (doc_.mode != Mode::Playing) return;
     ctrl_->setRunning(false);
-    setMode(Mode::Paused);
+    setMode(Mode::Paused, Mode::Playing);
 }
 
 void SceneBuilder::stop() {
-    if (mode_ != Mode::Edit) returnToEdit(false);
+    if (!editing()) returnToEdit(false);
 }
 
 void SceneBuilder::step() {
     if (editing()) {
         if (!loadIntoSimulation()) return;
-        setMode(Mode::Paused);
-    } else if (mode_ == Mode::Playing) {
+        setMode(Mode::Paused, Mode::Edit);
+    } else if (doc_.mode == Mode::Playing) {
         pause();
     }
     ctrl_->requestStep();
 }
 
-// Stop: the simulation goes; the graph comes back as it was before Play, as in Unity (unless an
+// Stop: the simulation goes; the graph comes back as it was before Play (unless an
 // edit the running scene could not take is being kept). The history loses the steps made while
 // playing.
 void SceneBuilder::returnToEdit(bool keepEdits) {
     flushCode(); // the edits made while it ran, before the scene goes back
     ctrl_->setRunning(false);
     ctrl_->post([](Simulation& s) { s.load(SceneGraph()); }, "stop"); // the meta-objects go: bodies, joints, drives
-    const bool restore = hasPlayBackup_ && !keepEdits;
-    if (restore) {
-        const bool edited = playBackup_.save() != graph_.save();
-        graph_ = playBackup_;
-        undo_.resize(std::min(undo_.size(), undoAtPlay_));
-        if (hasKeptBefore_) undo_.push_back({keptBefore_}); // K: one Ctrl+Z puts the objects back
-        redo_.clear();
+    const Mode was = doc_.mode;
+    if (!keepEdits) {
+        const bool edited = doc_.backup.save() != graph_.save();
+        doc_.endPlay(false, hasKeptBefore_ ? &keptBefore_ : nullptr);
         pruneSelection();
         fillWorld();
         refreshList();
         fillInspector();
         updateHistoryActions();
-        if (edited) emit statusMessage("Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются — как в Unity)");
+        if (edited) emit statusMessage(uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются)"));
+    } else {
+        doc_.endPlay(true);
     }
-    hasPlayBackup_ = false;
     hasKeptBefore_ = false;
-    setMode(Mode::Edit);
+    setMode(Mode::Edit, was);
 }
 
 // The robot's world built from the graph on the simulation's thread; which drawn body is which object
 // comes with every frame (onSimulationSnapshot).
 bool SceneBuilder::loadIntoSimulation() {
-    playBackup_ = simGraph_ = graph_;
-    hasPlayBackup_ = true;
-    undoAtPlay_ = undo_.size();
+    const SceneGraph g = doc_.beginPlay();
     ctrl_->setSceneName(displayName());
-    const SceneGraph g = graph_;
-    ctrl_->post([g](Simulation& s) {
-        ke::Probe::clear(); // the channels of the scene before go with it
-        s.load(g);
-    }, "load");
+    ctrl_->post([g](Simulation& s) { ke::startWorld(s, g); }, "load");
     return true;
 }
 
 std::string SceneBuilder::displayName() const {
-    return fileName_.isEmpty() ? sceneName() : sceneName() + ": " + fileName_.toStdString();
+    return fileName_.isEmpty() ? std::string(uiText("Kinetica", "Новая сцена")) : fileName_.toStdString(); // what a person calls it, not «Конструктор»
 }
 
 void SceneBuilder::refreshView() {
@@ -477,10 +464,11 @@ void SceneBuilder::refreshView() {
     for (SensorVis& v : snap->sensors) {
         const SensorObject* s = sensorById(v.id);
         if (v.kind != int(SensorKind::Sonar) || !s) continue;
-        float nearest = float(Hcsr04::kMax);
+        const SonarSpec spec = sonarSpec(*s);
+        float nearest = float(spec.maxM);
         for (const PickHit& h : editView_.pickAll(graph_, Ray{v.position, v.rotation.rotate(Vector3(1.0f, 0.0f, 0.0f))}))
-            if (h.id != s->parent && h.t >= float(Hcsr04::kMin) && h.t < nearest) nearest = h.t;
-        v.reading = nearest < float(Hcsr04::kMax) ? nearest : -1.0f;
+            if (h.id != s->parent && h.t >= float(spec.minM) && h.t < nearest) nearest = h.t;
+        v.reading = nearest < float(spec.maxM) ? nearest : -1.0f;
     }
     emit editSnapshot(snap);
     sendViewportFlags();
@@ -508,6 +496,7 @@ void SceneBuilder::frameObjects() {
     };
     for (const Light& l : graph_.lights) mark(l);
     for (const Camera& c : graph_.cameras) mark(c);
+    for (const Force& f : graph_.forces) mark(f);
     AABB box = mine.valid() ? mine : all;
     if (!box.valid()) return;
     box.lo.y = std::min(box.lo.y, 0.0f); // the floor under them is in the picture
@@ -535,7 +524,7 @@ void SceneBuilder::sendViewportFlags() {
         if (drawnSelected(id)) selected.push_back(int(b));
         else if (editing() && isInside(ownerOf(id), hoverId_)) hovered.push_back(int(b));
         const auto w = drawn.find(id);
-        if (editing() && w != drawn.end() && entityIsGeometryOnly(*w->second)) ghosts.push_back(int(b));
+        if (editing() && w != drawn.end() && (entityIsGeometryOnly(*w->second) || (colliderEdit_ && id == colliderEdit_))) ghosts.push_back(int(b));
         unpickable[b] = w != drawn.end() ? w->second->locked : owner->locked;
     }
     emit highlightBodies(selected);
@@ -546,6 +535,13 @@ void SceneBuilder::sendViewportFlags() {
 
 // The gizmo sits on the active object's world pose (a group: its centre, an array: its first copy).
 void SceneBuilder::updateGizmoTarget() {
+    if (const Entity* e = colliderEntity(); e && editing()) { // the collider mode: the gizmo on the collider
+        const ColliderRole c = colliderDrag_ ? e->collider : heldNow(*e);
+        Vector3 p;
+        Quaternion q;
+        const bool placed = colliderBodyPose(p, q);
+        return emit gizmoTarget(placed, p + q.rotate(c.offset), q * colliderTurn(c));
+    }
     const SceneObject* o = findObject(graph_, selectedId_);
     const SensorObject* sensor = sensorById(selectedId_);
     const bool onJoint = sensor && findJoint(graph_, sensor->parent); // its place is the joint's
@@ -564,6 +560,24 @@ void SceneBuilder::updateGizmoTarget() {
 // where the selected object's body is now, not where it was put.
 void SceneBuilder::onSimulationSnapshot(const Frame& s) {
     if (editing()) return;
+    const Camera* through = cameraById(throughId_);
+    const bool aimed = through && through->kind == CameraKind::Target && through->target;
+    if (aimed) {
+        for (const Frame::Body& b : s.bodies) liveObjectPositions_[b.object] = b.pos; // where the running world has its target
+        for (const GoalVis& g : s.goals) liveObjectPositions_[g.id] = g.position;
+    }
+    const auto same = [](const Frame::CameraPose& a, const Frame::CameraPose& b) {
+        return a.id == b.id && a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
+               a.rotation.w == b.rotation.w && a.rotation.x == b.rotation.x && a.rotation.y == b.rotation.y && a.rotation.z == b.rotation.z;
+    };
+    const bool moved = !std::equal(s.cameras.begin(), s.cameras.end(), liveCameras_.begin(), liveCameras_.end(), same) ||
+                       !std::equal(s.forces.begin(), s.forces.end(), liveForces_.begin(), liveForces_.end(), same);
+    liveCameras_ = s.cameras;
+    liveForces_ = s.forces;
+    const bool fired = s.firedForces != firedForces_;
+    firedForces_ = s.firedForces;
+    if (moved || fired) refreshLightsAndCameras(); // its keys, the body that carries it: the view through it and its mark follow; an impulse spent: its arrow goes
+    else if (aimed) emitCameraView();
     std::vector<uint32_t> bodyEntity(s.bodies.size());
     for (size_t b = 0; b < s.bodies.size(); ++b) { // an array's copy plays as the array (RobotWorld::objectIdOfBody)
         const uint32_t id = s.bodies[b].object;
@@ -599,14 +613,15 @@ uint32_t SceneBuilder::entityOfBody(int body) const {
 // ---------------------------------------------------------------------------
 // The mouse in the viewport
 // ---------------------------------------------------------------------------
-// Each hit is what a click there selects (a group before its members; a sensor's glyph, the sensor:
-// it is all of it there is to click, and its body is clicked on the body), each thing once, nearest first.
+// Each hit is what a click there selects (a group before its members), each thing once, nearest first - the things one
+// sees before the sensors' glyphs: a click on a gripper chose the force-torque sensor in its flange, which a newcomer did
+// not see there (a trial). A glyph is the first only where nothing else is; a second click at the spot takes it.
 std::vector<PickHit> SceneBuilder::pickAll(const Ray& ray) {
     if (!editing()) return {};
     std::vector<PickHit> hits, all = editView_.pickAll(graph_, ray);
     for (const PickHit& h : pickMarkers(ray)) all.push_back(h); // lights and cameras: their wireframes
     std::sort(all.begin(), all.end(), [](const PickHit& a, const PickHit& b) { return a.t < b.t; });
-    std::stable_partition(all.begin(), all.end(), [this](const PickHit& h) { return sensorById(h.id) != nullptr; }); // drawn over everything
+    std::stable_partition(all.begin(), all.end(), [this](const PickHit& h) { return sensorById(h.id) == nullptr; });
     for (PickHit h : all) {
         h.id = sensorById(h.id) ? h.id : clickTarget(h.id);
         if (h.id == 0 || std::any_of(hits.begin(), hits.end(), [&](const PickHit& o) { return o.id == h.id; })) continue;
@@ -638,21 +653,10 @@ void SceneBuilder::selectBody(int body) {
 void SceneBuilder::newScene() {
     flushCode();
     if (!editing()) returnToEdit(false);
-    if (!graph_.entities.empty() || !graph_.groups.empty() || !graph_.arrays.empty() || !graph_.lights.empty() || !graph_.cameras.empty()) remember();
-    graph_ = SceneGraph();
+    doc_.newScene(rememberer());
     selection_.clear();
     fileName_.clear();
     throughId_ = 0;
-    Entity floor;
-    floor.id = newId();
-    floor.name = "Пол";
-    floor.shape = ShapeKind::Plane;
-    floor.size = Vector3(graph_.world.size.x, 0.02f, graph_.world.size.z);
-    floor.position = Vector3(0.0f, 0.01f, 0.0f);
-    floor.color = Vector3(0.52f, 0.55f, 0.60f);
-    floor.collider.enabled = true; // a collider alone: a fixed obstacle, as Unity's static colliders
-    floor.locked = true;           // clicks on the floor select nothing; it is still in the list
-    graph_.entities.push_back(floor);
     selectedId_ = 0;
     fillWorld();
     refreshList();
@@ -677,10 +681,8 @@ bool SceneBuilder::openFile(const QString& path, QString& error) {
     }
     if (!editing()) returnToEdit(false);
     flushCode();
-    remember();
-    graph_ = std::move(g);
-    graph_.baseDirectory = QFileInfo(path).absolutePath().toStdString(); // model files next to the scene
-    adoptIds();
+    g.baseDirectory = QFileInfo(path).absolutePath().toStdString(); // model files next to the scene
+    doc_.load(std::move(g), rememberer());
     fileName_ = QFileInfo(path).fileName();
     throughId_ = 0;
     selection_.clear();
@@ -698,23 +700,47 @@ bool SceneBuilder::openFile(const QString& path, QString& error) {
 
 QString SceneBuilder::snapshotText() const { return QString::fromStdString(graph_.save()); }
 
+QJsonObject SceneBuilder::restartSnapshot() {
+    flushCode();
+    QJsonArray selection;
+    for (const uint32_t id : orderedSelection()) selection.append(double(id));
+    return {{"scene", snapshotText()}, {"base", QString::fromStdString(graph_.baseDirectory)},
+            {"file", fileName_}, {"next_id", double(doc_.nextIdToGive())}, {"selection", selection}};
+}
+
+bool SceneBuilder::restoreRestartSnapshot(const QJsonObject& snapshot, QString& error) {
+    if (!restoreSnapshot(snapshot.value("scene").toString(), snapshot.value("base").toString(),
+                         uint32_t(snapshot.value("next_id").toDouble()), error)) return false;
+    fileName_ = snapshot.value("file").toString();
+    for (const QJsonValue& id : snapshot.value("selection").toArray()) {
+        const auto n = uint32_t(id.toDouble());
+        if (findObject(graph_, n) || isDevice(n)) selection_.push_back(n);
+    }
+    selectedId_ = selection_.empty() ? 0 : selection_.back();
+    refreshList();
+    fillInspector();
+    refreshView();
+    frameObjects();
+    if (selectedId_) emit selectionChanged(selectedId_);
+    return true;
+}
+
 bool SceneBuilder::restoreSnapshot(const QString& text, const QString& baseDirectory, uint32_t nextId, QString& error) {
     SceneGraph g;
     std::string err;
     if (!g.load(text.toStdString(), err)) return error = QString::fromStdString(err), false;
     if (!editing()) returnToEdit(false);
     flushCode();
-    remember();
-    graph_ = std::move(g);
-    graph_.baseDirectory = baseDirectory.toStdString();
-    nextId_ = std::max(nextId, ke::nextId(graph_));
+    g.baseDirectory = baseDirectory.toStdString();
+    doc_.setNextId(nextId);
+    doc_.load(std::move(g), rememberer());
     selection_.clear();
     selectedId_ = 0;
     fillWorld();
     refreshList();
     fillInspector();
     refreshView();
-    coded_ = graph_; // the restored scene is said by the journal's line, not as edits by hand
+    codeSynced(); // the restored scene is said by the journal's line, not as edits by hand
     return true;
 }
 
@@ -745,21 +771,9 @@ Entity* SceneBuilder::selectedEntity() {
     return i >= 0 ? &graph_.entities[size_t(i)] : nullptr;
 }
 
-uint32_t SceneBuilder::newId() { return nextId_++; }
-
 // After an undo or a Stop: what is gone from the graph is gone from the selection too.
 void SceneBuilder::pruneSelection() {
     selection_.erase(std::remove_if(selection_.begin(), selection_.end(), [this](uint32_t id) { return !findObject(graph_, id) && !isDevice(id); }),
                      selection_.end());
     if (!isSelected(selectedId_)) selectedId_ = selection_.empty() ? 0 : selection_.back();
-}
-
-// Files written by hand or by an older editor may have no ids, or the same id twice.
-void SceneBuilder::adoptIds() {
-    nextId_ = std::max(nextId_, nextId(graph_)); // groups and arrays too
-    std::set<uint32_t> seen;
-    for (Entity& e : graph_.entities) {
-        if (e.id == 0 || seen.count(e.id)) e.id = newId();
-        seen.insert(e.id);
-    }
 }

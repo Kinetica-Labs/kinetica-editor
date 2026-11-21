@@ -1,6 +1,7 @@
 // The first-minute bubble (see FirstStartHint.h): an amber rounded box with a small arrow, drawn by
 // hand so the arrow can sit on the side that faces the target.
 #include "FirstStartHint.h"
+#include "UiLanguage.h"
 
 #include <QEvent>
 #include <QHBoxLayout>
@@ -32,7 +33,7 @@ FirstStartHint::FirstStartHint(QWidget* window) : QFrame(window, Qt::ToolTip | Q
     row->addWidget(text_, 1);
     close_ = new QToolButton;
     close_->setText("✕");
-    close_->setToolTip("Больше не показывать");
+    close_->setToolTip(uiText("Kinetica", "Больше не показывать"));
     close_->setAutoRaise(true);
     close_->setStyleSheet(QString("color: %1; border: none; font-size: 13px;").arg(kInk.name()));
     row->addWidget(close_, 0, Qt::AlignTop);
@@ -49,10 +50,13 @@ void FirstStartHint::pointAt(QWidget* target, const QString& text) {
     text_->ensurePolished(); // the style sheet's font, for the width of one line
     text_->setFixedWidth(std::min(300, text_->fontMetrics().horizontalAdvance(text) + 6));
     const QPoint inWindow = target ? target->mapTo(target->window(), QPoint(0, 0)) : QPoint();
-    side_ = inWindow.x() > parentWidget()->width() * 2 / 3 && inWindow.y() > 150 ? Side::Right : Side::Above;
-    // The arrow's room: on top for a target above, on the right for a target to the right.
+    side_ = inWindow.y() > parentWidget()->height() * 3 / 5               ? Side::Below
+            : inWindow.x() > parentWidget()->width() * 2 / 3 && inWindow.y() > 150 ? Side::Right
+                                                                            : Side::Above;
+    // The arrow's room: on top for a target above, on the right for a target to the right, below for one below.
     auto* row = static_cast<QHBoxLayout*>(layout());
-    row->setContentsMargins(16, 12 + (side_ == Side::Above ? kArrow : 0), 10 + (side_ == Side::Right ? kArrow : 0), 12);
+    row->setContentsMargins(16, 12 + (side_ == Side::Above ? kArrow : 0), 10 + (side_ == Side::Right ? kArrow : 0),
+                            12 + (side_ == Side::Below ? kArrow : 0));
     adjustSize();
     place();
     show();
@@ -65,8 +69,9 @@ void FirstStartHint::place() {
     if (!target_ || !target_->isVisible()) return;
     const QRect r(target_->mapToGlobal(QPoint(0, 0)), target_->size());
     const QRect win(parentWidget()->mapToGlobal(QPoint(0, 0)), parentWidget()->size());
-    QPoint topLeft = side_ == Side::Above ? QPoint(r.center().x() - 40, r.bottom() + 2)
-                                          : QPoint(r.left() - width() - 2, r.center().y() - height() / 2);
+    QPoint topLeft = side_ == Side::Above   ? QPoint(r.center().x() - 40, r.bottom() + 2)
+                     : side_ == Side::Below ? QPoint(r.center().x() - 40, r.top() - height() - 2)
+                                            : QPoint(r.left() - width() - 2, r.center().y() - height() / 2);
     topLeft.setX(std::clamp(topLeft.x(), win.left() + 8, std::max(win.left() + 8, win.right() - width() - 8)));
     move(topLeft);
     update();
@@ -85,14 +90,16 @@ void FirstStartHint::paintEvent(QPaintEvent*) {
     p.setRenderHint(QPainter::Antialiasing);
     QRectF box = rect().adjusted(1, 1, -1, -1);
     if (side_ == Side::Above) box.setTop(box.top() + kArrow);
+    else if (side_ == Side::Below) box.setBottom(box.bottom() - kArrow);
     else box.setRight(box.right() - kArrow);
     QPainterPath path;
     path.addRoundedRect(box, 10, 10);
     QPolygonF arrow;
-    if (side_ == Side::Above && target_) { // the tip at the target's centre, seen from this widget
+    if (side_ != Side::Right && target_) { // the tip at the target's centre, seen from this widget
         const float centre = float(target_->mapToGlobal(target_->rect().center()).x() - x()); // both in screen coordinates
         const float tip = std::clamp(centre, 20.0f, float(width() - 20));
-        arrow << QPointF(tip - 9, box.top() + 1) << QPointF(tip, 1) << QPointF(tip + 9, box.top() + 1);
+        if (side_ == Side::Above) arrow << QPointF(tip - 9, box.top() + 1) << QPointF(tip, 1) << QPointF(tip + 9, box.top() + 1);
+        else arrow << QPointF(tip - 9, box.bottom() - 1) << QPointF(tip, height() - 1) << QPointF(tip + 9, box.bottom() - 1);
     } else {
         const float mid = float(height()) / 2;
         arrow << QPointF(box.right() - 1, mid - 9) << QPointF(width() - 1, mid) << QPointF(box.right() - 1, mid + 9);

@@ -10,8 +10,14 @@
 namespace ke {
 
 struct JointVis {
+    uint32_t id = 0;         // the joint's own (0: a ghost of one not made yet)
     JointType type = JointType::Hinge;
     Vector3 anchorA, anchorB, axis;
+    // What it ties, for the tie drawn from each body to the joint: the two bodies' own places. `grounded`: b is the
+    // world, and bodyB is not used.
+    uint32_t a = 0, b = 0;
+    Vector3 bodyA, bodyB;
+    bool grounded = false;
     Vector3 reference{1.0_r, 0.0_r, 0.0_r};
     Real angle = 0;          // hinge [rad]
     bool servo = false;      // its main freedom driven by a servo: then `target` is where it is sent [rad or m]

@@ -12,15 +12,15 @@
 //
 // The anatomy follows the dataviz rules: 2 px lines, a recessive grid, text in text colours (never
 // the series colour), a legend for two lines or more, a direct label at the end of each line for up
-// to four (on a large chart), one y-axis only, from zero for a quantity of one sign. A solid vertical line marks the Laboratory's frame;
-// the mouse draws a dashed one with a dot on every line.
+// to four (on a large chart), one y-axis only, from zero for a quantity of one sign. The mouse draws a dashed vertical line
+// with a dot on every line.
 //
 // What the reader can do on the chart itself - all optional, the charts come by themselves:
 //   - the title ends in a quiet ▾: a click opens the list of quantities for this chart (titleClicked);
 //   - a legend entry: a click hides or shows its line, a double click shows it alone;
-//   - a right click: the panel's menu for this chart (menuRequested);
-//   - a click on the plot: that moment in the Laboratory (clicked).
+//   - a right click: the panel's menu for this chart (menuRequested).
 #include "PlotSeries.h"
+#include "UiLanguage.h"
 
 #include <QColor>
 #include <QPoint>
@@ -30,6 +30,17 @@
 #include <string>
 #include <utility>
 #include <vector>
+
+// The lines' colours: the eight dark-surface slots of the validated categorical palette (the dataviz skill's
+// reference palette, checked with its validator on this chart surface #1c1e23: every adjacent pair CVD ΔE ≥ 8.4,
+// normal-vision ΔE ≥ 19.3, every slot ≥ 3:1 against the surface), in this fixed order. A ninth line takes slot 1
+// again with a dashed line, a seventeenth with a dotted one: composite encoding, never a generated ninth hue.
+QColor plotSlotColor(int slot);
+Qt::PenStyle plotSlotStyle(int slot);
+
+// A number for people: a decimal comma and `significant` digits (no trailing zeros); the very large
+// and the very small as «1,5·10⁻⁶» - a power in superscript, never the programmer's «1.5e-06».
+QString numberText(double v, int significant = 4);
 
 // One line of a chart.
 struct PlotTrack {
@@ -54,7 +65,6 @@ public:
     void setEmptyText(const QString& text);                // what an empty chart says
     void setNormalized(bool on);          // each line scaled to 0 … 1 over the window
     void setTimeAxisVisible(bool on);     // lanes label the time once, under the lowest lane
-    void setCursorTime(double t);         // the Laboratory's frame (NaN: none)
     void setHoverTime(double t);          // where the mouse is, on every chart of the panel (NaN: none)
     // Margins shared by stacked lanes, so their time axes line up (0: the chart's own).
     int neededLeftMargin() const;
@@ -64,10 +74,7 @@ public:
     const std::vector<PlotTrack>& tracks() const { return tracks_; }
     QString title() const { return title_; }
     bool normalized() const { return normalized_; }
-    double cursorTime() const { return cursor_; }
-    double hoverTime() const { return hover_; }
     std::pair<double, double> timeRange() const { return {t0_, t1_}; }
-    std::pair<double, double> valueRange() const { return {y0_, y1_}; } // what the y-axis shows
     // The value the chart draws for line k at time t (normalised when it is), NaN when there is none.
     double shownValueAt(size_t k, double t) const;
     double timeAtX(double x) const;
@@ -80,7 +87,6 @@ public:
 signals:
     void hovered(double t, QPoint globalPos, int track);
     void hoverLeft();
-    void clicked(double t);
     void titleClicked();
     void legendClicked(int track);
     void legendDoubleClicked(int track);
@@ -107,17 +113,17 @@ private:
     void drawLine(QPainter& p, const QRectF& r, size_t k, size_t from, size_t to) const;
     void drawRibbon(QPainter& p, const QRectF& r, size_t k, size_t from, size_t to) const;
     void drawDirectLabels(QPainter& p, const QRectF& r) const;
-    void drawTimeLine(QPainter& p, const QRectF& r, double t, bool hover) const;
+    void drawHoverLine(QPainter& p, const QRectF& r) const;
     size_t shownTracks() const;
     bool directLabels() const { return shownTracks() >= 2 && shownTracks() <= 4 && width() >= 520 && height() >= 220; }
 
     std::vector<PlotTrack> tracks_;
     std::vector<std::pair<double, double>> own_; // each line's lowest and highest value in the window
-    QString title_, emptyText_ = "нет данных";
+    QString title_, emptyText_ = uiText("Kinetica", "нет данных");
     bool menu_ = true;
     bool normalized_ = false;
     bool timeAxis_ = true;
-    double cursor_ = std::nan(""), hover_ = std::nan("");
+    double hover_ = std::nan("");
     double t0_ = 0, t1_ = 1, y0_ = 0, y1_ = 1;
     std::vector<double> yTicks_;
     int sharedLeft_ = 0, sharedRight_ = 0;

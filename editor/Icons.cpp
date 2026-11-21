@@ -3,7 +3,7 @@
 // and a gentle shadow sits under every shape so it reads as a solid thing standing on a floor.
 #include "Icons.h"
 
-#include <QDir>
+#include <QCoreApplication>
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
@@ -11,6 +11,8 @@
 
 #include <cmath>
 #include <functional>
+#include <map>
+#include <tuple>
 
 namespace {
 
@@ -28,11 +30,20 @@ QPixmap render(int size, qreal scale, const Draw& draw) {
     return pm;
 }
 
-QIcon makeIcon(int size, const Draw& draw) {
-    QIcon icon;
-    icon.addPixmap(render(size, 1.0, draw));
-    icon.addPixmap(render(size, 2.0, draw));
-    return icon;
+// An icon of a family (the functions below), painted once and kept: the scene's list asks for the same dozen at every
+// refresh, and painting them anew was a sixth of an API edit's time (7 of 40 samples of scene_move).
+enum class Family { Scene, Device, Object, Shape, Role, Control, Collider, Link };
+
+QIcon makeIcon(Family family, int kind, int size, const Draw& draw) {
+    static std::map<std::tuple<Family, int, int>, QIcon> kept;
+    static const bool cleared = (qAddPostRoutine([] { kept.clear(); }), true); // the pixmaps go before the application does
+    (void)cleared;
+    const auto [it, fresh] = kept.try_emplace({family, kind, size});
+    if (fresh) {
+        it->second.addPixmap(render(size, 1.0, draw));
+        it->second.addPixmap(render(size, 2.0, draw));
+    }
+    return it->second;
 }
 
 QColor shade(const QColor& c, int factor) { return factor >= 100 ? c.lighter(factor) : c.darker(200 - factor); }
@@ -312,6 +323,20 @@ void drawControl(QPainter& p, ControlIcon c) {
         p.drawRoundedRect(QRectF(24, 18, 18, 64), 4, 4);
         p.drawRoundedRect(QRectF(58, 18, 18, 64), 4, 4);
         break;
+    case ControlIcon::Record: // ▶ and ● together: it plays and it records
+    case ControlIcon::Recording: { // the dot lit and ringed, in turns with Record: a blink
+        p.setBrush(QColor(88, 200, 110));
+        const QPointF tri[] = {{8, 20}, {54, 50}, {8, 80}};
+        p.drawPolygon(tri, 3);
+        const bool lit = c == ControlIcon::Recording;
+        if (lit) {
+            p.setBrush(QColor(255, 120, 110, 110));
+            p.drawEllipse(QPointF(72, 50), 27, 27);
+        }
+        p.setBrush(lit ? QColor(255, 70, 60) : QColor(214, 58, 58));
+        p.drawEllipse(QPointF(72, 50), 19, 19);
+        break;
+    }
     case ControlIcon::Stop:
         p.setBrush(QColor(236, 96, 96));
         p.drawRoundedRect(QRectF(22, 22, 56, 56), 7, 7);
@@ -583,6 +608,74 @@ void drawCameraIcon(QPainter& p) {
     p.drawEllipse(QPointF(22, 51), 4, 4);
 }
 
+// A solid arrow from a to b, lit across its width; `depth`: a darker copy below it, the arrow's thickness.
+void drawSolidArrow(QPainter& p, QPointF a, QPointF b, qreal shaft, qreal headWidth, qreal headLength, const QColor& c, qreal depth) {
+    const QPointF d = b - a;
+    const qreal length = std::hypot(d.x(), d.y());
+    const QPointF u = d / length, n(-u.y(), u.x()), neck = b - u * headLength;
+    QPainterPath path;
+    path.moveTo(a + n * shaft / 2);
+    for (const QPointF& q : {neck + n * shaft / 2, neck + n * headWidth / 2, b, neck - n * headWidth / 2, neck - n * shaft / 2, a - n * shaft / 2}) path.lineTo(q);
+    path.closeSubpath();
+    p.setPen(outline(c));
+    p.setBrush(shade(c, 60));
+    p.drawPath(path.translated(depth * 0.6, depth));
+    QLinearGradient g(a + n * (length * 0.12), a - n * (length * 0.12));
+    g.setColorAt(0, shade(c, 150));
+    g.setColorAt(0.5, c);
+    g.setColorAt(1, shade(c, 75));
+    p.setBrush(g);
+    p.drawPath(path);
+}
+
+// A flash: a star of `spikes` points around c, between the radii r0 and r1.
+QPainterPath flash(QPointF c, qreal r0, qreal r1, int spikes, qreal turn) {
+    QPainterPath path;
+    for (int i = 0; i < spikes * 2; ++i) {
+        const qreal a = turn + M_PI * i / spikes, r = i % 2 ? r0 : (i % 4 ? r1 : r1 * 0.86);
+        const QPointF q = c + QPointF(std::cos(a), std::sin(a)) * r;
+        i ? path.lineTo(q) : path.moveTo(q);
+    }
+    path.closeSubpath();
+    return path;
+}
+
+const QColor kForceColour(150, 104, 240), kFlashColour(250, 150, 40);
+
+// «Сила»: a flash and an arrow out of it - a blow and the way it pushes.
+void drawForce(QPainter& p) {
+    shadow(p, 50, 90, 36);
+    p.setPen(outline(kFlashColour));
+    p.setBrush(kFlashColour);
+    p.drawPath(flash({40, 58}, 17, 33, 8, 0.3));
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(252, 210, 70));
+    p.drawPath(flash({40, 58}, 10, 21, 8, 0.7));
+    drawSolidArrow(p, {36, 64}, {90, 14}, 15, 34, 24, kForceColour, 4);
+}
+
+// A directional force: one thick arrow rising to the upper right.
+void drawForceArrow(QPainter& p) {
+    shadow(p, 52, 90, 34);
+    drawSolidArrow(p, {20, 82}, {82, 18}, 20, 42, 30, kForceColour, 5);
+}
+
+// A radial force: a core with four arrows out of it.
+void drawForceBall(QPainter& p) {
+    shadow(p, 50, 91, 34);
+    for (const QPointF& d : {QPointF(0, -1), QPointF(0, 1), QPointF(-1, 0), QPointF(1, 0)}) drawSolidArrow(p, QPointF(50, 50) + d * 14, QPointF(50, 50) + d * 44, 11, 25, 15, kForceColour, 2);
+    QRadialGradient g(QPointF(44, 42), 28, QPointF(41, 40));
+    g.setColorAt(0.0, shade(kFlashColour, 165));
+    g.setColorAt(0.45, kFlashColour);
+    g.setColorAt(1.0, shade(kFlashColour, 45));
+    p.setPen(outline(kFlashColour));
+    p.setBrush(g);
+    p.drawEllipse(QPointF(50, 50), 19, 19);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(255, 255, 255, 150));
+    p.drawEllipse(QPointF(43, 42), 4.2, 2.7);
+}
+
 // An encoder: a code disc with its slots round the rim and the read head over them.
 void drawEncoderIcon(QPainter& p) {
     const QColor disc(190, 196, 206), dark(58, 62, 72);
@@ -842,6 +935,38 @@ void drawControllerIcon(QPainter& p) {
     for (int k = 0; k < 4; ++k) p.setBrush(buttons[k]), p.drawEllipse(at[k], 4.5, 4.5);
 }
 
+// Any sensor: a sensor's board - the chip with its legs and the window it senses through. No one device stands for all
+// of them (the sonar's two round eyes on this button read as a face), and no waves: they read as a radio sign.
+void drawSensorIcon(QPainter& p) {
+    shadow(p, 50, 91, 40);
+    const QColor board(38, 128, 96), chip(52, 58, 70), window(90, 175, 255);
+    QLinearGradient g(QPointF(12, 18), QPointF(88, 86));
+    g.setColorAt(0, shade(board, 135));
+    g.setColorAt(1, shade(board, 76));
+    p.setPen(outline(board));
+    p.setBrush(g);
+    p.drawRoundedRect(QRectF(10, 20, 80, 64), 8, 8);
+    p.setPen(QPen(QColor(205, 210, 218), 4, Qt::SolidLine, Qt::RoundCap));
+    for (int k = 0; k < 4; ++k) {
+        p.drawLine(QPointF(34 + 10.5 * k, 28), QPointF(34 + 10.5 * k, 33));
+        p.drawLine(QPointF(34 + 10.5 * k, 71), QPointF(34 + 10.5 * k, 76));
+    }
+    QLinearGradient c(QPointF(26, 33), QPointF(74, 71));
+    c.setColorAt(0, shade(chip, 130));
+    c.setColorAt(1, shade(chip, 85));
+    p.setPen(outline(chip));
+    p.setBrush(c);
+    p.drawRoundedRect(QRectF(26, 33, 48, 38), 5, 5);
+    QRadialGradient glass(QPointF(47, 49), 10);
+    glass.setColorAt(0, shade(window, 160));
+    glass.setColorAt(1, shade(window, 75));
+    p.setPen(Qt::NoPen);
+    p.setBrush(glass);
+    p.drawEllipse(QPointF(50, 52), 8.5, 8.5);
+    p.setBrush(QColor(255, 255, 255, 210));
+    p.drawEllipse(QPointF(47.2, 49.2), 2, 2);
+}
+
 void drawDeviceIcon(QPainter& p, DeviceIcon kind) {
     switch (kind) {
     case DeviceIcon::Encoder: drawEncoderIcon(p); break;
@@ -855,6 +980,7 @@ void drawDeviceIcon(QPainter& p, DeviceIcon kind) {
     case DeviceIcon::Driver: drawDriverIcon(p); break;
     case DeviceIcon::Joint: drawJointIcon(p); break;
     case DeviceIcon::Controller: drawControllerIcon(p); break;
+    case DeviceIcon::Sensor: drawSensorIcon(p); break;
     case DeviceIcon::Count: break;
     }
 }
@@ -865,6 +991,9 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
     case SceneIcon::Bulb: drawBulb(p); break;
     case SceneIcon::Spot: drawSpotlight(p); break;
     case SceneIcon::Camera: drawCameraIcon(p); break;
+    case SceneIcon::Force: drawForce(p); break;
+    case SceneIcon::ForceArrow: drawForceArrow(p); break;
+    case SceneIcon::ForceBall: drawForceBall(p); break;
     case SceneIcon::Count: break;
     }
 }
@@ -872,21 +1001,21 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
 } // namespace
 
 QIcon sceneIcon(SceneIcon kind, int size) {
-    return makeIcon(size, [kind](QPainter& p) { drawSceneIcon(p, kind); });
+    return makeIcon(Family::Scene, int(kind), size, [kind](QPainter& p) { drawSceneIcon(p, kind); });
 }
 
 QIcon deviceIcon(DeviceIcon kind, int size) {
-    return makeIcon(size, [kind](QPainter& p) { drawDeviceIcon(p, kind); });
+    return makeIcon(Family::Device, int(kind), size, [kind](QPainter& p) { drawDeviceIcon(p, kind); });
 }
 
 QIcon objectIcon(ObjectIcon kind, int size) {
-    return makeIcon(size, [kind](QPainter& p) { drawObjectIcon(p, kind); });
+    return makeIcon(Family::Object, int(kind), size, [kind](QPainter& p) { drawObjectIcon(p, kind); });
 }
 
-QIcon shapeIcon(ke::ShapeKind shape, int size) { return makeIcon(size, shapeDraw(shape)); }
-QIcon roleIcon(RoleIcon role, int size) { return makeIcon(size, roleDraw(role)); }
+QIcon shapeIcon(ke::ShapeKind shape, int size) { return makeIcon(Family::Shape, int(shape), size, shapeDraw(shape)); }
+QIcon roleIcon(RoleIcon role, int size) { return makeIcon(Family::Role, int(role), size, roleDraw(role)); }
 QIcon controlIcon(ControlIcon control, int size) {
-    return makeIcon(size, [control](QPainter& p) { drawControl(p, control); });
+    return makeIcon(Family::Control, int(control), size, [control](QPainter& p) { drawControl(p, control); });
 }
 QIcon layoutIcon(LayoutIcon kind, int size) {
     QIcon icon;
@@ -897,55 +1026,7 @@ QIcon layoutIcon(LayoutIcon kind, int size) {
     return icon;
 }
 QPixmap rolePixmap(RoleIcon role, int size) { return render(size, 2.0, roleDraw(role)); }
-QIcon colliderIcon(ke::ColliderKind kind, int size) { return makeIcon(size, colliderDraw(kind)); }
-QIcon linkIcon(LinkIcon kind, int size) { return makeIcon(size, linkDraw(kind)); }
+QIcon colliderIcon(ke::ColliderKind kind, int size) { return makeIcon(Family::Collider, int(kind), size, colliderDraw(kind)); }
+QIcon linkIcon(LinkIcon kind, int size) { return makeIcon(Family::Link, int(kind), size, linkDraw(kind)); }
 QPixmap linkPixmap(LinkIcon kind, int size) { return render(size, 2.0, linkDraw(kind)); }
 
-int dumpIcons(const QString& dir, int size) {
-    QDir().mkpath(dir);
-    int n = 0;
-    auto save = [&](const QString& name, const Draw& draw) { n += render(size, 1.0, draw).save(dir + "/" + name + ".png") ? 1 : 0; };
-    const char* shapes[] = {"shape-cube", "shape-sphere", "shape-cylinder", "shape-cone", "shape-plane", "shape-model"};
-    for (int k = 0; k < 6; ++k) save(shapes[k], shapeDraw(ke::ShapeKind(k)));
-    const char* roles[] = {"role-rigid", "role-collider"};
-    static_assert(sizeof(roles) / sizeof(roles[0]) == size_t(RoleIcon::Count), "a file name for every RoleIcon");
-    for (int k = 0; k < int(RoleIcon::Count); ++k) save(roles[k], roleDraw(RoleIcon(k)));
-    const char* links[] = {"link-rotary", "link-linear", "link-wheel", "link-weld", "link-ball"};
-    static_assert(sizeof(links) / sizeof(links[0]) == size_t(LinkIcon::Count), "a file name for every LinkIcon");
-    for (int k = 0; k < int(LinkIcon::Count); ++k) save(links[k], linkDraw(LinkIcon(k)));
-    const char* colliders[] = {"collider-auto", "collider-box", "collider-sphere", "collider-capsule", "collider-hull", "collider-cylinder"};
-    for (int k = 0; k < 6; ++k) save(colliders[k], colliderDraw(ke::ColliderKind(k)));
-    const char* controls[] = {"play", "pause", "stop", "step", "reset", "undo", "redo", "visible", "hidden", "locked", "unlocked",
-                              "tool-select", "tool-move", "tool-rotate", "tool-scale"};
-    static_assert(sizeof(controls) / sizeof(controls[0]) == size_t(ControlIcon::Count), "a file name for every ControlIcon");
-    for (int k = 0; k < int(ControlIcon::Count); ++k) {
-        const ControlIcon c = ControlIcon(k);
-        save(controls[k], [c](QPainter& p) { drawControl(p, c); });
-    }
-    const char* objects[] = {"group", "array-line", "array-grid", "array-circle"};
-    static_assert(sizeof(objects) / sizeof(objects[0]) == size_t(ObjectIcon::Count), "a file name for every ObjectIcon");
-    for (int k = 0; k < int(ObjectIcon::Count); ++k) {
-        const ObjectIcon o = ObjectIcon(k);
-        save(objects[k], [o](QPainter& p) { drawObjectIcon(p, o); });
-    }
-    const char* layouts[] = {"layout-left", "layout-menu", "layout-bottom", "layout-right"};
-    static_assert(sizeof(layouts) / sizeof(layouts[0]) == size_t(LayoutIcon::Count), "a file name for every LayoutIcon");
-    for (int k = 0; k < int(LayoutIcon::Count); ++k) {
-        const LayoutIcon o = LayoutIcon(k);
-        save(layouts[k], [o](QPainter& p) { drawLayout(p, o, true); });
-    }
-    const char* lights[] = {"light-sun", "light-bulb", "light-spot", "camera"};
-    static_assert(sizeof(lights) / sizeof(lights[0]) == size_t(SceneIcon::Count), "a file name for every SceneIcon");
-    for (int k = 0; k < int(SceneIcon::Count); ++k) {
-        const SceneIcon o = SceneIcon(k);
-        save(lights[k], [o](QPainter& p) { drawSceneIcon(p, o); });
-    }
-    const char* devices[] = {"device-encoder", "device-imu", "device-sonar", "device-touch", "device-wrench", "device-effort", "device-stereo",
-                             "device-battery", "device-driver", "device-joint", "device-controller"};
-    static_assert(sizeof(devices) / sizeof(devices[0]) == size_t(DeviceIcon::Count), "a file name for every DeviceIcon");
-    for (int k = 0; k < int(DeviceIcon::Count); ++k) {
-        const DeviceIcon o = DeviceIcon(k);
-        save(devices[k], [o](QPainter& p) { drawDeviceIcon(p, o); });
-    }
-    return n;
-}

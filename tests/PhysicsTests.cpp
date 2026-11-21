@@ -105,12 +105,38 @@ void testPhysicsFreeFall() {
     CHECK(std::fabs(s.position.y - exact) <= 9.81_r * h * t, "the height %f is off the parabola %f by more than g h t", double(s.position.y), double(exact));
 }
 
+// What the force operations of the world stand on: an impulse is momentum at once, at the centre, with no spin, and wakes;
+// a force is consumed by the step that follows it (not carried over) and accumulates before it.
+void testPhysicsImpulseAndForce() {
+    PhysicsSettings sleepy;
+    auto w = makePhysicsWorld(sleepy, Vector3(0.0_r));
+    const int b = body(*w, {0, 5, 0}, {box({0.1_r, 0.2_r, 0.3_r})});
+    const Real m = w->state(b).mass;
+    for (int k = 0; k < 600 && w->state(b).awake; ++k) w->step(kDt);
+    CHECK(!w->state(b).awake, "a body at rest in zero gravity falls asleep");
+    w->applyImpulse(b, {0, 3, 0}, w->state(b).centre);
+    const BodyState hit = w->state(b);
+    CHECK(std::fabs(hit.velocity.y - 3 / m) < 1e-4_r * (3 / m) && length(hit.angularVelocity) < 1e-6_r && hit.awake,
+          "an impulse of 3 N s: v = %f (%f), no spin, awake", double(hit.velocity.y), double(3 / m));
+    auto f = world(Vector3(0.0_r));
+    const int c = body(*f, {0, 5, 0}, {box({0.1_r, 0.2_r, 0.3_r})});
+    f->applyForce(c, {0, 6, 0}, f->state(c).centre);
+    f->step(kDt);
+    const Real once = f->state(c).velocity.y;
+    f->step(kDt);
+    CHECK(std::fabs(once - 6 * kDt / m) < 1e-4_r * once && f->state(c).velocity.y == once, "a force acts over the step that follows it only: %f then %f", double(once), double(f->state(c).velocity.y));
+    f->applyForce(c, {0, 6, 0}, f->state(c).centre);
+    f->applyForce(c, {0, 6, 0}, f->state(c).centre);
+    f->step(kDt);
+    CHECK(std::fabs(f->state(c).velocity.y - once - 12 * kDt / m) < 1e-4_r * once, "two forces before a step add up: %f", double(f->state(c).velocity.y - once));
+}
+
 void testPhysicsTorque() {
     auto w = world(Vector3(0.0_r));
     const int computed = body(*w, {0, 0, 0}, {box({0.1_r, 0.2_r, 0.3_r})});
     BodyDesc d;
     d.position = {2, 0, 0};
-    d.massGiven = true, d.mass = 2;
+    d.massGiven = d.centreGiven = d.inertiaGiven = true, d.mass = 2;
     d.inertia.m[0][0] = 0.5_r, d.inertia.m[1][1] = 0.7_r, d.inertia.m[2][2] = 0.9_r;
     std::string error;
     const int given = w->addBody(d, {box({0.1_r, 0.1_r, 0.1_r})}, error);
@@ -211,9 +237,13 @@ void testPhysicsWeightOnContacts() {
     int points = 0;
     for (const ContactPoint& c : w->contacts())
         if (c.a == crate || c.b == crate) impulse += c.normalImpulse, ++points;
+    Real own = 0;
+    int ownPoints = 0;
+    for (const ContactPoint& c : w->contactsOf(crate)) own += c.normalImpulse, ++ownPoints;
     const Real weight = w->state(crate).mass * 9.81_r;
-    std::printf("  a crate of %.2f kg at rest: %d contact points carry %.4f N (m g = %.4f N)\n", double(w->state(crate).mass), points,
-                double(impulse / kDt), double(weight));
+    std::printf("  a crate of %.2f kg at rest: %d contact points carry %.4f N (m g = %.4f N); its own contacts: %d points, %.4f N\n",
+                double(w->state(crate).mass), points, double(impulse / kDt), double(weight), ownPoints, double(own / kDt));
+    CHECK(ownPoints == points && std::fabs(own - impulse) < 1e-6_r, "contactsOf(crate) is not the crate's share of contacts()");
     CHECK(points >= 3, "%d contact points under a box at rest", points);
     CHECK(std::fabs(impulse / kDt / weight - 1) < 0.01_r, "the contacts carry %f N, not m g = %f N", double(impulse / kDt), double(weight));
 }
@@ -405,4 +435,44 @@ void testPhysicsRepeatable() {
     const std::vector<Real> a = run(), b = run();
     std::printf("  ten falling crates, two worlds built alike: %s after 3 s\n", a == b ? "equal to the bit" : "DIFFERENT");
     CHECK(a == b, "two worlds built alike went apart");
+}
+
+// The same world on 1, 2, 4 and the machine's threads: 300 boxes of three sizes, turned every way and thrown with a
+// spin onto a floor and a fixed post, tumbling into a pile for 3 s - every body's pose equal to the bit, or a scene
+// replayed on another machine would not be the scene that was recorded (docs/constitution.md, article 3).
+void testPhysicsThreadsDeterministic() {
+    const auto run = [](int threads) {
+        PhysicsSettings s;
+        auto w = makePhysicsWorld(s, kGravity, threads);
+        body(*w, {0, -0.5_r, 0}, {box({5, 0.5_r, 5})}, BodyDesc::Type::Static);
+        body(*w, {0.1_r, 0.4_r, 0}, {box({0.05_r, 0.4_r, 0.05_r})}, BodyDesc::Type::Static);
+        std::vector<int> boxes;
+        uint32_t h = 7;
+        const auto next = [&h] { h = h * 1664525u + 1013904223u; return Real(h >> 8) / Real(1 << 24); }; // [0, 1)
+        for (int k = 0; k < 300; ++k) {
+            const Real half = 0.02_r + 0.015_r * Real(k % 3);
+            const Quaternion turn = Quaternion::fromAxisAngle(normalize(Vector3(next() - 0.5_r, next() - 0.5_r, next() - 0.5_r)), 6.28_r * next());
+            const int b = body(*w, {0.6_r * next() - 0.2_r, 0.3_r + 1.7_r * next(), 0.6_r * next() - 0.3_r}, {box(Vector3(half))}, BodyDesc::Type::Dynamic,
+                               700, turn);
+            w->setVelocity(b, Vector3(next() - 0.5_r, 0, next() - 0.5_r), Vector3(8 * next() - 4, 8 * next() - 4, 8 * next() - 4));
+            boxes.push_back(b);
+        }
+        for (int k = 0; k < 180; ++k) w->step(kDt);
+        std::vector<Real> out;
+        for (int b : boxes) {
+            const BodyState st = w->state(b);
+            out.insert(out.end(), {st.position.x, st.position.y, st.position.z, st.rotation.w, st.rotation.x, st.rotation.y, st.rotation.z});
+        }
+        return out;
+    };
+    const std::vector<Real> one = run(1);
+    std::string report;
+    bool same = true;
+    for (int threads : {2, 4, physicsThreads()}) {
+        const bool equal = run(threads) == one;
+        same = same && equal;
+        report += " " + std::to_string(threads) + (equal ? ": equal" : ": DIFFERENT") + ";";
+    }
+    std::printf("  300 tumbling boxes for 3 s, against one thread:%s\n", report.c_str());
+    CHECK(same, "the world's bits depend on its threads:%s", report.c_str());
 }

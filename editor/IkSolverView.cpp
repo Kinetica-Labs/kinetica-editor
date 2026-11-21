@@ -1,5 +1,6 @@
 // The IK solver's card (IkSolverView.h): its words above, the residual's chart below, painted by hand.
 #include "IkSolverView.h"
+#include "UiLanguage.h"
 
 #include <QLabel>
 #include <QPainter>
@@ -23,23 +24,23 @@ IkSolverView::IkSolverView(QWidget* parent) : QWidget(parent) {
     col->addWidget(text_);
     col->addStretch(1);
     setMinimumHeight(190);
-    setToolTip("Решатель обратной кинематики: каждый раунд — шаг демпфированных наименьших квадратов по точному якобиану. "
+    setToolTip(uiText("Kinetica", "Решатель обратной кинематики: каждый раунд — шаг демпфированных наименьших квадратов по точному якобиану. "
                "Невязка — промах точки и поворота (поворот в метрах: 0,3 м на радиан). Сначала шаги не длиннее 0,2 рад, "
-               "потом невязка падает в разы за раунд");
+               "потом невязка падает в разы за раунд"));
 }
 
 void IkSolverView::show(const ke::IkResult& r, int freedoms) {
     residual_ = r.residual;
-    const QString what = freedoms >= 6 ? "точка и поворот" : QString("только точка: у руки %1 степени свободы, поворот требует шести").arg(freedoms);
-    text_->setText(QString("<b>Решатель IK</b> — демпфированные наименьшие квадраты (Buss 2004):<br>"
+    const QString what = freedoms >= 6 ? uiText("Kinetica", "точка и поворот") : QString(uiText("Kinetica", "только точка: у руки %1 степени свободы, поворот требует шести")).arg(freedoms);
+    text_->setText(QString(uiText("Kinetica", "<b>Решатель IK</b> — демпфированные наименьшие квадраты (Buss 2004):<br>"
                            "Δθ = Jᵀ(JJᵀ + λ²I)⁻¹e, λ = 0,05; цель — %1.<br>"
-                           "Раундов %2 · промах %3 мм, %4° · манипулируемость %5%6")
+                           "Раундов %2 · промах %3 мм, %4° · манипулируемость %5%6"))
                        .arg(what)
                        .arg(r.iterations)
                        .arg(double(r.positionError) * 1000, 0, 'f', 3)
                        .arg(double(r.angleError) * 180 / 3.14159265358979, 0, 'f', 3)
                        .arg(double(r.manipulability), 0, 'g', 3)
-                       .arg(r.reached ? "" : " · <b>не достал</b>: цель вне досягаемости или за пределами осей"));
+                       .arg(r.reached ? "" : uiText("Kinetica", " · <b>не достал</b>: цель вне досягаемости или за пределами осей")));
     update();
 }
 
@@ -82,5 +83,5 @@ void IkSolverView::paintEvent(QPaintEvent*) {
     p.setBrush(QColor(240, 170, 60));
     for (int i = 0; i < n; ++i) p.drawEllipse(at(i, double(residual_[size_t(i)])), 2.5, 2.5);
     p.setPen(QColor(150, 156, 170));
-    p.drawText(QRectF(area.left(), area.bottom() + 2, area.width(), 18), Qt::AlignCenter, QString("раунды 0…%1 · невязка, м (лог)").arg(n - 1));
+    p.drawText(QRectF(area.left(), area.bottom() + 2, area.width(), 18), Qt::AlignCenter, QString(uiText("Kinetica", "раунды 0…%1 · невязка, м (лог)")).arg(n - 1));
 }

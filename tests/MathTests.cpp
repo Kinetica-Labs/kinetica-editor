@@ -1,5 +1,5 @@
-// Math and spatial structures against exact answers: vector/matrix/quaternion identities, the N x N
-// solvers, mesh primitives (closed manifolds, volumes) and BVH queries against brute force.
+// Math and spatial structures against exact answers: vector/matrix/quaternion identities, mesh
+// primitives (closed manifolds, volumes) and BVH queries against brute force.
 #include "TestRunner.h"
 
 #include "core/Mesh.h"
@@ -9,13 +9,12 @@
 
 void testMath() {
     auto near = [](Real a, Real b, Real eps = 1e-5_r) { return std::fabs(a - b) <= eps; };
-    // Vector2 / Vector3 / Vector4
+    // Vector2 / Vector3
     CHECK(near(cross(Vector2(1, 0), Vector2(0, 1)), 1.0_r) && near(dot(perp(Vector2(2, 3)), Vector2(2, 3)), 0.0_r), "Vector2");
     Vector3 c = cross(Vector3(1, 0, 0), Vector3(0, 1, 0));
     CHECK(near(c.x, 0) && near(c.y, 0) && near(c.z, 1), "Vector3 cross");
     Vector3 p = anyPerpendicular(Vector3(0.3_r, -2.0_r, 0.7_r));
     CHECK(near(dot(p, Vector3(0.3_r, -2.0_r, 0.7_r)), 0.0_r) && near(length(p), 1.0_r), "anyPerpendicular");
-    CHECK(near(length(Vector4(1, 2, 2, 4)), 5.0_r) && near(Vector4(Vector3(1, 2, 3), 1).xyz().z, 3.0_r), "Vector4");
 
     // Matrix3x3: inverse, determinant, skew, eigen
     Matrix3x3 A = Matrix3x3::fromRows({4, 1, 2}, {0, 3, 1}, {1, 0, 2});
@@ -51,59 +50,6 @@ void testMath() {
           "fromTwoVectors");
     Quaternion qi = q * q.inverse();
     CHECK(near(qi.w, 1.0_r) && near(qi.x, 0.0_r), "q * q^-1 == 1");
-
-    // Matrix4x4: TRS, inverse, projection
-    Matrix4x4 M = Matrix4x4::trs({1, 2, 3}, q, {2, 3, 4});
-    Vector3 x(0.3_r, -0.7_r, 1.1_r);
-    Vector3 back = M.inverse().transformPoint(M.transformPoint(x));
-    CHECK(length(back - x) < 1e-5_r, "Matrix4x4 inverse (err %e)", length(back - x));
-    Matrix4x4 P = Matrix4x4::perspective(1.0_r, 1.5_r, 0.1_r, 100.0_r);
-    CHECK(near(P.transformPoint({0, 0, -0.1_r}).z, -1.0_r, 1e-4_r) && near(P.transformPoint({0, 0, -100}).z, 1.0_r, 1e-3_r),
-          "perspective depth range");
-    Vector3 eye(1, 2, 3);
-    CHECK(length(Matrix4x4::lookAt(eye, {0, 0, 0}, {0, 1, 0}).transformPoint(eye)) < 1e-5_r, "lookAt puts the eye at the origin");
-
-    // MatrixNxN: LU, determinant, inverse, Cholesky, Jacobi (Hilbert-like SPD system, n = 6)
-    const int n = 6;
-    MatrixNxN H(n, n);
-    for (int i = 0; i < n; ++i)
-        for (int j = 0; j < n; ++j) H(i, j) = 1.0 / (i + j + 1) + (i == j ? 1.0 : 0.0);
-    std::vector<double> xs(n), b, xl, xc;
-    for (int i = 0; i < n; ++i) xs[i] = i - 2.5;
-    b = H * xs;
-    bool okL = H.solveLU(b, xl), okC = H.solveCholesky(b, xc);
-    double eL = 0, eC = 0;
-    for (int i = 0; i < n; ++i) eL = std::max(eL, std::fabs(xl[i] - xs[i])), eC = std::max(eC, std::fabs(xc[i] - xs[i]));
-    CHECK(okL && okC && eL < 1e-12 && eC < 1e-12, "MatrixNxN solve: LU err %e, Cholesky err %e", eL, eC);
-    MatrixNxN Hi;
-    CHECK(H.inverse(Hi), "inverse");
-    MatrixNxN E = H * Hi;
-    double eI = 0;
-    for (int i = 0; i < n; ++i)
-        for (int j = 0; j < n; ++j) eI = std::max(eI, std::fabs(E(i, j) - (i == j ? 1.0 : 0.0)));
-    CHECK(eI < 1e-12, "H * H^-1 error %e", eI);
-    MatrixNxN D = MatrixNxN::identity(3) * 2.0;
-    D(0, 1) = 5;
-    CHECK(std::fabs(D.determinant() - 8.0) < 1e-12, "determinant of triangular %f", D.determinant());
-    MatrixNxN N(3, 3);
-    N(0, 0) = 1; N(1, 1) = -1; // indefinite
-    std::vector<double> dummy;
-    CHECK(!N.solveCholesky({1, 1, 1}, dummy) && !MatrixNxN(3, 3).solveLU({1, 1, 1}, dummy), "Cholesky/LU must reject bad matrices");
-    std::vector<double> vals;
-    MatrixNxN Vn;
-    H.symmetricEigen(vals, Vn);
-    double eE = 0;
-    for (int k = 0; k < n; ++k) { // H v_k = lambda_k v_k
-        std::vector<double> v(n);
-        for (int i = 0; i < n; ++i) v[i] = Vn(i, k);
-        std::vector<double> hv = H * v;
-        for (int i = 0; i < n; ++i) eE = std::max(eE, std::fabs(hv[i] - vals[k] * v[i]));
-    }
-    CHECK(eE < 1e-10, "N x N eigen residual %e", eE);
-
-    // solveSmall (contact block solver)
-    Real Ms[4][4] = {{4, 1, 0, 0}, {1, 4, 1, 0}, {0, 1, 4, 1}, {0, 0, 1, 4}}, r4[4] = {5, 6, 6, 5}, x4[4];
-    CHECK(solveSmall(4, Ms, r4, x4) && near(x4[0], 1) && near(x4[1], 1) && near(x4[2], 1) && near(x4[3], 1), "solveSmall");
 }
 
 void testPrimitives() {

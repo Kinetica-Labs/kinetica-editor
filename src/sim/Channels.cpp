@@ -3,6 +3,7 @@
 // contacts) and the robot's joints (RobotWorld). Sums of energy and momentum are kept in double: a
 // change of one part in 10^5 would drown in float rounding of a sum of many terms.
 #include "sim/Channels.h"
+#include "core/UiLabel.h"
 
 #include "math/ElementaryFunctions.h"
 #include "scene/Assembly.h"
@@ -43,16 +44,22 @@ void put(std::vector<Measurement>& out, const char* id, double value) {
 }
 
 // What is summed over the members of anything: mass, first moment, momentum, energy, angular momentum about
-// the origin (Σ x × m v + I ω: moved to the centre of mass afterwards, L_X = L_O - X × P).
+// the origin (Σ x × m v + I ω: moved to the centre of mass afterwards, L_X = L_O - X × P). Members without a mass - a
+// fixed body, one a sequence leads (kinematic: its mass is unbounded) - store no energy, but they stand somewhere and
+// may move: with no mass in the sum, the centre and the velocity are their plain means.
 struct Totals {
     double mass = 0, translational = 0, rotational = 0, potential = 0;
     Double3 firstMoment, momentum, angularAboutOrigin;
+    int massless = 0;
+    Double3 masslessCentres, masslessVelocities;
     Totals& operator+=(const Totals& o) {
         mass += o.mass, translational += o.translational, rotational += o.rotational, potential += o.potential;
         firstMoment += o.firstMoment, momentum += o.momentum, angularAboutOrigin += o.angularAboutOrigin;
+        massless += o.massless, masslessCentres += o.masslessCentres, masslessVelocities += o.masslessVelocities;
         return *this;
     }
-    Double3 centre() const { return mass > 0 ? firstMoment * (1.0 / mass) : Double3(); }
+    Double3 centre() const { return mass > 0 ? firstMoment * (1.0 / mass) : massless ? masslessCentres * (1.0 / massless) : Double3(); }
+    Double3 velocity() const { return mass > 0 ? momentum * (1.0 / mass) : massless ? masslessVelocities * (1.0 / massless) : Double3(); }
 };
 
 // The height reference of the potential energy: the floor, y = 0 (U = -m g . x).
@@ -60,7 +67,10 @@ Totals bodyTotals(const PhysicsWorld& physics, int body, const Vector3& gravity)
     Totals t;
     if (body < 0 || !physics.alive(body)) return t;
     const BodyState s = physics.state(body);
-    if (s.mass <= 0) return t; // static: it neither moves nor stores energy
+    if (s.mass <= 0) { // fixed or led: no energy, a place and a velocity
+        t.massless = 1, t.masslessCentres = Double3(s.centre), t.masslessVelocities = Double3(s.velocity);
+        return t;
+    }
     const double m = s.mass;
     const Double3 x(s.centre), v(s.velocity), w(s.angularVelocity), Iw(s.inertia * s.angularVelocity);
     t.mass = m;
@@ -83,20 +93,20 @@ void addTotals(std::vector<Measurement>& out, const std::string& label, ChannelG
     auto add = [&](const char* quantity, const char* unit, const char* name, double value) {
         out.push_back(measured(label + "/" + quantity, unit, name, group, value));
     };
-    const Double3 c = t.centre(), v = t.mass > 0 ? t.momentum * (1.0 / t.mass) : Double3();
-    add("mass", "кг", "Масса", t.mass);
-    add("centre x", "м", "Центр масс, x", c.x);
-    add("centre y", "м", "Центр масс, y", c.y);
-    add("centre z", "м", "Центр масс, z", c.z);
-    add("height", "м", "Высота центра масс над полом", c.y);
-    add("speed", "м/с", "Скорость центра масс", v.length());
-    add("velocity x", "м/с", "Скорость, x", v.x);
-    add("velocity y", "м/с", "Скорость, y", v.y);
-    add("velocity z", "м/с", "Скорость, z", v.z);
-    add("momentum", "Н·с", "Импульс |P|", t.momentum.length());
-    add("kinetic energy", "Дж", "Энергия движения (с вращением)", t.translational + t.rotational);
-    add("potential energy", "Дж", "Энергия высоты над полом", t.potential);
-    add("energy", "Дж", "Механическая энергия", t.translational + t.rotational + t.potential);
+    const Double3 c = t.centre(), v = t.velocity();
+    add("mass", KE_UI_LABEL("Kinetica", "кг"), KE_UI_LABEL("Kinetica", "Масса"), t.mass);
+    add("centre x", KE_UI_LABEL("Kinetica", "м"), KE_UI_LABEL("Kinetica", "Центр масс, x"), c.x);
+    add("centre y", KE_UI_LABEL("Kinetica", "м"), KE_UI_LABEL("Kinetica", "Центр масс, y"), c.y);
+    add("centre z", KE_UI_LABEL("Kinetica", "м"), KE_UI_LABEL("Kinetica", "Центр масс, z"), c.z);
+    add("height", KE_UI_LABEL("Kinetica", "м"), KE_UI_LABEL("Kinetica", "Высота центра масс над полом"), c.y);
+    add("speed", KE_UI_LABEL("Kinetica", "м/с"), KE_UI_LABEL("Kinetica", "Скорость центра масс"), v.length());
+    add("velocity x", KE_UI_LABEL("Kinetica", "м/с"), KE_UI_LABEL("Kinetica", "Скорость, x"), v.x);
+    add("velocity y", KE_UI_LABEL("Kinetica", "м/с"), KE_UI_LABEL("Kinetica", "Скорость, y"), v.y);
+    add("velocity z", KE_UI_LABEL("Kinetica", "м/с"), KE_UI_LABEL("Kinetica", "Скорость, z"), v.z);
+    add("momentum", KE_UI_LABEL("Kinetica", "Н·с"), KE_UI_LABEL("Kinetica", "Импульс |P|"), t.momentum.length());
+    add("kinetic energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Энергия движения (с вращением)"), t.translational + t.rotational);
+    add("potential energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Энергия высоты над полом"), t.potential);
+    add("energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Механическая энергия"), t.translational + t.rotational + t.potential);
 }
 
 const char* kDofs[] = {"tx", "ty", "tz", "rx", "ry", "rz"}; // JointDof
@@ -112,17 +122,17 @@ double angleBetween(const Quaternion& a, const Quaternion& b) {
 
 const std::vector<ChannelInfo>& sceneChannelCatalog() {
     static const std::vector<ChannelInfo> cards = {
-        {"rigid/kinetic energy", "Дж", "Твёрдые тела: энергия движения, Σ m v²/2", ChannelGroup::Scene},
-        {"rigid/rotational energy", "Дж", "Твёрдые тела: энергия вращения, Σ ω·Iω/2", ChannelGroup::Scene},
-        {"rigid/potential energy", "Дж", "Твёрдые тела: энергия высоты над полом", ChannelGroup::Scene},
-        {"rigid/mechanical energy", "Дж", "Твёрдые тела: полная механическая энергия", ChannelGroup::Scene},
-        {"rigid/momentum", "Н·с", "Твёрдые тела: импульс |P|", ChannelGroup::Scene},
-        {"rigid/momentum x", "Н·с", "Твёрдые тела: импульс, x", ChannelGroup::Scene},
-        {"rigid/momentum y", "Н·с", "Твёрдые тела: импульс, y", ChannelGroup::Scene},
-        {"rigid/momentum z", "Н·с", "Твёрдые тела: импульс, z", ChannelGroup::Scene},
-        {"rigid/angular momentum", "Н·м·с", "Твёрдые тела: момент импульса |L| около центра масс", ChannelGroup::Scene},
-        {"rigid/deepest penetration", "м", "Твёрдые тела: самое глубокое проникновение", ChannelGroup::Scene},
-        {"scene/mechanical energy", "Дж", "Сцена: механическая энергия", ChannelGroup::Scene},
+        {"rigid/kinetic energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Твёрдые тела: энергия движения, Σ m v²/2"), ChannelGroup::Scene},
+        {"rigid/rotational energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Твёрдые тела: энергия вращения, Σ ω·Iω/2"), ChannelGroup::Scene},
+        {"rigid/potential energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Твёрдые тела: энергия высоты над полом"), ChannelGroup::Scene},
+        {"rigid/mechanical energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Твёрдые тела: полная механическая энергия"), ChannelGroup::Scene},
+        {"rigid/momentum", KE_UI_LABEL("Kinetica", "Н·с"), KE_UI_LABEL("Kinetica", "Твёрдые тела: импульс |P|"), ChannelGroup::Scene},
+        {"rigid/momentum x", KE_UI_LABEL("Kinetica", "Н·с"), KE_UI_LABEL("Kinetica", "Твёрдые тела: импульс, x"), ChannelGroup::Scene},
+        {"rigid/momentum y", KE_UI_LABEL("Kinetica", "Н·с"), KE_UI_LABEL("Kinetica", "Твёрдые тела: импульс, y"), ChannelGroup::Scene},
+        {"rigid/momentum z", KE_UI_LABEL("Kinetica", "Н·с"), KE_UI_LABEL("Kinetica", "Твёрдые тела: импульс, z"), ChannelGroup::Scene},
+        {"rigid/angular momentum", KE_UI_LABEL("Kinetica", "Н·м·с"), KE_UI_LABEL("Kinetica", "Твёрдые тела: момент импульса |L| около центра масс"), ChannelGroup::Scene},
+        {"rigid/deepest penetration", KE_UI_LABEL("Kinetica", "м"), KE_UI_LABEL("Kinetica", "Твёрдые тела: самое глубокое проникновение"), ChannelGroup::Scene},
+        {"scene/mechanical energy", KE_UI_LABEL("Kinetica", "Дж"), KE_UI_LABEL("Kinetica", "Сцена: механическая энергия"), ChannelGroup::Scene},
     };
     return cards;
 }
@@ -139,11 +149,11 @@ std::vector<Measurement> measureScene(const Simulation& sim) {
     if (!physics || !sim.robot()) return out;
     Totals t;
     const Vector3 g = gravityOf(sim);
-    for (const Entity& e : worldEntities(sim.robot()->graph())) t += bodyTotals(*physics, bodyOfEntity(sim, e.id), g);
+    for (const Entity& e : sim.robot()->built()) t += bodyTotals(*physics, bodyOfEntity(sim, e.id), g); // not flattened a frame again
     const Double3 L = t.angularAboutOrigin - cross(t.centre(), t.momentum);
     const double mechanical = t.translational + t.rotational + t.potential;
     double deepest = 0;
-    for (const ContactPoint& c : physics->contacts()) deepest = std::max(deepest, double(c.depth));
+    for (const ContactPoint& c : sim.robot()->contactsNow(*physics)) deepest = std::max(deepest, double(c.depth));
     put(out, "rigid/kinetic energy", t.translational);
     put(out, "rigid/rotational energy", t.rotational);
     put(out, "rigid/potential energy", t.potential);
@@ -155,6 +165,13 @@ std::vector<Measurement> measureScene(const Simulation& sim) {
     put(out, "rigid/angular momentum", L.length());
     put(out, "rigid/deepest penetration", deepest);
     put(out, "scene/mechanical energy", mechanical);
+    for (const BatteryObject& b : sim.robot()->graph().batteries) { // the packs: what their motors draw (RobotPower.cpp)
+        RobotWorld::PowerReading r;
+        if (!sim.robot()->powerReading(b.id, r)) continue;
+        out.push_back(measured("power/" + b.name + " voltage", KE_UI_LABEL("Kinetica", "В"), b.name + KE_UI_LABEL("Kinetica", ": напряжение"), ChannelGroup::Scene, double(r.voltage)));
+        out.push_back(measured("power/" + b.name + " current", KE_UI_LABEL("Kinetica", "А"), b.name + KE_UI_LABEL("Kinetica", ": ток"), ChannelGroup::Scene, double(r.current)));
+        out.push_back(measured("power/" + b.name + " charge", "%", b.name + KE_UI_LABEL("Kinetica", ": заряд"), ChannelGroup::Scene, 100.0 * double(r.soc)));
+    }
     return out;
 }
 
@@ -168,10 +185,10 @@ std::vector<Measurement> measureObject(const Simulation& sim, const ObjectRef& o
     // The normal force of its contacts: each point's impulse over the engine's last step - the frame's last
     // substep (RobotWorld::step drives the joints between substeps) - from a to b. A sleeping body is not
     // solved: sleep means the forces on it balance, so its contacts hold exactly its weight, -m g.
-    const double h = double(sim.frameDt) / std::max(1, sim.robot()->graph().world.physics.substeps);
+    const double h = double(sim.frameDt) / sim.robot()->engineSteps(sim.robot()->graph().world.physics.substeps);
     Double3 F;
     int points = 0;
-    for (const ContactPoint& c : physics->contacts()) {
+    for (const ContactPoint& c : sim.robot()->contactsNow(*physics)) {
         if (c.a != body && c.b != body) continue;
         ++points;
         F += Double3(c.normal) * (double(c.normalImpulse) / h * (c.b == body ? 1.0 : -1.0));
@@ -180,13 +197,13 @@ std::vector<Measurement> measureObject(const Simulation& sim, const ObjectRef& o
     auto add = [&](const char* quantity, const char* unit, const char* name, double value) {
         out.push_back(measured(o.label + "/" + quantity, unit, name, ChannelGroup::Object, value));
     };
-    add("angular speed", "рад/с", "Угловая скорость |ω|", double(length(s.angularVelocity)));
-    add("asleep", "да/нет", "Спит (1) или движется (0)", s.awake ? 0.0 : 1.0);
-    add("contact force", "Н", "Сила контактов |F| (нормальная)", F.length());
-    add("contact force x", "Н", "Сила контактов, x", F.x);
-    add("contact force y", "Н", "Сила контактов, y", F.y);
-    add("contact force z", "Н", "Сила контактов, z", F.z);
-    add("contacts", "шт", "Точек контакта", points);
+    add("angular speed", KE_UI_LABEL("Kinetica", "рад/с"), KE_UI_LABEL("Kinetica", "Угловая скорость |ω|"), double(length(s.angularVelocity)));
+    add("asleep", KE_UI_LABEL("Kinetica", "да/нет"), KE_UI_LABEL("Kinetica", "Спит (1) или движется (0)"), s.awake ? 0.0 : 1.0);
+    add("contact force", KE_UI_LABEL("Kinetica", "Н"), KE_UI_LABEL("Kinetica", "Сила контактов |F| (нормальная)"), F.length());
+    add("contact force x", KE_UI_LABEL("Kinetica", "Н"), KE_UI_LABEL("Kinetica", "Сила контактов, x"), F.x);
+    add("contact force y", KE_UI_LABEL("Kinetica", "Н"), KE_UI_LABEL("Kinetica", "Сила контактов, y"), F.y);
+    add("contact force z", KE_UI_LABEL("Kinetica", "Н"), KE_UI_LABEL("Kinetica", "Сила контактов, z"), F.z);
+    add("contacts", KE_UI_LABEL("Kinetica", "шт"), KE_UI_LABEL("Kinetica", "Точек контакта"), points);
     return out;
 }
 
@@ -196,7 +213,7 @@ std::vector<Measurement> measureGroup(const Simulation& sim, const GroupRef& gro
     Totals t;
     for (const ObjectRef& o : group.members) t += bodyTotals(*sim.physics(), bodyOfEntity(sim, o.entity), gravityOf(sim));
     addTotals(out, group.label, ChannelGroup::Group, t);
-    out.push_back(measured(group.label + "/members", "шт", "Объектов в группе", ChannelGroup::Group, double(group.members.size())));
+    out.push_back(measured(group.label + "/members", KE_UI_LABEL("Kinetica", "шт"), KE_UI_LABEL("Kinetica", "Объектов в группе"), ChannelGroup::Group, double(group.members.size())));
     return out;
 }
 
@@ -211,12 +228,12 @@ std::vector<Measurement> measureJoint(const Simulation& sim, const JointChannelR
         if (j->dof[k].motion == JointMotion::Locked) continue;
         const bool turn = k >= DofRx;
         const std::string id = ref.label + "/" + kDofs[k], who = kDofs[k];
-        out.push_back(measured(id + " coordinate", turn ? "рад" : "м", who + ": " + (turn ? "угол" : "ход"), ChannelGroup::Object, double(x[k])));
+        out.push_back(measured(id + " coordinate", turn ? KE_UI_LABEL("Kinetica", "рад") : KE_UI_LABEL("Kinetica", "м"), who + ": " + (turn ? KE_UI_LABEL("Kinetica", "угол") : KE_UI_LABEL("Kinetica", "ход")), ChannelGroup::Object, double(x[k])));
         const JointDrive& d = j->dof[k].drive;
         if (d.enabled && d.stiffness > 0 && d.constant == 0)
-            out.push_back(measured(id + " target", turn ? "рад" : "м", who + ": цель сервы", ChannelGroup::Object, double(d.target)));
+            out.push_back(measured(id + " target", turn ? KE_UI_LABEL("Kinetica", "рад") : KE_UI_LABEL("Kinetica", "м"), who + KE_UI_LABEL("Kinetica", ": цель сервы"), ChannelGroup::Object, double(d.target)));
         if (d.enabled && k == main)
-            out.push_back(measured(id + " effort", turn ? "Н·м" : "Н", who + (turn ? ": момент мотора" : ": сила мотора"), ChannelGroup::Object,
+            out.push_back(measured(id + " effort", turn ? KE_UI_LABEL("Kinetica", "Н·м") : KE_UI_LABEL("Kinetica", "Н"), who + (turn ? KE_UI_LABEL("Kinetica", ": момент мотора") : KE_UI_LABEL("Kinetica", ": сила мотора")), ChannelGroup::Object,
                                    double(robot->jointEffort(*sim.physics(), ref.joint))));
     }
     return out;
@@ -236,8 +253,8 @@ std::vector<Measurement> measureGoal(const Simulation& sim, const GoalChannelRef
     Quaternion gq, hq;
     worldPose(live, *goal, gp, gq);
     worldPose(live, *hand, hp, hq);
-    out.push_back(measured(ref.label + "/miss", "мм", "Промах схвата", ChannelGroup::Object, 1000.0 * double(length(gp - hp))));
-    out.push_back(measured(ref.label + "/turn miss", "°", "Промах поворота", ChannelGroup::Object, angleBetween(gq, hq) * 180.0 / 3.14159265358979323846));
+    out.push_back(measured(ref.label + "/miss", KE_UI_LABEL("Kinetica", "мм"), KE_UI_LABEL("Kinetica", "Промах схвата"), ChannelGroup::Object, 1000.0 * double(length(gp - hp))));
+    out.push_back(measured(ref.label + "/turn miss", "°", KE_UI_LABEL("Kinetica", "Промах поворота"), ChannelGroup::Object, angleBetween(gq, hq) * 180.0 / 3.14159265358979323846));
     return out;
 }
 

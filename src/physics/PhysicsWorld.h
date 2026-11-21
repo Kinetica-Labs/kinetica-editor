@@ -31,11 +31,12 @@ struct ShapeDesc {
     Vector3 position{0.0_r};
     Quaternion rotation;
     Real friction = 0.5_r, restitution = 0;
+    bool trigger = false; // a zone: it touches nothing; triggered() tells the bodies whose shapes are inside it
 };
 
 // A body: static (the floor, a table), kinematic (moved by hand) or dynamic. Its mass is the shapes'
-// volume times `density`, or - an imported link's - given: the mass, the centre of mass in the body's
-// frame and the inertia tensor about it in the body's axes.
+// volume times `density`, or given, each part by itself: the mass (without a given inertia the shapes' own is
+// scaled with it), the centre of mass in the body's frame, the inertia tensor about it in the body's axes.
 struct BodyDesc {
     enum class Type { Static, Kinematic, Dynamic };
     Type type = Type::Dynamic;
@@ -43,11 +44,15 @@ struct BodyDesc {
     Quaternion rotation;
     Vector3 velocity{0.0_r}, angularVelocity{0.0_r}; // of the centre of mass; world
     Real density = 1000;                              // kg/m^3
-    bool massGiven = false;
-    Real mass = 0;
-    Vector3 centre{0.0_r};
-    Matrix3x3 inertia = Matrix3x3::identity();
+    bool massGiven = false, centreGiven = false, inertiaGiven = false;
+    Real mass = 0;                                    // kg
+    Vector3 centre{0.0_r};                            // the centre of mass, the body's frame
+    Matrix3x3 inertia = Matrix3x3::identity();        // about the centre of mass, the body's axes, kg m^2
     Real linearDamping = 0, angularDamping = 0;       // 1/s
+    Real gravityScale = 1;                            // how much of the world's gravity takes it: 0 - it floats
+    // Who it does not touch, by marks (bits): bodies a and b have no contact when a.ignores has a bit of b.marks, or
+    // b.ignores a bit of a.marks. Both zero: it touches everything, as before.
+    uint64_t marks = 0, ignores = 0;
     int group = 0;                                    // > 0: the bodies of one group never touch each other (one robot's links)
 };
 
@@ -78,7 +83,7 @@ struct JointDesc {
     bool collide = false;         // the two bodies collide with each other
 };
 
-// The mouse's hand (Box2D's mouse joint): a soft spring of `hertz` and `dampingRatio` from `point` (world, on
+// The mouse's hand: a soft spring of `hertz` and `dampingRatio` from `point` (world, on
 // dynamic body `body`) to a target that starts there, solved together with the contacts, pulling with at most
 // `maxForce` N; the body's turn is braked with at most `maxTorque` N m. It is a joint: moveHand leads its
 // target, removeJoint lets go, reaction() is its pull on the body.
@@ -118,6 +123,9 @@ public:
     virtual void applyForce(int body, const Vector3& force, const Vector3& point) = 0; // world, at a world point
     virtual void applyTorque(int body, const Vector3& torque) = 0;
     virtual void applyImpulse(int body, const Vector3& impulse, const Vector3& point) = 0;
+    // A kinematic body led to this pose (its frame) over the next dt seconds: the engine gives it the velocities that
+    // take it there, so it pushes what it meets (an animated conveyor, a door, an obstacle).
+    virtual void moveKinematic(int body, const Vector3& position, const Quaternion& rotation, Real dt) = 0;
 
     virtual int addJoint(const JointDesc& joint, std::string& error) = 0;
     virtual void removeJoint(int joint) = 0;
@@ -132,13 +140,21 @@ public:
     // The nearest body a ray from `from` to `to` meets, but `ignore`; false: none.
     virtual bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore = -1) const = 0;
     virtual std::vector<ContactPoint> contacts() const = 0;
+    // The zones after the last step: (the body of a trigger shape, a body with a shape inside it), each pair once.
+    virtual std::vector<std::pair<int, int>> triggered() const = 0;
+    virtual std::vector<ContactPoint> contactsOf(int body) const = 0; // one body's, at the cost of its own contacts only
 
     virtual void setGravity(const Vector3& gravity) = 0;
     // One step of dt seconds in `substeps` substeps (the settings' when 0).
     virtual void step(Real dt, int substeps = 0) = 0;
 };
 
-// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>).
-std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity);
+// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>). `threads`: how many
+// threads step it - 0 the machine's (physicsThreads). The bits of a world do not depend on them: an engine that ran
+// otherwise on another machine could not be reproduced there (docs/constitution.md, article 3; tested).
+std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads = 0);
+// The machine's: KE_PHYSICS_THREADS when set, else one a physical core - half the hardware threads, as hyper-threads
+// add little to a solver - at most 8.
+int physicsThreads();
 
 } // namespace ke

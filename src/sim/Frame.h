@@ -53,7 +53,7 @@ struct Frame {
         Real depth = 0, normalImpulse = 0;      // m; N s over the step
         int bodyA = -1, bodyB = -1;
     };
-    std::vector<ContactInfo> contacts;
+    std::vector<ContactInfo> contacts; // listed when they are read (Simulation::frameContacts, the contact-points layer)
 
     struct LightInfo {
         int kind = 1;                        // LightKind: 0 Sun, 1 Point, 2 Spot
@@ -64,6 +64,27 @@ struct Frame {
     };
     std::vector<LightInfo> lights;
 
+    // The cameras the running world itself moves, where it has them: a key of the playing sequence or a moving body,
+    // on the camera, on its target or up their parents. A camera not listed stands where the scene has it.
+    struct CameraPose {
+        uint32_t id = 0;
+        Vector3 position{0.0_r};
+        Quaternion rotation; // its world turn: a target camera's already looks at its target
+    };
+    std::vector<CameraPose> cameras;
+    std::vector<CameraPose> forces; // the same for the forces: a body's own force rides on it
+    std::vector<uint32_t> firedForces; // the impulse forces that have fired in this run, by id, ascending: spent, no longer drawn
+
+    // A gripper on an IK goal's effector as the gripper itself reports it (Robotiq's gOBJ: from its fingers' own
+    // travel, not from the physics' contacts): open, closing, holding - its fingers stopped short of closed, so
+    // something is between them - or closed on nothing.
+    enum class GripState { Open, Closing, Holding, Empty };
+    struct GripInfo {
+        uint32_t goal = 0;
+        GripState state = GripState::Open;
+        Real gap = 0; // how far its fingers stand from closed [m]
+    };
+    std::vector<GripInfo> grips;
     std::vector<std::pair<std::string, std::string>> info; // name, value: what the scene says about itself
     Probe::Snapshot probe;
     std::vector<Measurement> measurements; // the channels the simulation was asked to measure (Channels.h)

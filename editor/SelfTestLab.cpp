@@ -1,25 +1,27 @@
 // The Laboratory, pressed the way a person presses it (see SelfTest.h):
-//   1. F8 opens it: the dock, clicks reported by the view; the timeline strip only while not editing;
+//   1. F8 opens it: the dock, clicks reported by the view;
 //   2. a layer's checkbox changes what the frame draws (primitives appear, and go again);
 //   3. a preset switches exactly its layers on, and lights up;
 //   4. a click on a contact point opens its card with that point's depth; a click on the cube its card
 //      with live numbers from the simulation thread;
-//   5. the scrubber shows a kept frame bit for bit and pauses the scene; «Вживую» returns and lets it run;
+//   5. a plain «Пуск» keeps nothing: the Sequencer's playhead stays at 0 while the world runs;
 //   6. while the scene plays the profiler has stages and a step time.
-// Each check prints one line; with a directory, the pictures lab-contacts.png, lab-body.png,
-// lab-timeline.png.
+// Each check prints one line; with a directory, the pictures lab-contacts.png, lab-body.png.
 #include "SelfTestSupport.h"
+#include <QToolButton>
+#include <QMouseEvent>
 
 #include "LabCard.h"
 #include "LabLayers.h"
 #include "LabPanel.h"
-#include "LabTimeline.h"
+#include "SequencerPanel.h"
+#include "SequencerViews.h"
+#include "scene/Animation.h"
 #include "ProfilerBar.h"
 
 #include <QCheckBox>
 #include <QDockWidget>
 #include <QPushButton>
-#include <QSlider>
 
 #include <cmath>
 
@@ -30,12 +32,11 @@ namespace {
 
 struct Lab {
     LabPanel* panel = nullptr;
-    LabTimeline* timeline = nullptr;
     QDockWidget* dock = nullptr;
 };
 
-Lab labOf(QMainWindow& w, Viewport* v) {
-    return {w.findChild<LabPanel*>(), v->findChild<LabTimeline*>(), w.findChild<QDockWidget*>("labDock")};
+Lab labOf(QMainWindow& w) {
+    return {w.findChild<LabPanel*>(), w.findChild<QDockWidget*>("labDock")};
 }
 
 size_t primitives(const Viewport* v) {
@@ -43,7 +44,6 @@ size_t primitives(const Viewport* v) {
     return s ? s->probe.lines.size() + s->probe.points.size() : 0;
 }
 
-bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
 
 QPushButton* presetButton(const Lab& lab, const QString& name) {
     for (QPushButton* b : lab.panel->findChildren<QPushButton*>("labPreset"))
@@ -67,11 +67,9 @@ void testOpens(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const L
     trigger(w, "actionLaboratory");
     pump(200);
     const bool open = lab.dock->isVisible() && v->labInspect();
-    const bool noStripWhileEditing = !lab.timeline->isVisible();
     b.play();
     newFrames(v, 5);
-    c.check(open && noStripWhileEditing && lab.timeline->isVisible(),
-            "F8 opens the Laboratory: its dock, clicks reported; the timeline strip appears only once the scene runs");
+    c.check(open, "F8 opens the Laboratory: its dock, clicks reported");
 }
 
 // The drawn primitives once they say `any` (some, or none): the simulation runs a few frames ahead of
@@ -187,29 +185,15 @@ void testBodyCard(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, cons
     }
 }
 
-void testScrubber(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const Lab& lab, const QString& dir) {
+// A plain «Пуск» keeps nothing of the run: the Sequencer's playhead stays at 0 while the world goes on (a playhead going
+// on over a run nobody recorded was taken for a recording, and its frames took up to 512 MB).
+void testPlainRunKeepsNothing(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.play();
     newFrames(v, 40);
-    const int kept = lab.timeline->count();
-    auto* slider = lab.timeline->findChild<QSlider*>("labScrubber");
-    const int k = kept / 2;
-    slider->setValue(k); // what dragging the handle does
-    pump(250);
-    const auto shown = v->snapshot(), recorded = lab.timeline->frameAt(k);
-    bool exact = shown && recorded && shown->bodies.size() == recorded->bodies.size() && shown->frame == recorded->frame;
-    for (size_t i = 0; exact && i < shown->bodies.size(); ++i) exact = same(shown->bodies[i].pos, recorded->bodies[i].pos);
-    const bool paused = b.mode() == SceneBuilder::Mode::Paused;
-    std::printf("  timeline: %d frames kept (%.2f MB); position %d shows frame %llu exactly: %s; the scene paused: %s\n", kept,
-                double(lab.timeline->bytes()) / 1048576.0, k + 1, (unsigned long long)(recorded ? recorded->frame : 0),
-                exact ? "yes" : "no", paused ? "yes" : "no");
-    c.check(kept >= 30 && lab.timeline->showingPast() && exact && paused, "the scrubber shows a kept frame bit for bit and pauses the scene");
-    if (!dir.isEmpty()) windowShot(w).save(dir + "/lab-timeline.png");
-    lab.timeline->findChild<QPushButton*>("labLive")->click();
-    pump(150);
-    const bool live = !lab.timeline->showingPast() && v->snapshot() == lab.timeline->newest();
-    const bool runs = b.mode() == SceneBuilder::Mode::Playing;
-    newFrames(v, 3);
-    c.check(live && runs, "«Вживую» shows the newest frame again and the scene runs on");
+    auto* panel = w.findChild<SequencerPanel*>();
+    const double world = v->snapshot() ? double(v->snapshot()->time) : 0;
+    std::printf("  a plain run: the world at %.2f s, the Sequencer's playhead at %.2f s\n", world, panel ? panel->playhead() : -1.0);
+    c.check(panel && panel->playhead() == 0 && world > 0.3, "a plain «Пуск» keeps nothing: the Sequencer's playhead stays at 0 while the world runs");
 }
 
 void testProfiler(Checker& c, Viewport* v, const Lab& lab) {
@@ -227,9 +211,9 @@ void testProfiler(Checker& c, Viewport* v, const Lab& lab) {
 
 int runLabTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
-    const Lab lab = labOf(w, v);
-    if (!lab.panel || !lab.timeline || !lab.dock) {
-        c.check(false, "the window has the Laboratory's panel, dock and timeline");
+    const Lab lab = labOf(w);
+    if (!lab.panel || !lab.dock) {
+        c.check(false, "the window has the Laboratory's panel and dock");
         return c.failures;
     }
     testOpens(c, w, b, v, lab);
@@ -237,7 +221,7 @@ int runLabTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sho
     testPreset(c, lab);
     testContactCard(c, w, b, v, lab, shotsDir);
     testBodyCard(c, w, b, v, lab, shotsDir);
-    testScrubber(c, w, b, v, lab, shotsDir);
+    testPlainRunKeepsNothing(c, w, b, v);
     testProfiler(c, v, lab);
     b.stop();
     presetButton(lab, "Ничего")->click();

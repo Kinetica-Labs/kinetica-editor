@@ -1,18 +1,12 @@
 // What the viewport draws on top of its picture while it is used, and where it looks (see Viewport.h):
 //   - the play mode's frame: an amber border round the view while the scene plays, so nobody edits
 //     a running scene thinking it is the one that will be kept;
-//   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around, as
-//     Maya and Blender show it - the turn is no longer a mystery when the point is far away;
+//   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around -
+//     the turn is no longer a mystery when the point is far away;
 //   - following a body: the camera keeps its own orbit about a moving body of the frame.
 #include "Viewport.h"
 
 #include <QPainter>
-
-// The caption under the title in edit mode (drawOverlay: at x = 14 in a 9-point font).
-void Viewport::setEditCaption(const QString& text) {
-    editCaption_ = text;
-    update();
-}
 
 void Viewport::setPlayFrame(bool on) {
     if (playFrame_ == on) return;
@@ -64,7 +58,6 @@ bool Viewport::followBody(uint32_t object) {
         if (followedBody_) { bodyOrbit_=camera_; bodyOrbitSaved_=true; camera_=sceneOrbit_; }
         followedBody_=0;
         stopFlying();
-        emit followBodyChanged(0);
         update(); return true;
     }
     const ke::Frame::Body* body=nullptr;
@@ -77,7 +70,6 @@ bool Viewport::followBody(uint32_t object) {
     else camera_.lookAt(centre+QVector3D(1.8f,1.0f,1.8f),centre);
     followedBody_=object;
     updateBodyOrbit();
-    emit followBodyChanged(object);
     update(); return true;
 }
 void Viewport::updateBodyOrbit() {

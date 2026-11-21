@@ -3,7 +3,14 @@
 // changes the geometry, three clicks make a cube fall, and the cards of a joint, a sensor, a battery and a driver edit
 // them. Each check prints one line.
 #include "SelfTestSupport.h"
+#include <QMouseEvent>
+#include <QKeyEvent>
+#include <QApplication>
+#include "scene/Animation.h"
+#include "SequencerViews.h"
+#include "FirstStartHint.h"
 #include "scene/Assembly.h"
+#include "scene/SensorSpec.h"
 #include "sim/RobotWorld.h"
 
 #include "ColliderGuides.h"
@@ -52,14 +59,6 @@ ComponentCard* cardTitled(const SceneBuilder& b, const QString& title) {
 void clickColliderKind(const SceneBuilder& b, ColliderKind kind) {
     const QList<QToolButton*> buttons = b.inspectorPanel()->findChildren<QToolButton*>("colliderButton");
     if (int(kind) < buttons.size()) buttons[int(kind)]->click();
-}
-
-// The window with an open popup menu drawn where it stands (a popup is a window of its own).
-QImage windowWithMenu(QMainWindow& w, QMenu* menu) {
-    QImage shot = windowShot(w);
-    QPainter p(&shot);
-    p.drawPixmap(w.mapFromGlobal(menu->pos()), menu->grab());
-    return shot;
 }
 
 void testBareObject(Checker& c, QMainWindow& w, SceneBuilder& b, const QString& dir) {
@@ -112,10 +111,10 @@ void testAddComponentMenu(Checker& c, QMainWindow& w, SceneBuilder& b, const QSt
     for (QAction* a : menu->actions())
         if (!a->isSeparator()) items << a->text();
     std::printf("  «+ Добавить компонент» offers: %s\n", qPrintable(items.join(", ")));
-    if (!dir.isEmpty()) windowWithMenu(w, menu).save(dir + "/add-component-menu.png");
+    if (!dir.isEmpty()) windowWithPopup(w, menu).save(dir + "/add-component-menu.png");
     QAction* imu = nullptr;
     for (QAction* a : menu->actions())
-        if (a->text() == "IMU MPU-6050") imu = a;
+        if (a->text() == "IMU") imu = a;
     menu->hide();
     for (ComponentCard* card : b.inspectorPanel()->findChildren<ComponentCard*>()) card->setOpen(true);
     c.check(!items.contains("Твёрдое тело") && !items.contains("Коллайдер") && imu, "the menu offers only what the object does not have");
@@ -125,7 +124,7 @@ void testAddComponentMenu(Checker& c, QMainWindow& w, SceneBuilder& b, const QSt
     pump(50);
     const bool put = b.graph().sensors.size() == sensors + 1 && b.graph().sensors.back().kind == SensorKind::Imu &&
                      b.graph().sensors.back().parent == cube;
-    c.check(put, "choosing «IMU MPU-6050» puts the sensor on the cube");
+    c.check(put, "choosing «IMU» puts the sensor on the cube");
     b.undoAction()->trigger();
     c.check(b.graph().sensors.size() == sensors, "one undo takes the sensor away");
 }
@@ -152,6 +151,7 @@ void testStaticCollider(Checker& c, SceneBuilder& b, Viewport* v) {
     });
     b.play();
     float lowest = 1e9f, riseAfterLowest = 0.0f, cubeDrift = 0.0f;
+    waitUntil([v] { return v->snapshot() && v->snapshot()->frame < 30; }, 10000); // this run's frames, not the last run's last one
     QElapsedTimer t;
     t.start();
     while (t.elapsed() < 20000 && (!v->snapshot() || v->snapshot()->frame < 120)) {
@@ -231,6 +231,70 @@ void testSphereCapsule(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v,
     pump(200);
 }
 
+// The collider mode with a hand (one draggable point per face): a cube, Твёрдое, a fitted box collider,
+// «Править коллайдер в виде» - six points, one per face. The mouse drags the +X face's point 0.1 m out: the collider is
+// 0.1 m longer along x and its centre 0.05 m along (the -X face stays), the cube itself stays where it stood, one undo
+// step; undone, the collider is fitted again. Esc leaves the mode with the cube still selected. A sphere's card asks one
+// diameter, and taking the fit off keeps the fitted one (it was reset to 0.2 m).
+void testColliderMode(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
+    b.newScene();
+    b.createActions()[0]->trigger(); // Куб
+    clickRole(w, RoleIcon::Rigid);
+    clickColliderKind(b, ColliderKind::Box);
+    const Entity before = last(b);
+    v->setFocusBox(AABB(before.position - Vector3(0.8f), before.position + Vector3(0.8f)));
+    v->frameScene();
+    pump(200);
+    auto* edit = w.findChild<QPushButton*>("colliderEdit");
+    if (!edit) return c.check(false, "the collider card has «Править коллайдер в виде»");
+    edit->click();
+    pump(100);
+    const std::vector<ShapeHandle> points = v->shapeHandles();
+    int plusX = -1;
+    for (size_t i = 0; i < points.size(); ++i)
+        if (!points[i].both && points[i].dimension == 0 && points[i].side == 1) plusX = int(i);
+    if (points.size() != 6 || plusX < 0 || !b.colliderEditing())
+        return c.check(false, "«Править коллайдер в виде» on a box collider: the mode on, six points");
+    const ShapeHandle h = points[size_t(plusX)];
+    const QPointF from = v->pixelOf(h.centre + h.axis * h.reach), to = v->pixelOf(h.centre + h.axis * (h.reach + 0.1f));
+    const size_t steps = b.undoTaken();
+    sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
+    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+    pump(60);
+    const Entity after = last(b);
+    const float longer = after.collider.size.x - before.size.x, centre = after.collider.offset.x;
+    const bool oneStep = b.undoTaken() == steps + 1;
+    std::printf("  the +X point dragged 0.1 m: the collider %.4f m longer, its centre %.4f m along, the cube %s, %zu undo step(s)\n",
+                double(longer), double(centre), same(after.position, before.position) ? "unmoved" : "MOVED", b.undoTaken() - steps);
+    if (!dir.isEmpty()) windowShot(w).save(dir + "/collider-mode-face.png");
+    c.check(std::fabs(longer - 0.1f) < 2e-3f && std::fabs(centre - 0.05f) < 1e-3f && same(after.position, before.position) && oneStep &&
+                !after.collider.fitToGeometry,
+            "a face's point drags that face: the far face stays, the shape does not move, one undo step");
+    b.undoAction()->trigger();
+    pump(60);
+    const bool back = last(b).collider.fitToGeometry && last(b).collider.kind == ColliderKind::Box && b.colliderEditing();
+    trigger(w, "actionEscape");
+    pump(60);
+    const bool left = !b.colliderEditing() && v->shapeHandles().empty() && b.selectedId() == before.id;
+    c.check(back && left, "one undo fits the collider again; Esc leaves the collider mode, the cube still selected");
+    clickColliderKind(b, ColliderKind::Sphere);
+    pump(60);
+    QCheckBox* fit = nullptr;
+    for (QCheckBox* box : b.inspectorPanel()->findChildren<QCheckBox*>())
+        if (box->text() == "Подогнать под геометрию" && box->isVisibleTo(b.inspectorPanel())) fit = box;
+    if (fit && fit->isChecked()) fit->click();
+    pump(60);
+    auto* diameter = b.inspectorPanel()->findChild<QDoubleSpinBox*>("colliderDiameter");
+    const float expected = maxComp(before.size);
+    const bool sphere = diameter && diameter->isVisibleTo(b.inspectorPanel()) && std::fabs(diameter->value() - expected) < 1e-3 &&
+                        std::fabs(last(b).collider.size.x - expected) < 1e-4f && !last(b).collider.fitToGeometry;
+    std::printf("  a sphere unfitted: the diameter field %s %.3f m (the fitted %.3f m)\n", diameter && diameter->isVisibleTo(b.inspectorPanel()) ? "shows" : "missing",
+                diameter ? diameter->value() : 0.0, double(expected));
+    c.check(sphere, "a sphere's card asks one diameter; the fit taken off keeps the fitted diameter");
+}
+
 // The cube of the coordinator's picture: rigid, with a capsule collider standing in it.
 void cubeCapsuleShot(QMainWindow& w, SceneBuilder& b, const QString& dir) {
     b.newScene();
@@ -261,35 +325,51 @@ void testThreeClicks(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     pump(200);
 }
 
-// The very first start: the welcome scene and the bubble that leads through Куб, Твёрдое, ▶. The
-// user's own "seen it" flag is put back afterwards.
+// The very first start: the UR5e and the bubble that leads through «Запись», the arm by its keys and ■ Стоп, the
+// Sequencer's playhead and what is next - each step by the hand that does it. The user's own "seen it" flag is put back
+// afterwards.
 void testFirstMinute(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
     auto* mw = dynamic_cast<MainWindow*>(&w);
     if (!mw) return c.check(false, "the window is the editor's MainWindow");
     const QVariant seen = QSettings().value("hints/firstMinuteDone");
     mw->setForceFirstStart(true);
     mw->startBuilder(true);
-    pump(600);
-    const bool welcome = std::any_of(b.graph().entities.begin(), b.graph().entities.end(), [](const Entity& e) { return e.name == "Горка"; });
+    pump(800);
+    const bool robot = !b.graph().controllers.empty() && b.graph().joints.size() >= 6;
     const QString first = mw->firstMinuteText();
-    std::printf("  first start: %zu objects; the bubble says: %s\n", b.graph().entities.size(), qPrintable(first));
-    c.check(welcome && first.contains("Куб"), "first start: the welcome scene and a bubble pointing at «Куб»");
+    std::printf("  first start: %zu objects, %zu joints; the bubble says: %s\n", b.graph().entities.size(), b.graph().joints.size(), qPrintable(first));
+    c.check(robot && first.contains("Запись"), "first start: the UR5e and a bubble pointing at «Запись»");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start.png");
-    b.createActions()[0]->trigger();
-    pump(150);
+    trigger(w, "actionRecord");
+    waitFrames(v, 20, 15000);
     const QString second = mw->firstMinuteText();
-    clickRole(w, RoleIcon::Rigid);
-    pump(150);
-    const QString third = mw->firstMinuteText();
-    if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start-step3.png");
-    if (auto* play = w.findChild<QAction*>("actionPlay")) play->trigger();
-    pump(150);
-    c.check(second.contains("Твёрдое") && third.contains("Пуск") && mw->firstMinuteText().isEmpty() &&
-                QSettings().value("hints/firstMinuteDone").toBool(),
-            "the bubble moves to «Твёрдое», then to ▶, and is gone after ▶ for good");
-    waitFrames(v, 60, 15000);
-    b.stop();
+    QWidget* to = QApplication::focusWidget() ? QApplication::focusWidget() : &w;
+    QKeyEvent press(QEvent::KeyPress, Qt::Key_W, Qt::NoModifier, "w"), release(QEvent::KeyRelease, Qt::Key_W, Qt::NoModifier, "w");
+    QCoreApplication::sendEvent(to, &press);
+    pump(600);
+    QCoreApplication::sendEvent(to, &release);
     pump(200);
+    trigger(w, "actionStop");
+    waitUntil([mw] { return mw->firstMinuteText().contains("бегунок"); }, 6000); // the take comes from the simulation's thread
+    const QString third = mw->firstMinuteText();
+    if (!dir.isEmpty()) windowShot(w).save(dir + "/first-start-take.png");
+    auto* ruler = w.findChild<QWidget*>("sequencerTimeline");
+    const ke::SequenceObject* take = activeSequence(b.graph());
+    if (ruler && take) {
+        const QPointF at(sequencer::axisOf(take, ruler->width()).x(double(take->length()) / 2), 11);
+        QMouseEvent down(QEvent::MouseButtonPress, at, ruler->mapToGlobal(at), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QMouseEvent up(QEvent::MouseButtonRelease, at, ruler->mapToGlobal(at), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QCoreApplication::sendEvent(ruler, &down), QCoreApplication::sendEvent(ruler, &up);
+    }
+    pump(200);
+    const QString fourth = mw->firstMinuteText();
+    std::printf("  then: «%s…» / «%s…» / «%s…»\n", qPrintable(second.left(40)), qPrintable(third.left(40)), qPrintable(fourth.left(40)));
+    c.check(second.contains("W S A D") && third.contains("бегунок") && fourth.contains("Датчик") &&
+                QSettings().value("hints/firstMinuteDone").toBool(),
+            "the bubble leads: the arm's keys and ■, the playhead over the take, what is next");
+    if (auto* close = w.findChild<FirstStartHint*>()) emit close->closeClicked();
+    pump(100);
+    c.check(mw->firstMinuteText().isEmpty(), "✕ closes the bubble");
     mw->setForceFirstStart(false);
     if (seen.isValid()) QSettings().setValue("hints/firstMinuteDone", seen);
     else QSettings().remove("hints/firstMinuteDone");
@@ -303,13 +383,23 @@ void testJointCard(Checker& c, SceneBuilder& b) {
     b.stop(); // the first minute ended playing
     pump(60);
     QString error;
-    if (!b.openFile(QString(KE_EXAMPLES) + "/ur5e.kscene", error) || !findJoint(b.graph(), 7))
+    if (!b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error) || !findJoint(b.graph(), 7))
         return c.check(false, "examples/ur5e.kscene opens with its elbow");
     b.select(7);
     pump(60);
     ComponentCard* card = cardTitled(b, "Сочленение");
-    const QList<QDoubleSpinBox*> spins = card ? card->findChildren<QDoubleSpinBox*>() : QList<QDoubleSpinBox*>();
-    auto* drive = card ? card->findChild<QComboBox*>() : nullptr;
+    const auto driveSpins = [card] { // the drive's numbers, without the axis' place
+        QList<QDoubleSpinBox*> out;
+        if (card)
+            for (QDoubleSpinBox* s : card->findChildren<QDoubleSpinBox*>())
+                if (!s->objectName().startsWith("jointAnchor")) out << s;
+        return out;
+    };
+    const QList<QDoubleSpinBox*> spins = driveSpins();
+    QComboBox* drive = nullptr;
+    if (card)
+        for (QComboBox* x : card->findChildren<QComboBox*>())
+            if (x->objectName() != "jointAxis") drive = x;
     auto* limit = card ? card->findChild<QCheckBox*>() : nullptr;
     const auto joint = [&b]() -> const JointObject& { return *findJoint(b.graph(), 7); };
     const auto shows = [card](QWidget* w) { return w && w->isVisibleTo(card); };
@@ -320,18 +410,18 @@ void testJointCard(Checker& c, SceneBuilder& b) {
     if (!shape) return c.check(false, "the joint's card shows its limit, its drive and ten numbers");
     drive->setCurrentIndex(3);
     pump(30);
-    const QList<QDoubleSpinBox*> after = card->findChildren<QDoubleSpinBox*>();
+    const QList<QDoubleSpinBox*> after = driveSpins();
     const JointDrive& dc = joint().dof[DofRx].drive;
     const bool motor = dc.enabled && dc.stiffness == 0 && std::fabs(dc.constant - 0.05_r) < 1e-6_r && shows(after[7]) && !shows(after[4]);
     b.undoAction()->trigger();
     pump(30);
     const bool undone = joint().dof[DofRx].drive.stiffness == 8000 && drive->currentIndex() == 1;
-    card->findChildren<QDoubleSpinBox*>()[2]->setValue(30);
+    driveSpins()[2]->setValue(30);
     pump(30);
     const Real target = joint().dof[DofRx].drive.target;
     limit->setChecked(true);
     pump(30);
-    const QList<QDoubleSpinBox*> limited = card->findChildren<QDoubleSpinBox*>();
+    const QList<QDoubleSpinBox*> limited = driveSpins();
     const bool ends = joint().dof[DofRx].motion == JointMotion::Limited && shows(limited[0]) && shows(limited[1]);
     b.undoAction()->trigger();
     pump(30);
@@ -343,11 +433,73 @@ void testJointCard(Checker& c, SceneBuilder& b) {
                 servo ? "yes" : "no", motor ? "yes" : "no", undone ? "yes" : "no", double(target), ends ? "shows its ends" : "no", back ? "yes" : "no");
     c.check(servo && motor && undone && std::fabs(target - 0.5236_r) < 1e-3_r && ends && back,
             "a joint's card edits its drive in degrees and its own units, a drive picked shows only its fields, each edit one undo");
+
+    // Its place: the axis turned onto the world's Z, the anchor moved 10 cm along X - each one undo step.
+    auto* axisBox = card->findChild<QComboBox*>("jointAxis");
+    auto* anchorX = card->findChild<QDoubleSpinBox*>("jointAnchorX");
+    Vector3 at0, axis0, at1, axis1, at2, axis2;
+    jointWorldFrame(b.graph(), joint(), at0, axis0);
+    if (axisBox) axisBox->setCurrentIndex(2);
+    pump(30);
+    jointWorldFrame(b.graph(), joint(), at1, axis1);
+    if (anchorX) anchorX->setValue(anchorX->value() + 0.1);
+    pump(30);
+    jointWorldFrame(b.graph(), joint(), at2, axis2);
+    b.undoAction()->trigger(), pump(30), b.undoAction()->trigger(), pump(30);
+    Vector3 at3, axis3;
+    jointWorldFrame(b.graph(), joint(), at3, axis3);
+    const bool turned = std::fabs(std::fabs(axis1.z) - 1) < 1e-3f && length(at1 - at0) < 1e-4f;
+    const bool moved = std::fabs(at2.x - at1.x - 0.1f) < 1e-3f && std::fabs(std::fabs(axis2.z) - 1) < 1e-3f;
+    const bool restored = length(at3 - at0) < 1e-4f && length(axis3 - axis0) < 1e-3f;
+    std::printf("  its place: the axis onto Z %s; the anchor 10 cm along X %s; two undos back %s\n", turned ? "yes" : "no", moved ? "yes" : "no",
+                restored ? "yes" : "no");
+    c.check(axisBox && anchorX && turned && moved && restored, "a joint's card turns its axis onto a world axis and moves its anchor, each one undo");
 }
 
 // The card «Датчик»: an encoder put on the UR5e's shoulder (on its joint: nothing to pick it «относительно») shows
 // its lines, its axis and its count-zero reference, its resolution from its lines; an IMU on a cube its datasheet's
 // noise and the seed of it. Each edit is the sensor's line in the scene; a tick undone comes back.
+// A joint is drawn as the tie it is: from each of its two bodies a line to its pin at the joint's place; one that holds
+// its body to the world has the ground under its pin and no second line; while the scene plays the tie goes with the
+// body and the pin of a joint to the world stays.
+void testJointTies(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    if (!ops) return c.check(false, "the window has its operations");
+    b.stop();
+    b.newScene();
+    const auto add = [&](const char* shape, double x, double y) {
+        return ops->runNow("scene_add", {{"shape", shape}, {"position", QJsonArray{x, y, 0.0}}, {"size", QJsonArray{0.2, 0.2, 0.2}}, {"role", "rigid"}}).value("id").toInt();
+    };
+    const int lower = add("box", -0.6, 0.11), upper = add("box", -0.1, 0.5), weight = add("sphere", 1.5, 0.9);
+    const uint32_t hinge = uint32_t(ops->runNow("assembly_joint", {{"a", upper}, {"b", lower}, {"type", "hinge"}, {"anchor", QJsonArray{-0.35, 0.3, 0.0}},
+                                                                    {"axis", QJsonArray{0, 0, 1}}}).value("id").toInt());
+    const uint32_t hung = uint32_t(ops->runNow("assembly_joint", {{"a", weight}, {"b", 0}, {"type", "hinge"}, {"anchor", QJsonArray{1.0, 1.5, 0.0}},
+                                                                   {"axis", QJsonArray{0, 0, 1}}}).value("id").toInt());
+    v->setFocusBox(AABB(Vector3(-1.5f, -0.2f, -1.5f), Vector3(2.2f, 2.0f, 1.5f)));
+    v->frameScene();
+    b.select(0);
+    pump(200);
+    const auto tieOf = [&](uint32_t id) {
+        for (const Viewport::JointTie& t : v->jointTies())
+            if (t.id == id) return t;
+        return Viewport::JointTie{0, {}, {}, {}, false};
+    };
+    const auto near = [](const QPointF& a, const QPointF& b) { return std::hypot(a.x() - b.x(), a.y() - b.y()) < 1.5; };
+    const Viewport::JointTie two = tieOf(hinge), one = tieOf(hung);
+    const bool both = hinge && two.id == hinge && !two.grounded && near(two.pin, v->pixelOf(Vector3(-0.35f, 0.3f, 0))) &&
+                      near(two.a, v->pixelOf(Vector3(-0.1f, 0.5f, 0))) && near(two.b, v->pixelOf(Vector3(-0.6f, 0.11f, 0)));
+    const bool ground = hung && one.id == hung && one.grounded && near(one.pin, v->pixelOf(Vector3(1.0f, 1.5f, 0))) && near(one.a, v->pixelOf(Vector3(1.5f, 0.9f, 0)));
+    c.check(v->jointTies().size() == 2 && both && ground, "a joint is drawn as a tie: a line from each of its two bodies to its pin; one to the world has the ground at its pin");
+    b.play();
+    const bool swung = waitUntil([&] { return tieOf(hung).id == hung && std::hypot(tieOf(hung).a.x() - one.a.x(), tieOf(hung).a.y() - one.a.y()) > 25; }, 6000);
+    const Viewport::JointTie later = tieOf(hung);
+    std::printf("  the hung weight's tie in play: its body's end went %.0f px, its pin %.1f px\n", std::hypot(later.a.x() - one.a.x(), later.a.y() - one.a.y()),
+                std::hypot(later.pin.x() - one.pin.x(), later.pin.y() - one.pin.y()));
+    c.check(swung && near(later.pin, one.pin), "while the scene plays a tie goes with its body, and the pin of a joint to the world stays");
+    b.stop();
+    pump(150);
+}
+
 void testSensorCard(Checker& c, SceneBuilder& b) {
     QWidget* panel = b.inspectorPanel();
     const auto field = [panel](const char* name) { return panel->findChild<QWidget*>(name); };
@@ -382,7 +534,14 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     const bool zero = sensor() && sensor()->hasEncoderReference && std::fabs(sensor()->encoderReference - 0.5_r) < 1e-6_r;
     put(23, SensorKind::Imu);
     const bool imu = sensor() && sensor()->kind == SensorKind::Imu && shows("sensorNoise") && shows("sensorSeed") && !shows("sensorLines") &&
-                     qobject_cast<QCheckBox*>(field("sensorNoise"))->text() == "Шум и смещения по даташиту";
+                     qobject_cast<QCheckBox*>(field("sensorNoise"))->text() == "Шум и смещения по паспорту";
+    // Its datasheet: the table's first model, its numbers in the card; one typed over them is the sensor's, the model said changed.
+    auto* model = qobject_cast<QComboBox*>(field("sensorModel"));
+    const std::vector<const SensorModel*> imus = sensorCatalog().models(SensorKind::Imu);
+    const bool sheet = sensor() && !imus.empty() && sensor()->model == imus.front()->name && shows("sensorModel") && shows("spec_gyro_noise_dps_rthz") &&
+                       !shows("spec_min_m") && model && model->currentText() == QString::fromStdString(imus.front()->name);
+    number("spec_rate_hz", 200);
+    const bool typed = sensor() && specValue(*sensor(), "rate_hz") == 200 && model && model->currentText().contains("изменены");
     tick("sensorNoise", false);
     const bool quiet = sensor() && !sensor()->noise;
     b.undoAction()->trigger();
@@ -390,14 +549,22 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     const bool noisy = sensor() && sensor()->noise;
     number("sensorSeed", 7);
     const bool seed = sensor() && sensor()->seed == 7;
-    std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, quiet %s, undone %s, seed 7 %s\n", encoder ? "yes" : "no",
-                lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no");
+    b.play(); // the running world reads it: the robot's reading and the probe's truth beside it
+    const bool live = waitUntil([&] { return says("м/с²") && says("истина"); }, 5000);
+    b.stop();
+    pump(60);
+    std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, its model's datasheet %s, 200 Hz typed over it %s; "
+                "quiet %s, undone %s, seed 7 %s; playing, it reads %s\n", encoder ? "yes" : "no", lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no",
+                sheet ? "yes" : "no", typed ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no", live ? "yes" : "no");
     c.check(encoder && lines && zero && imu && quiet && noisy && seed, "a sensor's card shows its kind's fields and writes each edit into its line");
+    c.check(sheet && typed, "an IMU's card: its model's datasheet from the table, a number typed over it the sensor's, the model said changed");
+    c.check(live, "the scene playing, the IMU's card shows what the robot reads and the truth beside it");
 }
 
 // The cards «Батарея» and «Драйвер мотора»: the UR5e's elbow made a DC motor and fed (assembly_power: a driver and a
 // 3S pack); the pack's cells and charge typed, the driver's duty slid, its stop and its pack picked - each into the
-// scene, a pick undone comes back.
+// scene, a pick undone comes back. Playing, the cards read the pack's voltage, current and charge and the motor's
+// voltage; the duty slid while it plays goes to the running world - no restart.
 void testPowerCards(Checker& c, QMainWindow& w, SceneBuilder& b) {
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
     const auto driverIn = [](const SceneGraph& g, uint32_t id) -> const DriverObject* {
@@ -439,9 +606,27 @@ void testPowerCards(Checker& c, QMainWindow& w, SceneBuilder& b) {
     b.undoAction()->trigger();
     pump(30);
     const bool fed = driverIn(b.graph(), driver) && driverIn(b.graph(), driver)->battery == pack;
-    std::printf("  the power cards: 4S at 50 %% %s; the driver at 50 %% braking %s, unfed %s, its pack back on undo %s\n", cells ? "yes" : "no",
-                duty ? "yes" : "no", unfed ? "yes" : "no", fed ? "yes" : "no");
+    const auto cardSays = [panel](const char* card, const char* text) {
+        if (auto* box = panel->findChild<QWidget*>(card))
+            for (QLabel* l : box->findChildren<QLabel*>())
+                if (l->text().contains(text)) return true;
+        return false;
+    };
+    b.play();
+    b.select(pack);
+    const bool packLive = waitUntil([&] { return cardSays("batteryCard", " В · ток") && cardSays("batteryCard", "заряд"); }, 5000);
+    b.select(driver);
+    const bool motorLive = waitUntil([&] { return cardSays("driverCard", "на моторе"); }, 5000);
+    number("driverDuty", 100);
+    pump(300);
+    const bool kept = !b.editing() && motorLive;
+    b.stop();
+    pump(60);
+    std::printf("  the power cards: 4S at 50 %% %s; the driver at 50 %% braking %s, unfed %s, its pack back on undo %s; playing - the pack "
+                "reads %s, the motor %s, the duty slid with no restart %s\n", cells ? "yes" : "no", duty ? "yes" : "no", unfed ? "yes" : "no",
+                fed ? "yes" : "no", packLive ? "yes" : "no", motorLive ? "yes" : "no", kept ? "yes" : "no");
     c.check(cells && duty && unfed && fed, "a battery's and a driver's cards write their numbers, slider and picks into the scene");
+    c.check(packLive && motorLive && kept, "playing, the power cards read the pack and the motor; a duty slid goes to the running world");
 }
 
 } // namespace
@@ -454,11 +639,13 @@ int runComponentTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     testAddComponentMenu(c, w, b, shotsDir);
     testStaticCollider(c, b, v);
     testSphereCapsule(c, w, b, v, shotsDir);
+    testColliderMode(c, w, b, v, shotsDir);
     testThreeClicks(c, w, b, v);
     testFirstMinute(c, w, b, v, shotsDir);
     testJointCard(c, b);
     testSensorCard(c, b);
     testPowerCards(c, w, b);
+    testJointTies(c, w, b, v); // a scene of its own: after the cards, which read the arm's
     if (!shotsDir.isEmpty()) cubeCapsuleShot(w, b, shotsDir);
     return c.failures;
 }

@@ -8,7 +8,6 @@
 //   - any other channel keeps only its last minute (switched on, its line starts a minute back).
 // A frame the channel was not measured in is a gap (NaN): the line breaks there.
 #include <cstddef>
-#include <limits>
 #include <vector>
 
 class PlotSeries {
@@ -22,7 +21,6 @@ public:
     double time(size_t i) const { return t_[begin_ + i]; }
     double value(size_t i) const { return v_[begin_ + i]; }
     size_t firstAtOrAfter(double t) const; // size() when every sample is earlier
-    size_t firstRaw() const; // first sample not replaced by old minima/maxima
     double latest() const;                 // the last value there is (NaN: none)
     double valueAt(double t) const;        // the sample at or before t (NaN: none, or a gap)
     size_t bytes() const { return (t_.capacity() + v_.capacity()) * sizeof(double); }
@@ -33,6 +31,5 @@ private:
 
     std::vector<double> t_, v_; // the live samples are [begin_, size)
     size_t begin_ = 0;
-    double thinnedUntil_ = -std::numeric_limits<double>::infinity();
     bool keep_ = false;
 };

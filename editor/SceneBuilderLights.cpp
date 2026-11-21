@@ -10,6 +10,7 @@
 // camera object (each move merged into one undo step, like a drag); a locked camera does not move
 // and the view snaps back to it. Esc or the button again gives the editor's own view back.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "InspectorWidgets.h"
 #include "ObjectInspector.h"
@@ -19,19 +20,14 @@
 
 #include <QAction>
 #include <QBoxLayout>
-#include <QCheckBox>
-#include <QDoubleSpinBox>
-#include <QFormLayout>
 #include <QPushButton>
-#include <QSignalBlocker>
-#include <QToolButton>
 
 #include <algorithm>
 #include <cmath>
 
 using namespace ke;
 
-const char* lightName(LightKind k) { return ke::lightTitle(k); }
+const char* lightName(LightKind k) { return uiText("Kinetica", ke::lightTitle(k)); }
 
 SceneIcon lightIcon(LightKind k) {
     static const SceneIcon icons[] = {SceneIcon::Sun, SceneIcon::Bulb, SceneIcon::Spot};
@@ -66,6 +62,8 @@ Camera* SceneBuilder::cameraById(uint32_t id) {
 QIcon SceneBuilder::kindIcon(uint32_t id, int size) const {
     for (const Light& l : graph_.lights)
         if (l.id == id) return sceneIcon(lightIcon(l.kind), size);
+    for (const Force& f : graph_.forces)
+        if (f.id == id) return sceneIcon(forceIcon(f.shape), size);
     for (const SensorObject& s : graph_.sensors)
         if (s.id == id) return deviceIcon(DeviceIcon(int(s.kind)), size);
     return findCamera(graph_, id) ? sceneIcon(SceneIcon::Camera, size) : QIcon();
@@ -75,8 +73,8 @@ QIcon SceneBuilder::kindIcon(uint32_t id, int size) const {
 // Making them
 // ---------------------------------------------------------------------------
 void SceneBuilder::buildLightActions() {
-    const char* tips[] = {"Солнце: параллельный свет издалека, с тенями; важно только, куда оно светит",
-                          "Лампа: светит во все стороны и гаснет к своей дальности", "Прожектор: конус света с мягким краем"};
+    const char* tips[] = {uiText("Kinetica", "Солнце: параллельный свет издалека, с тенями; важно только, куда оно светит"),
+                          uiText("Kinetica", "Лампа: светит во все стороны и гаснет к своей дальности"), uiText("Kinetica", "Прожектор: конус света с мягким краем")};
     for (int k = 0; k < 3; ++k) {
         const LightKind kind = LightKind(k);
         auto* a = new QAction(sceneIcon(lightIcon(kind), 48), lightName(kind), this);
@@ -84,8 +82,8 @@ void SceneBuilder::buildLightActions() {
         connect(a, &QAction::triggered, this, [this, kind] { addLight(kind); });
         lightActions_.push_back(a);
     }
-    cameraAct_ = new QAction(sceneIcon(SceneIcon::Camera, 48), "Камера", this);
-    cameraAct_->setToolTip("Камера там, где сейчас вид редактора, смотрит в центр сцены. Через неё — скриншоты");
+    cameraAct_ = new QAction(sceneIcon(SceneIcon::Camera, 48), uiText("Kinetica", "Камера"), this);
+    cameraAct_->setToolTip(uiText("Kinetica", "Камера там, где сейчас вид редактора, смотрит в центр сцены. Через неё — скриншоты"));
     connect(cameraAct_, &QAction::triggered, this, [this] { addCamera(); });
 }
 
@@ -99,7 +97,6 @@ void SceneBuilder::addObjectDone(uint32_t id) {
     setSelected(id);
     refreshList();
     applyEdit(id);
-    emit firstAction();
 }
 
 void SceneBuilder::addLight(LightKind kind, const Vector3* over) {
@@ -142,62 +139,55 @@ void SceneBuilder::editCamera(uint32_t id, const std::function<void(Camera&)>& c
 // ---------------------------------------------------------------------------
 // The "Свет" and "Камера" cards
 // ---------------------------------------------------------------------------
-QDoubleSpinBox* SceneBuilder::lightNumber(QFormLayout* f, const QString& label, double min, double max, double step, int decimals,
-                                          bool camera) {
-    QDoubleSpinBox* s = makeSpin(min, max, step, decimals);
-    connect(s, &QDoubleSpinBox::valueChanged, this, camera ? &SceneBuilder::onCameraEdited : &SceneBuilder::onLightEdited);
-    f->addRow(label, s);
-    return s;
-}
-
 void SceneBuilder::buildLightCards(QVBoxLayout* col) {
-    lightCard_ = new ComponentCard("Свет", sceneIcon(SceneIcon::Bulb, 22));
+    lightCard_ = new ComponentCard(uiText("Kinetica", "Свет"), sceneIcon(SceneIcon::Bulb, 22));
     lightCard_->setObjectName("lightCard");
-    lightCard_->setToolTip("Свет только для глаза: физика его не видит. Цвет — в блоке «Объект»");
-    auto* kinds = new QHBoxLayout;
-    for (int k = 0; k < 3; ++k) {
-        auto* b = new QToolButton;
-        b->setObjectName("lightKind");
-        b->setIcon(sceneIcon(lightIcon(LightKind(k)), 32));
-        b->setIconSize(QSize(32, 32));
-        b->setText(lightName(LightKind(k)));
-        b->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-        b->setCheckable(true);
-        b->setAutoExclusive(true);
-        connect(b, &QToolButton::clicked, this, &SceneBuilder::onLightEdited);
-        lightKind_[k] = b;
-        kinds->addWidget(b);
-    }
-    lightCard_->body()->addLayout(kinds);
-    lightForm_ = new QFormLayout;
-    lightForm_->setSpacing(6);
-    lightIntensity_ = lightNumber(lightForm_, "Яркость", 0, 100, 0.1, 2, false);
-    lightRange_ = lightNumber(lightForm_, "Дальность, м", 0.1, 1000, 0.5, 2, false);
-    lightCone_ = lightNumber(lightForm_, "Конус, °", 1, 179, 1, 1, false);
-    lightSoftness_ = lightNumber(lightForm_, "Мягкий край, °", 0, 90, 1, 1, false);
-    lightShadows_ = new QCheckBox("Отбрасывает тени");
-    lightShadows_->setObjectName("lightShadows");
-    lightShadows_->setToolTip("Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр "
-                              "(у лампы — шесть), поэтому у ламп и прожекторов она сначала выключена, как в Blender и Unity. "
-                              "Тени рисуются не больше чем от 4 источников сразу");
-    connect(lightShadows_, &QCheckBox::toggled, this, &SceneBuilder::onLightEdited);
-    lightForm_->addRow(lightShadows_);
-    lightCard_->body()->addLayout(lightForm_);
+    lightCard_->setToolTip(uiText("Kinetica", "Свет только для глаза: физика его не видит. Цвет — в блоке «Объект»"));
+    std::vector<FieldForm::Tile> kinds;
+    for (int k = 0; k < 3; ++k) kinds.push_back({sceneIcon(lightIcon(LightKind(k)), 32), lightName(LightKind(k))});
+    Light* l = &lightDraft_;
+    const auto spot = [l] { return l->kind == LightKind::Spot; };
+    lightFields_ = new FieldForm([this](bool click) { commitSelected(lightFields_, lightDraft_, [this](uint32_t id) { return lightById(id); }, click); });
+    lightFields_->tiles(kinds, 32, l->kind).name("lightKind")
+        .number(uiText("Kinetica", "Яркость"), 0, 100, 0.1, 2, l->intensity)
+        .number(uiText("Kinetica", "Дальность, м"), 0.1, 1000, 0.5, 2, l->range).shown([l] { return l->kind != LightKind::Sun; })
+        .number(uiText("Kinetica", "Конус, °"), 1, 179, 1, 1, l->coneDeg).shown(spot)
+        .number(uiText("Kinetica", "Мягкий край, °"), 0, 90, 1, 1, l->softnessDeg).shown(spot)
+        .toggle(uiText("Kinetica", "Отбрасывает тени"), l->shadows).name("lightShadows")
+        .tip(uiText("Kinetica", "Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр (у лампы — шесть), поэтому у "
+             "ламп и прожекторов она сначала выключена. Тени рисуются не больше чем от 4 источников сразу"));
+    lightCard_->body()->addWidget(lightFields_);
     connect(lightCard_, &ComponentCard::removeClicked, this, &SceneBuilder::removeSelected);
     col->addWidget(lightCard_);
 
-    cameraCard_ = new ComponentCard("Камера", sceneIcon(SceneIcon::Camera, 22));
+    cameraCard_ = new ComponentCard(uiText("Kinetica", "Камера"), sceneIcon(SceneIcon::Camera, 22));
     cameraCard_->setObjectName("cameraCard");
-    cameraForm_ = new QFormLayout;
-    cameraForm_->setSpacing(6);
-    cameraFov_ = lightNumber(cameraForm_, "Угол обзора, °", 1, 170, 1, 1, true);
-    cameraNear_ = lightNumber(cameraForm_, "Ближе не видит, м", 0.001, 10, 0.01, 3, true);
-    cameraFar_ = lightNumber(cameraForm_, "Дальше не видит, м", 1, 100000, 10, 0, true);
-    cameraCard_->body()->addLayout(cameraForm_);
-    throughButton_ = new QPushButton(sceneIcon(SceneIcon::Camera, 20), "Смотреть через камеру");
+    Camera* c = &cameraDraft_;
+    cameraFields_ = new FieldForm([this](bool click) { commitSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); }, click); });
+    // Free or target, and what it looks at: its own target (a cube the gizmo moves) or
+    // another object. Not the draft's to edit: a target is an object of its own, made or removed - camera_aim does it.
+    cameraAimFields_ = new FieldForm([this](bool) { aimSelectedCameras(); });
+    cameraAimFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), uiText("Kinetica", "Свободная"), uiText("Kinetica", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё")},
+                             {sceneIcon(SceneIcon::Camera, 26), uiText("Kinetica", "С целью"), uiText("Kinetica", "Всегда смотрит на цель — свой кубик (двигайте его гизмо) или другой "
+                                                                         "объект; двигаете камеру или цель, она поворачивается за ней; в игре следит за телом")}}, 26,
+                            [this] { return cameraAim_.first; }, [this](double k) { cameraAim_.first = k; }).name("cameraKind")
+        .choice(uiText("Kinetica", "Цель"), [this] {
+            std::vector<FieldForm::Option> out{{uiText("Kinetica", "свой кубик-цель"), 0}};
+            for (const Entity& e : graph_.entities)
+                if (!e.targetOf) out.push_back({QString::fromStdString(e.name), double(e.id)});
+            return out;
+        }, [this] { return cameraAim_.second; }, [this](double id) { cameraAim_.second = id; })
+        .name("cameraTarget").shown([this] { return cameraAim_.first == 1; })
+        .tip(uiText("Kinetica", "На что смотрит камера: свой кубик-цель (выберите его и двигайте гизмо) или объект — за ним она следит и в игре"));
+    cameraCard_->body()->addWidget(cameraAimFields_);
+    cameraFields_->number(uiText("Kinetica", "Угол обзора, °"), 1, 170, 1, 1, c->fovDeg)
+        .number(uiText("Kinetica", "Ближе не видит, м"), 0.001, 10, 0.01, 3, c->nearClip)
+        .number(uiText("Kinetica", "Дальше не видит, м"), 1, 100000, 10, 0, c->farClip);
+    cameraCard_->body()->addWidget(cameraFields_);
+    throughButton_ = new QPushButton(sceneIcon(SceneIcon::Camera, 20), uiText("Kinetica", "Смотреть через камеру"));
     throughButton_->setObjectName("throughCamera");
     throughButton_->setCheckable(true);
-    throughButton_->setToolTip("Вид станет этой камерой; движение вида двигает камеру. Esc — назад");
+    throughButton_->setToolTip(uiText("Kinetica", "Вид станет этой камерой; движение вида двигает камеру. Esc — назад"));
     connect(throughButton_, &QPushButton::toggled, this, [this](bool on) {
         if (!filling_) lookThrough(on ? selectedId_ : 0);
     });
@@ -206,82 +196,36 @@ void SceneBuilder::buildLightCards(QVBoxLayout* col) {
     col->addWidget(cameraCard_);
 }
 
-// The active object's light or camera values; the rows a kind has no use for are hidden.
-void SceneBuilder::fillLightCards(const SceneObject& o) {
-    const Light* l = lightById(o.id);
-    const Camera* c = cameraById(o.id);
-    lightCard_->setVisible(l != nullptr);
-    cameraCard_->setVisible(c != nullptr);
-    if (l) {
-        lightShown_ = *l;
-        for (int k = 0; k < 3; ++k) lightKind_[k]->setChecked(int(l->kind) == k);
-        lightIntensity_->setValue(l->intensity);
-        lightRange_->setValue(l->range);
-        lightCone_->setValue(l->coneDeg);
-        lightSoftness_->setValue(l->softnessDeg);
-        lightShadows_->setChecked(l->shadows);
-        lightForm_->setRowVisible(lightRange_, l->kind != LightKind::Sun);
-        lightForm_->setRowVisible(lightCone_, l->kind == LightKind::Spot);
-        lightForm_->setRowVisible(lightSoftness_, l->kind == LightKind::Spot);
-    }
-    if (c) {
-        cameraShown_ = *c;
-        cameraFov_->setValue(c->fovDeg);
-        cameraNear_->setValue(c->nearClip);
-        cameraFar_->setValue(c->farClip);
-        throughButton_->setChecked(throughId_ == c->id);
-    }
-}
-
-// What was changed in the card goes to every selected light (the rest of each stays its own).
-void SceneBuilder::onLightEdited() {
-    if (filling_ || !lightById(selectedId_)) return;
-    Light after = lightShown_;
-    for (int k = 0; k < 3; ++k)
-        if (lightKind_[k]->isChecked()) after.kind = LightKind(k);
-    after.intensity = float(lightIntensity_->value());
-    after.range = float(lightRange_->value());
-    after.coneDeg = float(lightCone_->value());
-    after.softnessDeg = float(lightSoftness_->value());
-    after.shadows = lightShadows_->isChecked();
-    // A number dragged or typed merges its many small steps into one undo step; a tick or a kind is one
-    // click, always its own step (merged, a tick right after making a lamp took the lamp away on undo).
-    const bool oneClick = after.shadows != lightShown_.shadows || after.kind != lightShown_.kind;
-    remember(!oneClick);
-    for (uint32_t id : selection_) {
-        Light* l = lightById(id);
-        if (!l) continue;
-        if (after.kind != lightShown_.kind) l->kind = after.kind;
-        if (after.intensity != lightShown_.intensity) l->intensity = after.intensity;
-        if (after.range != lightShown_.range) l->range = after.range;
-        if (after.coneDeg != lightShown_.coneDeg) l->coneDeg = after.coneDeg;
-        if (after.softnessDeg != lightShown_.softnessDeg) l->softnessDeg = after.softnessDeg;
-        if (after.shadows != lightShown_.shadows) l->shadows = after.shadows;
-    }
-    filling_ = true;
-    fillLightCards(*selectedObject()); // a new kind shows its own rows
-    filling_ = false;
-    refreshList();
-    refreshHeader();
-    applyEdit(selectedId_);
-}
-
-void SceneBuilder::onCameraEdited() {
+void SceneBuilder::aimSelectedCameras() {
     if (filling_ || !cameraById(selectedId_)) return;
-    Camera after = cameraShown_;
-    after.fovDeg = float(cameraFov_->value());
-    after.nearClip = float(cameraNear_->value());
-    after.farClip = float(cameraFar_->value());
-    remember(true);
+    flushCode();
+    remember();
+    const bool target = cameraAim_.first == 1;
+    const uint32_t at = uint32_t(cameraAim_.second);
     for (uint32_t id : selection_) {
-        Camera* c = cameraById(id);
-        if (!c) continue;
-        if (after.fovDeg != cameraShown_.fovDeg) c->fovDeg = after.fovDeg;
-        if (after.nearClip != cameraShown_.nearClip) c->nearClip = after.nearClip;
-        if (after.farClip != cameraShown_.farClip) c->farClip = after.farClip;
+        if (!cameraById(id)) continue;
+        if (target) aimCamera(graph_, id, at, nullptr);
+        else freeCamera(graph_, id);
+        codeAction("camera_aim", target ? (at ? QString("ed.camera_aim(camera=%1, at=%2)").arg(id).arg(at) : QString("ed.camera_aim(camera=%1)").arg(id))
+                                        : QString("ed.camera_aim(camera=%1, free=True)").arg(id),
+                   target ? (at ? QJsonObject{{"camera", int(id)}, {"at", int(at)}} : QJsonObject{{"camera", int(id)}})
+                          : QJsonObject{{"camera", int(id)}, {"free", true}}, false);
     }
-    cameraShown_ = after;
-    applyEdit(selectedId_);
+    afterCardEdit(selectedId_, true);
+}
+
+// The active light's or camera's values, "—" where the selected ones differ; the rows a kind has no use for are hidden.
+void SceneBuilder::fillLightCards(const SceneObject& o) {
+    lightCard_->setVisible(lightById(o.id));
+    cameraCard_->setVisible(cameraById(o.id));
+    if (const Camera* k = cameraById(o.id)) {
+        const Entity* t = k->kind == CameraKind::Target ? entityById(k->target) : nullptr;
+        cameraAim_ = {double(int(k->kind)), t && t->targetOf == k->id ? 0.0 : double(k->target)};
+        cameraAimFields_->fill();
+    }
+    fillSelected(lightFields_, lightDraft_, [this](uint32_t id) { return lightById(id); });
+    fillSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); });
+    throughButton_->setChecked(cameraById(o.id) && throughId_ == o.id);
 }
 
 // ---------------------------------------------------------------------------
@@ -292,7 +236,7 @@ void SceneBuilder::refreshLightsAndCameras() {
     emitCameraView();
 }
 
-// Every visible light and camera while editing; while playing only the selected ones. The camera the
+// Every visible light, camera and force while editing; while playing only the selected ones. The camera the
 // view looks through is not drawn (the view is inside it).
 void SceneBuilder::refreshMarkers() {
     std::vector<SceneMarker> out;
@@ -313,28 +257,42 @@ void SceneBuilder::refreshMarkers() {
         m.softnessDeg = l.softnessDeg;
         add(l, m);
     }
+    for (const Force& f : graph_.forces) {
+        if (!editing() && std::binary_search(firedForces_.begin(), firedForces_.end(), f.id)) continue; // an impulse given: its arrow is gone till Stop
+        add(f, forceMarker(graph_, f));
+        if (const Frame::CameraPose* live = liveCamera(f.id); live && !out.empty() && out.back().id == f.id)
+            out.back().position = live->position, out.back().rotation = live->rotation;
+    }
     for (const Camera& c : graph_.cameras) {
         SceneMarker m;
         m.kind = SceneMarker::Camera;
         m.fovDeg = c.fovDeg;
         add(c, m);
+        if (c.kind == CameraKind::Target && !out.empty() && out.back().id == c.id)
+            out.back().aimed = true, out.back().aim = cameraTarget(graph_, c), out.back().rotation = lookTurn(out.back().position, out.back().aim);
+        if (const Frame::CameraPose* live = liveCamera(c.id); live && !out.empty() && out.back().id == c.id)
+            out.back().position = live->position, out.back().rotation = live->rotation;
     }
     emit sceneMarkers(std::move(out));
 }
 
 std::vector<PickHit> SceneBuilder::pickMarkers(const Ray& ray) const {
     std::vector<PickHit> hits;
-    auto test = [&](const SceneObject& o, SceneMarker::Kind kind, float fovDeg) {
+    auto test = [&](const SceneObject& o, SceneMarker m) {
         if (o.locked || o.id == throughId_ || !effectivelyVisible(graph_, o)) return;
-        SceneMarker m;
-        m.kind = kind;
-        m.fovDeg = fovDeg;
         worldPose(graph_, o, m.position, m.rotation);
+        if (const Camera* c = findCamera(graph_, o.id); c && c->kind == CameraKind::Target) m.rotation = lookTurn(m.position, cameraTarget(graph_, *c));
         float t;
         if (markerHit(m, ray, t)) hits.push_back({o.id, t, ray.at(t), o.name});
     };
-    for (const Light& l : graph_.lights) test(l, SceneMarker::Kind(int(l.kind)), 0);
-    for (const Camera& c : graph_.cameras) test(c, SceneMarker::Camera, c.fovDeg);
+    const auto marker = [](SceneMarker::Kind kind, float fovDeg) {
+        SceneMarker m;
+        m.kind = kind, m.fovDeg = fovDeg;
+        return m;
+    };
+    for (const Light& l : graph_.lights) test(l, marker(SceneMarker::Kind(int(l.kind)), 0));
+    for (const Force& f : graph_.forces) test(f, forceMarker(graph_, f)); // its arrow as long as it is drawn
+    for (const Camera& c : graph_.cameras) test(c, marker(SceneMarker::Camera, c.fovDeg));
     for (const SensorVis& v : sensorVisuals(graph_)) {
         const SceneObject* o = findObject(graph_, v.id);
         float t;
@@ -343,6 +301,8 @@ std::vector<PickHit> SceneBuilder::pickMarkers(const Ray& ray) const {
     return hits;
 }
 
+// The view through the camera: a target camera looks at its target where it is now - in play where the running world
+// has taken its object (the last frame's pose), so the view follows a gripper.
 void SceneBuilder::emitCameraView() {
     const Camera* c = findCamera(graph_, throughId_);
     if (!c) {
@@ -352,6 +312,13 @@ void SceneBuilder::emitCameraView() {
     }
     Vector3 eye, forward, up;
     cameraFrame(graph_, *c, eye, forward, up);
+    if (const Frame::CameraPose* live = liveCamera(c->id))
+        eye = live->position, forward = live->rotation.rotate(Vector3(0, 0, -1)), up = live->rotation.rotate(Vector3(0, 1, 0));
+    if (c->kind == CameraKind::Target && c->target && !editing())
+        if (const auto at = liveObjectPositions_.find(c->target); at != liveObjectPositions_.end()) {
+            const Quaternion turn = lookTurn(eye, at->second);
+            forward = turn.rotate(Vector3(0, 0, -1)), up = turn.rotate(Vector3(0, 1, 0));
+        }
     emit cameraView(true, eye, forward, up, c->fovDeg, c->nearClip, c->farClip);
 }
 
@@ -366,7 +333,16 @@ void SceneBuilder::lookThrough(uint32_t cameraId) {
     filling_ = false;
     refreshLightsAndCameras();
     if (!editing()) applyEditDuringPlay(0); // the running scene's cameras follow
-    emit statusMessage(cameraId ? "Вид через камеру: движение вида двигает камеру. Esc — назад к виду редактора" : "Вид редактора");
+    emit statusMessage(cameraId ? uiText("Kinetica", "Вид через камеру: движение вида двигает камеру. Esc — назад к виду редактора") : uiText("Kinetica", "Вид редактора"));
+}
+
+// In play, a camera or a force the running world moves: where the last frame has it.
+const Frame::CameraPose* SceneBuilder::liveCamera(uint32_t id) const {
+    if (editing()) return nullptr;
+    for (const std::vector<Frame::CameraPose>* list : {&liveCameras_, &liveForces_})
+        for (const Frame::CameraPose& c : *list)
+            if (c.id == id) return &c;
+    return nullptr;
 }
 
 void SceneBuilder::lookThroughActiveCamera() {
@@ -382,13 +358,15 @@ void SceneBuilder::onViewMovedThroughCamera(const Vector3& eye, const Vector3& f
     Camera* c = cameraById(throughId_);
     if (!c) return;
     if (c->locked) {
-        emit statusMessage("Камера заперта замком: вид не двигает её");
+        emit statusMessage(uiText("Kinetica", "Камера заперта замком: вид не двигает её"));
         return emitCameraView();
     }
     remember(true);
     const Vector3 right = normalize(cross(forward, up));
     const Matrix3x3 R = Matrix3x3::fromColumns(right, up, forward * -1.0f);
-    setWorldPose(graph_, *c, eye, Quaternion::fromMatrix3x3(R));
+    // A target camera moves with the view but keeps looking at its target: the view snaps back to it.
+    setWorldPose(graph_, *c, eye, c->kind == CameraKind::Target ? lookTurn(eye, cameraTarget(graph_, *c)) : Quaternion::fromMatrix3x3(R));
+    if (c->kind == CameraKind::Target) emitCameraView();
     if (isSelected(c->id)) showTransform(*c);
     if (editing()) {
         refreshLightsAndCameras();

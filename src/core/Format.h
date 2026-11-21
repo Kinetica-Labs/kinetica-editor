@@ -27,9 +27,13 @@ inline std::string format(const char* f, ...) {
 std::string numberText(float v);
 // Scientific observations retain all double digits; float scene serialization stays unchanged.
 std::string numberText(double v);
+// The fewest digits that read back as the same double, laid out as std::to_chars and QJsonDocument lay a double
+// out (the shorter of fixed and exponent text, a tie fixed): 0.1, 1e-05, 0.001, 1e+16, -0 is "0". v is finite.
+std::string numberTextShortest(double v);
 template<class T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
 std::string numberText(T v) { return std::to_string(v); }
 // The whole word as a number ("1.5x", "" and "1,5" are not); false leaves `out` unspecified.
 bool parseNumber(const std::string& word, float& out);
+bool parseNumber(const std::string& word, double& out);
 
 } // namespace ke

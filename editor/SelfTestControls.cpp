@@ -2,7 +2,7 @@
 // Shift+click, the box, Ctrl+A), what works on all of it (move, duplicate, hide, delete), the axis
 // keys during a drag, the camera (the point under the cursor stays put when orbiting and zooming,
 // the right button with W flies, the navigation cube looks from the top), Esc stops the scene, and
-// the Blender scheme moves the camera with the middle button. Each check prints one line.
+// the G / R / S scheme moves the camera with the middle button. Each check prints one line.
 #include "SelfTestSupport.h"
 
 #include "MainWindow.h"
@@ -45,12 +45,6 @@ void act(QMainWindow& w, const char* name) {
 }
 
 QPointF onScreen(Viewport* v, const Vector3& p) { return toPoint(v->gizmoView().project(p)); }
-
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
 
 // Three cubes in a row on the floor, framed; returns their ids.
 std::vector<uint32_t> threeCubes(SceneBuilder& b) {
@@ -173,11 +167,11 @@ void testFlyAndNavCube(Checker& c, Viewport* v) {
     sendMouse(v, QEvent::MouseButtonPress, mid, Qt::RightButton, Qt::RightButton);
     key(v, Qt::Key_W);
     const QString hint = v->mouseHint();
-    pump(400);
+    waitUntil([&] { return QVector3D::dotProduct(v->camera().eye() - eye0, forward) > 0.1f; }, 3000); // held until it has flown
     key(v, Qt::Key_W, Qt::NoModifier, QEvent::KeyRelease);
     sendMouse(v, QEvent::MouseButtonRelease, mid, Qt::RightButton, Qt::NoButton);
     const float flown = QVector3D::dotProduct(v->camera().eye() - eye0, forward);
-    std::printf("  right button + W for 0.4 s: the eye went %.2f m forward\n", double(flown));
+    std::printf("  right button + W held: the eye went %.2f m forward\n", double(flown));
     c.check(flown > 0.1f && hint.contains("Полёт"), "right button + W flies forward; the status line lists the flight keys");
     const QPointF ball = v->navCube().ballCentre(2, v->camera().view(), v->size());
     click(v, ball);
@@ -191,7 +185,7 @@ void testEscAndScheme(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, 
     pump(200);
     act(w, "actionEscape");
     c.check(b.editing(), "Esc while the scene plays: stop, the scene is as it was before ▶");
-    act(w, "scheme1"); // Как в Blender
+    act(w, "scheme1"); // СКМ и клавиши G/R/S
     auto* scale = w.findChild<QAction*>("toolScale");
     auto* del = w.findChild<QAction*>("actionDelete");
     const float yaw0 = v->camera().yaw();
@@ -200,9 +194,9 @@ void testEscAndScheme(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, 
     const float afterRight = v->camera().yaw();
     drag(v, mid, mid + QPointF(60, 0), Qt::MiddleButton);
     const float afterMiddle = v->camera().yaw();
-    c.check(v->controlScheme() == ControlScheme::Blender && scale && scale->shortcut().isEmpty() && del &&
+    c.check(v->controlScheme() == ControlScheme::Keys && scale && scale->shortcut().isEmpty() && del &&
                 del->shortcuts().contains(QKeySequence(Qt::Key_X)) && afterRight == yaw0 && afterMiddle != yaw0,
-            "«Как в Blender»: the middle button orbits, the right one does not, X deletes, R is free for turning");
+            "«СКМ и клавиши G/R/S»: the middle button orbits, the right one does not, X deletes, R is free for turning");
     act(w, "scheme0");
     auto* local = w.findChild<QAction*>("toolLocal");
     c.check(v->controlScheme() == ControlScheme::Simple && scale && scale->shortcut() == QKeySequence(Qt::Key_R) && local &&

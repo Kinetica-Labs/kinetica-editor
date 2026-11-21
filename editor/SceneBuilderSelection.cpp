@@ -6,6 +6,8 @@
 // back. The gizmo works in the world: an object in a group is moved where the mouse takes it, its
 // pose written back relative to the group.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
+#include "scene/Collider.h"
 
 #include "IkSolverView.h"
 
@@ -39,6 +41,7 @@ void SceneBuilder::setSelection(std::vector<uint32_t> ids, uint32_t active) {
         if ((findObject(graph_, id) || isDevice(id)) && std::find(kept.begin(), kept.end(), id) == kept.end()) kept.push_back(id);
     selection_ = std::move(kept);
     selectedId_ = isSelected(active) ? active : (selection_.empty() ? 0 : selection_.back());
+    if (colliderEdit_ && (selection_.size() != 1 || selectedId_ != colliderEdit_)) setColliderEdit(false); // another thing: the body's gizmo again
     syncListSelection();
     fillInspector();
     refreshIkView();
@@ -78,7 +81,7 @@ void SceneBuilder::selectAll() { setSelection(topLevelObjects(), selectedId_); }
 
 // The box: every visible, unlocked thing whose outline on screen (the corners of its bounds,
 // projected) touches the rectangle selects its topmost group (or its array). Shift adds to the
-// selection, Ctrl takes away (Blender's rule).
+// selection, Ctrl takes away.
 void SceneBuilder::selectInRect(const QRectF& rect, const GizmoView& view, bool add, bool remove) {
     std::vector<uint32_t> ids = add || remove ? selection_ : std::vector<uint32_t>{};
     for (const Entity& w : worldEntities(graph_)) {
@@ -158,6 +161,7 @@ void SceneBuilder::unhideAll() {
 // The gizmo: a drag is one undo step; Esc puts the objects back as they were
 // ---------------------------------------------------------------------------
 void SceneBuilder::onGizmoStarted() {
+    if (colliderEdit_) return beginColliderDrag();
     flushCode(); // what the hand did before the drag is said before it
     if (clonePending_) cancelClone(); // a popover left open: its clone is dropped
     SceneObject* active = selectedObject();
@@ -195,6 +199,20 @@ void SceneBuilder::onGizmoStarted() {
 // poses when the drag began): moved by the same step, turned about the gizmo's centre by the same turn,
 // scaled about its own centre by the same factors.
 void SceneBuilder::onGizmoMoved(const GizmoPose& pose) {
+    if (colliderDrag_) { // the collider mode: the gizmo's place and turn are the collider's on the body; its factors, the kind's own numbers
+        ColliderRole c = colliderStart_;
+        const Quaternion back = colliderBodyTurn_.conjugate();
+        const auto most = [](float a, float b) { return std::fabs(a - 1.0f) > std::fabs(b - 1.0f) ? a : b; }; // the factor the hand moved
+        if (pose.mode == GizmoMode::Translate) c.offset = back.rotate(pose.position - colliderBodyAt_);
+        else if (pose.mode == GizmoMode::Rotate) c.rotationDeg = eulerDegrees((back * pose.rotation).normalized());
+        else if (pose.mode == GizmoMode::Scale && c.kind == ColliderKind::Box) c.size = vmax(c.size * pose.scale, Vector3(0.005f));
+        else if (pose.mode == GizmoMode::Scale && c.kind == ColliderKind::Sphere) c.size = Vector3(std::max(0.005f, c.size.x * most(pose.scale.x, most(pose.scale.y, pose.scale.z))));
+        else if (pose.mode == GizmoMode::Scale) {
+            c.size.x = c.size.z = std::max(0.005f, c.size.x * most(pose.scale.x, pose.scale.z));
+            c.size.y = std::max(0.005f, c.size.y * pose.scale.y);
+        }
+        return showCollider(c);
+    }
     if (!gizmoEntity_) return;
     lastPose_ = pose;
     applyGizmo(stepOf(pose));
@@ -212,7 +230,9 @@ SceneBuilder::GizmoStep SceneBuilder::stepOf(const GizmoPose& pose) const {
     const Vector3 v(q.x, q.y, q.z);
     const float n = length(v);
     s.axis = n > 1e-12f ? v / n : Vector3(0.0f, 1.0f, 0.0f);
-    s.degrees = float(2.0 * std::atan2(double(n), double(q.w)) * (180.0 / 3.14159265358979323846));
+    // To a ten-thousandth of a degree: a quaternion of floats gives a quarter turn back as 90.00001 or 89.99999, and the
+    // line and the scene would carry that for ever; the hand applies the rounded angle, so the line still replays it.
+    s.degrees = float(std::round(2.0 * std::atan2(double(n), double(q.w)) * (180.0 / 3.14159265358979323846) * 1e4) / 1e4);
     for (int k = 0; k < 3; ++k)
         for (float sign : {1.0f, -1.0f})
             if (std::fabs(s.axis[k] * sign - 1.0f) < 1e-6f) s.axis = Vector3(0.0f), s.axis[k] = 1.0f, s.degrees *= sign;
@@ -243,6 +263,7 @@ void SceneBuilder::applyGizmo(const GizmoStep& step) {
 }
 
 void SceneBuilder::onGizmoFinished() {
+    if (colliderDrag_) return finishColliderDrag(false);
     const bool moved = gizmoEntity_ != 0;
     QString op;
     QJsonObject args;
@@ -257,14 +278,16 @@ void SceneBuilder::onGizmoFinished() {
     fillInspector();
     if (!editing() && moved) applyEdit(0);
     if (moved && !op.isEmpty()) codeAction(op, py, args, false);
+    if (moved) announceHand(gizmoGraph_);
 }
 
 void SceneBuilder::onGizmoCancelled() {
+    if (colliderDrag_) return finishColliderDrag(true);
     if (!gizmoEntity_) return;
     graph_ = gizmoGraph_;
     gizmoEntity_ = 0;
     gizmoStarts_.clear();
-    if (!undo_.empty()) undo_.pop_back(); // nothing happened: no undo step either
+    doc_.history.pop(); // nothing happened: no undo step either
     updateHistoryActions();
     if (cloneDrag_) { // the moving copies go; the originals are the selection again
         cloneDrag_ = false;
@@ -365,14 +388,28 @@ static bool handClosed(const SceneGraph& g, uint32_t hand, bool& fingers) {
 }
 
 void SceneBuilder::refreshIkView() {
+    // On an arm's link the button makes its IK goal; on any other thing, with an arm in the scene, it sends the arm there
+    // - a newcomer asked it to "reach here" for a cube and was told to pick an arm's link.
+    // Neither on a goal itself (its own button would lift it over itself) nor where no arm can take it.
+    const Entity* selected = entityById(selectedId_);
+    const bool link = selected && !ke::ikChain(graph_, selectedId_).empty();
+    const bool movable = selected && selected->rigid.dynamic(); // a thing to take, not the floor, a table or what is led
+    const bool reach = selected && !link && !selected->goalOf && movable && goalNear(selectedId_) != 0;
+    goalButton_->setVisible(link || reach);
+    goalButton_->setText(reach ? uiText("Kinetica", "Рука — к этому предмету") : uiText("Kinetica", "Вести звено мышью (цель)")); // it said «рука тянется сюда» and did not
+    goalButton_->setToolTip(reach ? uiText("Kinetica", "Цель руки встаёт на 10 см над предметом, рука идёт к ней. Дальше: опустить — F, сомкнуть схват — пробел "
+                                    "(в «Пуске»; в правке — кнопка «Схват: сжать» у цели)")
+                                  : uiText("Kinetica", "Для последнего звена руки: прозрачный куб-цель в его позе. Тяните и вращайте куб гизмо — "
+                                    "инверсная кинематика ведёт сочленения (в «Пуске» — сервоприводами)"));
     const Entity* goal = nullptr;
     for (const Entity& e : graph_.entities)
         if (e.id == selectedId_ && e.goalOf != 0 && selection_.size() == 1) goal = &e;
     bool fingers = false;
     const bool closed = goal && handClosed(graph_, goal->goalOf, fingers);
     grip_->setVisible(goal && fingers);
-    grip_->setText(closed ? "Схват: разжать" : "Схват: сжать");
-    ikView_->setVisible(goal != nullptr);
+    grip_->setText(closed ? uiText("Kinetica", "Схват: разжать") : uiText("Kinetica", "Схват: сжать"));
+    ikMore_->setVisible(goal != nullptr);
+    ikView_->setVisible(goal && ikMore_->isChecked()); // folded under «Подробно» unless opened
     if (!goal) return;
     if (lastIkGoal_ != goal->id) { // not dragged yet: a solve from where its servos are sent, on a copy
         SceneGraph copy = graph_;
@@ -431,7 +468,7 @@ void SceneBuilder::takeGoalFromPath(uint32_t id) {
         if (!goal->pathTurns.empty()) goal->rotationDeg = goal->pathTurns.back();
     }
     goal->path.clear(), goal->pathTurns.clear();
-    emit statusMessage("Цель снята с траектории: теперь её ведёт гизмо");
+    emit statusMessage(uiText("Kinetica", "Цель снята с траектории: теперь её ведёт гизмо"));
 }
 
 bool SceneBuilder::goalSelected() const {
@@ -441,10 +478,39 @@ bool SceneBuilder::goalSelected() const {
     return !selection_.empty() && std::all_of(selection_.begin(), selection_.end(), goal);
 }
 
-// «Цель IK»: a see-through cube at the selected link's pose; dragging it drives the arm (followGoals).
+uint32_t SceneBuilder::goalNear(uint32_t object) const {
+    const ke::AABB box = ke::objectBounds(graph_, object);
+    uint32_t best = 0;
+    float nearest = std::numeric_limits<float>::infinity();
+    for (const Entity& e : graph_.entities) {
+        if (!e.goalOf) continue;
+        const float d = box.valid() ? ke::length(e.position - box.center()) : 0.0f;
+        if (d < nearest) nearest = d, best = e.id;
+    }
+    return best;
+}
+
+// «Цель IK»: a see-through cube at the selected link's pose; dragging it drives the arm (followGoals). On a thing that is no
+// arm's link: «Рука — к этому предмету» - the nearest IK goal 10 cm over the thing's top, its turn kept (assembly_goal_pose).
 void SceneBuilder::addGoalToSelected() {
     const uint32_t effector = selectedId_;
-    if (!entityById(effector) || ke::ikChain(graph_, effector).empty()) return emit statusMessage("Цель IK: выберите последнее звено руки — то, что висит на сочленении");
+    if (const uint32_t goal = goalNear(effector); entityById(effector) && !entityById(effector)->goalOf && ke::ikChain(graph_, effector).empty() && goal) {
+        const ke::AABB box = ke::objectBounds(graph_, effector);
+        if (!box.valid()) return;
+        const Vector3 over(box.center().x, box.hi.y + 0.10f, box.center().z);
+        Value args = Value::map(), answer = Value::map(), at = Value::list();
+        for (int k = 0; k < 3; ++k) at.push(over[k]);
+        args.set("goal", goal), args.set("position", at);
+        std::string error;
+        flushCode();
+        if (!transact([&](SceneGraph& g, std::string& e) { return ke::findSceneOp("assembly_goal_pose")->edit(g, args, answer, e); }, error))
+            return emit statusMessage(uiText("Kinetica", "Рука: ") + QString::fromStdString(error));
+        codeAction("assembly_goal_pose", QString("ed.assembly_goal_pose(goal=%1, position=[%2, %3, %4])").arg(goal).arg(over.x).arg(over.y).arg(over.z),
+                   {{"goal", int(goal)}, {"position", QJsonArray{over.x, over.y, over.z}}}, false);
+        return emit statusMessage(uiText("Kinetica", "Рука идёт к «") + QString::fromStdString(entityById(effector)->name) +
+                                  uiText("Kinetica", "»: цель на 10 см над ним. Опустить — F, сомкнуть схват — пробел, поднять — R"));
+    }
+    if (!entityById(effector) || ke::ikChain(graph_, effector).empty()) return emit statusMessage(uiText("Kinetica", "Цель IK: выберите последнее звено руки — то, что висит на сочленении"));
     flushCode();
     remember();
     const uint32_t goal = coreEdit([effector](SceneGraph& g) { return ke::addGoal(g, effector); });
@@ -452,6 +518,6 @@ void SceneBuilder::addGoalToSelected() {
     setSelection({goal}, goal);
     applyEdit(goal);
     codeAction("assembly_goal", codeRefs({effector}) + ".add_goal()", {{"effector", double(effector)}}, false);
-    emit statusMessage("Тяните и вращайте цель гизмо — рука идёт за ней (во время игры — моторами)");
+    emit statusMessage(uiText("Kinetica", "Тяните и вращайте цель гизмо — рука идёт за ней (во время игры — моторами)"));
 }
 

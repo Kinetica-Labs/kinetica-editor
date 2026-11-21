@@ -5,6 +5,7 @@
 // компонентом", "Инвертировать выбор"). The poses are kept in the world whatever the hierarchy
 // does: grouping, ungrouping or exploding an array never moves anything on the screen.
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "scene/SceneActions.h"
 #include "scene/Assembly.h"
@@ -14,7 +15,6 @@
 #include <QString>
 
 #include <algorithm>
-#include <set>
 
 using namespace ke;
 
@@ -37,6 +37,7 @@ SceneObject* SceneBuilder::objectById(uint32_t id) {
     if (Group* g = groupById(id)) return g;
     if (Light* l = lightById(id)) return l;
     if (Camera* c = cameraById(id)) return c;
+    if (Force* f = forceById(id)) return f;
     if (SensorObject* s = sensorById(id)) return s;
     return arrayById(id);
 }
@@ -60,12 +61,7 @@ ArrayObject* SceneBuilder::arrayById(uint32_t id) {
 
 SceneObject* SceneBuilder::selectedObject() { return objectById(selectedId_); }
 
-uint32_t SceneBuilder::ownerOf(uint32_t drawnId) const {
-    if (!isArrayCopyId(drawnId)) return drawnId;
-    for (const ArrayObject& a : graph_.arrays)
-        if ((a.id & 0x7FFFu) == arrayOfCopyId(drawnId)) return a.id;
-    return 0;
-}
+uint32_t SceneBuilder::ownerOf(uint32_t drawnId) const { return ke::ownerOf(graph_, drawnId); }
 
 // The hierarchy as the core sees it (ke::SceneActions): one rule for the window and every client.
 std::vector<uint32_t> SceneBuilder::chainOf(uint32_t id) const { return ke::ancestry(graph_, id); }
@@ -84,6 +80,7 @@ std::vector<uint32_t> SceneBuilder::topLevelObjects() const {
     for (const ArrayObject& a : graph_.arrays) add(a);
     for (const Light& l : graph_.lights) add(l);
     for (const Camera& c : graph_.cameras) add(c);
+    for (const Force& f : graph_.forces) add(f);
     return ids;
 }
 
@@ -100,7 +97,7 @@ QString SceneBuilder::objectTitle(uint32_t id) const {
         if (a.id != id) continue;
         const SceneObject* t = findObject(graph_, a.templateId);
         const int n = a.pattern == ArrayPattern::Grid ? a.count[0] * a.count[1] * a.count[2] : a.count[0];
-        return QString("Массив: %1 × %2").arg(n).arg(t ? QString::fromStdString(t->name) : QString("?"));
+        return QString(uiText("Kinetica", "Массив: %1 × %2")).arg(n).arg(t ? QString::fromStdString(t->name) : QString("?"));
     }
     return QString::fromStdString(o->name);
 }
@@ -109,16 +106,16 @@ QString SceneBuilder::objectTitle(uint32_t id) const {
 // Where things are
 // ---------------------------------------------------------------------------
 AABB SceneBuilder::boundsOf(uint32_t id) {
-    AABB box;
-    for (const Entity& w : worldEntities(graph_))
-        if (w.visible && isInside(ownerOf(w.id), id)) box.expand(editView_.worldBounds(graph_, w));
-    auto mark = [&](const SceneObject& o) { // a light or a camera: about the size of its wireframe
-        const Vector3 p = worldPositionOf(o.id);
-        if (effectivelyVisible(graph_, o) && isInside(o.id, id)) box.expand(AABB(p - Vector3(0.3f), p + Vector3(0.3f)));
-    };
-    for (const Light& l : graph_.lights) mark(l);
-    for (const Camera& c : graph_.cameras) mark(c);
-    return box;
+    return objectBounds(graph_, id, [this](const Entity& w) { return editView_.worldBounds(graph_, w); });
+}
+
+// Where an object is now: as the scene has it - in play a camera or a force the world moves, where the last frame has it.
+bool SceneBuilder::objectPoseNow(uint32_t id, Vector3& position, Quaternion& rotation) const {
+    const SceneObject* o = findObject(graph_, id);
+    if (!o) return false;
+    worldPose(graph_, *o, position, rotation);
+    if (const Frame::CameraPose* live = liveCamera(id)) position = live->position, rotation = live->rotation;
+    return true;
 }
 
 Vector3 SceneBuilder::worldPositionOf(uint32_t id) const {
@@ -130,8 +127,10 @@ Vector3 SceneBuilder::worldPositionOf(uint32_t id) const {
 }
 
 // The first click on a grouped thing selects its topmost group; the next click on it, the group one
-// level down, and so on to the thing itself (Unity's and Blender's rule). An array is one thing.
+// level down, and so on to the thing itself. An array is one thing.
 uint32_t SceneBuilder::clickTarget(uint32_t drawnId) const {
+    for (const Force& f : graph_.forces) // a body's own force is taken by its own arrow: it is not a member of the body, as a group's part is
+        if (f.id == drawnId && forceBody(graph_, f)) return drawnId;
     const std::vector<uint32_t> chain = chainOf(ownerOf(drawnId));
     if (chain.empty()) return 0;
     for (size_t k = 1; k < chain.size(); ++k)
@@ -151,7 +150,7 @@ bool SceneBuilder::drawnSelected(uint32_t drawnId) const {
 // poses now relative to the group. Members of one parent group stay inside it.
 void SceneBuilder::groupSelected() {
     const std::vector<uint32_t> roots = selectionRoots();
-    if (roots.empty()) return emit statusMessage("Выберите объекты, которые объединить в группу");
+    if (roots.empty()) return emit statusMessage(uiText("Kinetica", "Выберите объекты, которые объединить в группу"));
     const QString py = "scene.group(" + codeRefs(roots) + ")";
     flushCode();
     remember();
@@ -159,7 +158,7 @@ void SceneBuilder::groupSelected() {
     refreshList();
     setSelection({group}, group);
     applyEdit(0);
-    emit statusMessage("Группа: щелчок по ней выбирает всю группу, ещё щелчок — объект внутри");
+    emit statusMessage(uiText("Kinetica", "Группа: щелчок по ней выбирает всю группу, ещё щелчок — объект внутри"));
     codeAction("scene_group", py, {{"ids", jsonIds(roots)}}, false);
 }
 
@@ -167,7 +166,7 @@ void SceneBuilder::ungroupSelected() {
     std::vector<uint32_t> groups;
     for (uint32_t id : selection_)
         if (groupById(id)) groups.push_back(id);
-    if (groups.empty()) return emit statusMessage("Выберите группу, чтобы разгруппировать");
+    if (groups.empty()) return emit statusMessage(uiText("Kinetica", "Выберите группу, чтобы разгруппировать"));
     const QString py = codeCall("ungroup", groups);
     flushCode();
     remember();
@@ -197,7 +196,7 @@ void SceneBuilder::makeArrayOfSelected() {
     std::vector<uint32_t> shapes;
     for (uint32_t id : selectionRoots())
         if (const Entity* e = entityById(id); e && !isHiddenTemplate(*e)) shapes.push_back(id);
-    if (shapes.empty()) return emit statusMessage("Массив делается из формы: выберите куб, шар…");
+    if (shapes.empty()) return emit statusMessage(uiText("Kinetica", "Массив делается из формы: выберите куб, шар…"));
     const QString py = "scene.make_array(" + codeRefs(shapes) + ")";
     flushCode();
     remember();
@@ -234,7 +233,7 @@ void SceneBuilder::explodeArray(uint32_t id) {
             made.push_back(t.id);
             continue;
         }
-        c.id = newId();
+        c.id = doc_.newId();
         c.name = name + " " + std::to_string(n + 1);
         graph_.entities.push_back(c);
         made.push_back(c.id);
@@ -243,15 +242,6 @@ void SceneBuilder::explodeArray(uint32_t id) {
                         graph_.arrays.end());
     refreshList();
     setSelection(made, made.empty() ? 0 : made.front());
-    applyEdit(0);
-}
-
-void SceneBuilder::editArray(uint32_t id, const std::function<void(ArrayObject&)>& change) {
-    if (!arrayById(id)) return;
-    remember(true);
-    change(*arrayById(id));
-    refreshList();
-    if (id == selectedId_) fillInspector();
     applyEdit(0);
 }
 
@@ -299,7 +289,7 @@ void SceneBuilder::selectWithRole(RoleIcon role) {
     std::vector<uint32_t> ids;
     for (const Entity& e : graph_.entities)
         if (e.visible && !e.locked && roleEnabled(resolveInstance(graph_, e), role)) ids.push_back(e.id);
-    if (ids.empty()) emit statusMessage("Ни у одного объекта нет компонента «" + roleTitle(role) + "»");
+    if (ids.empty()) emit statusMessage(uiText("Kinetica", "Ни у одного объекта нет компонента «") + roleTitle(role) + "»");
     setSelection(ids, selectedId_);
 }
 

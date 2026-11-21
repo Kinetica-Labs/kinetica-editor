@@ -24,46 +24,18 @@ import subprocess
 import sys
 import time
 
-DEFAULT_PORT = int(os.environ.get("KE_EDITOR_PORT", "47801"))
 EDITOR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(EDITOR_DIR, "python"))  # the kinetica package: next to tools/ in the sources and in a release
+from kinetica.client import DEFAULT_PORT, Client, OperationError as EditorError  # noqa: E402,F401
 
 
-class EditorError(RuntimeError):
-    """An operation answered {"ok": false, "error": ...}."""
-
-
-class Editor:
+class Editor(Client):
     """One connection to a running editor; any operation is a method: ``ed.scene_list()``."""
-
-    def __init__(self, host="127.0.0.1", port=DEFAULT_PORT, timeout=120.0):
-        self._sock = socket.create_connection((host, port), timeout=timeout)
-        self._file = self._sock.makefile("rb")
-        self._next = 0
-
-    def call(self, op, **args):
-        """The answer of one operation; raises EditorError when it says it failed."""
-        self._next += 1
-        request = {"id": self._next, "op": op, "args": args}
-        self._sock.sendall((json.dumps(request, ensure_ascii=False) + "\n").encode("utf-8"))
-        while True:
-            line = self._file.readline()
-            if not line:
-                raise ConnectionError("the editor closed the connection")
-            envelope = json.loads(line)
-            if envelope.get("id") == self._next:
-                break
-        answer = envelope.get("result", {})
-        if not answer.get("ok"):
-            raise EditorError(f"{op}: {answer.get('error')}")
-        return answer
 
     def __getattr__(self, name):
         if name.startswith("_"):
             raise AttributeError(name)
         return lambda **args: self.call(name, **args)
-
-    def close(self):
-        self._sock.close()
 
 
 def reachable(port=DEFAULT_PORT):

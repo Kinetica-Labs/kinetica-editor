@@ -41,8 +41,10 @@ public:
     Value& push(Value v);
     size_t size() const { return type_ == Type::Map ? keys_.size() : items_.size(); }
 
-    // A map: a key present (and not null), its value (null when missing), set or replace one.
+    // A map: a key present and not null (has) or present at all (contains: what a JSON object's "in" means - a call
+    // that names a field and gives it null has named it), its value (null when missing), set or replace one.
     bool has(const std::string& key) const;
+    bool contains(const std::string& key) const;
     const Value& operator[](const std::string& key) const;
     Value& set(const std::string& key, Value v);
     const std::vector<std::string>& keys() const { return keys_; }

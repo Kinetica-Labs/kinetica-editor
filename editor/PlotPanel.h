@@ -28,7 +28,6 @@
 #include "ChannelList.h"
 #include "PlotChannels.h"
 #include "PlotSeries.h"
-#include "PlotResearch.h"
 #include "TrackChart.h"
 
 #include "core/Probe.h"
@@ -85,18 +84,16 @@ public:
     // Any section that goes with the selection, the same way: its key (empty: none), its header, its charts and
     // the prefixes of the channels that are its own - an arm's goal: a chart for each motor and its miss.
     void showSection(const QString& key, const QString& title, const std::vector<Chart>& charts, const std::vector<std::string>& prefixes);
-    PlotResearch* research() const { return research_; }
 
     // --- What the reader may choose (never needed) ---
     QWidget* moreButton() const;       // «Ещё величины…»
     QWidget* arrangementSwitch() const { return switch_; }
     void setArrangement(Arrangement a);
-    Arrangement arrangement() const { return arrangement_; }
     void setWholeRun(bool on);         // the whole run on the charts instead of the last minute
     void showChannel(const std::string& id);              // a line on the chart of its unit, or a new chart
     void setChannelShown(const std::string& id, bool on); // the checklist's checkbox
     bool showsChannel(const std::string& id) const;
-    void applyPreset(const QString& name);                // «Энергия», «Движок», «Сбросить»
+    void applyPreset(ChannelList::Preset preset);
     void addChart();                                      // the «+»: an empty chart, its list open
     void openChartList(int chart);                        // the ▾ after a chart's title
     void switchChart(int chart, const std::string& id);   // the list: this quantity instead
@@ -106,9 +103,6 @@ public:
     void removeChart(int chart);
     QMenu* contextMenu(TrackChart* view, const QPoint& at); // the right click's menu, built, not shown
 
-    // The Laboratory's frame as a line through every chart (NaN / clearCursor: none).
-    void setCursorTime(double t);
-    void clearCursor();
 
     // --- For the self-test ---
     const std::vector<Chart>& charts() const { return charts_; }
@@ -116,7 +110,6 @@ public:
     int chartOf(const TrackChart* view) const; // -1: the normalised chart of everything
     QString objectTitle() const;               // the object section's header ("" none)
     const QString& objectKey() const { return object_; } // the section's key ("" none)
-    ChannelList* checklist() const { return checklist_; }
     ChannelList* chartList() const { return chartList_; }
     QLabel* placeholder() const { return placeholder_; }
     const PlotSeries* series(const std::string& id) const;
@@ -124,16 +117,11 @@ public:
     QString tooltipText(const TrackChart* view, double t, int track) const;
 
 signals:
-    void timeClicked(double t);  // a click on a chart: the Laboratory's timeline goes there
     void saveCsvRequested();     // the right click's «Сохранить CSV…»
     void roomWanted(int height); // the lanes need this much height to be read
 
 private:
     void buildBar();
-    void refreshResearchChannels();
-    void refreshResearch();
-    PlotResearch* research_ = nullptr;
-    QTimer* researchTimer_ = nullptr;
     void record(double t, const std::string& id, double v);
     void addEnergyParts(double t, const std::vector<ke::Measurement>& measurements);
     bool kept(const std::string& id) const;
@@ -181,13 +169,11 @@ private:
     bool ownChannel(const std::string& id) const;
     Arrangement arrangement_ = Arrangement::Overlay;
     bool wholeRun_ = false;
-    double cursor_ = std::nan("");
     // What is recorded.
     PlotCatalog catalog_;
     std::map<std::string, PlotSeries> series_;
     std::set<std::string> reported_;      // the channels of the frame being recorded
     bool fresh_ = false;                  // a channel appeared in this frame
-    bool keepAll_ = false;
     double start_ = 0, now_ = 0;
     long frames_ = 0;
 };

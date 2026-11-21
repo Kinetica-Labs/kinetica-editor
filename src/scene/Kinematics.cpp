@@ -150,8 +150,8 @@ JointDrive* servoOf(SceneGraph& g, const IkLink& l) {
 }
 } // namespace
 
-// Targets: solved on a copy posed where the servos are sent (warm-started from the last command, as KDL's q_init is
-// the robot's present state) - a goal dragged on stays on the arm's branch, an elbow up does not flip to down. Pose:
+// Targets: solved on a copy posed where the servos are sent (warm-started from the last command, the
+// robot's present state) - a goal dragged on stays on the arm's branch, an elbow up does not flip to down. Pose:
 // solved on the scene itself, its links as they stand. Either way the servos then hold what was found.
 IkResult reachTargets(SceneGraph& g, uint32_t effector, const Vector3& position, const Quaternion* rotation, bool pose,
                       std::vector<uint32_t>* undriven) {
@@ -216,7 +216,7 @@ void pathControls(const Entity& goal, std::vector<Vector3>& points, std::vector<
         if (dot(turns[k], turns[k - 1]) < 0) turns[k] = Quaternion{-turns[k].w, -turns[k].x, -turns[k].y, -turns[k].z};
 }
 
-// Quaternion log and exp of a unit turn: (0, axis * half angle) and back (Shoemake 1987).
+// Quaternion log and exp of a unit turn: (0, axis * half angle) and back.
 Quaternion qlog(const Quaternion& q) {
     const Real s = std::sqrt(q.x * q.x + q.y * q.y + q.z * q.z);
     const Real a = s > 1e-12_r ? ke::atan2(s, q.w) / s : 1.0_r;
@@ -246,8 +246,8 @@ Quaternion squadControl(const std::vector<Quaternion>& q, size_t k, bool loop) {
     return q[k] * qexp(Quaternion{0, -(a.x + b.x) / 4, -(a.y + b.y) / 4, -(a.z + b.z) / 4});
 }
 
-// Centripetal Catmull-Rom between p1 and p2 (Barry and Goldman's pyramid, knots by sqrt of the chord: no cusps
-// nor self-crossings, Yuksel, Schaefer and Keyser 2011), at u in [0, 1].
+// Centripetal Catmull-Rom between p1 and p2 (Barry-Goldman pyramid, knots by sqrt of the chord: no cusps
+// nor self-crossings), at u in [0, 1].
 Vector3 catmullRom(const Vector3& p0, const Vector3& p1, const Vector3& p2, const Vector3& p3, Real u) {
     const Real t1 = std::sqrt(std::max(length(p1 - p0), 1e-9_r)), t2 = t1 + std::sqrt(std::max(length(p2 - p1), 1e-9_r));
     const Real t3 = t2 + std::sqrt(std::max(length(p3 - p2), 1e-9_r)), t = t1 + (t2 - t1) * u;

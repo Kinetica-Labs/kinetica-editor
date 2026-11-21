@@ -131,7 +131,7 @@ void testPlayBar(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const
     trigger(w, "actionPlay"); pump(200);
     std::printf("  viewport height: edit %d, play %d (charts already visible)\n", editHeight, v->height());
     c.check(b.mode() == SceneBuilder::Mode::Playing && v->playFrame() && keep->isVisible() && keep->isEnabled() &&
-            bar->findChild<QLabel*>("simulationMode")->text() == "Игра" && v->height() == editHeight,
+            bar->findChild<QLabel*>("simulationMode")->text() == "Пуск" && v->height() == editHeight,
             "toolbar Play updates the external status row and pose saving action");
     for (int width : {1024, 1280, 1600, 1920}) {
         w.resize(width, 900); pump(150);

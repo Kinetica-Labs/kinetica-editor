@@ -2,12 +2,11 @@
 // The Laboratory's live profiler: where the time of one simulated frame goes, readable at a glance.
 //
 // Every stage the simulation times with ke::Probe::Timer inside the step ("physics/engine ms",
-// "arm/plan ms", ...) becomes a segment of one horizontal bar, as long as its milliseconds; what no
+// "physics/drives ms", ...) becomes a segment of one horizontal bar, as long as its milliseconds; what no
 // timer covers is a grey segment at the end, so the bar adds up to the whole step ("physics/step ms").
-// The segments of one part share a colour (physics, the arm, vision), in the Okabe-Ito palette that
+// The segments of one part share a colour (the physics', the rest's), in the Okabe-Ito palette that
 // colour-blind eyes tell apart too, and the legend under the bar names the parts in words. Under it, a sparkline shows the
-// whole step over the last 5 seconds with the 16.7 ms line of 60 frames a second, as the Unity
-// Profiler and PhysX PVD show it. Hovering a segment says its name and share; a right click offers
+// whole step over the last 5 seconds with the 16.7 ms line of 60 frames a second. Hovering a segment says its name and share; a right click offers
 // «Построить график» of that stage (the plotRequested signal).
 #include "core/Probe.h"
 

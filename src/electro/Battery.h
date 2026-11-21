@@ -1,6 +1,5 @@
 #pragma once
-// A battery as an equivalent circuit (the Thevenin model of a cell: Chen and Rincon-Mora, IEEE Trans.
-// Energy Conversion 21, 2006; Plett, "Battery Management Systems", vol. 1, 2015): the open-circuit
+// A battery as an equivalent circuit (the Thevenin model of a cell): the open-circuit
 // voltage of the chemistry, which depends on the state of charge, OCV(SoC); a series resistance R0
 // (the ohmic drop, at once); and one RC pair R1 || C1 (the polarisation that builds up over tens of
 // seconds and relaxes after the load goes). With the current I (> 0 discharging):

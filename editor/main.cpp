@@ -1,16 +1,26 @@
 // The editor's entry point: the dark palette, the text size and the style sheet of the whole window,
 // the software OpenGL switch (it has to be chosen before the application exists), the command line
 // (automation, tests, pictures, the API), and the counting operator new behind the probe's
-// "allocations per frame". The window itself is MainWindow.h.
+// The window itself is MainWindow.h.
 #include "Icons.h"
 #include "MainWindow.h"
+#include "EditorOps.h"
 #include "AgentInstanceGuard.h"
 #include "SelfTest.h"
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 
 #include "core/Probe.h"
 
+#include <QTimer>
+#include <QJsonObject>
+#include <QFileInfo>
 #include <QApplication>
+#include <QDoubleSpinBox>
+#include <QDialog>
+#include <QComboBox>
+#include <QAbstractButton>
+#include <QKeyEvent>
 #include <QIcon>
 #include <QDir>
 #include <QAction>
@@ -23,31 +33,8 @@
 #include <QSettings>
 #include <QSurfaceFormat>
 
-#include <cstdlib>
 #include <cstring>
-#include <new>
 #include <vector>
-
-// Counting allocations for the probe's "memory/allocations per frame": the core never touches the
-// allocator, so the program replaces the global operator new (every variant the standard pairs
-// together) and forwards to malloc. Aligned variants keep the library's own, self-consistent pair.
-void* operator new(std::size_t n) {
-    ke::Probe::allocations.fetch_add(1, std::memory_order_relaxed);
-    if (void* p = std::malloc(n ? n : 1)) return p;
-    throw std::bad_alloc();
-}
-void* operator new[](std::size_t n) { return operator new(n); }
-void* operator new(std::size_t n, const std::nothrow_t&) noexcept {
-    ke::Probe::allocations.fetch_add(1, std::memory_order_relaxed);
-    return std::malloc(n ? n : 1);
-}
-void* operator new[](std::size_t n, const std::nothrow_t& t) noexcept { return operator new(n, t); }
-void operator delete(void* p) noexcept { std::free(p); }
-void operator delete[](void* p) noexcept { std::free(p); }
-void operator delete(void* p, std::size_t) noexcept { std::free(p); }
-void operator delete[](void* p, std::size_t) noexcept { std::free(p); }
-void operator delete(void* p, const std::nothrow_t&) noexcept { std::free(p); }
-void operator delete[](void* p, const std::nothrow_t&) noexcept { std::free(p); }
 
 static void applyDarkPalette(QApplication& app) {
     app.setStyle(QStyleFactory::create("Fusion"));
@@ -93,7 +80,11 @@ static QString windowStyle() {
            "QToolBar#createBar QToolButton { padding: 4px 10px; border-radius: 8px; min-width: 64px; }"
            "QToolBar#createBar QToolButton:hover { background: #394150; }"
            "QToolBar#createBar QToolButton:pressed { background: #2d5c99; }"
-           "QToolBar#createBar QToolButton#lightsButton::menu-indicator { image: none; width: 0; }"
+           "QToolBar#createBar QToolButton::menu-indicator { image: none; width: 0; }"
+           "QToolBar#createBar QToolButton::menu-button { subcontrol-origin: border; subcontrol-position: bottom right; width: 18px;"
+           " height: 22px; right: 8px; bottom: 2px; border: none; border-radius: 6px; background: transparent; }"
+           "QToolBar#createBar QToolButton::menu-button:hover { background: #4b5566; }"
+           "QToolBar#createBar QToolButton::menu-arrow { image: url(:/app/icons/menu-arrow.png); width: 8px; height: 5px; }"
            "QToolBar#createBar QToolButton#compactButton { min-width: 0; padding: 6px 12px; margin-left: 4px; border: 1px solid #3a3f48; }"
            "QToolBar#createBar QToolButton#compactButton:checked { background: #24466f; border: 1px solid #4096ff; }"
            "QToolBar#createBar QToolButton#compactButton::menu-indicator { image: none; }"
@@ -150,7 +141,7 @@ static QString builderStyle() {
            "QFrame#inlineBanner QPushButton#bannerButton:hover { background: #e2b448; }";
 }
 
-// The Laboratory (LabPanel, LabCard, LabTimeline): the same dark ground, one accent blue, quiet captions.
+// The Laboratory (LabPanel, LabCard): the same dark ground, one accent blue, quiet captions.
 static QString labStyle() {
     return "QWidget#labPanel QLabel#labIntro { color: #8b93a2; }"
            "QWidget#labPanel QLabel#labSection { color: #8fc1ff; font-weight: 600; margin-top: 4px; }"
@@ -167,12 +158,7 @@ static QString labStyle() {
            "QFrame#labCard QLabel#labCardName { color: #aab1bd; }"
            "QFrame#labCard QLabel#labCardValue { font-family: Consolas, 'Cascadia Mono', monospace; }"
            "QFrame#labCard QPushButton#labCardButton { padding: 6px 10px; border: 1px solid #4096ff; border-radius: 6px; background: #24466f; }"
-           "QFrame#labCard QPushButton#labCardButton:hover { background: #2d5c99; }"
-           "QFrame#labTimeline { background: rgba(18, 20, 24, 200); border: 1px solid rgba(255, 255, 255, 40); border-radius: 10px; }"
-           "QFrame#labTimeline QLabel#labTimelineText { color: #b8c4d0; }"
-           "QFrame#labTimeline QToolButton#labStep { padding: 1px 7px; border-radius: 6px; font-size: 14px; color: #cfd8e3; }"
-           "QFrame#labTimeline QPushButton#labLive { padding: 4px 10px; border-radius: 6px; border: 1px solid #3a3f48; }"
-           "QFrame#labTimeline QPushButton#labLive[past=\"true\"] { background: #1f4a33; border: 1px solid #7cff9a; color: #d8ffe2; font-weight: 600; }";
+           "QFrame#labCard QPushButton#labCardButton:hover { background: #2d5c99; }";
 }
 
 // Software rendering for PCs without a usable GPU / OpenGL driver: Qt's Mesa llvmpipe
@@ -192,31 +178,37 @@ static bool wantsSoftwareGL(int argc, char** argv) {
 // client's grab answers AlreadyGrabbed with a list open). Released after the fact, the grab closes the popup. So such a run asks the X11 plugin never to grab ("--nograb", the option Qt
 // takes under a debugger): popups work inside the application, and the rig's hand sends its events to the
 // widgets directly. The plugin removes the argument; elsewhere the parser takes it as a hidden option.
-static std::vector<char*> withoutDesktopGrab(int argc, char** argv) {
+static std::vector<char*> withoutDesktopGrab(int argc, char** argv, bool unattended) {
     static char noGrab[] = "--nograb";
     std::vector<char*> args(argv, argv + argc);
-    for (int i = 1; i < argc; ++i)
-        for (const char* option : {"--agent-eval", "--self-test", "--gizmo-shots", "--screenshot", "--gallery-shot",
-                                   "--thumbnail"}) // the options of unattended() below, also as --option=value
-            if (const size_t n = std::strlen(option); std::strncmp(argv[i], option, n) == 0 && (!argv[i][n] || argv[i][n] == '=')) {
-                args.push_back(noGrab);
-                args.push_back(nullptr);
-                return args;
-            }
+    if (unattended) args.push_back(noGrab);
     args.push_back(nullptr);
     return args;
 }
 
-static void setSurfaceFormat(bool software) {
+// A run nobody watches, known before the application object exists: the options of unattended() below, also as
+// --option=value.
+static bool unattendedArgs(int argc, char** argv) {
+    for (int i = 1; i < argc; ++i)
+        for (const char* option : {"--agent-eval", "--self-test", "--gizmo-shots", "--screenshot", "--gallery-shot", "--thumbnail"})
+            if (const size_t n = std::strlen(option); std::strncmp(argv[i], option, n) == 0 && (!argv[i][n] || argv[i][n] == '=')) return true;
+    return false;
+}
+
+static void setSurfaceFormat(bool software, bool watched) {
     QSurfaceFormat fmt;
     fmt.setVersion(3, 3);
     fmt.setProfile(QSurfaceFormat::CoreProfile);
     fmt.setDepthBufferSize(24);
     fmt.setSamples(software ? 0 : 4); // multisampling is costly on the CPU
-    // KE_NO_VSYNC=1: a swap waits for no vertical blank - a monitor asleep (DPMS) sends none, and a view drawn in a
-    // window nobody watched crawled at ~1 frame a second (an env var such as __GL_SYNC_TO_VBLANK is overridden by the
-    // interval set here).
-    fmt.setSwapInterval(qEnvironmentVariableIntValue("KE_NO_VSYNC") != 0 ? 0 : 1);
+    // A swap waits for the screen only in a window a person watches. A run nobody watches is not held to a screen: one
+    // asleep or locked (DPMS off, the person away - just when an agent works) sends no frame, and every paint of the
+    // hidden window then waited up to a second - an API edit took 49 ms instead of 1.2, timed checks of the self-test
+    // failed (measured, GNOME on X11, Mesa). The interval asks any driver; vblank_mode asks Mesa, whose presentation
+    // waits for the compositor whatever the interval says. KE_NO_VSYNC=1: the same for a watched window.
+    const bool waits = watched && qEnvironmentVariableIntValue("KE_NO_VSYNC") == 0;
+    if (!waits && qEnvironmentVariableIsEmpty("vblank_mode")) qputenv("vblank_mode", "0");
+    fmt.setSwapInterval(waits ? 1 : 0);
     QSurfaceFormat::setDefaultFormat(fmt);
 }
 
@@ -226,7 +218,6 @@ struct Options {
     QCommandLineOption shot{"screenshot", "Save a PNG of the viewport and quit.", "file"};
     QCommandLineOption size{"size", "Window size WxH.", "size", "1600x950"};
     QCommandLineOption software{"software-gl", "Render on the CPU (Mesa llvmpipe) - for PCs without a usable GPU."};
-    QCommandLineOption icons{"dump-icons", "Write every icon of the editor as a PNG into the directory and quit.", "dir"};
     QCommandLineOption window{"window", "The screenshot shows the whole window, panels too."};
     QCommandLineOption scene{"scene", "Open a scene file (*.kscene) in the scene builder.", "file"};
     QCommandLineOption play{"play", "Start the opened builder scene in simulation mode."};
@@ -237,18 +228,73 @@ struct Options {
     QCommandLineOption edit{"edit", "The builder's screenshot in edit mode: the scene as authored, nothing simulated."};
     QCommandLineOption physics{"physics", "Open the world physics settings tab."};
     QCommandLineOption camera{"camera", "The builder's screenshot looks through the scene's active camera (else its first)."};
-    QCommandLineOption firstStart{"first-start", "Start as on the very first run: the welcome scene and the first-minute hint."};
+    QCommandLineOption firstStart{"first-start", "Start as on the very first run: the UR5e arm and the first-minute hint."};
     QCommandLineOption thumbnail{"thumbnail", "Only the 3D view, no window on the screen (the gallery's pictures)."};
     QCommandLineOption galleryShot{"gallery-shot", "Make every picture of the examples gallery, save the gallery as a PNG, quit.", "file"};
     QCommandLineOption agentEval{"agent-eval", "Serve an isolated agent evaluation without showing windows or taking desktop input; use with --api."};
     QCommandLineOption api{"api", "Serve the editor's API on 127.0.0.1:<port> (JSON lines; tools/ke_editor.py).", "port"};
+    QCommandLineOption language{"language", "Override the editor language for this run (ru or en).", "code"};
+    QCommandLineOption script{"script", "Run a Python script that builds or changes the scene, once the window is up (script_run).", "file"};
+    QCommandLineOption resumeEditor{"resume-editor", "Restore the editor's scene after a restart.", "file"};
 
     void addTo(QCommandLineParser& cli) const {
-        cli.addOptions({frames, shot, size, software, icons, window, scene, selfTest, shots, gizmoShots, edit, camera,
-                        firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval});
+        cli.addOptions({frames, shot, size, software, window, scene, selfTest, shots, gizmoShots, edit, camera,
+                        firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval, language, script});
+        auto resume = resumeEditor;
+        resume.setFlags(QCommandLineOption::HiddenFromHelp);
+        cli.addOption(resume);
         QCommandLineOption noGrab{"nograb", "X11: never grab the desktop's pointer and keyboard (added to unattended runs)."};
         noGrab.setFlags(QCommandLineOption::HiddenFromHelp); // the X11 plugin removes it; other platforms leave it here
         cli.addOption(noGrab);
+    }
+};
+
+// The number fields as a hand expects them (a newcomer's trials):
+//   - a number typed with either decimal mark. Qt's fields take only the locale's - ',' on a Russian desktop - and a '.'
+//     vanished without a word: "0.1" became 1. The other mark becomes the field's own on its way in;
+//   - a number typed is applied when the hand goes elsewhere. Qt applies it on Enter or when the field loses the keyboard,
+//     and a press on what takes no keyboard (Пуск, the toolbar, the 3D view in play) or a shortcut (Ctrl+S) left it
+//     shown in the field and not applied - the field lied.
+class NumberFields : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject* to, QEvent* e) override {
+        if (e->type() == QEvent::MouseButtonPress || e->type() == QEvent::Shortcut) applyTyped(qobject_cast<QWidget*>(to));
+        if (e->type() != QEvent::KeyPress) return false;
+        auto* box = qobject_cast<QDoubleSpinBox*>(to);
+        if (!box && to->parent()) box = qobject_cast<QDoubleSpinBox*>(to->parent()); // its line edit
+        if (!box) return false;
+        const auto* key = static_cast<QKeyEvent*>(e);
+        const QString mark = box->locale().decimalPoint(), other = mark == "," ? "." : ",";
+        if (key->text() != other) return false;
+        QKeyEvent own(QEvent::KeyPress, mark == "," ? Qt::Key_Comma : Qt::Key_Period, key->modifiers(), mark);
+        QCoreApplication::sendEvent(to, &own);
+        return true;
+    }
+
+private:
+    // The field with the keyboard - the application's, and the pressed window's own (an inactive window keeps its own) -
+    // takes what was typed in it, unless the press is on that field.
+    static void applyTyped(QWidget* pressed) {
+        for (QWidget* focus : {QApplication::focusWidget(), pressed ? pressed->window()->focusWidget() : nullptr})
+            if (auto* box = qobject_cast<QAbstractSpinBox*>(focus); box && pressed != box && !box->isAncestorOf(pressed))
+                box->interpretText();
+    }
+};
+
+// The keys stay where they were when a button, a check box or a list of the window is clicked: Qt gives
+// such a widget the keyboard on a click, and then Space pressed the button just clicked instead of «Пуск», letters
+// leafed through the list «Привод» - the editor's keys seemed dead (a person's report). Tab still reaches them; a dialog's
+// own buttons keep theirs (Enter, Space on the focused one).
+class KeysStay : public QObject {
+public:
+    using QObject::QObject;
+    bool eventFilter(QObject* to, QEvent* e) override {
+        if (e->type() != QEvent::Polish) return false;
+        auto* w = qobject_cast<QWidget*>(to);
+        const bool takes = qobject_cast<QAbstractButton*>(w) || qobject_cast<QComboBox*>(w);
+        if (takes && (w->focusPolicy() & Qt::ClickFocus) && !qobject_cast<QDialog*>(w->window())) w->setFocusPolicy(Qt::TabFocus);
+        return false;
     }
 };
 
@@ -298,13 +344,15 @@ static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, 
     w.setScreenshotThroughCamera(cli.isSet(o.camera));
     w.setForceFirstStart(cli.isSet(o.firstStart));
     if (cli.isSet(o.scene)) w.setStartScene(cli.value(o.scene));
+    if (cli.isSet(o.resumeEditor)) w.setRestartFile(cli.value(o.resumeEditor));
     if (cli.isSet(o.galleryShot)) {
         w.startBuilder(false);
         w.runGalleryShot(cli.value(o.galleryShot));
     } else if (cli.isSet(o.shot)) {
         w.runAutomation(cli.value(o.frames).toInt(), cli.value(o.shot));
     } else {
-        w.startBuilder(true); // a person: the first start opens the welcome scene
+        w.startBuilder(true); // a person: the first start opens the UR5e
+        w.startPlugins();     // and their plugins (an unattended run starts none)
     }
     if (auto* builder = w.findChild<SceneBuilder*>()) {
         for (const auto& group : builder->graph().groups) if (QString::fromStdString(group.name) == cli.value(o.focusObject)) {
@@ -320,16 +368,18 @@ static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, 
 int main(int argc, char** argv) {
     const bool software = wantsSoftwareGL(argc, argv);
     if (software) QCoreApplication::setAttribute(Qt::AA_UseSoftwareOpenGL);
-    setSurfaceFormat(software);
+    QCoreApplication::setAttribute(Qt::AA_DontUseNativeDialogs);
+    const bool nobodyWatches = unattendedArgs(argc, argv);
+    setSurfaceFormat(software, !nobodyWatches);
 
-    std::vector<char*> args = withoutDesktopGrab(argc, argv);
+    std::vector<char*> args = withoutDesktopGrab(argc, argv, nobodyWatches);
     int count = int(args.size()) - 1; // QApplication keeps both: they live as long as main
     QApplication app(count, args.data());
     QApplication::setApplicationName("Kinetica");
     QApplication::setOrganizationName("Kinetica");
-    QApplication::setDesktopFileName("org.kinetica.Editor");
+    QApplication::setDesktopFileName("kinetica"); // packaging/kinetica.desktop: Wayland ties the window to its icon by this name
     QIcon applicationIcon;
-    for (int size : {32, 64, 128, 256})
+    for (int size : {16, 24, 32, 48, 64, 128, 256}) // the K of the logo (resources/logo/kinetica-k.png), every size drawn, not scaled by the desktop
         applicationIcon.addFile(QString(":/app/icons/kinetica-%1.png").arg(size), QSize(size, size));
     app.setWindowIcon(applicationIcon);
     applyDarkPalette(app);
@@ -341,27 +391,41 @@ int main(int argc, char** argv) {
     const Options o;
     o.addTo(cli);
     cli.process(app);
+    const QString language = cli.isSet(o.language) ? cli.value(o.language)
+        : cli.isSet(o.selfTest) ? QString("ru") : UiLanguage::preference();
+    if (language != "ru" && language != "en") {
+        std::fprintf(stderr, "--language requires ru or en\n");
+        return 2;
+    }
+    const UiLanguage uiLanguage(app, language);
+    if (cli.isSet(o.selfTest) && UiLanguage::active() != language) return 2;
     if (cli.isSet(o.agentEval) && !cli.isSet(o.api)) {
         std::fprintf(stderr, "--agent-eval requires --api <port>\n");
         return 2;
     }
-    if (cli.isSet(o.icons)) return dumpIcons(cli.value(o.icons)) > 0 ? 0 : 1;
     if (unattended(cli, o) && qEnvironmentVariableIsEmpty("KE_JOURNAL")) // a test's edits are not the person's history
         qputenv("KE_JOURNAL", (QDir::tempPath() + "/kinetica-journal-" + QString::number(QCoreApplication::applicationPid()) + ".jsonl").toUtf8());
 
     app.setProperty("keAgentEval", cli.isSet(o.agentEval));
+    app.setProperty("keInteractive", !unattended(cli, o));
     AgentInstanceGuard agentSlot;
     QString slotError;
     if (cli.isSet(o.agentEval) && !agentSlot.acquire(slotError)) {
         std::fprintf(stderr, "%s\n", qPrintable(slotError));
         return 3;
     }
+    app.installEventFilter(new NumberFields(&app));
+    app.installEventFilter(new KeysStay(&app));
     MainWindow w;
     const QStringList wh = cli.value(o.size).split('x');
     w.resize(wh.value(0).toInt() > 0 ? wh.value(0).toInt() : 1600, wh.value(1).toInt() > 0 ? wh.value(1).toInt() : 950);
     if (cli.isSet(o.thumbnail)) w.setThumbnailMode();
     if (unattended(cli, o)) {
-        w.setWindowFlags(w.windowFlags() | Qt::Tool | Qt::WindowTransparentForInput);
+        // Not a window of the desktop at all (X11: override-redirect): the window manager neither places it, nor lists
+        // it, nor watches it. Watched, a run that kept this thread busy for a few seconds - a long check of the
+        // self-test, an agent's long call - put the desktop's «Приложение "Kinetica" не отвечает» with «Принудительно
+        // завершить» on the person's screen: an invisible program offered for killing (a person's report).
+        w.setWindowFlags(w.windowFlags() | Qt::Tool | Qt::WindowTransparentForInput | Qt::BypassWindowManagerHint);
         w.setAttribute(Qt::WA_ShowWithoutActivating);
         w.setWindowOpacity(0.0);
         app.installEventFilter(new OffscreenGuard(&app));
@@ -369,7 +433,17 @@ int main(int argc, char** argv) {
             QApplication::setEffectEnabled(e, false); // a rolling tooltip is a window of its own, placed by Qt
     }
     w.show();
+    if (!unattended(cli, o)) { // a person's window takes the keyboard at once: started from a script or a terminal in the
+        w.raise();             // background, the desktop left it without focus and Space, F, Ctrl+Z went to the window before
+        w.activateWindow();    // it (a person's report: no click anywhere, no key worked)
+    }
     if (cli.isSet(o.api) && !w.startApi(quint16(cli.value(o.api).toUInt())))
         std::fprintf(stderr, "the API port %s is taken\n", qPrintable(cli.value(o.api)));
+    if (cli.isSet(o.script)) // once the window's loop runs: the scene is there, the API answers the script
+        QTimer::singleShot(0, &w, [&w, file = QFileInfo(cli.value(o.script)).absoluteFilePath()] {
+            w.operators()->run("script_run", {{"file", file}}, [](const QJsonObject& r) {
+                if (!r.value("ok").toBool()) std::fprintf(stderr, "%s\n", qPrintable(r.value("error").toString()));
+            }, "ui");
+        });
     return run(app, w, cli, o);
 }

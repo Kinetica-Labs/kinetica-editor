@@ -3,7 +3,7 @@
 //
 // A wheel is a cylinder whose axis (its own y) is turned onto the face's normal, its radius 1.2 times
 // the face's smaller half extent (a chassis 15 cm high gets wheels of 9 cm), its width half the
-// radius. A motor wheel is driven by an electric DC motor (GenericJoint.h: torque K I, back EMF
+// radius. A motor wheel is driven by an electric DC motor (JointModel.h: torque K I, back EMF
 // K omega): 12 V, the constant K that gives a no-load speed U / K of 4 rad/s, the winding resistance
 // that gives a stall torque K U / R lifting half the target's weight on the wheel's lever, 0.5 m g r.
 //
@@ -16,9 +16,9 @@
 // the mirrored pair turns the other way about its flipped axis, so all four drive the same way. A car
 // carries its power: a 3S lithium pack and a driver per wheel, so the wheels run on what the pack gives.
 #include "scene/Assembly.h"
+#include "core/UiLabel.h"
 #include "scene/SceneOps.h"
 
-#include "math/ElementaryFunctions.h"
 
 #include <algorithm>
 #include <cmath>
@@ -27,22 +27,15 @@ namespace ke {
 
 namespace {
 
-const char* kNames[kLinkPresets] = {"Шарнир", "Колено", "Колесо", "Мотор-колесо", "Амортизатор", "Машина", "Сварка", "Шаровое", "Поворот", "Ход"};
+const char* kNames[kLinkPresets] = {KE_UI_LABEL("Kinetica", "Шарнир"), KE_UI_LABEL("Kinetica", "Колено"), KE_UI_LABEL("Kinetica", "Колесо"), KE_UI_LABEL("Kinetica", "Мотор-колесо"), KE_UI_LABEL("Kinetica", "Амортизатор"), KE_UI_LABEL("Kinetica", "Машина"), KE_UI_LABEL("Kinetica", "Сварка"), KE_UI_LABEL("Kinetica", "Шаровое"), KE_UI_LABEL("Kinetica", "Поворот"), KE_UI_LABEL("Kinetica", "Ход")};
 const char* kWords[kLinkPresets] = {"hinge", "elbow", "wheel", "motor_wheel", "shock", "car", "weld", "ball", "rotary", "linear"};
 
-const Entity* findEntity(const SceneGraph& g, uint32_t id) {
-    for (const Entity& e : g.entities)
-        if (e.id == id && id != 0) return &e;
-    return nullptr;
-}
 
 std::string numbered(const SceneGraph& g, const std::string& word) {
     int n = 0;
     for (const Entity& e : g.entities) n += e.name.rfind(word, 0) == 0;
     return word + " " + std::to_string(n + 1);
 }
-
-Real massOf(const Entity& e) { return e.rigid.density * e.size.x * e.size.y * e.size.z; }
 
 // A copy of the target: its geometry and components, a link of its own.
 LinkSpec copyLink(const SceneGraph& g, const Entity& target, JointType joint, int axis) {
@@ -127,7 +120,7 @@ void keepClearance(const SceneGraph& g, const FaceSnap& f, int along, Real carri
 std::vector<Attached> car(SceneGraph& g, uint32_t target, const FaceSnap& at) {
     const Entity t = *findEntity(g, target);
     const int along = at.halfAcross[0] >= at.halfAcross[1] ? 0 : 1, faceAxis = int(at.face) / 2;
-    const Real r = wheelRadius(at), carried = 0.25_r * massOf(t);
+    const Real r = wheelRadius(at), carried = 0.25_r * bodyMass(resolveInstance(g, t));
     std::vector<Attached> out;
     for (int side = 0; side < 2; ++side) {
         const FaceSnap f = side == 0 ? at : snapToFace(g, target, BoxFace(int(at.face) ^ 1), Vector3(0.0_r));
@@ -262,7 +255,7 @@ bool cornerOf(const SceneGraph& g, uint32_t body, Side side, Real radius, Corner
     c.f = snapToFace(g, body, left ? BoxFace::MinusZ : BoxFace::PlusZ, Vector3(0.0_r));
     c.along = std::fabs(dot(snapAxis(c.f, 0), c.forward)) >= std::fabs(dot(snapAxis(c.f, 1), c.forward)) ? 0 : 1;
     const Real end = side == Side::FrontLeft || side == Side::FrontRight ? 1.0_r : side == Side::Left || side == Side::Right ? 0.0_r : -1.0_r;
-    c.r = radius > 0 ? radius : wheelRadius(c.f), c.carried = 0.25_r * massOf(*t);
+    c.r = radius > 0 ? radius : wheelRadius(c.f), c.carried = 0.25_r * bodyMass(resolveInstance(g, *t));
     c.offset = end * std::max(0.0_r, c.f.halfAcross[c.along] - 1.2_r * c.r) * (dot(snapAxis(c.f, c.along), c.forward) >= 0 ? 1.0_r : -1.0_r);
     c.where = sideName(side);
     return true;
@@ -374,13 +367,14 @@ std::vector<Attached> applyPreset(SceneGraph& g, uint32_t target, const FaceSnap
         return out;
     }
     const Entity t = *found;
+    const Real carried = bodyMass(resolveInstance(g, t));
     LinkSpec s;
     switch (p) {
     case LinkPreset::Hinge: s = copyLink(g, t, JointType::Hinge, 2); break;
     case LinkPreset::Elbow: s = copyLink(g, t, JointType::Hinge, 0); break;
-    case LinkPreset::Wheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, massOf(t), false); break;
-    case LinkPreset::MotorWheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, massOf(t), true); break;
-    case LinkPreset::Shock: s = shock(g, at, resolveInstance(g, t).size * 0.5_r, massOf(t), 0.5_r * minComp(t.size)); break;
+    case LinkPreset::Wheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, carried, false); break;
+    case LinkPreset::MotorWheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, carried, true); break;
+    case LinkPreset::Shock: s = shock(g, at, resolveInstance(g, t).size * 0.5_r, carried, 0.5_r * minComp(t.size)); break;
     case LinkPreset::Car: return car(g, target, at);
     case LinkPreset::Weld: s = copyLink(g, t, JointType::Fixed, 2); break;
     case LinkPreset::Ball: s = copyLink(g, t, JointType::Ball, 2); break;

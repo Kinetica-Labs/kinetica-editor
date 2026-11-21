@@ -4,6 +4,7 @@
 // projected polyline, a square by whether the mouse is inside its projected corners. The squares
 // and the centre win over the shafts where they overlap.
 #include "Gizmo.h"
+#include "UiLanguage.h"
 
 #include <QMatrix4x4>
 #include <QVector4D>
@@ -11,6 +12,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 
 using namespace ke;
 
@@ -143,7 +145,7 @@ Vector3 Gizmo::facingSign(const GizmoView& v) const {
                    dot(axis(2), toEye) >= 0 ? 1.0f : -1.0f);
 }
 
-// The square across axis k sits in the quadrant of its plane that faces the camera (as in Blender).
+// The square across axis k sits in the quadrant of its plane that faces the camera.
 void Gizmo::planeSquare(const GizmoView& v, int k, Vector3 c[4]) const {
     const float L = armLength(v), s0 = 0.22f * L, s1 = 0.42f * L;
     const Vector3 sign = facingSign(v);
@@ -355,6 +357,22 @@ GizmoPose Gizmo::dragRotate(const GizmoView& v, const Vector2& mouse, bool snap)
     return last_;
 }
 
+float Gizmo::nearQuarter() const {
+    if (!dragging() || dragMode_ != GizmoMode::Rotate || modal_) return 0.0f; // a keyboard turn is exact as typed
+    const float quarter = snapTo(angleDeg_, 90.0f);
+    return quarter != 0 && std::fabs(angleDeg_ - quarter) < kQuarterDegrees ? quarter : 0.0f;
+}
+
+bool Gizmo::settle(GizmoPose& pose) {
+    const float quarter = nearQuarter();
+    if (quarter == 0) return false;
+    angleDeg_ = quarter;
+    const Vector3 about = isAxis(active_) ? axes_[axisOf(active_)] : viewAxis_;
+    last_.rotation = (Quaternion::fromAxisAngle(about, degToRad(quarter)) * startRotation_).normalized();
+    pose = last_;
+    return true;
+}
+
 GizmoPose Gizmo::dragScale(const GizmoView& v, const Vector2& mouse, bool snap) {
     float f = 1.0f;
     if (modal_) { // keyboard scale: the mouse's distance from the centre, now / at the start
@@ -436,16 +454,18 @@ std::string Gizmo::dragLabel() const {
     char buf[128] = "";
     if (dragMode_ == GizmoMode::Translate) {
         const Vector3 d = last_.position - startPosition_;
-        if (axisHeld) std::snprintf(buf, sizeof(buf), "%s %+.3f м", names[k], double(dot(d, axes_[k])));
-        else std::snprintf(buf, sizeof(buf), "%.3f м  (x %+.3f  y %+.3f  z %+.3f)", double(length(d)), double(d.x), double(d.y), double(d.z));
+        if (axisHeld) std::snprintf(buf, sizeof(buf), uiText("Kinetica", "%s %+.3f м"), names[k], double(dot(d, axes_[k])));
+        else std::snprintf(buf, sizeof(buf), uiText("Kinetica", "%.3f м  (x %+.3f  y %+.3f  z %+.3f)"), double(length(d)), double(d.x), double(d.y), double(d.z));
     } else if (dragMode_ == GizmoMode::Rotate) {
-        std::snprintf(buf, sizeof(buf), "%s %+.1f°", axisHeld ? names[k] : "вокруг взгляда", double(angleDeg_));
+        std::snprintf(buf, sizeof(buf), "%s %+.1f°", axisHeld ? names[k] : uiText("Kinetica", "вокруг взгляда"), double(angleDeg_));
+        if (const float quarter = nearQuarter(); quarter != 0) // let go now, it is completed to this
+            std::snprintf(buf + std::strlen(buf), sizeof(buf) - std::strlen(buf), "  → %+.0f°", double(quarter));
     } else if (dragMode_ == GizmoMode::Scale) {
         if (axisHeld) std::snprintf(buf, sizeof(buf), "%s ×%.2f", names[k], double(last_.scale[k]));
         else std::snprintf(buf, sizeof(buf), "×%.2f", double(last_.scale.x));
     }
     std::string s = buf;
-    if (modal_ && modalAxis_ >= 0) s += local_ ? "  · своя ось" : "  · ось мира";
+    if (modal_ && modalAxis_ >= 0) s += local_ ? uiText("Kinetica", "  · своя ось") : uiText("Kinetica", "  · ось мира");
     return s;
 }
 
@@ -629,6 +649,20 @@ void Gizmo::addPie(Writer& w) const {
     const Writer::Stroke edge = w.stroke(color, 0.9f, 1.5f);
     w.segment(edge, position_, at(pieStart_));
     w.segment(edge, position_, at(pieStart_ + turn));
+    // The hints: a point on the ring at each quarter of a turn from the start; the one a release would take is lit.
+    const float taken = nearQuarter();
+    for (int q = 1; q <= 3; ++q) {
+        const bool lit = taken != 0 && std::fabs(wrapPi(degToRad(taken) - q * kPi / 2)) < 1e-3f;
+        const Vector3 c = at(pieStart_ + q * kPi / 2);
+        const float r = (lit ? 7.0f : 4.5f) * w.wpp;
+        const int rim = w.piece(Vector3(0.0f), 0.5f), disc = w.piece(lit ? kHoverColor : kWhite, lit ? 1.0f : 0.9f);
+        for (int i = 0; i < 14; ++i) {
+            const float t0 = 2 * kPi * i / 14, t1 = 2 * kPi * (i + 1) / 14;
+            const Vector3 d0 = w.right * std::cos(t0) + w.up * std::sin(t0), d1 = w.right * std::cos(t1) + w.up * std::sin(t1);
+            pushTriangle(w.triangles(rim), c, c + d0 * (r + 1.5f * w.wpp), c + d1 * (r + 1.5f * w.wpp));
+            pushTriangle(w.triangles(disc), c, c + d0 * r, c + d1 * r);
+        }
+    }
 }
 
 // The centre: a small white circle (move in the view plane) or a square (scale evenly).

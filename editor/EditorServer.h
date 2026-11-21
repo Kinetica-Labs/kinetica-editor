@@ -29,6 +29,7 @@ private:
 
     QSet<QTcpSocket*> sockets_;
     int pendingRequests_ = 0;
+    quint64 answers_ = 0; // the requests answered so far: one answered at once may have its next on the wire already
     bool stopPending_ = false;
     EditorOps* ops_;
     QTcpServer* server_;

@@ -9,16 +9,22 @@
 //      the timeline to that moment;
 //   4. «Сохранить CSV»: the lines on the charts, to a file.
 #include "MainWindow.h"
+#include "UiLanguage.h"
 
-#include "LabTimeline.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
 #include "PlotPanel.h"
 #include "SceneBuilder.h"
+#include "EditorOps.h"
+#include "SequencerPanel.h"
 #include "Viewport.h"
 
 #include <QAction>
 #include <QDockWidget>
+#include <QMenu>
+#include <QMenuBar>
+#include <QShortcut>
+#include <QTimer>
 #include <QFileDialog>
 #include <QHBoxLayout>
 #include <QMessageBox>
@@ -42,12 +48,12 @@ QWidget* MainWindow::buildPlots() {
     bar->addSpacing(8);
     bar->addWidget(plots_->arrangementSwitch());
     bar->addStretch(1);
-    auto* clear = new QPushButton("Очистить");
-    clear->setToolTip("Стереть записанную историю; графики остаются");
+    auto* clear = new QPushButton(uiText("Kinetica", "Очистить"));
+    clear->setToolTip(uiText("Kinetica", "Стереть записанную историю; графики остаются"));
     connect(clear, &QPushButton::clicked, plots_, &PlotPanel::clear);
-    auto* csv = new QPushButton("Сохранить CSV");
+    auto* csv = new QPushButton(uiText("Kinetica", "Сохранить CSV"));
     csv->setObjectName("plotSaveCsv");
-    csv->setToolTip("Линии с графиков в файл: время и по столбцу на линию, с именем и единицей");
+    csv->setToolTip(uiText("Kinetica", "Линии с графиков в файл: время и по столбцу на линию, с именем и единицей"));
     connect(csv, &QPushButton::clicked, this, &MainWindow::saveVisibleCsv);
     bar->addWidget(clear);
     bar->addWidget(csv);
@@ -56,17 +62,6 @@ QWidget* MainWindow::buildPlots() {
 }
 
 void MainWindow::connectPlots() {
-    connect(plots_->research(), &PlotResearch::bodyWanted, this, [this](int object) {
-        watchBody(object);
-        plots_->showObject(object > 0 ? watchLabel(object) : QString());
-        if (object > 0 && builder_->selectedId() != uint32_t(object)) builder_->select(builder_->clickTarget(uint32_t(object)));
-    });
-    connect(plots_, &PlotPanel::timeClicked, this, &MainWindow::labSeekTime);
-    connect(timeline_, &LabTimeline::showFrame, this, [this](LabTimeline::Frame s) {
-        if (s && timeline_->showingPast()) plots_->setCursorTime(s->time);
-        else plots_->clearCursor();
-    });
-    connect(timeline_, &LabTimeline::wentLive, plots_, &PlotPanel::clearCursor);
     connect(builder_, &SceneBuilder::selectionChanged, this, [this] { watchSelected(); });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { watchSelected(); });
     connect(plots_, &PlotPanel::saveCsvRequested, this, &MainWindow::saveVisibleCsv);
@@ -107,7 +102,10 @@ void MainWindow::recordFrames(const std::vector<SimController::Reading>& reading
 // they stay closed) or nobody watches (the automation's pictures keep their layout).
 void MainWindow::autoOpenPlots() {
     if (graphsAct_->isChecked() || plotsClosedByHand_ || auto_.active) return;
+    auto* sequencer = findChild<QDockWidget*>("sequencerDock");
+    const bool timeline = sequencer && sequencer->isVisible() && !sequencer->visibleRegion().isEmpty(); // its tab in front
     setGraphsVisible(true);
+    if (timeline) sequencer->raise(); // ▶ watched on the timeline: the plots open behind it
     if (auto* dock = findChild<QDockWidget*>("resultsDock")) {
         resizeDocks({dock}, {210}, Qt::Vertical);
         if (armWatched_) dock->raise(); // a goal selected before ▶: its arm's charts in front
@@ -117,10 +115,11 @@ void MainWindow::autoOpenPlots() {
 // --- What the simulation measures -----------------------------------------------------------------
 
 // The scene's channels (its energy, momentum, the deepest contact) are measured while someone looks:
-// the plots or the Laboratory open.
+// the plots or the Laboratory open. The frame's contact points - a click in the Laboratory picks one - are listed
+// while the Laboratory is open.
 void MainWindow::updateChannelRequests() {
-    const bool on = (graphsAct_ && graphsAct_->isChecked()) || (labAct_ && labAct_->isChecked());
-    ctrl_->post([on](ke::Simulation& sim) { sim.channels.scene = on; });
+    const bool lab = labAct_ && labAct_->isChecked(), on = lab || (graphsAct_ && graphsAct_->isChecked());
+    ctrl_->post([on, lab](ke::Simulation& sim) { sim.channels.scene = on, sim.frameContacts = lab; });
 }
 
 // The name a body's channels go under: the name of the object it is in the scene (an array's copy: the
@@ -130,7 +129,7 @@ QString MainWindow::watchLabel(int object) const {
     for (const ke::ObjectRef& w : watched_)
         if (int(w.entity) == object) return QString::fromStdString(w.label);
     const uint32_t id = uint32_t(object);
-    QString label = QString("тело №%1").arg(object);
+    QString label = QString(uiText("Kinetica", "тело №%1")).arg(object);
     if (const ke::SceneObject* o = ke::findObject(builder_->graph(), id); o && !o->name.empty())
         label = QString::fromStdString(o->name);
     else if (const ke::SceneObject* a = ke::isArrayCopyId(id) ? ke::findObject(builder_->graph(), ke::arrayOfCopyId(id)) : nullptr)
@@ -158,7 +157,6 @@ void MainWindow::watchSelected() {
     if (builder_->editing()) {
         forgetWatched();
         plots_->showObject(QString());
-        plots_->research()->resetObjects();
     } else if (const auto s = view_->snapshot()) updatePlotObjects(*s);
 }
 
@@ -182,86 +180,88 @@ bool MainWindow::watchArm() {
     ke::ChannelRequests asked;
     std::vector<PlotPanel::Chart> charts;
     std::vector<std::string> prefixes;
-    PlotPanel::Chart torques{"Моторы руки: момент", {}, {}, true};
+    PlotPanel::Chart torques{uiText("Kinetica", "Моторы руки: момент"), {}, {}, true};
     const std::vector<ke::IkLink> chain = ke::ikChain(g, goal->goalOf);
     for (const ke::IkLink& l : chain) {
         const ke::JointObject* j = ke::findJoint(g, l.joint);
-        const std::string label = j && !j->name.empty() ? j->name : "Шарнир " + std::to_string(l.joint), id = label + "/" + dofs[l.dof];
+        const std::string label = j && !j->name.empty() ? j->name : uiText("Kinetica", "Шарнир ") + std::to_string(l.joint), id = label + "/" + dofs[l.dof];
         asked.joints.push_back({l.joint, label});
-        charts.push_back({QString::fromStdString(label) + ": угол и цель сервы", {id + " coordinate", id + " target"}, {}, true});
+        charts.push_back({QString::fromStdString(label) + uiText("Kinetica", ": угол и цель сервы"), {id + " coordinate", id + " target"}, {}, true});
         torques.ids.push_back(id + " effort");
         prefixes.push_back(label + "/");
     }
     charts.push_back(torques);
     asked.goals.push_back({goal->id, goal->name});
-    charts.push_back({"Промах схвата до цели", {goal->name + "/miss"}, {}, true});
-    if (chain.size() >= 6) charts.push_back({"Промах поворота", {goal->name + "/turn miss"}, {}, true});
+    charts.push_back({uiText("Kinetica", "Промах схвата до цели"), {goal->name + "/miss"}, {}, true});
+    if (chain.size() >= 6) charts.push_back({uiText("Kinetica", "Промах поворота"), {goal->name + "/turn miss"}, {}, true});
     prefixes.push_back(goal->name + "/");
     const QString key = "arm " + QString::number(goal->id);
     if (plots_->objectKey() != key) // a goal newly selected: the plots come to the front of their dock, as a body's do
         if (auto* dock = findChild<QDockWidget*>("resultsDock"); dock && dock->isVisible()) dock->raise();
     armWatched_ = true;
     ctrl_->post([asked](ke::Simulation& sim) { sim.channels.joints = asked.joints, sim.channels.goals = asked.goals; });
-    plots_->showSection(key, "Рука: " + QString::fromStdString(goal->name), charts, prefixes);
+    plots_->showSection(key, uiText("Kinetica", "Рука: ") + QString::fromStdString(goal->name), charts, prefixes);
     return true;
-}
-
-// --- The Laboratory's timeline --------------------------------------------------------------------
-
-// A click on a plot: the timeline shows the kept frame nearest to that moment, and the scene pauses
-// as when the strip is taken by hand. A moment the timeline no longer keeps (or the Laboratory
-// closed): the status bar says so.
-void MainWindow::labSeekTime(double t) {
-    if (!timeline_ || !timeline_->isVisible() || timeline_->count() == 0) {
-        statusBar()->showMessage("Перейти к моменту графика можно при открытой Лаборатории (F8), пока идёт запись", 4000);
-        return;
-    }
-    int best = 0;
-    for (int i = 1; i < timeline_->count(); ++i)
-        if (std::fabs(timeline_->frameAt(i)->time - t) < std::fabs(timeline_->frameAt(best)->time - t)) best = i;
-    if (std::fabs(timeline_->frameAt(best)->time - t) > 0.05) {
-        statusBar()->showMessage("Этот момент уже не записан: Лаборатория хранит последние кадры", 4000);
-        return;
-    }
-    if (!timeline_->showingPast()) labScrubStarted();
-    timeline_->seek(best);
 }
 
 // --- The file -------------------------------------------------------------------------------------
 
 void MainWindow::saveVisibleCsv() {
     if (plots_->empty()) {
-        QMessageBox::information(this, "Сохранить CSV", "Нечего сохранять: графики появятся после ▶.");
+        QMessageBox::information(this, uiText("Kinetica", "Сохранить CSV"), uiText("Kinetica", "Нечего сохранять: графики появятся после ▶."));
         return;
     }
-    const QString path = QFileDialog::getSaveFileName(this, "Сохранить графики", "plots.csv", "CSV (*.csv)");
+    const QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Сохранить графики"), "plots.csv", "CSV (*.csv)");
     if (path.isEmpty()) return;
-    if (!plots_->writeVisibleCsv(path)) QMessageBox::warning(this, "Сохранить CSV", "Не удалось записать файл.");
-    else statusBar()->showMessage("Сохранено: " + path, 4000);
+    if (!plots_->writeVisibleCsv(path)) QMessageBox::warning(this, uiText("Kinetica", "Сохранить CSV"), uiText("Kinetica", "Не удалось записать файл."));
+    else statusBar()->showMessage(uiText("Kinetica", "Сохранено: ") + path, 4000);
 }
 
-// The research's objects: every body of the physics engine in the frame, by the entity it is (stable while
-// the scene lives, however the frame orders its bodies); the selected one is the object selected in the
-// scene when it is a body.
+// The plots' object: the one selected in the scene when the frame has it as a body of the physics engine (by the
+// entity it is - stable while the scene lives, however the frame orders its bodies); else none.
 void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
     if (watchArm()) return;
     if (armWatched_) { // the goal let go: its arm's channels too
         armWatched_ = false;
         ctrl_->post([](ke::Simulation& sim) { sim.channels.joints.clear(), sim.channels.goals.clear(); });
     }
-    if (snapshot.sceneName != plotObjectsScene_) {
-        plotObjectsScene_ = snapshot.sceneName;
-        plots_->research()->resetObjects();
-    }
-    PlotResearch::Objects objects;
-    int selected = -1;
-    for (const ke::Frame::Body& b : snapshot.bodies) {
-        if (b.body < 0 || b.marker || b.object == 0) continue;
-        objects.push_back({int(b.object), watchLabel(int(b.object))});
-        if (b.object == builder_->selectedId()) selected = int(b.object);
-    }
-    plots_->research()->setObjects(objects, selected);
-    const int object = plots_->research()->body();
+    int object = -1;
+    for (const ke::Frame::Body& b : snapshot.bodies)
+        if (b.body >= 0 && !b.marker && b.object != 0 && b.object == builder_->selectedId()) object = int(b.object);
     if (object > 0) watchBody(object);
     plots_->showObject(object > 0 ? watchLabel(object) : QString());
+}
+
+// The Sequencer, a tab of the bottom panel beside the plots and the console, and the one in front from the start - a
+// timeline under the view; the API console is a tab behind it. It
+// follows every change of the scene (an edit, an undo, a call of the API) and the mode; I keys the selection anywhere in
+// the window (a text field keeps it).
+void MainWindow::buildSequencerDock() {
+    auto* dock = new QDockWidget(uiText("Kinetica", "Секвенсор"), this);
+    dock->setObjectName("sequencerDock");
+    sequencer_ = new SequencerPanel(ops_, builder_, dock);
+    dock->setWidget(sequencer_);
+    addDockWidget(Qt::BottomDockWidgetArea, dock);
+    if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock);
+    QTimer::singleShot(0, dock, [this, dock] { // after the first layout: in front, low - the view keeps the height
+        dock->show();
+        dock->raise();
+        resizeDocks({dock}, {170}, Qt::Vertical);
+    });
+    connect(builder_, &SceneBuilder::editSnapshot, sequencer_, [this] { sequencer_->sync(); });
+    connect(builder_, &SceneBuilder::modeChanged, sequencer_, &SequencerPanel::sync);
+    connect(builder_, &SceneBuilder::selectionChanged, sequencer_, &SequencerPanel::sync);
+    connect(new QShortcut(QKeySequence(Qt::Key_I), this), &QShortcut::activated, sequencer_, &SequencerPanel::keySelected);
+    ops_->addListener([this](const QString&, const QString& name, const QJsonObject&, const QJsonObject&, bool) {
+        if (name == "sim_record" || name == "scene_put") syncRecord(), sequencer_->sync(); // the take started or came in
+    });
+    if (auto* view = menuBar()->findChild<QMenu*>("viewMenu")) {
+        QAction* show = view->addAction(uiText("Kinetica", "Секвенсор"));
+        show->setObjectName("actionSequencer");
+        show->setToolTip(uiText("Kinetica", "Анимация объектов: секвенции, ключи, бегунок"));
+        connect(show, &QAction::triggered, dock, [dock] {
+            dock->show();
+            dock->raise();
+        });
+    }
 }

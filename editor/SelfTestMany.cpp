@@ -28,12 +28,6 @@ using namespace selftest;
 
 namespace {
 
-const Entity* entity(const SceneBuilder& b, uint32_t id) {
-    for (const Entity& e : b.graph().entities)
-        if (e.id == id) return &e;
-    return nullptr;
-}
-
 void act(QMainWindow& w, const char* name) {
     trigger(w, name);
     pump(40);
@@ -57,20 +51,6 @@ std::vector<uint32_t> cubes(SceneBuilder& b, int n, bool rigid = false) {
     return ids;
 }
 
-// A drag of the gizmo's X arrow from 60 % of its length by `metres` along X, with these keys held
-// from the press to the release (Shift: a clone; Ctrl: steps of 0.1 m, so the distance is exact).
-void dragArrowX(Viewport* v, float metres, Qt::KeyboardModifiers keys) {
-    const GizmoView gv = v->gizmoView();
-    const Gizmo& g = v->gizmo();
-    const Vector3 grab = g.position() + g.axis(0) * (0.6f * g.armLength(gv));
-    const QPointF from = toPoint(gv.project(grab)), to = toPoint(gv.project(grab + Vector3(metres, 0, 0)));
-    sendMouse(v, QEvent::MouseMove, from, Qt::NoButton, Qt::NoButton);
-    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton, keys);
-    for (int i = 1; i <= 12; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 12.0), Qt::NoButton, Qt::LeftButton, keys);
-    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton, keys);
-    pump(60);
-}
-
 ClonePopover* popover(QMainWindow& w) {
     for (ClonePopover* p : w.findChildren<ClonePopover*>("clonePopover"))
         if (p->isVisible()) return p;
@@ -87,14 +67,6 @@ bool answer(QMainWindow& w, int copies, int kind) {
     p->findChild<QPushButton*>("cloneOk")->click();
     pump(80);
     return true;
-}
-
-// The window with a popup drawn where it stands (a popup is a window of its own).
-QImage windowWithPopup(QMainWindow& w, QWidget* popup) {
-    QImage shot = windowShot(w);
-    QPainter p(&shot);
-    p.drawPixmap(w.mapFromGlobal(popup->pos()), popup->grab());
-    return shot;
 }
 
 void testShiftClone(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {

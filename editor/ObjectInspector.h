@@ -23,6 +23,9 @@ public:
     // Several objects selected: an empty name and "—" in the numbers that differ between them
     // (bit k of a mask: axis k). Call after setObject; an edit then goes only to what was changed.
     void showMixed(bool name, int positionMask, int rotationMask);
+    // The place rows shown or not: a sensor on a joint stands where the joint is, and its own "Где 0, 0, 0" told a
+    // newcomer it was nowhere.
+    void showPlace(bool shown);
 
 signals:
     void edited(); // any field changed by the user
@@ -38,4 +41,6 @@ private:
     QColor colourValue_;
     Vec3Row* position_ = nullptr;
     Vec3Row* rotation_ = nullptr;
+    QLineEdit* tags_ = nullptr; // the object's tags, words apart by spaces
+    class QFormLayout* form_ = nullptr;
 };

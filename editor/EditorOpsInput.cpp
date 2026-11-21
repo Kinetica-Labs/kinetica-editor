@@ -2,17 +2,21 @@
 // it finds where a point of the world is on the screen, moves the mouse there, clicks and presses keys
 // in the 3D view - the events a hand would send, so the magnet's preview and click are tested as used.
 #include "EditorOps.h"
+#include "SceneBuilder.h"
 #include "UiWindowSpace.h"
 
 #include "Viewport.h"
 
 #include <QCoreApplication>
 #include <QCursor>
+#include <QAction>
 #include <QApplication>
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QMenu>
 #include <QMouseEvent>
+#include <QPointer>
 #include <QWheelEvent>
 #include <QWindow>
 #include <qpa/qwindowsysteminterface.h>
@@ -39,11 +43,71 @@ void send(QWidget* to, QEvent::Type type, const QPointF& at, Qt::MouseButton b, 
     QCoreApplication::sendEvent(to, &e);
 }
 
+// The window the keyboard goes to: a modal dialog over the editor, else the editor's window.
+QWidget* keyWindow(QWidget* main) {
+    QWidget* modal = QApplication::activeModalWidget();
+    return modal && modal->isVisible() ? modal : main;
+}
+
+// What has the keyboard: an open popup, else the key window's own focus - not QApplication::focusWidget(), which an
+// inactive window (the unattended editor's) leaves at whatever had it last: a combo box's list after its popup closed,
+// so the digits typed into a field went into a closed list.
+QWidget* keyFocus(QWidget* main) {
+    if (QWidget* popup = uiPopupWindow(main)) return popup;
+    return keyWindow(main)->focusWidget();
+}
+
+// The focus moved inside a window as a hand moves it: Qt sends the focus-out and focus-in events only in the active window,
+// and the unattended editor's is never made active - a field left by Tab kept its typed number unapplied (a spin box
+// applies it on focus-out) and the next was not selected (it selects all on a Tab focus-in). Here they are sent by hand.
+class FocusMove {
+public:
+    explicit FocusMove(QWidget* window) : window_(window), was_(window->focusWidget()) {}
+    void done(Qt::FocusReason why) {
+        QWidget* now = window_->focusWidget();
+        if (window_->isActiveWindow() || now == was_) return; // Qt sent them itself, or nothing moved
+        if (was_) { QFocusEvent out(QEvent::FocusOut, why); QCoreApplication::sendEvent(was_, &out); }
+        if (now) { QFocusEvent in(QEvent::FocusIn, why); QCoreApplication::sendEvent(now, &in); }
+    }
+private:
+    QWidget* window_;
+    QPointer<QWidget> was_;
+};
+
 // A press gives the keyboard to what was pressed, as Qt does for a real one (only for real ones: an event sent by a program
 // does not move the focus) - the nearest widget up from it that takes focus by a click.
 void focusByClick(QWidget* pressed) {
+    FocusMove move(pressed->window());
     for (QWidget* w = pressed; w; w = w->isWindow() ? nullptr : w->parentWidget())
-        if (w->isEnabled() && (w->focusPolicy() & Qt::ClickFocus)) return w->setFocus(Qt::MouseFocusReason);
+        if (w->isEnabled() && (w->focusPolicy() & Qt::ClickFocus)) return w->setFocus(Qt::MouseFocusReason), move.done(Qt::MouseFocusReason);
+}
+
+// Whether an action's place is one a hand reaches: a widget of the window, or a menu hung (through menus) on one - a context
+// menu built for one right click and kept is not, as Qt's shortcut map has it.
+bool reachable(QWidget* window, QWidget* w, int depth = 0) {
+    if (auto* menu = qobject_cast<QMenu*>(w)) {
+        for (QObject* o : menu->menuAction()->associatedObjects())
+            if (auto* up = qobject_cast<QWidget*>(o); up && depth < 8 && reachable(window, up, depth + 1)) return true;
+        return false;
+    }
+    return w == window || (window->isAncestorOf(w) && w->isVisible());
+}
+
+// The window's shortcut for a key, as Qt's shortcut map finds it - which it does only in the active window, and the
+// unattended editor's never is: a tester's Space, Esc, F and Ctrl+Z did nothing (a trial). An enabled action with the key
+// among its shortcuts, in a place a hand reaches; two such: neither, as Qt calls it ambiguous.
+QAction* windowShortcut(QWidget* window, const QKeySequence& key) {
+    QAction* found = nullptr;
+    for (QAction* a : window->findChildren<QAction*>()) {
+        if (!a->isEnabled() || a->shortcutContext() == Qt::WidgetShortcut || !a->shortcuts().contains(key)) continue;
+        bool placed = false;
+        for (QObject* o : a->associatedObjects())
+            if (auto* w = qobject_cast<QWidget*>(o)) placed = placed || reachable(window, w);
+        if (!placed || a == found) continue;
+        if (found) return nullptr;
+        found = a;
+    }
+    return found;
 }
 
 // A key as the window system hands it to the application - the path a real key takes: the window's shortcuts are
@@ -72,6 +136,16 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
         if (release) QCoreApplication::sendEvent(popup, &up);
         return;
     }
+    if (press && !window->isActiveWindow()) { // the focused widget first (a field takes its letters), then the window's shortcut
+        QWidget* focus = window->focusWidget() ? window->focusWidget() : window;
+        QKeyEvent over(QEvent::ShortcutOverride, key, mods, text);
+        over.ignore();
+        QCoreApplication::sendEvent(focus, &over);
+        if (QAction* a = over.isAccepted() ? nullptr : windowShortcut(window, QKeySequence(QKeyCombination(mods, Qt::Key(qtKey))))) {
+            a->trigger();
+            return;
+        }
+    }
     if (press) QWindowSystemInterface::handleExtendedKeyEvent(w, QEvent::KeyPress, key, mods, scan, sym, state, text);
     if (release) QWindowSystemInterface::handleExtendedKeyEvent(w, QEvent::KeyRelease, key, mods, scan, sym, state, text);
     QWindowSystemInterface::flushWindowSystemEvents();
@@ -80,6 +154,109 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
 } // namespace
 
 void EditorOps::addInputOps() {
+    addSync("view_draw", "Lines, points and words over the 3D view in world metres - a plugin's or an agent's picture (a planned "
+                         "path, a force, a sensor's ray, a label), by key: the same key again replaces it, clear takes it off (a key ending "
+                         "in / - all under it; none - all). circle {centre: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
+                         "about the axis; box {centre: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
+                         "ring and bounds. size: a point's width, px (6) - and a label's letters, pt, when larger than plain ones. "
+                         "fill: a flat picture, filled - closed outlines, each a row 'M x y L x y C x1 y1 x2 y2 x y Z' in its own units (x right, "
+                         "y up), painted over the scene. space world (the default): on its own plane at `at`, turned by `turn` (Euler degrees), a "
+                         "unit `scale` metres (1); label: on the screen at the world's point `at`, facing the viewer; screen: in the frame at "
+                         "`place`, fractions of the view from its left top - in both a unit is `scale` of the view's height. object: the picture "
+                         "is that object's and goes where it goes - one in the world lies on it (`at` and `turn` in the object's own frame), a label "
+                         "hangs at `at` from the object's place along the world's axes, above a body however it tumbles; a click on it selects the object. Drawn while "
+                         "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
+            "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
+            "colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
+            "object?: int, clear?: bool}",
+            [this](const QJsonObject& a) {
+        const QString key = a.value("key").toString();
+        if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
+        if (key.isEmpty()) return error("key: the drawing's name - the same key again replaces it");
+        const auto point = [](const QJsonValue& v) {
+            const QJsonArray p = v.toArray();
+            return ke::Vector3(float(p.at(0).toDouble()), float(p.at(1).toDouble()), float(p.at(2).toDouble()));
+        };
+        Viewport::Drawing d;
+        size_t many = 0;
+        for (const char* list : {"line", "segments", "points"}) {
+            const QJsonArray given = a.value(list).toArray();
+            many += size_t(given.size());
+            for (const QJsonValue& v : given) {
+                if (v.toArray().size() != 3) return error(QString(list) + ": each point is [x, y, z]");
+                const ke::Vector3 p = point(v);
+                if (list[0] == 'p') d.points.push_back(p);
+                else (list[0] == 'l' ? d.strip : d.segments).insert((list[0] == 'l' ? d.strip : d.segments).end(), {p.x, p.y, p.z, 0.0f});
+            }
+        }
+        if (many > 200000) return error("at most 200000 points a drawing");
+        if (a.contains("circle")) { // a ring: 48 sides, closed
+            const QJsonObject c = a.value("circle").toObject();
+            const float radius = float(c.value("radius").toDouble());
+            ke::Vector3 about = c.contains("axis") ? point(c.value("axis")) : ke::Vector3(0.0f, 1.0f, 0.0f);
+            if (c.value("centre").toArray().size() != 3 || !(radius > 0) || ke::length(about) < 1e-6f)
+                return error("circle: {centre: [x, y, z], radius: metres, axis?: [x, y, z]}");
+            if (!d.strip.empty()) return error("circle or line: one line a drawing");
+            about = ke::normalize(about);
+            const ke::Vector3 centre = point(c.value("centre"));
+            const ke::Vector3 u = ke::normalize(ke::cross(about, std::fabs(about.x) < 0.9f ? ke::Vector3(1.0f, 0.0f, 0.0f) : ke::Vector3(0.0f, 1.0f, 0.0f)));
+            const ke::Vector3 w = ke::cross(about, u);
+            for (int k = 0; k <= 48; ++k) {
+                const float t = float(k) * 2 * float(ke::kPi) / 48;
+                const ke::Vector3 p = centre + (u * ke::cos(t) + w * ke::sin(t)) * radius;
+                d.strip.insert(d.strip.end(), {p.x, p.y, p.z, 0.0f});
+            }
+        }
+        if (a.contains("box")) { // the twelve edges: from each corner along each axis it is the low end of
+            const QJsonObject b = a.value("box").toObject();
+            if (b.value("centre").toArray().size() != 3 || b.value("size").toArray().size() != 3)
+                return error("box: {centre: [x, y, z], size: [x, y, z]}");
+            const ke::Vector3 centre = point(b.value("centre")), half = point(b.value("size")) * 0.5f;
+            for (int corner = 0; corner < 8; ++corner)
+                for (int axis = 0; axis < 3; ++axis) {
+                    if (corner >> axis & 1) continue;
+                    for (int end : {corner, corner | 1 << axis}) {
+                        const ke::Vector3 p(centre.x + (end & 1 ? half.x : -half.x), centre.y + (end & 2 ? half.y : -half.y),
+                                            centre.z + (end & 4 ? half.z : -half.z));
+                        d.segments.insert(d.segments.end(), {p.x, p.y, p.z, 0.0f});
+                    }
+                }
+        }
+        d.play = !builder_->editing();
+        if (d.segments.size() % 8 != 0) return error("segments: points in pairs - a start and an end each");
+        d.text = a.value("text").toString();
+        if (a.contains("at")) d.at = point(a.value("at"));
+        if (a.contains("colour")) {
+            const QJsonArray c = a.value("colour").toArray();
+            d.colour = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
+                                        float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
+        }
+        d.size = float(std::clamp(a.value("size").toDouble(6), 1.0, 64.0));
+        if (a.contains("fill")) {
+            QStringList rows;
+            for (const QJsonValue& row : a.value("fill").toArray()) rows << row.toString();
+            QString why;
+            if (!(d.fill = Viewport::fillOf(rows, why))) return error(why);
+            const QString space = a.value("space").toString("world");
+            if (space != "world" && space != "label" && space != "screen") return error("space: world, label or screen");
+            d.space = space == "world" ? Viewport::Drawing::Space::World : space == "label" ? Viewport::Drawing::Space::Label : Viewport::Drawing::Space::Screen;
+            d.scale = float(a.value("scale").toDouble(1));
+            if (!(d.scale > 0) || d.scale > 1000) return error("scale: above 0, at most 1000");
+            if (a.contains("turn")) { // as an object's rotation in the scene file
+                ke::SceneObject turned;
+                turned.rotationDeg = point(a.value("turn"));
+                d.turn = ke::objectRotation(turned);
+            }
+            if (const QJsonArray xy = a.value("place").toArray(); a.contains("place") && xy.size() != 2) return error("place: [x, y], fractions of the view from its left top");
+            else if (xy.size() == 2) d.place = QPointF(xy.at(0).toDouble(), xy.at(1).toDouble());
+            d.object = uint32_t(a.value("object").toInt());
+            if (d.object && !findObject(builder_->graph(), d.object)) return error(QString("no object %1").arg(d.object));
+        }
+        if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
+            return error("nothing to draw: line, segments, points, circle, box, text or fill");
+        view_->setDrawing(key, std::move(d));
+        return ok({{"key", key}, {"drawings", int(view_->drawings())}});
+    });
     addSync("view_project", "The pixel of the 3D view (origin top-left) where a world point is seen", "{point: [x,y,z]}",
             [this](const QJsonObject& a) {
         const QJsonArray p = a.value("point").toArray();
@@ -137,8 +314,7 @@ void EditorOps::addInputOps() {
             "{text: str}", [this](const QJsonObject& a) {
         // The window's own focus: the editor is not made the active window (that would take the keyboard from the user's
         // other programs), and Qt names no application focus for an inactive window.
-        QWidget* focus = uiPopupWindow(window_);
-        if (!focus) focus = QApplication::focusWidget() ? QApplication::focusWidget() : window_->focusWidget();
+        QWidget* focus = keyFocus(window_);
         if (!focus) return error("nothing has the keyboard focus: click a field first");
         for (const QChar ch : a.value("text").toString()) {
             const int key = ch.isDigit() || (ch.unicode() < 128 && ch.isLetter()) ? ch.toUpper().unicode() : int(Qt::Key_unknown);
@@ -150,7 +326,8 @@ void EditorOps::addInputOps() {
         return ok({{"focus", focus->metaObject()->className()}});
     });
     addSync("ui_key", "A key pressed and released in the 3D view: 'A', '1', 'Escape', 'Delete'... - in an open popup menu first, "
-            "where Escape closes it; action 'press' holds it down until a 'release' (W A S D fly the view while the right button is held). "
+            "where Escape closes it; a key the view does not take goes on to the window's shortcuts (F frames the selection), as a real one does; "
+            "action 'press' holds it down until a 'release' (W A S D fly the view while the right button is held). "
             "window: as the window system delivers a real key - the window's shortcuts first, then whatever has the focus "
             "(not the view forced); layout 'ru': the key on that QWERTY place typed with the Russian layout on",
             "{key: str, action?: 'tap'|'press'|'release', window?: bool, layout?: 'us'|'ru'}", [this](const QJsonObject& a) {
@@ -161,18 +338,27 @@ void EditorOps::addInputOps() {
         QWidget* popup = uiPopupWindow(window_);
         if (a.value("window").toBool() || popup) { // an open visible popup always takes keys first
             const QString name = a.value("key").toString();
-            QWidget* modal = QApplication::activeModalWidget();
-            windowKey(popup ? popup : modal ? modal : window_, name.size() == 1 ? name[0] : QChar(), k.key(), k.keyboardModifiers(),
+            FocusMove move(keyWindow(window_));
+            windowKey(popup ? popup : keyWindow(window_), name.size() == 1 ? name[0] : QChar(), k.key(), k.keyboardModifiers(),
                       a.value("layout").toString() == "ru", action != "release", action != "press", popup);
-            QWidget* focus = uiPopupWindow(window_);
-            if (!focus) focus = QApplication::focusWidget() ? QApplication::focusWidget() : window_->focusWidget();
+            const bool back = k.key() == Qt::Key_Backtab || (k.key() == Qt::Key_Tab && (k.keyboardModifiers() & Qt::ShiftModifier));
+            if (!popup) move.done(back ? Qt::BacktabFocusReason : k.key() == Qt::Key_Tab ? Qt::TabFocusReason : Qt::OtherFocusReason);
+            QWidget* focus = keyFocus(window_);
             return ok({{"focus", focus ? focus->metaObject()->className() : "none"}});
         }
+        FocusMove move(window_);
         view_->setFocus();
+        move.done(Qt::OtherFocusReason);
         QKeyEvent over(QEvent::ShortcutOverride, k.key(), k.keyboardModifiers(), a.value("key").toString());
         QCoreApplication::sendEvent(view_, &over);
         QKeyEvent press(QEvent::KeyPress, k.key(), k.keyboardModifiers()), release(QEvent::KeyRelease, k.key(), k.keyboardModifiers());
         if (action != "release") QCoreApplication::sendEvent(view_, &press);
+        if (action != "release" && !press.isAccepted()) { // not the view's key: the window's shortcut, as a hand's F frames the selection
+            const QString name = a.value("key").toString();
+            windowKey(window_, name.size() == 1 ? name[0] : QChar(), k.key(), k.keyboardModifiers(), a.value("layout").toString() == "ru",
+                      true, action != "press");
+            return ok();
+        }
         if (action != "press") QCoreApplication::sendEvent(view_, &release);
         return ok();
     });

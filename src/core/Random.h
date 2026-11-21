@@ -1,7 +1,6 @@
 #pragma once
 // The core's one source of pseudo-random numbers, the same sequence on every compiler, standard
-// library and CPU: a 32-bit linear congruential generator (Press et al., "Numerical Recipes in C",
-// 2nd ed., 1992, 7.1, "ranqd1"; multiplier 1664525, increment 1013904223) and a float built from its
+// library and CPU: a 32-bit linear congruential generator (multiplier 1664525, increment 1013904223) and a float built from its
 // top 24 bits. std::uniform_real_distribution is not used: the standard fixes mt19937's bits but
 // not the distribution's algorithm, so libstdc++, MSVC and libc++ give different numbers.
 //
@@ -32,20 +31,12 @@ public:
     // [-1, 1).
     Real symmetric() { return uniform() * 2.0_r - 1.0_r; }
 
-    Vector3 uniform3() {
-        const Real x = uniform(), y = uniform(), z = uniform();
-        return {x, y, z};
-    }
-    Vector3 uniform3(const Vector3& lo, const Vector3& hi) {
-        const Real x = uniform(lo.x, hi.x), y = uniform(lo.y, hi.y), z = uniform(lo.z, hi.z);
-        return {x, y, z};
-    }
     Vector3 symmetric3() {
         const Real x = symmetric(), y = symmetric(), z = symmetric();
         return {x, y, z};
     }
 
-    // A standard normal number, by Box and Muller (Ann. Math. Statist. 29, 1958): sqrt(-2 ln u1)
+    // A standard normal number, by the Box-Muller transform: sqrt(-2 ln u1)
     // cos(2 pi u2) with u1 in (0, 1] and u2 in [0, 1) of 24 bits each (tails to 5.8 sigma), in double
     // through ke::log and ke::cos - the same bits everywhere. Two draws a call; the second of the pair
     // is not kept.

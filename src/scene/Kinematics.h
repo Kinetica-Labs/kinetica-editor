@@ -2,12 +2,9 @@
 // Inverse kinematics on a scene's joints (Kinematics.cpp): the coordinates of a chain - the joints from the
 // first body that hangs on nothing (or on a fixed one) down to an end effector - that put the effector's frame
 // at a target point with a target turn (a quaternion, as a basis of three axes R in SO(3)). A numerical solve,
-// as in KDL, Pinocchio and game engines: damped least squares on the exact geometric Jacobian (Buss 2004,
-// "Introduction to inverse kinematics with Jacobian transpose, pseudoinverse and damped least squares
-// methods"), the error the travel to the point and the turn's logarithm log(R_target R_effector^T); the
+// damped least squares on the exact geometric Jacobian, the error the travel to the point and the turn's logarithm log(R_target R_effector^T); the
 // joints' limits held by forward kinematics (poseJoint). A target out of reach gives the nearest pose and
 // says so. Deterministic: the same scene and target, the same coordinates to the bit.
-#include "robot/ArmPlanner.h"
 #include "scene/SceneGraph.h"
 
 #include <string>
@@ -58,18 +55,5 @@ Vector3 pathPoint(const Entity& goal, Real elapsed, bool* done = nullptr);
 void pathPose(const Entity& goal, Real elapsed, Vector3& position, Quaternion& turn, bool* done = nullptr);
 Real pathLength(const Entity& goal);
 uint32_t addGoal(SceneGraph& g, uint32_t effector);
-
-// The chain from the base to an effector as the arm planner's model (ArmModelOf.cpp): each hinge's frames and limits,
-// each link as spheres over its surface and what hangs on it (the fingers on a hand), cells `step` on a side (the last
-// link's, the hand's, half as large); the joints' ids base to tip into jointIds. Empty when the chain holds anything but hinges.
-ArmModel armModelOf(const SceneGraph& g, uint32_t effector, std::vector<uint32_t>* jointIds = nullptr, Real step = 0.04_r);
-
-// The chain that carries a body - a camera's carrier on an arm's hand - from a fixed body or the world: the joint
-// holding the body (its a), the one holding that joint's b, and so on. Welds (nothing free) and hinges (only the turn
-// about x) only, as an ArmModel base to carrier whose last link is the body itself - no spheres, a weld a joint held at
-// 0 - with each joint's id, 0 for a weld (armPoses then places the body by the hinges' coordinates). False and
-// `problem`: a joint on the way moves otherwise, or the chain starts on a body that is not fixed. Nothing holding the
-// body: an empty chain.
-bool carrierChain(const SceneGraph& g, uint32_t body, ArmModel& chain, std::vector<uint32_t>& jointIds, std::string& problem);
 
 } // namespace ke

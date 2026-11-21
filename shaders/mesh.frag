@@ -1,5 +1,5 @@
 // Lit surfaces (mesh.vert says how they are lit): a triplanar pattern or picture, a surface-gradient
-// bump, see-through glass and optional shadows.
+// bump, a normal map, see-through glass and optional shadows.
 // The host prepends #version 130 or #version 330 core.
 in vec3 vN;
 in vec3 vPosV;
@@ -10,6 +10,10 @@ uniform float uTextureRepeats;
 uniform sampler2D uAlbedo, uHeightMap;
 uniform int uHeightMapEnabled;
 uniform float uBumpHeight;
+uniform sampler2D uNormalMap;
+uniform int uNormalMapEnabled;
+uniform mat4 uModel, uView;
+uniform mat3 uTextureFrame;
 // Material: project along three axes and blend by the surface normal.
 float checker(vec2 uv) {
     vec2 cell = floor(uv * 2.0);
@@ -48,43 +52,67 @@ float stone(vec2 uv) {
     }
     return clamp(0.66 + 0.9 * (n - 0.47) + fleck, 0.05, 1.0);
 }
-vec3 surfaceAlbedo(vec3 color) {
-    if (uTextureKind == 0) return color;
+// The material's pattern at this point, once a pixel: a picture's colour (2), a checker's grey (1), or a grey the
+// colour is multiplied by (3 speckle, 4 stone), projected along the three axes and blended by the surface normal
+// (triplanar). A procedural projection whose weight is under 0.4 % is left out: a floor is one projection, not three -
+// the granite is twenty hashes a projection, and a GPU's whole frame went to it. A picture keeps its three reads: a
+// read inside a branch has no derivatives for its mip level.
+vec3 surfacePattern() {
     vec3 n = pow(abs(vMaterialNormal), vec3(8.0));
     n /= max(n.x + n.y + n.z, 1e-8);
     vec3 p = vMaterialPos * uTextureRepeats;
-    if (uTextureKind == 2) {
-        return n.x * texture(uAlbedo, p.zy + vec2(0.5)).rgb +
-               n.y * texture(uAlbedo, p.xz + vec2(0.5)).rgb +
-               n.z * texture(uAlbedo, p.xy + vec2(0.5)).rgb;
-    }
-    if (uTextureKind == 3) return color * (n.x * speckle(p.zy) + n.y * speckle(p.xz) + n.z * speckle(p.xy));
-    if (uTextureKind == 4) return color * (n.x * stone(p.zy) + n.y * stone(p.xz) + n.z * stone(p.xy));
-    return vec3(n.x * checker(p.zy) + n.y * checker(p.xz) + n.z * checker(p.xy));
+    if (uTextureKind == 2)
+        return n.x * texture(uAlbedo, p.zy + vec2(0.5)).rgb + n.y * texture(uAlbedo, p.xz + vec2(0.5)).rgb + n.z * texture(uAlbedo, p.xy + vec2(0.5)).rgb;
+    float g = 0.0;
+    if (n.x > 0.004) g += n.x * (uTextureKind == 4 ? stone(p.zy) : uTextureKind == 3 ? speckle(p.zy) : checker(p.zy));
+    if (n.y > 0.004) g += n.y * (uTextureKind == 4 ? stone(p.xz) : uTextureKind == 3 ? speckle(p.xz) : checker(p.xz));
+    if (n.z > 0.004) g += n.z * (uTextureKind == 4 ? stone(p.xy) : uTextureKind == 3 ? speckle(p.xy) : checker(p.xy));
+    return vec3(g);
+}
+vec3 surfaceAlbedo(vec3 color, vec3 pattern) {
+    return uTextureKind == 0 ? color : uTextureKind == 1 || uTextureKind == 2 ? pattern : color * pattern;
 }
 // Surface gradient: solve grad(h).dPdx = dhdx and grad(h).dPdy = dhdy.
-// Mikkelsen, Bump Mapping Unparametrized Surfaces on the GPU (2010).
-float materialHeight() {
-    vec3 n = pow(abs(vMaterialNormal), vec3(8.0));
-    n /= max(n.x + n.y + n.z, 1e-8);
-    vec3 p = vMaterialPos * uTextureRepeats;
+float materialHeight(vec3 pattern) {
     if (uHeightMapEnabled != 0) {
+        vec3 n = pow(abs(vMaterialNormal), vec3(8.0));
+        n /= max(n.x + n.y + n.z, 1e-8);
+        vec3 p = vMaterialPos * uTextureRepeats;
         vec3 h = n.x * texture(uHeightMap, p.zy + vec2(0.5)).rgb +
                  n.y * texture(uHeightMap, p.xz + vec2(0.5)).rgb +
                  n.z * texture(uHeightMap, p.xy + vec2(0.5)).rgb;
         return dot(h, vec3(0.2126, 0.7152, 0.0722));
     }
-    return dot(surfaceAlbedo(vec3(0.5)), vec3(0.2126, 0.7152, 0.0722));
+    return dot(surfaceAlbedo(vec3(0.5), pattern), vec3(0.2126, 0.7152, 0.0722)); // the pattern itself, its grey
 }
-vec3 bumpedNormal(vec3 normal) {
+vec3 bumpedNormal(vec3 normal, vec3 pattern) {
     if (uBumpHeight <= 0.0) return normal;
-    float height = materialHeight();
+    float height = materialHeight(pattern);
     vec3 dx = dFdx(vPosV), dy = dFdy(vPosV);
     vec3 r1 = cross(dy, normal), r2 = cross(normal, dx);
     float det = dot(dx, r1);
     if (abs(det) < 1e-20) return normal;
     vec3 gradient = dFdx(height) * r1 + dFdy(height) * r2;
     return normalize(abs(det) * normal - sign(det) * uBumpHeight * gradient);
+}
+// A normal map (green up), read as the picture is - along the three axes of the material's frame. Each reading is
+// turned from its own plane into the frame, leaning on the surface's own normal there, and the three are blended by
+// the same weights as the picture; then out of the frame into the view, where the lights are.
+vec3 mappedNormal(vec3 normal) {
+    if (uNormalMapEnabled == 0) return normal;
+    vec3 m = normalize(vMaterialNormal);
+    vec3 w = pow(abs(m), vec3(8.0));
+    w /= max(w.x + w.y + w.z, 1e-8);
+    vec3 p = vMaterialPos * uTextureRepeats;
+    vec3 tx = texture(uNormalMap, p.zy + vec2(0.5)).xyz * 2.0 - 1.0;
+    vec3 ty = texture(uNormalMap, p.xz + vec2(0.5)).xyz * 2.0 - 1.0;
+    vec3 tz = texture(uNormalMap, p.xy + vec2(0.5)).xyz * 2.0 - 1.0;
+    tx = vec3(tx.xy + m.zy, abs(tx.z) * m.x);
+    ty = vec3(ty.xy + m.xz, abs(ty.z) * m.y);
+    tz = vec3(tz.xy + m.xy, abs(tz.z) * m.z);
+    vec3 inFrame = normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
+    vec3 seen = normalize(mat3(uView) * mat3(uModel) * (transpose(uTextureFrame) * inFrame));
+    return dot(normalize(vN), normal) < 0.0 ? -seen : seen; // a face seen from behind: turned as its own normal was
 }
 uniform vec3 uColor;
 uniform int uVertexColor; // 1: the mesh's own colours (a model's materials) instead of uColor
@@ -114,10 +142,8 @@ float linearDepth(float d, vec2 lens) {
 }
 
 // How much of a sun or a spotlight reaches this point: its depth map holds, in every direction from
-// the light, the depth of the nearest surface (Williams 1978, "Casting curved shadows on curved
-// surfaces"); the point is lit where it is not deeper. The fraction of the 3 x 3 texels around it
-// that it is in front of softens the edge a texel wide (percentage-closer filtering, Reeves, Salesin
-// & Cook 1987). The bias keeps a lit face from shadowing itself: a little depth for a sun, a few
+// the light, the depth of the nearest surface; the point is lit where it is not deeper. The fraction of the 3 x 3 texels around it
+// that it is in front of softens the edge a texel wide (percentage-closer filtering). The bias keeps a lit face from shadowing itself: a little depth for a sun, a few
 // centimetres (growing with distance) for a spotlight.
 float litByMap(sampler2D map, int s) {
     vec4 h = uShadowFromView[s] * vec4(vPosV, 1.0);
@@ -137,7 +163,7 @@ float litByMap(sampler2D map, int s) {
 }
 
 // How much of a lamp reaches this point: the lamp's cube map holds, in every direction, the distance
-// to the nearest surface (omnidirectional shadow maps: Gerasimov, "GPU Gems" ch. 12, 2004); the point
+// to the nearest surface (an omnidirectional shadow map); the point
 // is lit where it is not farther. Five samples around the direction soften the edge.
 float litByCube(samplerCube cube, int s) {
     vec3 w = (uViewToWorld * vec4(vPosV, 1.0)).xyz - uShadowLamp[s];
@@ -210,8 +236,9 @@ void main() {
     vec3 n = normalize(vN);
     vec3 v = normalize(-vPosV);
     if (dot(n, v) < 0.0) n = -n;
-    n = bumpedNormal(n);
-    vec3 base = surfaceAlbedo(uVertexColor == 1 ? vColor : uColor);
+    vec3 pattern = uTextureKind == 0 ? vec3(1.0) : surfacePattern();
+    n = bumpedNormal(mappedNormal(n), pattern);
+    vec3 base = surfaceAlbedo(uVertexColor == 1 ? vColor : uColor, pattern);
     vec3 l = normalize(vec3(0.35, 0.7, 0.6));
     float diff = max(dot(n, l), 0.0);
     float fill = max(dot(n, v), 0.0);

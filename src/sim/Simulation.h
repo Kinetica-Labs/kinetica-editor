@@ -16,6 +16,7 @@ class Simulation {
 public:
     Real frameDt = 1.0_r / 60;
     ChannelRequests channels; // what to measure after every frame (empty: nothing)
+    bool frameContacts = true; // the frame lists the contact points (RobotWorld::fill): off while no one reads them
 
     // A new world from the graph: the old one is gone, the clock back at zero.
     void load(const SceneGraph& graph);
@@ -30,6 +31,10 @@ public:
     const PhysicsWorld* physics() const { return physics_.get(); }
     RobotWorld* robot() { return robot_.get(); }
     const RobotWorld* robot() const { return robot_.get(); }
+    // The take (RobotWorld::startRecording): the running one ended and handed over, or the one a new load (Stop)
+    // ended - kept for this call. False: none.
+    bool takeRecording(const std::string& name, SequenceObject& out);
+    void startRecording() { if (robot_) robot_->startRecording(*physics_); }
 
 private:
     std::unique_ptr<PhysicsWorld> physics_;
@@ -37,6 +42,7 @@ private:
     Real time_ = 0, stepMs_ = 0;
     uint64_t frame_ = 0;
     std::vector<Measurement> measurements_;
+    std::unique_ptr<SequenceObject> endedTake_;
 };
 
 } // namespace ke

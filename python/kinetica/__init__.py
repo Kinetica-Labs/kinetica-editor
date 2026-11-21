@@ -1,10 +1,11 @@
-"""Kinetica from Python as objects - the way Blender's ``bpy.data`` and Unity's GameObjects read::
+"""Kinetica from Python as objects - a scene, its objects and their parts read as attributes::
 
     import kinetica as ke
 
     scene = ke.connect()                          # the editor started with --api (port 47801, KE_EDITOR_PORT)
+    scene = ke.Scene()                            # or no window at all: the program kinetica-core (KE_CORE names it)
     car = scene.objects["Шасси"]                  # a body, by name or id
-    sonar = car.add_sonar(face="+x")              # an HC-SR04 looking out of the front face
+    sonar = car.add_sonar(face="+x")              # an ultrasonic range finder looking out of the front face
     wheel = car.attach("motor_wheel", face="+z")[0]
     encoder = wheel.joint.add_encoder(lines=500)
     driver = wheel.joint.power()                  # its DC motor fed from a battery
@@ -21,10 +22,10 @@ Underneath, every call is one of the server's operations (EditorOps), journaled,
 the editor's API console as the line above that made it. Only the Python standard library is used.
 """
 from .client import Client, OperationError
-from .objects import (Battery, Body, Controller, Driver, Effort, Encoder, Group, Imu, Joint, Link, PointWheel, Roles, SceneObject, Sensor,
+from .objects import (Battery, Body, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Light, Link, PointWheel, Roles, SceneObject, Sensor,
                       Sonar, Touch, WheelModule, Wrench)
 from .scene import Editor, Gizmo, Scene, View, World, connect
 
 __all__ = ["connect", "Scene", "World", "Client", "OperationError", "SceneObject", "Body", "Link", "Joint", "Sensor", "Encoder", "Imu",
-           "Sonar", "Touch", "Wrench", "Effort", "Battery", "Driver", "Controller", "Group", "Roles", "Editor", "Gizmo", "View",
+           "Sonar", "Touch", "Wrench", "Effort", "Battery", "Driver", "Controller", "Group", "Force", "Light", "Roles", "Editor", "Gizmo", "View",
            "WheelModule", "PointWheel"]
