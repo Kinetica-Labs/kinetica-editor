@@ -91,6 +91,7 @@ void testPickAndGizmo(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
     sendMouse(v, QEvent::MouseButtonRelease, at, Qt::LeftButton, Qt::NoButton);
     pump(60);
     c.check(b.selectedId() == id, "a click on a force's wireframe selects it");
+    trigger(w, "toolMove"); // the tool the window starts with: the groups after this one drag the gizmo's arrows
     b.select(id);
     b.onGizmoStarted();
     GizmoPose pose;
@@ -199,7 +200,7 @@ void testFirePlayStop(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
     const float rest = boxX();
     const int lines = firedLines(ops);
     if (fire) fire->click();
-    newFrames(v, 20);
+    waitUntil([&] { return boxX() - rest > 0.05f; }, 5000); // the press goes to the world's thread: wait for the box, not for a count of frames
     const float moved = boxX() - rest;
     pump(100);
     b.stop();
