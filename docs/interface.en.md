@@ -161,7 +161,7 @@ The toolbar is everything that creates and runs:
 
 | Buttons | What for |
 |---|---|
-| <img src="images/ui/icons/shape.png" height="22" alt=""> Shape, <img src="images/ui/icons/light.png" height="22" alt=""> Light, <img src="images/ui/icons/camera.png" height="22" alt=""> Camera, <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor, Force | add to the scene |
+| <img src="images/ui/icons/shape.png" height="22" alt=""> Shape, <img src="images/ui/icons/light.png" height="22" alt=""> Light, <img src="images/ui/icons/camera.png" height="22" alt=""> Camera, <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor, <img src="images/ui/icons/force.png" height="22" alt=""> Force | add to the scene |
 | <img src="images/ui/icons/magnet.png" height="22" alt=""> Magnet | assemble a mechanism face to face |
 | <img src="images/ui/icons/play.png" height="22" alt=""> Play, <img src="images/ui/icons/record.png" height="22" alt=""> Record, <img src="images/ui/icons/pause.png" height="22" alt=""> Pause, <img src="images/ui/icons/stop.png" height="22" alt=""> Stop | the scene's time |
 | <img src="images/ui/icons/undo.png" height="22" alt=""> Undo, <img src="images/ui/icons/redo.png" height="22" alt=""> Redo | a step back and forward |
@@ -288,27 +288,51 @@ object.
 
 ### Forces
 
-Force puts a force object - a push, a blast, a thrust or a pull. A Push and a Blast are one **impulse** (N s): it fires once, and in play its arrow is gone after that until Stop. A Thrust and a Pull are a constant **force** (N): it acts all the time the scene plays. The arrow is a vector: where and how strongly; only a field has a sphere, and it shows which bodies the field acts on. **A force applied to a body:** select a body and make a Push or a Thrust - the force is attached to it, the start of its arrow stands at the body's centre of mass, it acts on that body alone and rides on it. Drag the orange point at the end of the arrow - it is the whole vector: where it points the force pushes, and the arrow's length is its strength (a metre is 3 m/s of the body's velocity for a push and 10 m/s² of acceleration for a thrust; a thrust up longer than a metre lifts the body). The gizmo moves the start of the arrow: off the centre of mass the force turns the body. While the shape has no Rigid Body role (or the body is fixed) the force is still the shape's own but pushes nothing: its arrow is pale and its card says why. **A field:** a force made with no body selected, and every Blast and Pull, act on all the rigid bodies in their radius alike, light or heavy: a field's strength is the velocity it gives (m/s, an impulse) or the acceleration (m/s², a constant one), not newtons. They act on the centre of mass while the
-world runs and do not spin them. The gizmo moves and turns a force like any object; a field has a second orange point on its sphere - the radius. A click anywhere on the arrow selects the force. A Blast made with a body selected stands at its side. In Edit a force does nothing.
+<img src="images/ui/icons/force.png" height="22" alt=""> Force ▾ puts what pushes bodies: once, or all the time. There are four kinds.
 
-| Kind | Shape | Mode | Default (with no body selected) |
-|---|---|---|---|
-| Push | directional | impulse | 3 m/s, radius 1.5 m |
-| Blast | radial | impulse | 6 m/s, radius 3 m, linear falloff |
-| Thrust | directional | constant | 12 m/s², radius 1.5 m |
-| Pull | radial | constant | -15 m/s² (inward), radius 5 m, no falloff |
+![The Force menu: push, blast, thrust, pull](images/ui/en/force-menu.png)
 
-A directional force pushes along its own +Y axis (a negative strength: the other way), a radial one away from its point
-(toward it when the strength is negative). The card has Shape, Mode, Strength, Radius (1.5 m on a new directional force - it pushes what is near; 0: every body
-of the scene; a radial one needs it), Falloff (none; linear - smoothly to zero at the radius; inverse square - cut off at the
-radius), Time - when an impulse fires by itself - and Acts on - only bodies with that tag. A tag added while the world
-runs is noticed after Stop and Play. The Fire button fires an impulse now, in the running world, and cancels its timed
-firing. A robot does not look at a force: it learns of it only through its sensors - the IMU, the encoders, the effort.
+| | Once - an impulse | All the time - a force |
+|---|---|---|
+| **On one body** - an arrow | Push | Thrust |
+| **A field around a point** - a sphere | Blast | Pull |
+
+**A force on a body.** Select a body with the <img src="images/ui/icons/rigid.png" height="22" alt=""> Rigid Body role and press Push or Thrust. The arrow stands at the body's
+centre of mass; the force acts on that body alone and rides on it.
+
+![A push on a cube: the orange point at the end of the arrow](images/ui/en/force-body.png)
+
+- **The orange point at the end of the arrow is the whole vector.** Drag it: where it points the force pushes, and the
+  arrow's length is its strength. A metre of arrow is 3 m/s of the body's velocity for a push and 10 m/s² of
+  acceleration for a thrust; a thrust up longer than a metre lifts the body.
+- **The gizmo moves the start of the arrow.** Off the centre of mass the force turns the body.
+- **A push fires once** - when the scene starts or at its own Time, s - and after that its arrow is gone in play until
+  the scene is stopped. A thrust acts all the time, and its arrow stays.
+- On a shape with no <img src="images/ui/icons/rigid.png" height="22" alt=""> Rigid Body role the arrow is pale and the card says "no physics": give the role and the force is
+  live.
+
+**A field.** A Blast and a Pull act on every body whose centre is inside the sphere - light or heavy alike: a blast
+gives the bodies a velocity (6 m/s, weaker toward the sphere's edge), a pull an acceleration toward its point
+(15 m/s²). The sphere shows on the selected field; the orange point on it is the radius.
+
+![A blast beside a barrel: the sphere shows what it will reach](images/ui/en/force-blast.png)
+
+![Half a second after the start: the barrel is thrown](images/ui/en/force-blast-after.png)
+
+A Push and a Thrust made with no body selected are fields too: they push everything in their radius one way.
+
+**The force's card** says whose it is: "Body: Cube" or "Field". A force on a body has its strength as Impulse, N s or
+Strength, N; a field has Speed, m/s or Acceleration, m/s², and also Radius, Falloff (how the field weakens toward
+its edge) and Acts on - only bodies with that tag. The Fire button gives the impulse now, in the running scene.
+
+![The card of a push applied to a cube](images/ui/en/force-card.png)
+
+A robot does not look at a force: it learns of it only through its sensors - the IMU, the encoders, the effort.
 
 ```python
-boom = scene.add_force("radial", "impulse", at=(0, 0.5, 0), strength=20, radius=3)
-boom.acts_on = "crate"   # only bodies tagged "crate"
-boom.fire()              # in the running world, at once
+push = scene.add_force("directional", "impulse", body=cube)   # a push on a body: an arrow from its centre of mass
+boom = scene.add_force("radial", "impulse", at=(0, 0.5, 0), strength=6, radius=3)   # a blast: 6 m/s to all in the radius
+boom.fire()                                                    # in the running world, at once
 ```
 
 ### Copies, groups, arrays

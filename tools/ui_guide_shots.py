@@ -37,13 +37,15 @@ WORDS = {
            "box": "куб", "sphere": "сфера", "cylinder": "цилиндр", "cone": "конус", "plane": "плоскость",
            "sun": "солнце", "lamp": "лампа", "spot": "прожектор", "camera": "камера с целью",
            "ghost": "призрак звена", "imu": "IMU", "sonar": "сонар", "beam": "луч сонара",
-           "zone": "зона", "part": "деталь: внутри", "miss": "шар: мимо", "bin": "Корзина"},
+           "zone": "зона", "part": "деталь: внутри", "miss": "шар: мимо", "bin": "Корзина",
+           "barrel": "Бочка", "blast": "взрыв", "push": "толчок: тяните точку"},
     "en": {"object": "Object", "world": "World", "plugins_x": 320, "other": "ru",
            "brick": "Brick", "ball": "Ball", "cart": "Cart", "wall": "Wall", "base": "Base", "cube": "Cube", "crate": "Crate",
            "box": "box", "sphere": "sphere", "cylinder": "cylinder", "cone": "cone", "plane": "plane",
            "sun": "sun", "lamp": "lamp", "spot": "spot", "camera": "target camera",
            "ghost": "ghost of the link", "imu": "IMU", "sonar": "sonar", "beam": "sonar's beam",
-           "zone": "zone", "part": "the part: inside", "miss": "the ball: missed", "bin": "Bin"},
+           "zone": "zone", "part": "the part: inside", "miss": "the ball: missed", "bin": "Bin",
+           "barrel": "Barrel", "blast": "blast", "push": "push: drag the point"},
 }
 
 
@@ -328,7 +330,7 @@ def first(s):
 
 # The window's own icons, cut out of it - what stands beside a button's name in the guide's text, so a reader knows the
 # button by sight. No words on them: one set for both languages. Centres in the window's pixels.
-BAR_ICONS = {"shape": 46, "light": 140, "camera": 233, "magnet": 326, "sensor": 419, "play": 617, "record": 710, "undo": 1001, "redo": 1096}
+BAR_ICONS = {"shape": 46, "light": 140, "camera": 233, "magnet": 326, "sensor": 419, "force": 512, "play": 617, "record": 710, "undo": 1001, "redo": 1096}
 RUN_ICONS = {"pause": 803, "stop": 896}       # these two are alive only while the scene plays
 TOOL_ICONS = {"select": 132, "move": 177, "rotate": 222, "scale": 267}
 ROLE_ICONS = {"rigid": 1321, "collider": 1491}
@@ -494,6 +496,40 @@ def sensors(s):
     s.ed.selection_set(ids=[sonar])
     s.tab("object")
     s.window("sensors")
+
+
+@shot_of
+def forces(s):
+    """«Сила»: its menu; a blast beside a barrel before ▶ and half a second after; a push applied to a cube with its
+    orange point, and its card."""
+    s.new([5.2, 4.0, 7.2], [0.1, 0.5, 0.5])
+    barrel = s.add("cylinder", "barrel", position=[0.9, 0.56, 0.9], size=[0.87, 1.08, 0.87], role="rigid")
+    cube = s.add("box", "cube", position=[-1.1, 0.52, 0.9], size=[1.0, 1.0, 1.0], role="rigid")
+    s.add("box", "brick", position=[0.2, 0.17, -0.6], size=[0.3, 0.3, 0.3], role="rigid")
+    s.ed.selection_set(ids=[])
+    s.ed.ui_pointer(action="click", x=512, y=62, space="window")
+    s.part("force-menu", (300, 18, 920, 300), screen=True)
+    s.ed.ui_key(key="Escape")
+    blast = s.ed.scene_add_force(shape="radial", mode="impulse", at=[1.7, 0.45, 0.9])["id"]
+    s.ed.selection_set(ids=[blast])
+    s.label("blast", [1.7, 0.95, 0.9])
+    s.view("force-blast")
+    s.ed.view_draw(clear=True)
+    s.ed.sim_play()
+    s.ed.sim_pause()
+    s.ed.sim_step(frames=30)
+    s.view("force-blast-after")
+    s.ed.sim_stop()
+    s.ed.scene_delete(ids=[blast])
+    push = s.ed.scene_add_force(shape="directional", mode="impulse", body=cube)["id"]
+    s.ed.scene_set(id=push, line="pose", key="rotation", values=[0, 0, -35])  # as the orange point dragged up and to the right
+    s.ed.scene_set(id=push, line="effect", key="strength", values=[3000])
+    s.ed.selection_set(ids=[push])
+    s.label("push", [0.25, 2.55, 0.9])
+    s.tab("object")
+    s.view("force-body")
+    s.ed.view_draw(clear=True)
+    s.part("force-card", (1222, 108, 1600, 585))
 
 
 @shot_of
