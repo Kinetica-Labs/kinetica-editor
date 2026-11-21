@@ -90,6 +90,15 @@ class World:
         self._put("world", "size", list(s), f"scene.world.size = {tuple(s)}")
 
     @property
+    def duration(self):
+        """The play range's end, s (0: none): the window's play and take stop there."""
+        return (self._scene._call("world_get", line="world", key="duration", count=1)["values"] or [0.0])[0]
+
+    @duration.setter
+    def duration(self, seconds):
+        self._put("world", "duration", [float(seconds)], f"scene.world.duration = {float(seconds)}")
+
+    @property
     def substeps(self):
         """The physics engine's substeps per frame of 1/60 s."""
         return int(self._get("physics", "substeps"))

@@ -598,14 +598,16 @@ void MainWindow::buildResultsDock() {
 // ---------------------------------------------------------------------------
 // Every frame the simulation published since the last look is timed by the Laboratory's profiler;
 // only the newest of them is drawn (on a slow screen the simulation steps several frames per paint).
-// Nothing published: nothing to do.
 void MainWindow::poll() {
     recordFrames(ctrl_->takeReadings()); // every simulated frame into the plots
+    const bool ended = ctrl_->rangeEnded(); // asked before the frames are taken: the play range's last frame is among them
     const auto frames = ctrl_->takePublished();
-    if (frames.empty()) return;
-    labProfile(frames);
-    if (sequencer_) sequencer_->setPlayTime(double(frames.back()->time)); // the world plays the sequence: the playhead follows
-    onSnapshot(frames.back());
+    if (!frames.empty()) {
+        labProfile(frames);
+        if (sequencer_) sequencer_->setPlayTime(double(frames.back()->time)); // the world plays the sequence: the playhead follows
+        onSnapshot(frames.back());
+    }
+    if (ended) builder_->playRangeEnded(ops_ && ops_->recording());
 }
 
 void MainWindow::onSnapshot(const std::shared_ptr<const Snap>& s) {

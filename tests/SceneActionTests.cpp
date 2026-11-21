@@ -147,6 +147,12 @@ void testSceneFieldsReadInTheCore() {
     const Value steps = ask("world_get", field(0, "physics", "substeps", 1)), gravity = ask("world_get", field(0, "world", "gravity", 3));
     CHECK(g.world.physics.substeps == 24 && steps["values"].items().at(0).integer() == 24 && gravity["values"].size() == 3 &&
           gravity["values"].items()[1].number() == -9.81, "world_set {line, key, values} sets one value; world_get reads it and gravity");
+    Value range = field(0, "world", "duration", 1), seconds = Value::list(); // a key the world line has not got yet: appended
+    seconds.push(2.5);
+    range.set("values", seconds);
+    ask("world_set", range);
+    CHECK(g.world.duration == 2.5_r && ask("world_get", field(0, "world", "duration", 1))["values"].items().at(0).number() == 2.5,
+          "world_set sets the play range's end; world_get reads it");
     Value r = Value::map();
     CHECK(!findSceneOp("world_set")->edit(g, field(0, "weather", "wind", 1), r, error) && g.world.physics.substeps == 24,
           "world_set of a line the world has not got is refused");

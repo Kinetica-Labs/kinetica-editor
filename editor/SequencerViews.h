@@ -83,6 +83,7 @@ private:
     uint64_t signature_ = 0;        // of the sequence the tree was built from
     uint32_t keyObject_ = 0;        // the key picked: Delete removes it
     double keyTime_ = -1;
+    double endDrag_ = -1;           // the play range's end while its handle is dragged, s (-1: not dragged)
 };
 
 class SequencerCurves : public QWidget {

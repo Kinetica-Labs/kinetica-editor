@@ -399,6 +399,8 @@ struct WheelObject : SceneObject {
 struct WorldSettings {
     Vector3 gravity{0, -9.81_r, 0};
     Vector3 size{4, 3, 4};      // the box everything lives in, m (floor at y = 0)
+    Real duration = 0;          // the play range's end, s of the world's time from ▶ (0: no end): a window's run pauses
+                                // there - or, its sequence looping, starts over - and a take ends there
     PhysicsSettings physics;
 };
 

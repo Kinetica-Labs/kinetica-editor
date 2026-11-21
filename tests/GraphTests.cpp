@@ -120,9 +120,11 @@ void testSceneOpacity() {
 void testSceneFormatOnlyGrows() {
     std::string error;
     // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
-    // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores; 8: the force block
+    // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores; 8: the force block;
+    // 9: the world line's play range end, duration
     for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
-                             "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene", "scene-format-8.kscene"}) {
+                             "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene", "scene-format-8.kscene",
+                             "scene-format-9.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();
@@ -244,6 +246,11 @@ void testScenePhysicsLine() {
     SceneGraph bad;
     CHECK(!bad.load("world gravity 0 -9.81 0\nphysics substeps 0\n", error) && error.find("substeps") != std::string::npos,
           "substeps 0 was taken: %s", error.c_str());
+    SceneGraph ranged, again; // the play range's end: written only when set
+    const bool took = ranged.load("world gravity 0 -9.81 0 size 4 3 4 duration 2.5\n", error) && again.load(ranged.save(), error);
+    CHECK(took && ranged.world.duration == 2.5_r && again.world.duration == 2.5_r, "the play range's end did not come back: %s", error.c_str());
+    CHECK(SceneGraph().save().find("duration") == std::string::npos, "a scene without a play range wrote a duration");
+    CHECK(!bad.load("world gravity 0 -9.81 0 duration -1\n", error), "a negative duration was taken");
 }
 
 void testSceneGraphLocale() {

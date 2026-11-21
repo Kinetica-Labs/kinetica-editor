@@ -6,7 +6,8 @@
 // follows the world's time. «⏺ Запись» on a cube dropped from 1 m plays the
 // scene and records it; pressed again, the scene stops - the cube back where it stood - and the take is a new active
 // sequence «Запись 1» whose end has the cube on the floor; one undo takes the take away. «◈ Автоключ»: a hand's gizmo
-// move or typed number keys the object at the playhead in its own undo step, the API and the preview key nothing. With a directory, the pictures
+// move or typed number keys the object at the playhead in its own undo step, the API and the preview key nothing. The play
+// range «До»: a run pauses at its end, a take ends there, «Петля» starts the run over. With a directory, the pictures
 // sequencer.png and sequencer-take.png.
 #include "SelfTestSupport.h"
 
@@ -19,6 +20,7 @@
 
 #include <QAction>
 #include <QDockWidget>
+#include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -177,6 +179,63 @@ void keyedCameraTests(QMainWindow& w, SceneBuilder& b, Viewport* v, Checker& c) 
     std::printf("  a camera keyed 4 m over 1 s, looked through, «Запись» for 0.7 s: the view went %.2f m; the take holds the camera's track %s\n",
                 double(went), held ? "yes" : "no");
     c.check(went > 1.0f && went < 4.01f && held, "in play the view through a keyed camera goes with its keys, and the take brings its track along");
+}
+
+// The play range (the world's duration, the Sequencer's «До»): ▶ runs to its end and stays paused on that frame; a take
+// ends there by itself; with «Петля» the run starts over; the end's flag on the ruler is dragged to move it.
+void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel* panel, QWidget* timeline, Checker& c) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    const auto call = [&](const char* name, const QJsonObject& args) { ops->run(name, args, [](const QJsonObject&) {}, "ui"); };
+    auto* play = w.findChild<QAction*>("actionPlay");
+    auto* record = w.findChild<QAction*>("actionRecord");
+    auto* stop = w.findChild<QAction*>("actionStop");
+    auto* end = w.findChild<QDoubleSpinBox*>("sequencerEnd");
+    if (!play || !record || !stop || !end) return void(c.check(false, "the Sequencer has the play range's field «До»"));
+    const auto worldTime = [v] { return v->snapshot() ? double(v->snapshot()->time) : -1.0; };
+    b.newScene();
+    const uint32_t cube = made(b, b.createActions()[0]);
+    b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.0f, 1.0f, 0.0f), e.rigid.enabled = e.collider.enabled = true; });
+    end->setValue(0.5);
+    pump(60);
+    const bool set = std::fabs(double(b.graph().world.duration) - 0.5) < 1e-6;
+    play->trigger();
+    const bool paused = waitUntil([&] { return b.mode() == SceneBuilder::Mode::Paused; }, 4000);
+    pump(200); // would go on, were it not stopped
+    const double stood = worldTime();
+    std::printf("  «До» 0.5 s and ▶: the run %s at %.3f s\n", paused ? "paused" : "DID NOT PAUSE", stood);
+    c.check(set && paused && stood > 0.49 && stood < 0.52, "▶ runs to the play range's end and stays paused on that frame");
+    stop->trigger();
+    pump(300);
+
+    record->trigger();
+    const bool ended = waitUntil([&] { return b.editing() && activeSequence(b.graph()); }, 5000);
+    pump(200);
+    const SequenceObject* take = activeSequence(b.graph());
+    const double length = take ? double(take->length()) : -1;
+    std::printf("  «Запись» with «До» 0.5 s: the take %s, %.3f s long\n", ended ? "came by itself" : "DID NOT COME", length);
+    c.check(ended && length > 0.4 && length < 0.52, "a take ends at the play range's end by itself");
+
+    call("sequence_set", {{"loop", true}});
+    pump(60);
+    play->trigger();
+    pump(1300); // more than two ranges
+    const bool goes = b.mode() == SceneBuilder::Mode::Playing;
+    const double at = worldTime();
+    stop->trigger();
+    pump(300);
+    std::printf("  «Петля» and ▶ for 1.3 s: %s, the world's time %.3f s\n", goes ? "still playing" : "NOT PLAYING", at);
+    c.check(goes && at < 0.52, "with «Петля» the run starts over at the play range's end");
+
+    const auto x = [&](double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width(), panel->atLeast()).x(t); };
+    const QPointF from(x(0.5) - 4, 8), to(x(1.5), 8); // by its flag, left of the line
+    mouse(timeline, QEvent::MouseButtonPress, from), mouse(timeline, QEvent::MouseMove, to), mouse(timeline, QEvent::MouseButtonRelease, to);
+    pump(60);
+    const double dragged = double(b.graph().world.duration);
+    std::printf("  the range's handle dragged on the ruler from 0.5 s to 1.5 s: «До» %.2f s, the field %.2f\n", dragged, end->value());
+    c.check(std::fabs(dragged - 1.5) < 0.06 && std::fabs(end->value() - dragged) < 1e-6, "the play range's end is dragged by its handle on the ruler");
+    end->setValue(0);
+    pump(60);
+    c.check(b.graph().world.duration == 0 && b.graph().save().find("duration") == std::string::npos, "«До» 0: no end, nothing written into the scene");
 }
 
 } // namespace
@@ -473,5 +532,6 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
             "⇔ spreads the bottom panel the window's whole width and back");
     autoKeyTests(w, b, c);
     keyedCameraTests(w, b, v, c);
+    playRangeTests(w, b, v, panel, timeline, c);
     return c.failures;
 }

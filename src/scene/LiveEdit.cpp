@@ -38,7 +38,10 @@ bool differ(const SceneGraph& a, const SceneGraph& b, Section SceneGraph::*secti
 
 LiveEdit liveEdit(const SceneGraph& running, const SceneGraph& edited) {
     LiveEdit r;
-    if (differ(running, edited, &SceneGraph::world)) r.reload = LiveEdit::Reload::World;
+    SceneGraph was, now; // the play range is the window's clock's matter, not what the world is built of
+    was.world = running.world, now.world = edited.world;
+    was.world.duration = now.world.duration = 0;
+    if (was.save() != now.save()) r.reload = LiveEdit::Reload::World;
     else if (differ(running, edited, &SceneGraph::groups)) r.reload = LiveEdit::Reload::Groups;
     else if (differ(running, edited, &SceneGraph::arrays)) r.reload = LiveEdit::Reload::Arrays;
     else if (devicesText(running, false) != devicesText(edited, false)) r.reload = LiveEdit::Reload::Devices;

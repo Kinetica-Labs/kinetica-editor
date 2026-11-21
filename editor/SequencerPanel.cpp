@@ -11,6 +11,7 @@
 
 #include <QApplication>
 #include <QComboBox>
+#include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QJsonArray>
 #include <QJsonObject>
@@ -81,6 +82,18 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     time_ = new QLabel(this);
     time_->setObjectName("sequencerTime");
     bar->addWidget(time_);
+    bar->addWidget(new QLabel(uiText("Kinetica", "До"), this));
+    end_ = new QDoubleSpinBox(this); // the scene's play range: where a run and a take end
+    end_->setObjectName("sequencerEnd");
+    end_->setRange(0, 86400);
+    end_->setDecimals(2);
+    end_->setSingleStep(0.5);
+    end_->setSuffix(uiText("Kinetica", " с"));
+    end_->setSpecialValueText(uiText("Kinetica", "без конца"));
+    end_->setKeyboardTracking(false);
+    end_->setToolTip(uiText("Kinetica", "Время проигрывания: «Пуск» и «Запись» идут до этой секунды и встают на паузу; с «Петлёй» начинают сначала. 0 — без конца"));
+    bar->addWidget(end_);
+    connect(end_, &QDoubleSpinBox::valueChanged, this, &SequencerPanel::setEnd);
     col->addWidget(strip);
 
     auto* tracks = new QWidget(this);
@@ -129,7 +142,14 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     sync();
 }
 
-double SequencerPanel::atLeast() const { return builder_->editing() ? 0 : std::ceil(liveTime_) + 1; }
+double SequencerPanel::atLeast() const {
+    const double end = double(builder_->graph().world.duration); // the play range's end stays in sight
+    return std::max(builder_->editing() ? 0.0 : std::ceil(liveTime_) + 1, end > 0 ? std::ceil(end) + 1 : 0.0);
+}
+
+void SequencerPanel::setEnd(double seconds) {
+    run("world_set", QJsonObject{{"line", "world"}, {"key", "duration"}, {"values", QJsonArray{seconds}}});
+}
 
 double SequencerPanel::playhead() const {
     if (!builder_->editing()) return playTime_;
@@ -279,6 +299,10 @@ void SequencerPanel::sync() {
     if (const QString words = ops_->recording() ? uiText("Kinetica", "■ Закончить запись") : uiText("Kinetica", "⏺ Запись"); record_->text() != words) {
         record_->setText(words);
         record_->setStyleSheet(ops_->recording() ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString());
+    }
+    {
+        const QSignalBlocker hush(end_);
+        end_->setValue(double(g.world.duration));
     }
     const double length = active ? double(active->length()) : 0;
     time_->setText(QString(uiText("Kinetica", "%1 / %2 с")).arg(playhead(), 0, 'f', 2).arg(length, 0, 'f', 2));

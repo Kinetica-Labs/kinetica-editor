@@ -259,6 +259,16 @@ class SceneCore(unittest.TestCase):
             push.shape = "radial"
             self.assertEqual(push.shape, "radial")
 
+    def test_the_play_range_is_a_word_of_the_world_line(self):
+        # scene.world.duration: where a window's play and take end; this host has no clock, so it only keeps the number
+        with ke.Scene() as scene:
+            self.assertEqual(scene.world.duration, 0)
+            scene.world.duration = 2.5
+            self.assertEqual(scene.world.duration, 2.5)
+            self.assertIn(" duration 2.5", scene.ed.world_get()["text"])
+            scene.world.duration = 0
+            self.assertNotIn("duration", scene.ed.world_get()["text"])
+
     def test_a_force_of_its_own_body(self):
         # body=: the force is that body's own - a metre of arrow is 3 m/s of it; a neighbour half a metre away feels nothing
         with ke.Scene() as scene:

@@ -83,7 +83,7 @@ using namespace sequencer;
 
 namespace {
 
-const QColor kKey(240, 192, 64);
+const QColor kKey(240, 192, 64), kEnd(150, 164, 190); // a key; the play range's end (the playhead is the red one)
 
 uint64_t signatureOf(const ke::SceneGraph& g, const ke::SequenceObject* q) {
     uint64_t h = 1469598103934665603ull;
@@ -275,6 +275,13 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
     const ke::SequenceObject* q = ke::activeSequence(g);
     const Axis a = axisOf(q, width(), panel_->atLeast());
     drawRuler(p, a, pal, height());
+    if (const double end = endDrag_ >= 0 ? endDrag_ : double(g.world.duration); end > 0) { // the play range: a run does not go past its end
+        const double x = a.x(end);
+        p.fillRect(QRectF(x, 0, width() - x, height()), QColor(0, 0, 0, 80));
+        p.setPen(QPen(kEnd, 2));
+        p.drawLine(QPointF(x, 0), QPointF(x, height()));
+        p.fillRect(QRectF(x - 9, 3, 9, 13), kEnd); // its handle on the ruler, a flag over the range: dragged, the end moves
+    }
     if (!q || q->tracks.empty()) {
         p.setPen(pal.color(QPalette::PlaceholderText));
         p.drawText(QRectF(kNames + kPad, kRuler + 4, width() - kNames - 2 * kPad, height() - kRuler - 8), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
@@ -339,6 +346,12 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
 void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
     if (e->button() != Qt::LeftButton) return;
     const QPointF at = e->position();
+    const ke::SceneGraph& g = panel_->builder()->graph();
+    if (const double end = double(g.world.duration); end > 0 && at.y() < kRuler
+        && std::fabs(at.x() + 3 - axisOf(ke::activeSequence(g), width(), panel_->atLeast()).x(end)) <= 8) {
+        endDrag_ = end; // the play range's end taken by its handle
+        return;
+    }
     const int r = rowAt(at.y());
     uint32_t object = 0;
     double t = 0;
@@ -363,10 +376,20 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
 }
 
 void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
+    if (endDrag_ >= 0) { // to a twentieth of a second, never before a tenth
+        const double t = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x());
+        endDrag_ = std::max(0.1, std::round(t * 20) / 20);
+        return update();
+    }
     if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
 }
 
 void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {
+    if (endDrag_ >= 0) {
+        const double end = endDrag_;
+        endDrag_ = -1;
+        return panel_->setEnd(end);
+    }
     if (panel_->scrubbing()) panel_->endScrub();
 }
 

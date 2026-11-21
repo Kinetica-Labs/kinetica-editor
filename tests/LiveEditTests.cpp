@@ -39,6 +39,7 @@ bool only(const LiveEdit& le, bool duties, bool lights, bool goals, bool joints,
 void testLiveEditClassifier() {
     CHECK(only(liveEdit(base(), base()), false, false, false, false), "the same scene asks for nothing");
     CHECK(after([](SceneGraph& g) { g.world.gravity.y = -5; }).reload == Reload::World, "gravity needs a new world");
+    CHECK(only(after([](SceneGraph& g) { g.world.duration = 5; }), false, false, false, false), "the play range is the clock's: no new world");
     CHECK(after([](SceneGraph& g) { g.groups.resize(1); }).reload == Reload::Groups, "a group needs a new world");
     CHECK(after([](SceneGraph& g) { g.arrays.resize(1); }).reload == Reload::Arrays, "an array needs a new world");
     CHECK(after([](SceneGraph& g) { g.sensors.resize(1); }).reload == Reload::Devices, "a sensor needs a new world");

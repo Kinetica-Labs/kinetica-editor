@@ -146,7 +146,7 @@ std::vector<SceneOp> coreSceneOps() {
         const uint32_t id = putObject(g, a["block"].text(""), e);
         return r.set("id", id), id != 0;
     }));
-    ops.push_back(edit("world_set", "The world's 'world' and 'physics' lines, as world_get gives them (gravity, box, physics engine; a missing physics "
+    ops.push_back(edit("world_set", "The world's 'world' and 'physics' lines, as world_get gives them (gravity, box, the play range's end 'duration' in s - 0: none -, physics engine; a missing physics "
                        "line: defaults) - or one 'line key values' of them, as scene_set sets an object's: line physics, key substeps",
                        "{text?: str, line?: str, key?: str, values?: [number|str]}", [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         if (!a.has("line")) return a.has("text") ? putWorld(g, a["text"].text(""), e) : (e = "give the text, or a line with its key and values", false);

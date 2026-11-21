@@ -32,7 +32,8 @@ public:
     SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* parent = nullptr);
     void sync();                    // the sequences as the scene has them now
     void setPlayTime(double time);  // in play: where the world is (its newest frame)
-    double atLeast() const;         // the views' span: in a run, past the world's time
+    double atLeast() const;         // the views' span: in a run, past the world's time; the play range's end in sight
+    void setEnd(double seconds);    // the scene's play range end (world_set: world duration); 0: none
     void keySelected();             // ◆: the selected objects keyed at the playhead
     double playhead() const;
 
@@ -64,6 +65,7 @@ private:
                 *curves_ = nullptr;
     QLineEdit* filter_ = nullptr;
     QLabel *time_ = nullptr, *note_ = nullptr;
+    class QDoubleSpinBox* end_ = nullptr; // the scene's play range end (world duration), s
     QStackedLayout* views_ = nullptr;
     SequencerTimeline* timeline_ = nullptr;
     SequencerCurves* curvesView_ = nullptr;

@@ -891,13 +891,13 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="235"/>
-        <location filename="../editor/MainWindow.cpp" line="711"/>
+        <location filename="../editor/MainWindow.cpp" line="713"/>
         <source>Управление и методы</source>
         <translation>Controls and Methods</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="236"/>
-        <location filename="../editor/MainWindow.cpp" line="740"/>
+        <location filename="../editor/MainWindow.cpp" line="742"/>
         <source>О программе</source>
         <translation>About Kinetica</translation>
     </message>
@@ -1145,8 +1145,8 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="542"/>
-        <location filename="../editor/MainWindow.cpp" line="699"/>
-        <location filename="../editor/MainWindow.cpp" line="706"/>
+        <location filename="../editor/MainWindow.cpp" line="701"/>
+        <location filename="../editor/MainWindow.cpp" line="708"/>
         <location filename="../editor/MainWindowPlots.cpp" line="217"/>
         <source>Сохранено: </source>
         <translation>Saved: </translation>
@@ -1203,37 +1203,37 @@ The picture is being prepared…</translation>
         <translation>Select a body first. Ctrl-click a second body to create a joint between them.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="667"/>
+        <location filename="../editor/MainWindow.cpp" line="669"/>
         <source>3D-модели (*.obj *.stl)</source>
         <translation>3D models (*.obj *.stl)</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="669"/>
+        <location filename="../editor/MainWindow.cpp" line="671"/>
         <source>Всё, что откроется (</source>
         <translation>Anything that opens (</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="670"/>
+        <location filename="../editor/MainWindow.cpp" line="672"/>
         <source>Импорт</source>
         <translation>Import</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="676"/>
+        <location filename="../editor/MainWindow.cpp" line="678"/>
         <source>Выполнить скрипт</source>
         <translation>Run Script</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="677"/>
+        <location filename="../editor/MainWindow.cpp" line="679"/>
         <source>Скрипты Python (*.py)</source>
         <translation>Python scripts (*.py)</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="680"/>
+        <location filename="../editor/MainWindow.cpp" line="682"/>
         <source>Скрипт «%1» выполнен</source>
         <translation>Script “%1” finished</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="688"/>
+        <location filename="../editor/MainWindow.cpp" line="690"/>
         <location filename="../editor/MainWindowToolbar.cpp" line="58"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="257"/>
         <location filename="../src/scene/SceneActions.cpp" line="62"/>
@@ -1241,46 +1241,46 @@ The picture is being prepared…</translation>
         <translation>Model</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="688"/>
+        <location filename="../editor/MainWindow.cpp" line="690"/>
         <source>Не удалось загрузить модель:
 </source>
         <translation>It was not possible to load the model:
 </translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="693"/>
-        <location filename="../editor/MainWindow.cpp" line="698"/>
+        <location filename="../editor/MainWindow.cpp" line="695"/>
+        <location filename="../editor/MainWindow.cpp" line="700"/>
         <source>Экспорт</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="693"/>
+        <location filename="../editor/MainWindow.cpp" line="695"/>
         <source>Нет данных: запустите расчёт.</source>
         <translation>No data. Run the simulation first.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="696"/>
+        <location filename="../editor/MainWindow.cpp" line="698"/>
         <source>Экспорт графиков</source>
         <translation>Export Plots</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="698"/>
+        <location filename="../editor/MainWindow.cpp" line="700"/>
         <location filename="../editor/MainWindowPlots.cpp" line="216"/>
         <source>Не удалось записать файл.</source>
         <translation>Could not write the file.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="705"/>
+        <location filename="../editor/MainWindow.cpp" line="707"/>
         <source>Сохранить скриншот</source>
         <translation>Save Screenshot</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="714"/>
+        <location filename="../editor/MainWindow.cpp" line="716"/>
         <source>&lt;h3&gt;Управление&lt;/h3&gt;&lt;b&gt;Пробел&lt;/b&gt; — пуск/пауза (над секвенсором — проиграть и остановить секвенцию, как в видеоредакторе), &lt;b&gt;Shift+пробел&lt;/b&gt; — стоп, &lt;b&gt;.&lt;/b&gt; — шаг, &lt;b&gt;F&lt;/b&gt; — показать выбранное, &lt;b&gt;Ctrl+K&lt;/b&gt; — найти команду.&lt;br&gt;Камера: &lt;b&gt;зажатое колесо&lt;/b&gt; — вращение, &lt;b&gt;Shift+колесо&lt;/b&gt; или ПКМ — сдвиг, прокрутка — масштаб (схема — в «Вид → Управление»).&lt;br&gt;В правке: &lt;b&gt;щелчок&lt;/b&gt; — выбрать (ещё щелчок там же — то, что глубже: датчик, деталь внутри), &lt;b&gt;тяните тело&lt;/b&gt; при инструменте «Перемещение» — едет по полу, стрелки гизмо — по оси.&lt;br&gt;Добавить в сцену — меню «Сцена»: фигура, свет, камера, датчик, сочленение между двумя выбранными (движется выбранное последним).&lt;br&gt;&lt;b&gt;ЛКМ&lt;/b&gt; во время игры — рука мыши: тело тянется к курсору пружиной.&lt;br&gt;Рука UR5e: &lt;b&gt;W S A D&lt;/b&gt; — по полу, &lt;b&gt;R F&lt;/b&gt; — вверх-вниз, &lt;b&gt;Z X&lt;/b&gt; — поворот, &lt;b&gt;пробел&lt;/b&gt; — схват; или щёлкните предмет и нажмите «Рука — к этому предмету» справа.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Мир робота&lt;/h3&gt;Твёрдые тела и суставы считает движок Box3D. Серво и мотор постоянного тока — код робота: момент на звенья на каждом подшаге. Обратная связь по суставам — через модели энкодеров; истинные позы и углы движка видят только графики и Лаборатория.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Свои команды — плагины&lt;/h3&gt;«Плагины → Новый плагин…» создаёт файл plugin.py с готовой командой: она сразу становится кнопкой в «Плагины», строкой в Ctrl+K, вызовом в консоли и инструментом для ИИ-агента. Сохраните файл — плагин перезапустится. Каждое действие окна видно строкой Python в «Консоли API» — с неё и начинают свою команду. Подробно — docs/plugins.md.</source>
         <translation>&lt;h3&gt;Controls&lt;/h3&gt;&lt;b&gt;Space&lt;/b&gt; — play or pause (over the Sequencer, toggle sequence preview), &lt;b&gt;Shift+Space&lt;/b&gt; — stop, &lt;b&gt;.&lt;/b&gt; — step one frame, &lt;b&gt;F&lt;/b&gt; — frame the selection, &lt;b&gt;Ctrl+K&lt;/b&gt; — find a command.&lt;br&gt;Camera: &lt;b&gt;middle-drag&lt;/b&gt; to orbit, &lt;b&gt;Shift+middle-drag&lt;/b&gt; or right-drag to pan, and scroll to zoom. See View → Controls for other control schemes.&lt;br&gt;In Edit mode, &lt;b&gt;click&lt;/b&gt; to select. Click again in the same spot to pick an item farther back, such as a sensor or an enclosed part. With Move active, &lt;b&gt;drag a body&lt;/b&gt; along the floor or drag a gizmo arrow to constrain movement to its axis.&lt;br&gt;Add shapes, lights, cameras, and sensors from the Scene menu. Creating a joint between two selected objects moves the one selected last.&lt;br&gt;While playing, hold the &lt;b&gt;left mouse button&lt;/b&gt; to pull a body toward the cursor with a spring.&lt;br&gt;UR5e arm: &lt;b&gt;W S A D&lt;/b&gt; move along the floor, &lt;b&gt;R F&lt;/b&gt; move up and down, &lt;b&gt;Z X&lt;/b&gt; rotate, and &lt;b&gt;Space&lt;/b&gt; operates the gripper. You can also select an object and use “Move Arm to This Object” in the inspector.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Robot World&lt;/h3&gt;Box3D simulates rigid bodies and joints. The robot code applies torque from servos and DC motors at each substep. Joint feedback comes from encoder models. Ground-truth poses and angles are visible in Plots and the Laboratory.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Custom Commands and Plugins&lt;/h3&gt;Plugins → New Plugin… creates a plugin.py file with a command that appears in the Plugins menu, Ctrl+K, the API Console, and the agent&apos;s tools. Save the file to reload the plugin. The API Console shows editor actions as Python calls you can reuse in your own commands. See docs/plugins.md for details.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="741"/>
+        <location filename="../editor/MainWindow.cpp" line="743"/>
         <source>&lt;b&gt;Kinetica Editor 0.1&lt;/b&gt;&lt;br&gt;Редактор робототехники: звенья, суставы, приводы, датчики.&lt;br&gt;Физика твёрдых тел — Box3D. C++17 · Qt 6 · OpenGL 3.0</source>
         <translation>&lt;b&gt;Kinetica Editor 0.1&lt;/b&gt;&lt;br&gt;Robotics editor: links, joints, actuators, sensors.&lt;br&gt;Solid body physics - Box3D. C++17 · Qt 6 · OpenGL 3.0</translation>
     </message>
@@ -3014,37 +3014,42 @@ Channel %5 — right-click to plot</translation>
         <translation>body and what it encounters</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="131"/>
+        <location filename="../editor/SceneBuilder.cpp" line="134"/>
         <source>. Правка сохранена.</source>
         <translation>. Changes saved.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="131"/>
+        <location filename="../editor/SceneBuilder.cpp" line="134"/>
         <source>▶ Пуск</source>
         <translation>▶ Play</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="162"/>
+        <location filename="../editor/SceneBuilder.cpp" line="165"/>
         <source>в файле нет треугольников</source>
         <translation>No triangles in the file</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="231"/>
+        <location filename="../editor/SceneBuilder.cpp" line="234"/>
         <source>Сначала выберите объект — или создайте его кнопкой сверху</source>
         <translation>Select the object first, or create it with a button on top</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="359"/>
+        <location filename="../editor/SceneBuilder.cpp" line="362"/>
         <source>Идёт симуляция: свет, камеры и приводы суставов меняются на лету, на паузе работает гизмо; остальное — после ■ Стоп, который вернёт сцену, какой она была до ▶.</source>
         <translation>There is a simulation: the lights, cameras and actuators of the joints change on the fly, the gizmo works on pause; the rest is after ■ Stop, which will return the scene as it was before ←.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="416"/>
+        <location filename="../editor/SceneBuilder.cpp" line="395"/>
+        <source>Время проигрывания вышло — %1 с. ■ Стоп вернёт сцену; время задаётся в секвенсоре, поле «До»</source>
+        <translation>Playback time is over — %1 s. ■ Stop brings the scene back; the time is set in the Sequencer, the To field</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="435"/>
         <source>Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются)</source>
         <translation>Stop: the scene is back to what it was before ← (modifications during the game are not saved)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="434"/>
+        <location filename="../editor/SceneBuilder.cpp" line="453"/>
         <source>Новая сцена</source>
         <translation>New scene</translation>
     </message>
@@ -3857,6 +3862,7 @@ Situation battery: motor without power</translation>
         <translation>From</translation>
     </message>
     <message>
+        <location filename="../editor/SequencerPanel.cpp" line="85"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="134"/>
         <source>До</source>
         <translation>To</translation>
@@ -4878,6 +4884,7 @@ At the range limit</translation>
 Sample </translation>
     </message>
     <message>
+        <location filename="../editor/SequencerPanel.cpp" line="91"/>
         <location filename="../editor/SequencerTimeline.cpp" line="51"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="85"/>
         <source> с</source>
@@ -5222,150 +5229,160 @@ Sample </translation>
         <translation>Position, m</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="49"/>
+        <location filename="../editor/SequencerPanel.cpp" line="50"/>
         <source>Какая секвенция открыта. Секвенций в сцене сколько угодно: сценарии, записанные прогоны</source>
         <translation>Sequences in the scene as many as you like: scripts, recorded runs</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="52"/>
+        <location filename="../editor/SequencerPanel.cpp" line="53"/>
         <source>Новая секвенция, пустая</source>
         <translation>New Empty Sequence</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="53"/>
+        <location filename="../editor/SequencerPanel.cpp" line="54"/>
         <source>▶ в Пуске</source>
         <translation>▶ In Play</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="53"/>
+        <location filename="../editor/SequencerPanel.cpp" line="54"/>
         <source>Пуск играет эту секвенцию: её тела идут по дорожкам как анимация и толкают встречное. Выключено — секвенция только для просмотра, физика тел своя (так приходит запись физики)</source>
         <translation>The starter plays this sequence: its bodies go down the tracks like animation and push oncoming things. It&apos;s off -- it&apos;s just for viewing, it&apos;s own body physics (so comes the physics record)</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="55"/>
+        <location filename="../editor/SequencerPanel.cpp" line="56"/>
         <source>Бегунок в начало</source>
         <translation>Go to Start</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="56"/>
-        <location filename="../editor/SequencerPanel.cpp" line="208"/>
+        <location filename="../editor/SequencerPanel.cpp" line="57"/>
+        <location filename="../editor/SequencerPanel.cpp" line="228"/>
         <source>▶ Просмотр</source>
         <translation>▶ Preview</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="56"/>
+        <location filename="../editor/SequencerPanel.cpp" line="57"/>
         <source>Проиграть секвенцию в правке: объекты едут по дорожкам. Пробел над секвенсором — проиграть и остановить, бегунок остаётся, где остановили</source>
         <translation>Lose the sequence in editing: objects go on tracks. The gap above the sequencer lose and stop, the runner stays where they stopped</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="58"/>
+        <location filename="../editor/SequencerPanel.cpp" line="59"/>
         <source>↻ Петля</source>
         <translation>↻ Loop</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="58"/>
+        <location filename="../editor/SequencerPanel.cpp" line="59"/>
         <source>После последнего ключа — сначала</source>
         <translation>After the last key, first</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="59"/>
+        <location filename="../editor/SequencerPanel.cpp" line="60"/>
         <source>◆ Ключ</source>
         <translation>◆ Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="60"/>
+        <location filename="../editor/SequencerPanel.cpp" line="61"/>
         <source>◈ Автоключ</source>
         <translation>◈ Auto Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="60"/>
+        <location filename="../editor/SequencerPanel.cpp" line="61"/>
         <source>Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам. Выключен - ключ ставит только «◆ Ключ»</source>
         <translation>While on: when an object is moved or turned, its key is put at the playhead by itself. Off - only &quot;◆ Key&quot; puts a key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="59"/>
+        <location filename="../editor/SequencerPanel.cpp" line="60"/>
         <source>Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)</source>
         <translation>The Key to Dedicated Objects at the Moment of a Runner: Where They Stand Now (I)</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="68"/>
-        <location filename="../editor/SequencerPanel.cpp" line="279"/>
+        <location filename="../editor/SequencerPanel.cpp" line="69"/>
+        <location filename="../editor/SequencerPanel.cpp" line="299"/>
         <source>⏺ Запись</source>
         <translation>⏺ Record</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="68"/>
+        <location filename="../editor/SequencerPanel.cpp" line="69"/>
         <source>Записать физику: сцена играет, каждое свободное тело пишется каждый кадр; ещё раз или «Стоп» — запись становится новой секвенцией «Запись N»</source>
         <translation>Record physics: the scene plays, each free body is written every frame; once again or &quot;Stop&quot; - the record becomes a new sequence &quot;Write N ”</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="70"/>
+        <location filename="../editor/SequencerPanel.cpp" line="71"/>
         <source>〰 Кривые</source>
         <translation>〰 Curves</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="70"/>
+        <location filename="../editor/SequencerPanel.cpp" line="71"/>
         <source>Кривые дорожки выделенного объекта: место и поворот от времени. Ключ тянется вверх-вниз (значение) и вдоль (время); правый щелчок — как ключ переходит к следующему: линейно, плавно, ступенькой</source>
         <translation>The curves of the selected object: place and turn from time. Key stretches up and down (value) and along (time); right click - as the key goes to the following: linearly, smoothly, with a step</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="74"/>
+        <location filename="../editor/SequencerPanel.cpp" line="75"/>
         <source>Фильтр дорожек</source>
         <translation>Filter tracks</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="208"/>
+        <location filename="../editor/SequencerPanel.cpp" line="92"/>
+        <source>без конца</source>
+        <translation>no end</translation>
+    </message>
+    <message>
+        <location filename="../editor/SequencerPanel.cpp" line="94"/>
+        <source>Время проигрывания: «Пуск» и «Запись» идут до этой секунды и встают на паузу; с «Петлёй» начинают сначала. 0 — без конца</source>
+        <translation>Playback time: Play and Record run to this second and pause; with Loop they start over. 0 — no end</translation>
+    </message>
+    <message>
+        <location filename="../editor/SequencerPanel.cpp" line="228"/>
         <source>■ Стоп</source>
         <translation>■ Stop</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="225"/>
+        <location filename="../editor/SequencerPanel.cpp" line="245"/>
         <source>◆ Линейно — по прямой</source>
         <translation>Linearly - in a straight line</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="225"/>
+        <location filename="../editor/SequencerPanel.cpp" line="245"/>
         <source>● Плавно — кривая через ключи</source>
         <translation>Smooth - curve through the keys</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="225"/>
+        <location filename="../editor/SequencerPanel.cpp" line="245"/>
         <source>■ Ступенька — держать до следующего</source>
         <translation>■ The step is to hold until the next</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="233"/>
+        <location filename="../editor/SequencerPanel.cpp" line="253"/>
         <source>Бегунок на ключ</source>
         <translation>Go to Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="234"/>
+        <location filename="../editor/SequencerPanel.cpp" line="254"/>
         <source>Удалить ключ</source>
         <translation>Delete Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="239"/>
+        <location filename="../editor/SequencerPanel.cpp" line="259"/>
         <source>Ключи ставятся в правке: остановите «Пуск»</source>
         <translation>The keys are put in the edit: stop &quot;Start ”</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="240"/>
+        <location filename="../editor/SequencerPanel.cpp" line="260"/>
         <source>Выделите объект для ключа</source>
         <translation>Select an object for the key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="251"/>
-        <location filename="../editor/SequencerPanel.cpp" line="284"/>
+        <location filename="../editor/SequencerPanel.cpp" line="271"/>
+        <location filename="../editor/SequencerPanel.cpp" line="308"/>
         <source>%1 / %2 с</source>
         <translation>%1 /%2 s</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="266"/>
+        <location filename="../editor/SequencerPanel.cpp" line="286"/>
         <source>нет секвенций</source>
         <translation>No seq.</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="279"/>
+        <location filename="../editor/SequencerPanel.cpp" line="299"/>
         <source>■ Закончить запись</source>
         <translation>■ Stop Recording</translation>
     </message>
@@ -5380,7 +5397,7 @@ Sample </translation>
         <translation>All Tracks</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerTimeline.cpp" line="281"/>
+        <location filename="../editor/SequencerTimeline.cpp" line="290"/>
         <source>Выделите объект и нажмите «◆ Ключ» (I): секвенция запомнит, где он стоит в момент бегунка. Передвиньте бегунок, переставьте объект, ещё ключ — между ключами он поедет сам. Или «▶● Запись» сверху: физика станет секвенцией.</source>
         <translation>Select an object and press ◆ Key (I) to store its pose at the playhead. Move the playhead, reposition the object, and add another key. Its pose interpolates between keys. Use Record in the toolbar to capture the simulation as a sequence.</translation>
     </message>
@@ -6783,32 +6800,32 @@ Sample </translation>
         <translation>The force is applied to this body at its own point: off the centre of mass it turns the body. The arrow&apos;s end is its direction and strength</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="123"/>
+        <location filename="../editor/SceneBuilder.cpp" line="126"/>
         <source>Тяжесть, размер мира и настройки физики меняют только перезапуском сцены</source>
         <translation>Gravity, the world&apos;s size and the physics settings change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="124"/>
+        <location filename="../editor/SceneBuilder.cpp" line="127"/>
         <source>Группы меняют только перезапуском сцены</source>
         <translation>Groups change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="125"/>
+        <location filename="../editor/SceneBuilder.cpp" line="128"/>
         <source>Массивы меняют только перезапуском сцены</source>
         <translation>Arrays change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="126"/>
+        <location filename="../editor/SceneBuilder.cpp" line="129"/>
         <source>Датчики, колёса, батареи и пульты меняют только перезапуском сцены</source>
         <translation>Sensors, wheels, batteries and controllers change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="127"/>
+        <location filename="../editor/SceneBuilder.cpp" line="130"/>
         <source>Тела и коллайдеры меняют только перезапуском сцены</source>
         <translation>Bodies and colliders change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="128"/>
+        <location filename="../editor/SceneBuilder.cpp" line="131"/>
         <source>Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены</source>
         <translation>A joint&apos;s kind, links, frames and limits change only when the scene is restarted</translation>
     </message>

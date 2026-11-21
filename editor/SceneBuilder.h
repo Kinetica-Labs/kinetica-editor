@@ -150,6 +150,7 @@ public:
     uint32_t entityOfBody(int body) const; // the drawn id of a body: an entity, an array's copy... (0: none)
     // Play mode: the simulation's newest picture (the live pose of the selected object on pause).
     void onSimulationSnapshot(const ke::Frame& s);
+    void playRangeEnded(bool recording); // the run reached the scene's play range end (world duration)
     void play();
     void pause();
     void stop();

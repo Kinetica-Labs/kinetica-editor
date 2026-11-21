@@ -2,7 +2,7 @@
 // by hand and compared with diff. A sample:
 //
 //   # Kinetica scene
-//   world gravity 0 -9.81 0 size 4 3 4
+//   world gravity 0 -9.81 0 size 4 3 4 [duration 10]
 //   physics substeps 16 contact_hertz 120 contact_damping 10 joint_hertz 240 joint_damping 2 sleeping 1 continuous 1 linear_damping 0 angular_damping 0
 //   entity "Base"
 //     object id 3 visible 1 locked 0
@@ -511,7 +511,7 @@ static std::string physicsText(const PhysicsSettings& p) {
 }
 
 static std::string worldLine(const WorldSettings& w) {
-    return "world gravity " + vec(w.gravity) + " size " + vec(w.size) + "\n";
+    return "world gravity " + vec(w.gravity) + " size " + vec(w.size) + (w.duration > 0 ? " duration " + num(w.duration) : "") + "\n";
 }
 
 std::string worldText(const WorldSettings& w) { return worldLine(w) + physicsText(w.physics); }
@@ -543,7 +543,8 @@ std::string SceneGraph::save() const {
 static bool readWorld(LineReader& r, WorldSettings& w, std::string& bad) {
     while (!r.done()) {
         const std::string k = r.key();
-        const bool ok = k == "gravity" ? r.vector(w.gravity) : k == "size" ? r.vector(w.size) : false;
+        const bool ok = k == "gravity" ? r.vector(w.gravity) : k == "size" ? r.vector(w.size)
+                      : k == "duration" ? r.number(w.duration) && w.duration >= 0 && w.duration <= 86400 : false;
         if (!ok) return fail(bad, k);
     }
     return true;
