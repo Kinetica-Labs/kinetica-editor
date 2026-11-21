@@ -49,6 +49,7 @@
 #include "SceneMarkers.h"
 #include "scene/Document.h"
 #include "scene/Kinematics.h"
+#include "scene/LiveEdit.h"
 #include "SimController.h"
 #include "scene/SceneGraph.h"
 
@@ -139,6 +140,7 @@ public:
     // Play / pause / stop / one step.
     Mode mode() const { return mode_; }
     bool editing() const { return mode_ == Mode::Edit; }
+    ke::LiveEdit::Reload lastReload() const { return lastReload_; }
     bool gizmoAllowed() const { return mode_ != Mode::Playing; } // edit mode, or paused
     // IK goals alone are selected: handles, as MuJoCo's mocap bodies - the simulation never moves them, so their
     // gizmo works while the scene plays too, and the arm follows by its motors (followGoals).
@@ -353,7 +355,7 @@ private:
     // Editing
     void applyEdit(uint32_t entityId);          // every edit calls this after: edit mode redraws, play mode updates
     void applyEditDuringPlay(uint32_t entityId); // an edit while the simulation runs (see the top)
-    void reloadNeeded(const QString& why);
+    void reloadNeeded(ke::LiveEdit::Reload what);
     void onObjectEdited();
     void onDetailsEdited();
     void onWorldEdited(const ke::WorldSettings& settings);
@@ -642,6 +644,7 @@ private:
     QLabel* emptyHint_ = nullptr;
     QLabel* playHint_ = nullptr;     // "Остановите ■, чтобы править"
     InlineBanner* banner_ = nullptr; // why something does not work, and the fix
+    ke::LiveEdit::Reload lastReload_ = ke::LiveEdit::Reload::None; // what the last edit that stopped the world could not be taken for
     bool stickyBanner_ = false;      // a message about the whole scene (a restart needed): kept until ▶
     QLabel* headerIcon_ = nullptr;
     QLabel* headerName_ = nullptr;

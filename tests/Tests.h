@@ -23,6 +23,8 @@ void testDocumentIds();
 void testDocumentLoadAndNewScene();
 void testFloorSceneIsTheWindowsFloor();
 void testHistoryAnswers();
+// LiveEditTests.cpp
+void testLiveEditClassifier();
 // CoreTests.cpp
 void testProbe();
 void testUnitsAndFields();

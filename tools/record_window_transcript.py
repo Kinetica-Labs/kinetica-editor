@@ -57,6 +57,7 @@ def F(note, path, text):
 IO_TEXT = ("the window prints the operating system's message as the Qt catalogue of that machine translates it (masked: a Qt without "
            "the Russian catalogue says it in English, and the empty name is Qt's English text); the host will say it from its own Russian set")
 JSON_TEXT = "the window prints Qt's parser message; the host prints «не JSON: <что> (знак N)»"
+JOINT_SHAPE = "the window learns of a joint's refusal a frame later and answers until_stop; the host calls setJoints in place and answers play_stopped with reload joints"
 BOX = {"shape": "box", "role": "rigid"}
 
 TRANSCRIPT = [
@@ -309,28 +310,27 @@ TRANSCRIPT = [
     R("the light after the stop", "scene_get", {"id": 17}),
     R("the joint's target after the stop", "scene_get", {"id": 5}),
     R("a world again", "sim_step", {"frames": 2}),
-    R("a body moved while built: the world cannot take it", "scene_move", {"ids": [2], "by": [0, 0.1, 0]}),
+    R("a body moved while built: the world cannot take it, so it stops and says so (play_stopped, reload)", "scene_move", {"ids": [2], "by": [0, 0.1, 0]}),
     R("the mode right after: the world is gone", "sim_state"),
     R("the body moved is kept after the world is gone", "scene_get", {"id": 2}),
     R("sim_step 1: a new world, from frame 0", "sim_step", {"frames": 1}),
-    R("a body added while built", "scene_add", dict(BOX, shape="sphere", position=[0, 2, 0], size=[0.1, 0.1, 0.1], name="Шар")),
+    R("a body added while built: the world stops, play_stopped", "scene_add", dict(BOX, shape="sphere", position=[0, 2, 0], size=[0.1, 0.1, 0.1], name="Шар")),
     R("the mode right after the body was added", "sim_state"),
     R("sim_step 1 after the body: from frame 0", "sim_step", {"frames": 1}),
-    R("the world's gravity edited while built: the world cannot take it", "world_set", {"line": "world", "key": "gravity", "values": [0, -5, 0]}),
+    R("the world's gravity edited while built: the world cannot take it, play_stopped", "world_set", {"line": "world", "key": "gravity", "values": [0, -5, 0]}),
     R("the mode after the gravity edit", "sim_state"),
     R("the scene text after the gravity edit: the world line keeps the new gravity", "scene_get"),
     R("sim_step 2: a new world, from frame 0", "sim_step", {"frames": 2}),
     R("a joint's shape edited while built (anchor on the post): the window learns of the refusal a frame later", "scene_set",
-      {"id": 5, "line": "link", "key": "anchor_a", "values": [0, 0.4, 0]}),
+      {"id": 5, "line": "link", "key": "anchor_a", "values": [0, 0.4, 0]}, by_design=JOINT_SHAPE),
     R("sim_state polled until it says only the mode (the sim thread's refusal arrives asynchronously: the first reading says edit but still carries the dropped world's keys)",
       "sim_state", settle={"mode": "edit", "ok": True}),
     R("the joint's anchor after the refusal: the edit is kept", "scene_get", {"id": 5, "line": "link", "key": "anchor_a"}),
     R("sim_step 1 after the refusal: a new world, from frame 0", "sim_step", {"frames": 1}),
-    R("edit_undo while built: the last edit was the joint's anchor", "edit_undo",
-      by_design="the window's answer has no note about the world; the host adds play_stopped and reload (or until_stop)"),
+    R("edit_undo while built: the last edit was the joint's anchor; like any edit it says until_stop (the window learns of the joint's refusal a frame later)", "edit_undo", by_design=JOINT_SHAPE),
     R("sim_state polled until clean after the undo while built (the first reading says edit with the dropped world's keys)", "sim_state", settle={"mode": "edit", "ok": True}),
     R("a world to redo into", "sim_step", {"frames": 1}),
-    R("edit_redo while built", "edit_redo", by_design="as the undo above"),
+    R("edit_redo while built: until_stop as the undo above", "edit_redo", by_design=JOINT_SHAPE),
     R("sim_state polled until clean after the redo while built", "sim_state", settle={"mode": "edit", "ok": True}),
     R("a world once more", "sim_step", {"frames": 2}),
     R("scene_open of a missing file while built: the world must stay", "scene_open", {"file": "{DIR}/missing.kscene"}, mask=["error"], by_design=IO_TEXT),

@@ -85,11 +85,13 @@ void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& r
     const bool guarded = !name.startsWith("ui_") && !query;
     if (guarded) builder_->apiCallStarted();
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
-    const bool playing = core && core->edit && !builder_->editing(); // an edit of a running scene: Stop takes it back
+    const bool playing = ((core && core->edit) || name == "edit_undo" || name == "edit_redo") && !builder_->editing(); // an edit of a running scene
     it->second.run(args, [this, source, name, args, reply, guarded, query, playing](QJsonObject answer) {
         if (guarded) builder_->apiCallFinished();
-        if (playing && answer.value("ok").toBool())
-            answer.insert("until_stop", "сцена играет: правка действует до ■ Стоп - sim_stop вернёт сцену, какой она была до ▶");
+        if (playing && answer.value("ok").toBool()) { // decided after the edit: the one the world could not take stopped it, and is kept
+            if (builder_->editing()) answer.insert("play_stopped", true), answer.insert("reload", ke::reloadWord(builder_->lastReload()));
+            else answer.insert("until_stop", "сцена играет: правка действует до ■ Стоп - sim_stop вернёт сцену, какой она была до ▶");
+        }
         const QJsonObject used = answer.contains("_args") ? answer.take("_args").toObject() : args; // what the window filled in
         if (!query && !pluginOps_.count(name)) journal(source, name, used, answer); // a plugin's command: its edits are the lines
         for (const Listener& l : listeners_) l(source, name, args, answer, query);

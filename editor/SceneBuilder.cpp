@@ -66,51 +66,6 @@ void SceneBuilder::afterCardEdit(uint32_t id, bool click) {
     if (click) fillInspector();
 }
 
-namespace {
-std::string arrayText(const SceneGraph& g) {
-    SceneGraph arrays;
-    arrays.arrays = g.arrays;
-    return arrays.save();
-}
-std::string entitiesText(const SceneGraph& g) {
-    SceneGraph entities;
-    entities.entities = g.entities;
-    return entities.save();
-}
-std::string worldText(const SceneGraph& g) {
-    SceneGraph world;
-    world.world = g.world;
-    return world.save();
-}
-std::string lightsText(const SceneGraph& g) {
-    SceneGraph lights;
-    lights.lights = g.lights;
-    lights.cameras = g.cameras;
-    return lights.save();
-}
-std::string jointsText(const SceneGraph& g) {
-    SceneGraph joints;
-    joints.joints = g.joints;
-    return joints.save();
-}
-std::string devicesText(const SceneGraph& g, bool duties = true) {
-    SceneGraph devices;
-    devices.batteries = g.batteries;
-    devices.drivers = g.drivers;
-    if (!duties)
-        for (DriverObject& d : devices.drivers) d.duty = 0;
-    devices.controllers = g.controllers;
-    devices.sensors = g.sensors;
-    devices.wheels = g.wheels;
-    return devices.save();
-}
-std::string groupsText(const SceneGraph& g) {
-    SceneGraph groups;
-    groups.groups = g.groups;
-    return groups.save();
-}
-} // namespace
-
 // An edit while the robot's world runs. What the world can take in place goes to it between frames:
 // the lights and cameras (the physics never sees them, the next frame shows them), the joints' drives
 // - a servo's target typed, an IK goal dragged (RobotWorld::setJoints) - and the drivers' duties (setDuties). What the world is built of - the
@@ -119,46 +74,37 @@ std::string groupsText(const SceneGraph& g) {
 // the scene plays moves the goal's mark in the running world (RobotWorld::setGoals) and its arm's targets.
 void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     (void)entityId; // every change is found by comparing, whichever edit made it
-    if (worldText(graph_) != worldText(simGraph_)) return reloadNeeded(uiText("Kinetica", "Тяжесть, размер мира и настройки физики меняют только перезапуском сцены"));
-    if (groupsText(graph_) != groupsText(simGraph_)) return reloadNeeded(uiText("Kinetica", "Группы меняют только перезапуском сцены"));
-    if (arrayText(graph_) != arrayText(simGraph_)) return reloadNeeded(uiText("Kinetica", "Массивы меняют только перезапуском сцены"));
-    if (devicesText(graph_, false) != devicesText(simGraph_, false)) return reloadNeeded(uiText("Kinetica", "Датчики, колёса, батареи и пульты меняют только перезапуском сцены"));
-    if (devicesText(graph_) != devicesText(simGraph_)) { // a driver's duty: the bridge takes it at the next substep
+    const LiveEdit le = ke::liveEdit(simGraph_, graph_);
+    if (le.reload != LiveEdit::Reload::None) return reloadNeeded(le.reload);
+    if (le.duties) { // a driver's duty: the bridge takes it at the next substep
         const std::vector<DriverObject> drivers = graph_.drivers;
         ctrl_->post([drivers](Simulation& s) {
             if (s.robot()) s.robot()->setDuties(drivers);
         }, "duties");
     }
-    SceneGraph goalsAside = graph_, before = simGraph_; // the goals are handles: no body of the world
-    for (SceneGraph* g : {&goalsAside, &before})
-        g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }), g->entities.end());
-    if (entitiesText(goalsAside) != entitiesText(before)) return reloadNeeded(uiText("Kinetica", "Тела и коллайдеры меняют только перезапуском сцены"));
     refreshLightsAndCameras();
-    if (lightsText(graph_) != lightsText(simGraph_)) {
+    if (le.lights) {
         const std::vector<Light> lights = graph_.lights;
         const std::vector<Camera> cameras = graph_.cameras;
         ctrl_->post([lights, cameras](Simulation& s) {
             if (s.robot()) s.robot()->setLightsAndCameras(lights, cameras);
         }, "lights");
     }
-    std::vector<Entity> goals, goalsBefore; // made, moved or removed: the running world's marks and goal channels follow
-    for (const Entity& e : graph_.entities) // the handles: IK goals and cameras' targets
-        if (isHandle(e)) goals.push_back(e);
-    for (const Entity& e : simGraph_.entities)
-        if (isHandle(e)) goalsBefore.push_back(e);
-    SceneGraph a, z;
-    a.entities = goals, z.entities = goalsBefore;
-    if (a.save() != z.save())
+    if (le.goals) { // made, moved or removed: the running world's marks and goal channels follow
+        std::vector<Entity> goals; // the handles: IK goals and cameras' targets
+        for (const Entity& e : graph_.entities)
+            if (isHandle(e)) goals.push_back(e);
         ctrl_->post([goals](Simulation& s) {
             if (s.robot()) s.robot()->setGoals(goals);
         }, "goals");
-    if (jointsText(graph_) != jointsText(simGraph_)) {
+    }
+    if (le.joints) {
         const std::vector<JointObject> joints = graph_.joints;
         QPointer<SceneBuilder> self(this);
         ctrl_->post([joints, self](Simulation& s) {
             if (!s.robot() || s.robot()->setJoints(*s.physics(), joints)) return;
             QMetaObject::invokeMethod(self, [self] {
-                if (self && !self->editing()) self->reloadNeeded(uiText("Kinetica", "Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены"));
+                if (self && !self->editing()) self->reloadNeeded(LiveEdit::Reload::Joints);
             }, Qt::QueuedConnection);
         }, "joints");
     }
@@ -166,9 +112,17 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
 }
 
 // A change the running simulation cannot take: stop with the edit kept, and say what to do.
-void SceneBuilder::reloadNeeded(const QString& why) {
+void SceneBuilder::reloadNeeded(LiveEdit::Reload what) {
+    static const std::map<LiveEdit::Reload, const char*> why = {
+        {LiveEdit::Reload::World, "Тяжесть, размер мира и настройки физики меняют только перезапуском сцены"},
+        {LiveEdit::Reload::Groups, "Группы меняют только перезапуском сцены"},
+        {LiveEdit::Reload::Arrays, "Массивы меняют только перезапуском сцены"},
+        {LiveEdit::Reload::Devices, "Датчики, колёса, батареи и пульты меняют только перезапуском сцены"},
+        {LiveEdit::Reload::Bodies, "Тела и коллайдеры меняют только перезапуском сцены"},
+        {LiveEdit::Reload::Joints, "Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены"}};
+    lastReload_ = what;
     returnToEdit(true);
-    showBanner(why + uiText("Kinetica", ". Правка сохранена."), uiText("Kinetica", "▶ Пуск"), [this] { play(); });
+    showBanner(QString(uiText("Kinetica", why.at(what))) + uiText("Kinetica", ". Правка сохранена."), uiText("Kinetica", "▶ Пуск"), [this] { play(); });
     stickyBanner_ = true;
 }
 

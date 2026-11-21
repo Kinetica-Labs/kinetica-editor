@@ -59,6 +59,7 @@ add_library(kecore STATIC
   src/scene/SceneGraph.h   src/scene/SceneGraph.cpp src/scene/SceneHierarchy.cpp src/scene/EntityShapes.cpp
   src/scene/SceneEdits.h   src/scene/SceneEdits.cpp
   src/scene/Document.h     src/scene/Document.cpp
+  src/scene/LiveEdit.h     src/scene/LiveEdit.cpp
   src/scene/ArgsSchema.h   src/scene/ArgsSchema.cpp
   src/scene/SceneActions.h src/scene/SceneActions.cpp src/scene/SceneActionsTree.cpp
   src/scene/Assembly.h     src/scene/Assembly.cpp src/scene/AssemblyPresets.cpp
@@ -225,6 +226,7 @@ if(KE_TESTS)
     tests/main.cpp tests/TestRunner.h tests/Tests.h
     tests/MathTests.cpp
     tests/JsonTests.cpp tests/ArgsSchemaTests.cpp tests/DocumentTests.cpp
+    tests/LiveEditTests.cpp
     tests/CoreTests.cpp
     tests/RuntimePolicyTests.cpp
     tests/DeviceTests.cpp

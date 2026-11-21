@@ -317,7 +317,7 @@ void testCyclePicking(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
 // to it in the running world - nothing is built again, the post's body keeps its index; Stop brings the
 // target back as it was authored, as in Unity. A change of what the world is built of (the post's size)
 // cannot be taken in place: the scene stops with the edit kept.
-void testLiveEdit(Checker& c, QMainWindow&, SceneBuilder& b, Viewport* v) {
+void testLiveEdit(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.newScene();
     uint32_t post = 0, joint = 0;
     std::string error;
@@ -375,6 +375,22 @@ void testLiveEdit(Checker& c, QMainWindow&, SceneBuilder& b, Viewport* v) {
     for (const Entity& e : b.graph().entities)
         if (e.id == post) size = e.size.y;
     c.check(b.editing() && size == 1.2f, "a body resized during play stops the scene, the edit kept");
+    // The answer says which it was: what the world took is until_stop, what stopped it is play_stopped and why.
+    EditorOps& ops = *dynamic_cast<MainWindow&>(w).operators();
+    b.play();
+    waitFrames(v, 10, 15000);
+    const QJsonObject taken = ops.runNow("scene_set", {{"id", int(joint)}, {"line", "drive"}, {"key", "target"}, {"values", QJsonArray{0.3}}});
+    c.check(taken.value("ok").toBool() && taken.contains("until_stop") && !taken.contains("play_stopped") && !b.editing(),
+            "an edit the running world took: until_stop, the world goes on");
+    const QJsonObject undone = ops.runNow("edit_undo", {});
+    c.check(undone.value("ok").toBool() && undone.contains("until_stop") && !undone.contains("play_stopped") && !b.editing(),
+            "edit_undo of such an edit while the world is built: until_stop too");
+    const QJsonObject moved = ops.runNow("scene_move", {{"ids", QJsonArray{int(post)}}, {"by", QJsonArray{0, 0.1, 0}}});
+    c.check(moved.value("ok").toBool() && !moved.contains("until_stop") && moved.value("play_stopped").toBool() &&
+                moved.value("reload").toString() == "bodies" && b.editing(),
+            "an edit that stopped the world: play_stopped and reload, no until_stop, mode edit, the edit kept");
+    const QJsonObject idle = ops.runNow("scene_move", {{"ids", QJsonArray{int(post)}}, {"by", QJsonArray{0, 0.1, 0}}});
+    c.check(idle.value("ok").toBool() && !idle.contains("until_stop") && !idle.contains("play_stopped"), "no world, no note");
 }
 
 // The right-click menu: "Вращение" and "Локальная" switch the gizmo, and the toolbar follows.
