@@ -252,6 +252,7 @@ class SceneCore(unittest.TestCase):
                 scene.add_force("radial", "impulse", radius=0)
             self.assertIn("radius", str(caught.exception))
             push = scene.add_force()
+            push.radius = 0  # every body, wherever it stands: a reach a radial force cannot have
             with self.assertRaises(OperationError):
                 push.shape = "radial"
             push.radius = 3

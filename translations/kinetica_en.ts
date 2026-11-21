@@ -1187,7 +1187,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="562"/>
-        <location filename="../editor/SceneBuilderForces.cpp" line="38"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="114"/>
         <location filename="../editor/SelfTestForces.cpp" line="53"/>
         <source>Сила</source>
         <translation>Force</translation>
@@ -1835,7 +1835,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowLayout.cpp" line="148"/>
-        <location filename="../editor/SceneBuilderForces.cpp" line="50"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="126"/>
         <source>Режим</source>
         <translation>Mode</translation>
     </message>
@@ -2353,22 +2353,22 @@ The picture is being prepared…</translation>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
         <source>Толчок: один раз, вдоль оси +Y силы, Н·с</source>
-        <translation>Push: once, along the force's +Y axis, N s</translation>
+        <translation>Push: once, along the force&apos;s +Y axis, N s</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
         <source>Взрыв: один раз, от точки силы во все стороны, Н·с</source>
-        <translation>Blast: once, away from the force's point in every direction, N s</translation>
+        <translation>Blast: once, away from the force&apos;s point in every direction, N s</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
         <source>Тяга: всё время, вдоль оси +Y силы, Н</source>
-        <translation>Thrust: all the time, along the force's +Y axis, N</translation>
+        <translation>Thrust: all the time, along the force&apos;s +Y axis, N</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
         <source>Притяжение: всё время, к точке силы, Н</source>
-        <translation>Pull: all the time, toward the force's point, N</translation>
+        <translation>Pull: all the time, toward the force&apos;s point, N</translation>
     </message>
     <message>
         <location filename="../editor/ManyPanels.cpp" line="22"/>
@@ -4361,7 +4361,7 @@ or create one from the toolbar.</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="294"/>
-        <location filename="../editor/SceneBuilderForces.cpp" line="55"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="131"/>
         <source>Радиус, м</source>
         <translation>Radius, m</translation>
     </message>
@@ -4407,7 +4407,7 @@ or create one from the toolbar.</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="315"/>
-        <location filename="../editor/SceneBuilderForces.cpp" line="44"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="120"/>
         <source>Форма</source>
         <translation>Shape</translation>
     </message>
@@ -4673,7 +4673,7 @@ or create one from the toolbar.</translation>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="691"/>
         <source>сила — толкает тела мира</source>
-        <translation>force: pushes the world's bodies</translation>
+        <translation>force: pushes the world&apos;s bodies</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="692"/>
@@ -6262,7 +6262,7 @@ Sample </translation>
         <translation>Spotlight</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="317"/>
+        <location filename="../src/scene/SceneActions.cpp" line="318"/>
         <source>Добавлен коллайдер «Авто»: тело сталкивается своей формой</source>
         <translation>Added collider “Auto”: the body faces its shape</translation>
     </message>
@@ -6613,108 +6613,118 @@ Sample </translation>
         <translation>Gripper Position Error</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="40"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="56"/>
+        <source>Направление</source>
+        <translation>Direction</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="61"/>
+        <source>Радиус</source>
+        <translation>Radius</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="116"/>
         <source>Сила действует на центр масс твёрдых тел, пока мир идёт, и не крутит их. Цвет — в блоке «Объект»</source>
         <translation>A force acts on the centre of mass of rigid bodies while the world runs and does not spin them. The colour is in the Object block</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="44"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="120"/>
         <source>Направленная</source>
         <translation>Directional</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="44"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="120"/>
         <source>Радиальная</source>
         <translation>Radial</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="49"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="125"/>
         <source>Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная)</source>
         <translation>A directional force pushes along its own +Y axis, a radial one away from its point (toward it when the strength is negative)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="50"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="126"/>
         <source>Импульс</source>
         <translation>Impulse</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="50"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="126"/>
         <source>Постоянная</source>
         <translation>Constant</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="52"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="128"/>
         <source>Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время</source>
         <translation>An impulse fires once, at its set time or by the button; a constant force acts all the time</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="53"/>
-        <location filename="../editor/SceneBuilderForces.cpp" line="54"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="129"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="130"/>
         <source>Сила, Н·с</source>
         <translation>Strength, N s</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="54"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="130"/>
         <source>Сила, Н</source>
         <translation>Strength, N</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="56"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="132"/>
         <source>0 у направленной — без предела</source>
         <translation>0 on a directional force means no limit</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="57"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="133"/>
         <source>Спад</source>
         <translation>Falloff</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="57"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="133"/>
         <source>Нет</source>
         <translation>None</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="57"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="133"/>
         <source>Линейный</source>
         <translation>Linear</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="57"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="133"/>
         <source>Обратный квадрат</source>
         <translation>Inverse square</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="59"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="135"/>
         <source>Момент, с</source>
         <translation>Time, s</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="60"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="136"/>
         <source>Время мира от пуска, когда импульс срабатывает сам</source>
         <translation>World time from play at which the impulse fires by itself</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="61"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="137"/>
         <source>Действует на</source>
         <translation>Acts on</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="64"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="140"/>
         <source>Все тела</source>
         <translation>All bodies</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="70"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="146"/>
         <source>Только тела с этой меткой (метки — в блоке «Объект»); пусто — все тела</source>
         <translation>Only bodies with this tag (tags are in the Object block); empty means all bodies</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="72"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="148"/>
         <source>Сработать</source>
         <translation>Fire</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="74"/>
+        <location filename="../editor/SceneBuilderForces.cpp" line="150"/>
         <source>Импульс срабатывает сейчас, в идущем мире; когда настанет его момент, он второй раз не сработает</source>
         <translation>Fires the impulse now in the running world; when its time comes it does not fire a second time</translation>
     </message>
@@ -6739,12 +6749,12 @@ Sample </translation>
         <translation>Sensors, wheels, batteries and controllers change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="136"/>
+        <location filename="../editor/SceneBuilder.cpp" line="127"/>
         <source>Тела и коллайдеры меняют только перезапуском сцены</source>
         <translation>Bodies and colliders change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="162"/>
+        <location filename="../editor/SceneBuilder.cpp" line="128"/>
         <source>Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены</source>
         <translation>A joint&apos;s kind, links, frames and limits change only when the scene is restarted</translation>
     </message>

@@ -55,9 +55,9 @@ void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport
     c.check(four && sub && sub->actions().size() == 4, "«Сила ▾» holds Толчок, Взрыв, Тяга and Притяжение, and so does «Сцена» → «Добавить» → «Сила»");
 
     struct Expect { ForceShape shape; ForceMode mode; float strength, radius; ForceFalloff falloff; };
-    const Expect table[] = {{ForceShape::Directional, ForceMode::Impulse, 5, 0, ForceFalloff::None},
+    const Expect table[] = {{ForceShape::Directional, ForceMode::Impulse, 5, 1.5f, ForceFalloff::None},
                             {ForceShape::Radial, ForceMode::Impulse, 10, 3, ForceFalloff::Linear},
-                            {ForceShape::Directional, ForceMode::Constant, 10, 0, ForceFalloff::None},
+                            {ForceShape::Directional, ForceMode::Constant, 10, 1.5f, ForceFalloff::None},
                             {ForceShape::Radial, ForceMode::Constant, -10, 5, ForceFalloff::Linear}};
     b.newScene();
     b.frameAll();
@@ -73,7 +73,7 @@ void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport
         rows = rows && f && listed(w, f->name);
         marks = marks && v->sceneMarkers().size() == markers + 1;
     }
-    c.check(defaults && selected, "each of the four makes its kind with the menu's defaults (5 / 10 / 10 / -10, radius 0 / 3 / 0 / 5), selected");
+    c.check(defaults && selected, "each of the four makes its kind with the menu's defaults (5 / 10 / 10 / -10, radius 1.5 / 3 / 1.5 / 5), selected");
     c.check(rows && marks, "each is a row of the scene list and one more wireframe in the view");
 }
 
@@ -117,6 +117,7 @@ void testCard(Checker& c, QMainWindow& w, SceneBuilder& b) {
     pump(100);
     const int panelWidth = b.inspectorPanel()->width();
     const uint32_t push = made(b, addAction(w, 0));
+    if (ops) ops->runNow("scene_set", {{"id", int(push)}, {"line", "effect"}, {"key", "radius"}, {"values", QJsonArray{0}}}); // every body: no reach of its own
     pump(100);
     const auto field = [&](const char* name) { return w.findChild<QWidget*>(name); };
     const auto shows = [&](const char* name) { return field(name) && field(name)->isVisibleTo(b.inspectorPanel()); };
@@ -230,10 +231,77 @@ void testFirePlayStop(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
 
 } // namespace
 
+// What the hand does to a force in the view: a new one stands beside the selected cube, a click on its arrow away
+// from its ring takes it, the orange point at the arrow's end turns it and the one on its reach sizes it.
+void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    b.newScene();
+    const uint32_t cube = made(b, b.createActions()[0]);
+    b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.0f, 0.5f, 0.0f), e.size = Vector3(1.0f); });
+    const auto over = [&](int kind) { // the menu's item pressed with the cube selected
+        b.select(cube);
+        pump(60);
+        addAction(w, kind)->trigger();
+        pump(60);
+        return b.selectedId();
+    };
+    const uint32_t push = over(0), blast = over(1);
+    if (!forceOf(b, push) || !forceOf(b, blast)) return void(c.check(false, "a force made with a cube selected is selected itself"));
+    const Vector3 above = forceOf(b, push)->position, beside = forceOf(b, blast)->position;
+    c.check(std::fabs(above.x) < 1e-4f && std::fabs(above.y - 1.3f) < 1e-3f && std::fabs(beside.x + 1.0f) < 1e-3f && std::fabs(beside.y - 0.5f) < 1e-3f,
+            "a new force stands beside the selected cube: a push 0.3 m over its top, a blast 0.5 m off its side");
+
+    v->setFocusBox(AABB(Vector3(-3, -1, -3), Vector3(3, 3, 3)));
+    v->frameScene();
+    b.select(0);
+    pump(100);
+    trigger(w, "toolSelect");
+    const QPointF shaft = toPoint(v->gizmoView().project(above + Vector3(0, 0.6f, 0))); // on the arrow, far from the ring it stands on
+    sendMouse(v, QEvent::MouseButtonPress, shaft, Qt::LeftButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, shaft, Qt::LeftButton, Qt::NoButton);
+    pump(80);
+    trigger(w, "toolMove");
+    c.check(b.selectedId() == push, "a click on the arrow of a directional force, away from its ring, selects it");
+
+    b.select(push);
+    pump(100);
+    std::vector<ShapeHandle> points = v->shapeHandles();
+    const bool two = points.size() == 2 && points[0].free && !points[1].free && std::fabs(points[1].reach - 1.5f) < 1e-4f;
+    c.check(two, "a selected directional force shows two orange points: the end of its arrow and its reach");
+    if (!two) return;
+    const size_t steps = b.undoTaken();
+    const auto dragTo = [&](const Vector3& from, const Vector3& to) {
+        const QPointF a = v->pixelOf(from), z = v->pixelOf(to);
+        sendMouse(v, QEvent::MouseMove, a, Qt::NoButton, Qt::NoButton);
+        sendMouse(v, QEvent::MouseButtonPress, a, Qt::LeftButton, Qt::LeftButton);
+        for (int i = 1; i <= 10; ++i) sendMouse(v, QEvent::MouseMove, a + (z - a) * (i / 10.0), Qt::NoButton, Qt::LeftButton);
+        sendMouse(v, QEvent::MouseButtonRelease, z, Qt::LeftButton, Qt::NoButton);
+        pump(100);
+    };
+    // The arrow's end is dragged in the plane facing the eye: the force then points from its place at where the point was let go.
+    const Vector3 aimed = points[0].centre + Vector3(1.2f, -0.7f, 0);
+    const Vector3 target = v->handlePoint(points[0], v->pixelOf(aimed)); // where the mouse takes the point, in that plane
+    dragTo(points[0].centre, aimed);
+    Vector3 p;
+    Quaternion q;
+    worldPose(b.graph(), *forceOf(b, push), p, q);
+    const Vector3 wanted = normalize(target - p), got = forceAxis(q);
+    const bool turned = dot(wanted, got) > 0.995f && length(p - above) < 1e-5f && b.undoTaken() == steps + 1;
+    std::printf("  the arrow's end dragged: the force's axis %.3f of the way to the point, its place kept %s, undo steps +%zu\n", double(dot(wanted, got)),
+                length(p - above) < 1e-5f ? "yes" : "no", b.undoTaken() - steps);
+    c.check(turned, "the orange point at the arrow's end, dragged, turns the force to push there: one undo step, its place kept");
+    points = v->shapeHandles();
+    if (points.size() == 2) dragTo(points[1].centre + points[1].axis * points[1].reach, points[1].centre + points[1].axis * 2.5f);
+    const float radius = forceOf(b, push)->radius;
+    b.undoAction()->trigger();
+    pump(80);
+    c.check(std::fabs(radius - 2.5f) < 0.05f && forceOf(b, push)->radius == 1.5f, ("the point on its reach, dragged out, is the radius; Ctrl+Z takes it back: " + std::to_string(radius)).c_str());
+}
+
 int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     testButtonAndDefaults(c, w, b, v);
     testPickAndGizmo(c, w, b, v);
+    testHandles(c, w, b, v);
     testCard(c, w, b);
     testFirePlayStop(c, w, b, v);
     return c.failures;

@@ -213,6 +213,7 @@ uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3
     f.color = Vector3(0.45_r, 0.85_r, 0.55_r);
     f.position = at;
     if (shape == ForceShape::Radial) f.radius = mode == ForceMode::Impulse ? 3.0_r : 5.0_r, f.falloff = ForceFalloff::Linear;
+    else f.radius = 1.5_r; // it pushes what stands near it: placed at a body, it is that body's push (radius 0: every body)
     f.strength = shape == ForceShape::Directional ? (mode == ForceMode::Impulse ? 5.0_r : 10.0_r) : (mode == ForceMode::Impulse ? 10.0_r : -10.0_r);
     g.forces.push_back(f);
     return f.id;

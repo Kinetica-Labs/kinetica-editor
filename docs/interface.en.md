@@ -289,18 +289,18 @@ object.
 ### Forces
 
 Force puts a force object - a push, a blast, a thrust or a pull. It acts on the centre of mass of rigid bodies while the
-world runs and does not spin them. The gizmo moves and turns it like any object; in Edit it does nothing.
+world runs and does not spin them. The gizmo moves and turns it like any object; a selected force has orange points: at the end of its arrow - drag it and the force turns to push there; on its sphere - the radius. A click anywhere on the arrow selects the force. A new force stands beside the selected object: a directional one above it, a radial one at its side. In Edit it does nothing.
 
 | Kind | Shape | Mode | Default strength |
 |---|---|---|---|
-| Push | directional | impulse | 5 N s |
+| Push | directional | impulse | 5 N s, radius 1.5 m |
 | Blast | radial | impulse | 10 N s, radius 3 m, linear falloff |
-| Thrust | directional | constant | 10 N |
+| Thrust | directional | constant | 10 N, radius 1.5 m |
 | Pull | radial | constant | -10 N (inward), radius 5 m, linear falloff |
 
 A directional force pushes along its own +Y axis (a negative strength: the other way), a radial one away from its point
-(toward it when the strength is negative). The card has Shape, Mode, Strength, Radius (0 on a directional force: no
-limit; a radial one needs it), Falloff (none; linear - smoothly to zero at the radius; inverse square - cut off at the
+(toward it when the strength is negative). The card has Shape, Mode, Strength, Radius (1.5 m on a new directional force - it pushes what is near; 0: every body
+of the scene; a radial one needs it), Falloff (none; linear - smoothly to zero at the radius; inverse square - cut off at the
 radius), Time - when an impulse fires by itself - and Acts on - only bodies with that tag. A tag added while the world
 runs is noticed after Stop and Play. The Fire button fires an impulse now, in the running world, and cancels its timed
 firing. A robot does not look at a force: it learns of it only through its sensors - the IMU, the encoders, the effort.

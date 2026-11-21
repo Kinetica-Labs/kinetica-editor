@@ -402,6 +402,8 @@ private:
     ke::Force* forceById(uint32_t id);
     void buildForceCard(QVBoxLayout* col);      // SceneBuilderForces.cpp
     void fillForceCard(const ke::SceneObject& o);
+    std::vector<ShapeHandle> forceHandles();                       // the selected force's orange points: its arrow's end, its radius
+    void onForceHandle(int index, ke::Vector3 point, int phase);  // one dragged: the force turns to it, or its reach follows
     ke::Camera* cameraById(uint32_t id);
 
     // Sensors (SceneBuilderSensors.cpp): one put on the selected shape (an encoder on its joint, an IMU
@@ -588,7 +590,7 @@ private:
     std::map<QString, QJsonObject> componentTypes_;                // "<plugin>.<name>" -> its schema
     struct ComponentHandleField { QString type, field, kind; int part = 0; }; // part: which of a box's three sizes
     std::vector<ComponentHandleField> componentHandleFields_;      // what each orange point is (componentHandles' order)
-    ke::SceneGraph componentGraph_;                                // the scene when a point was taken (Esc, and its one edit)
+    ke::SceneGraph componentGraph_;                                // the scene when an orange point was taken (Esc, and its one edit)
     bool componentDragging_ = false;
     QVBoxLayout* pluginCards_ = nullptr;                           // the cards of the shape's plugin components
     void fillPluginCards();

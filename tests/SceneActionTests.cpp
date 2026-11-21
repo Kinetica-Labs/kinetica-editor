@@ -611,9 +611,9 @@ void testSceneForces() {
     };
     const SceneGraph& g = d.graph;
     struct Kind { const char *shape, *mode; ForceShape s; ForceMode m; Real strength, radius; ForceFalloff falloff; const char* name; } kinds[] = {
-        {"directional", "impulse", ForceShape::Directional, ForceMode::Impulse, 5, 0, ForceFalloff::None, "Толчок 1"},
+        {"directional", "impulse", ForceShape::Directional, ForceMode::Impulse, 5, 1.5_r, ForceFalloff::None, "Толчок 1"},
         {"radial", "impulse", ForceShape::Radial, ForceMode::Impulse, 10, 3, ForceFalloff::Linear, "Взрыв 1"},
-        {"directional", "constant", ForceShape::Directional, ForceMode::Constant, 10, 0, ForceFalloff::None, "Тяга 1"},
+        {"directional", "constant", ForceShape::Directional, ForceMode::Constant, 10, 1.5_r, ForceFalloff::None, "Тяга 1"},
         {"radial", "constant", ForceShape::Radial, ForceMode::Constant, -10, 5, ForceFalloff::Linear, "Притяжение 1"}};
     for (const Kind& k : kinds) {
         add(k.shape, k.mode);
@@ -649,8 +649,9 @@ void testSceneForces() {
     CHECK(!go("scene_set", line + R"(strength", "values": [1e30]})") && !go("scene_set", line + R"(falloff", "values": ["steep"]})") && g.save() == kept,
           "a strength out of bounds and an unknown falloff are refused, the graph stays");
     const std::string dir = R"({"id": )" + std::to_string(g.forces[0].id) + R"(, "line": "effect", "key": ")";
-    CHECK(!go("scene_set", dir + R"(shape", "values": ["radial"]})") && g.forces[0].shape == ForceShape::Directional,
-          "a directional force with radius 0 made radial by the shape alone is refused");
+    CHECK(go("scene_set", dir + R"(radius", "values": [0]})") && !go("scene_set", dir + R"(shape", "values": ["radial"]})") &&
+              g.forces[0].shape == ForceShape::Directional,
+          "a directional force given radius 0 (every body) and then made radial by the shape alone is refused");
     CHECK(go("scene_set", dir + R"(radius", "values": [3]})") && go("scene_set", dir + R"(shape", "values": ["radial"]})") &&
               g.forces[0].shape == ForceShape::Radial && g.forces[0].radius == 3, "the radius first, then the shape: accepted");
 

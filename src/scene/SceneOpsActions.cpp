@@ -432,7 +432,7 @@ std::vector<SceneOp> actionSceneOps() {
                             "with `position` it stands there shining at `target` (else at `at`)",
          "{kind: sun|point|spot, at?: [x,y,z], position?: [x,y,z], target?: [x,y,z]}", {}, addLightOp},
         {"scene_add_force", "A force as the menu adds it: a push along its own +Y axis or a radial burst or pull, once (impulse) or all the time "
-                            "(constant); strength: N s for an impulse, N for a constant; a new one stands at 'at' or in the scene centre",
+                            "(constant); strength: N s for an impulse, N for a constant; radius: the bodies whose centres are within it (a new directional one: 1.5 m; 0: every body); a new one stands at 'at' or in the scene centre",
          "{shape: 'directional'|'radial', mode: 'impulse'|'constant', at?: [x,y,z], strength?: number, radius?: m}", {}, addForceOp},
         {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre); kind target: a target camera that always "
                              "looks there - at object `at` (wherever it goes) or the point", "{eye?: [x,y,z], target?: [x,y,z], kind?: 'free'|'target', at?: int}",

@@ -149,8 +149,22 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
     }
 }
 
+// Where a ray passes within `radius` of the segment a-b (the ray's own parameter in t): the nearest points of the two lines.
+static bool nearSegment(const Ray& ray, const Vector3& a, const Vector3& b, float radius, float& t) {
+    const Vector3 ab = b - a, ao = ray.origin - a;
+    const float abab = dot(ab, ab), dab = dot(ray.dir, ab), dao = dot(ray.dir, ao), abao = dot(ab, ao);
+    const float denominator = abab - dab * dab; // the ray's direction is a unit vector
+    const float s = denominator > 1e-8f ? std::clamp((abao - dao * dab) / denominator, 0.0f, 1.0f) : 0.0f;
+    const Vector3 on = a + ab * s;
+    t = dot(on - ray.origin, ray.dir);
+    const Vector3 off = ray.at(t) - on;
+    return t >= 0 && dot(off, off) <= radius * radius;
+}
+
 bool markerHit(const SceneMarker& m, const Ray& ray, float& t) {
     Vector3 centre = m.position;
+    // A directional force: its whole arrow, not only the ring it stands on - the ring may be inside a body.
+    if (m.kind == SceneMarker::Push && nearSegment(ray, m.position, m.position + forceAxis(m.rotation) * (m.reach < 0 ? -1.0f : 1.0f), 0.1f, t)) return true;
     float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push ? 0.2f : m.kind == SceneMarker::Burst ? 0.34f : 0.16f;
     if (m.kind == SceneMarker::Camera) centre = m.position + m.rotation.rotate(Vector3(0, 0, -1)) * (0.5f * kCameraDepth), radius = 0.24f;
     const Vector3 oc = ray.origin - centre;

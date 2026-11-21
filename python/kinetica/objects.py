@@ -556,7 +556,7 @@ class Force(SceneObject):
     shape = _effect("shape", "directional or radial")
     mode = _effect("mode", "impulse or constant")
     strength = _effect("strength", "N s (impulse) or N (constant); negative: along -Y, inward")
-    radius = _effect("radius", "Reach, m; 0: no limit (directional only)")
+    radius = _effect("radius", "Reach, m: the bodies whose centres are within it; 0: every body (directional only)")
     falloff = _effect("falloff", "none, linear or inverse_square")
     start = _effect("start", "Impulse only: the second of the run it fires at")
     del _effect

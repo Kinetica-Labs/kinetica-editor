@@ -26,12 +26,88 @@ Force* SceneBuilder::forceById(uint32_t id) {
 
 void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
     flushCode();
-    const Vector3 at = spawnTarget();
+    // Beside what is selected, not inside it (there its ring is hidden and a radial force has no direction to push
+    // in): a directional force over its top, pushing up; a radial one at its side, pushing it away.
+    Vector3 at = spawnTarget();
+    if (const AABB box = findObject(graph_, selectedId_) ? boundsOf(selectedId_) : AABB(); box.valid())
+        at = box.center() + (shape == ForceShape::Radial ? Vector3(-0.5f * (box.hi.x - box.lo.x) - 0.5f, 0, 0) : Vector3(0, 0.5f * (box.hi.y - box.lo.y) + 0.3f, 0));
     remember();
     addObjectDone(coreEdit([&](SceneGraph& g) { return ke::addForce(g, shape, mode, at); }));
     const QString shapeWord = kForceShapeNames[int(shape)], modeWord = kForceModeNames[int(mode)];
     codeAction("scene_add_force", QString("scene.add_force(\"%1\", \"%2\")").arg(shapeWord, modeWord),
                {{"shape", shapeWord}, {"mode", modeWord}, {"at", QJsonArray{double(at.x), double(at.y), double(at.z)}}}, false);
+}
+
+// The orange points of the one selected force, in edit: the end of a directional force's arrow - dragged, the force
+// turns to push there - and a point on its reach, dragged along the force's own x: the radius. A radial force has the
+// second alone.
+std::vector<ShapeHandle> SceneBuilder::forceHandles() {
+    std::vector<ShapeHandle> out;
+    const Force* f = editing() && selection_.size() == 1 ? forceById(selectedId_) : nullptr;
+    if (!f) return out;
+    Vector3 p;
+    Quaternion q;
+    worldPose(graph_, *f, p, q);
+    ShapeHandle h;
+    h.plugin = true;
+    if (f->shape == ForceShape::Directional) {
+        h.free = true, h.axis = Vector3(1, 0, 0), h.reach = 0;
+        h.centre = p + forceAxis(q) * (f->strength < 0 ? -1.0f : 1.0f);
+        h.label = uiText("Kinetica", "Направление");
+        out.push_back(h);
+    }
+    if (f->radius > 0) {
+        h.free = false, h.centre = p, h.axis = q.rotate(Vector3(1, 0, 0)), h.reach = float(f->radius);
+        h.label = uiText("Kinetica", "Радиус");
+        out.push_back(h);
+    }
+    return out;
+}
+
+void SceneBuilder::onForceHandle(int index, Vector3 point, int phase) {
+    if (phase == 0) {
+        componentGraph_ = graph_;
+        componentDragging_ = true;
+        return;
+    }
+    const Force* start = nullptr;
+    for (const Force& f : componentGraph_.forces)
+        if (f.id == selectedId_) start = &f;
+    if (!componentDragging_ || !start || index < 0) return;
+    const auto shown = [this] {
+        refreshLightsAndCameras();
+        emitShapeHandles();
+        if (const SceneObject* o = selectedObject()) showTransform(*o);
+    };
+    if (phase == 3) { // Esc: back as it was
+        graph_ = componentGraph_;
+        componentDragging_ = false;
+        return shown();
+    }
+    Vector3 p;
+    Quaternion q;
+    worldPose(componentGraph_, *start, p, q);
+    const bool aim = start->shape == ForceShape::Directional && index == 0;
+    const auto drag = [&](Force& f) {
+        if (!aim) {
+            f.radius = std::clamp(dot(point - p, q.rotate(Vector3(1, 0, 0))), 0.05f, float(kForceMaxRadius));
+            return;
+        }
+        const Vector3 to = point - p;
+        if (dot(to, to) < 1e-6f) return; // dropped on the force itself: no direction
+        const Vector3 from = forceAxis(q) * (start->strength < 0 ? -1.0f : 1.0f);
+        setWorldPose(graph_, f, p, Quaternion::fromTwoVectors(from, to) * q);
+    };
+    if (phase == 1) { // live: the mark follows the mouse; the undo step and the journal's line at the release
+        drag(*forceById(selectedId_));
+        return shown();
+    }
+    componentDragging_ = false;
+    graph_ = componentGraph_;
+    remember();
+    drag(*forceById(selectedId_));
+    afterCardEdit(selectedId_, true);
+    shown();
 }
 
 void SceneBuilder::buildForceCard(QVBoxLayout* col) {
