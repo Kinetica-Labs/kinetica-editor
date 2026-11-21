@@ -15,6 +15,7 @@
 #include "physics/HullPoints.h"
 #include "physics/PhysicsWorld.h"
 
+#include <cstdio>
 #include <cstdlib>
 #include <thread>
 #include <box3d/box3d.h>
@@ -70,9 +71,18 @@ float closestNotIgnored(b3ShapeId shape, b3Pos point, b3Vec3 normal, float fract
     return fraction; // clip the ray here: only nearer hits follow
 }
 
+// Box3D prints its log and failed asserts to stdout by default; kinetica-core's stdout is the wire.
+void logToStderr(const char* message) { std::fprintf(stderr, "Box3D: %s\n", message); }
+int assertToStderr(const char* condition, const char* fileName, int lineNumber) {
+    std::fprintf(stderr, "BOX3D ASSERTION: %s, %s, line %d\n", condition, fileName, lineNumber);
+    return 1;
+}
+
 class Box3dWorld final : public PhysicsWorld {
 public:
     Box3dWorld(const PhysicsSettings& s, const Vector3& gravity, int threads) : settings_(s) {
+        static const bool diverted = (b3SetLogFcn(logToStderr), b3SetAssertFcn(assertToStderr), true);
+        (void)diverted;
         b3WorldDef def = b3DefaultWorldDef();
         def.gravity = b3v(gravity);
         def.contactHertz = float(s.contactHertz);

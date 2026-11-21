@@ -102,6 +102,22 @@ else()
 endif()
 
 # ---------------------------------------------------------------------------
+# kinetica-core: the windowless host (JSON lines on stdin / stdout); ke-hello: the same operations called from C++.
+# ---------------------------------------------------------------------------
+add_executable(kinetica-core src/host/Main.cpp)
+target_link_libraries(kinetica-core PRIVATE kecore)
+target_compile_definitions(kinetica-core PRIVATE KE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}" KE_VERSION="${PROJECT_VERSION}")
+add_executable(ke-hello examples/cpp/hello.cpp)
+target_link_libraries(ke-hello PRIVATE kecore)
+if(MSVC)
+  target_compile_options(kinetica-core PRIVATE /W4 /wd4100 /utf-8)
+  target_compile_options(ke-hello PRIVATE /W4 /wd4100 /utf-8)
+else()
+  target_compile_options(kinetica-core PRIVATE -Wall -Wextra -Wno-unused-parameter)
+  target_compile_options(ke-hello PRIVATE -Wall -Wextra -Wno-unused-parameter)
+endif()
+
+# ---------------------------------------------------------------------------
 # kinetica: the Qt 6 window, a client of kecore. Built when Qt is found (-DCMAKE_PREFIX_PATH=<Qt>/gcc_64).
 # ---------------------------------------------------------------------------
 # The window links OpenGL as Qt's own libraries do - libGL.so.1, there wherever a GL driver is - not GLVND's
