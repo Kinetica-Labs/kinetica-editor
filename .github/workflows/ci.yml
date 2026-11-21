@@ -35,7 +35,11 @@ jobs:
       - name: Python - стенд испытателей, SDK плагинов, сервер MCP и ke.Scene()
         run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core
       - name: Окно и kinetica-core отвечают одинаково
-        run: xvfb-run -a python3 tools/test_hosts_agree.py
+        timeout-minutes: 10
+        env:
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" python3 tools/test_hosts_agree.py
       - name: Самотест окна (программный OpenGL)
         timeout-minutes: 20
         env:
