@@ -57,6 +57,13 @@ class SceneObject:
         """A tag put on it (on=False: taken off): one word, no spaces. Any object takes one - a shape, a joint, a sensor."""
         self.scene._call("scene_tag", f"{self.ref}.tag({_q(word)}{'' if on else ', False'})", ids=[self.id], tag=word, on=bool(on))
 
+    @property
+    def inside(self):
+        """What stands inside this zone now (a shape whose collider is a trigger, or a row of such - an array): the
+        objects, a row of copies as its array; None when it is no zone or the scene is not running."""
+        zone = self.scene._live("triggers", self.id)
+        return None if zone is None else [self.scene.objects[i] for i in zone["inside"]]
+
     def _get(self, line, key, count=1):
         """What `_set` writes, read: the value after `key` on the block's line `line` - `count` of them as a tuple
         (None: the block has no such line or key)."""
@@ -128,17 +135,11 @@ class Body(SceneObject):
     @property
     def ignores(self):
         """The tags of what its collider has no contact with: ``part.ignores = ["robot-cover"]``."""
-        return [str(word) for line in self._lines("ignores") for word in line]
+        return [word for line in self._lines("ignores") for word in line]
 
     @ignores.setter
     def ignores(self, tags):
         self.scene._call("scene_collider", f"{self.ref}.ignores = {list(tags)!r}", id=self.id, ignores=list(tags))
-
-    @property
-    def inside(self):
-        """What stands inside this zone now (its collider a trigger): the objects; None when the scene is not running."""
-        zone = self.scene._live("triggers", self.id)
-        return None if zone is None else [self.scene.objects[i] for i in zone["inside"]]
 
     opacity = property(lambda self: (lambda v: 1.0 if v is None else v)(self._get("shape", "opacity")),
                        lambda self, v: self._set("shape", "opacity", float(v), f"{self.ref}.opacity = {float(v)}"),

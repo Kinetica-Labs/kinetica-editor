@@ -85,12 +85,20 @@ bool startsWith(const std::vector<Word>& w, const std::vector<Word>& head) {
 }
 
 // The word after which a key's values stand: the key itself, found past the line's first `head` words (the line's
-// size: it has none); the last of those words for an empty key.
+// size: it has none); the last of those words for an empty key. A key is looked for as it is named, then under its
+// present name: the block is the scene as it is saved now, the caller may be a script written when the key was called
+// otherwise (and a plugin's component spells its keys itself - one that looks like an earlier name is found as it is).
 size_t keyAt(const std::vector<Word>& w, size_t head, const std::string& key) {
     if (key.empty()) return head - 1;
-    for (size_t i = head; i < w.size(); ++i)
-        if (!w[i].quoted && w[i].text == key) return i;
+    for (const std::string& name : {key, presentKey(key)})
+        for (size_t i = head; i < w.size(); ++i)
+            if (!w[i].quoted && w[i].text == name) return i;
     return w.size();
+}
+
+// The name a key new to its line is written under: the format's present one; a plugin's component keeps its own.
+std::string writtenKey(const std::vector<Word>& head, const std::string& key) {
+    return !head.empty() && head[0].text == "component" ? key : presentKey(key);
 }
 
 // The line with as many words after word `at` as there are values replaced by them (appended past its end).
@@ -114,7 +122,7 @@ bool replaceField(std::vector<std::string>& lines, const std::string& line, cons
         const std::vector<Word> w = spans(l);
         if (!startsWith(w, head)) continue;
         const size_t at = keyAt(w, head.size(), key);
-        if (at == w.size()) l += " " + key; // a key the line has not got: appended
+        if (at == w.size()) l += " " + writtenKey(head, key); // a key the line has not got: appended
         l = replaceWords(l, w, at, values);
         return true;
     }
@@ -174,7 +182,7 @@ uint32_t setField(SceneGraph& g, uint32_t id, const std::string& line, const std
     std::vector<std::string> lines;
     for (std::string l; std::getline(in, l);) lines.push_back(l);
     if (!replaceField(lines, line, key, values)) {
-        std::string added = "  " + line + (key.empty() ? "" : " " + key);
+        std::string added = "  " + line + (key.empty() ? "" : " " + writtenKey(spans(line), key));
         for (const std::string& v : values) added += " " + quoteIfNeeded(v, false);
         lines.insert(lines.end() - 1, added); // before "end"
     }
@@ -240,7 +248,7 @@ bool removeObject(SceneGraph& g, uint32_t id) {
     collect(g.entities), collect(g.groups), collect(g.arrays), collect(g.lights), collect(g.cameras);
     removeJointsOf(g, id);
     eraseId(g.entities, id) || eraseId(g.groups, id) || eraseId(g.arrays, id) || eraseId(g.lights, id) || eraseId(g.cameras, id) ||
-        eraseId(g.sensors, id) || eraseId(g.wheels, id);
+        eraseId(g.sensors, id) || eraseId(g.wheels, id) || eraseId(g.sequences, id);
     for (const Child& c : children) {
         SceneObject* o = const_cast<SceneObject*>(findObject(g, c.id));
         o->parent = parent;
@@ -288,8 +296,7 @@ std::vector<uint32_t> objectIds(const SceneGraph& g) {
     auto add = [&ids](const auto& objects) {
         for (const auto& o : objects) ids.push_back(o.id);
     };
-    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras), add(g.joints), add(g.batteries), add(g.drivers);
-    add(g.sensors), add(g.wheels), add(g.controllers);
+    eachObjectList(g, add);
     return ids;
 }
 

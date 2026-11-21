@@ -204,6 +204,16 @@ void testWorldAndKindEdits() {
     // the number when its kind changes.
     CHECK(hinge == "Шарнир 1" && slider == "Призматическое 1" && j.name == "Мой шарнир", "the kind's label: %s, %s, %s", hinge.c_str(),
           slider.c_str(), j.name.c_str());
+    // A sequence is an object as the rest: the difference of two scenes names it (what undo answers with), one object
+    // removed takes it.
+    const SceneGraph before = g;
+    SequenceObject take;
+    take.id = nextId(g), take.name = "Дубль";
+    g.sequences.push_back(take);
+    const std::vector<GraphEdit> made = diffEdits(before, g), gone = diffEdits(g, before);
+    CHECK(made.size() == 1 && made[0].kind == GraphEdit::Kind::Put && made[0].text.find("Дубль") != std::string::npos && gone.size() == 1 &&
+          gone[0].kind == GraphEdit::Kind::Remove && gone[0].id == take.id, "a sequence made or gone is not in the difference of the scenes");
+    CHECK(removeObject(g, take.id) && g.sequences.empty() && g.save() == before.save(), "removeObject says done and leaves the sequence");
 }
 
 // A stereo camera with its housing (CameraHousing.h). Free, a box housing at (0, 1, 0) looking at (1, 0, 0): its +x
@@ -316,6 +326,27 @@ void testAssemblyAttachOp() {
     weld.set("target", target), weld.set("face", "+x"), weld.set("joint", "weld");
     CHECK(attach->edit(g, weld, welded, error) && getObject(g, uint32_t(welded["joint"].integer())).find("free") == std::string::npos,
           "joint weld: no freedom left");
+    // A link hung on a kinematic body is a body its joint moves, not one more kinematic one.
+    Value moving = Value::map(), carrier = Value::map(), on = Value::map(), hung = Value::map();
+    moving.set("shape", "box"), moving.set("role", "rigid"), moving.set("kinematic", true), moving.set("position", list(2, 0.5_r, 0));
+    findSceneOp("scene_add")->edit(g, moving, carrier, error);
+    on.set("target", carrier["id"].integer()), on.set("face", "+y"), on.set("joint", "hinge");
+    const bool attached = attach->edit(g, on, hung, error);
+    const Entity* arm = findEntity(g, uint32_t(hung["id"].integer()));
+    CHECK(attached && arm && arm->rigid.dynamic() && findEntity(g, uint32_t(carrier["id"].integer()))->rigid.kinematic,
+          "a link attached to a kinematic body is not a dynamic one - its joint cannot move it: %s", error.c_str());
+    // The target's own kilograms and its being a zone are the target's: a link of another size is a plain body.
+    Entity* weighed = const_cast<Entity*>(findEntity(g, uint32_t(target)));
+    weighed->rigid.mass = 10, weighed->rigid.centerGiven = true, weighed->rigid.centerOfMass = {0.2_r, 0, 0}, weighed->collider.trigger = true;
+    Value small = Value::map(), same = Value::map(), little = Value::map(), twin = Value::map();
+    small.set("target", target), small.set("face", "-x"), small.set("joint", "hinge"), small.set("size", list(0.1_r, 0.1_r, 0.1_r));
+    same.set("target", target), same.set("face", "-z"), same.set("joint", "hinge");
+    const bool both = attach->edit(g, small, little, error) && attach->edit(g, same, twin, error);
+    const Entity* tiny = findEntity(g, uint32_t(little["id"].integer()));
+    const Entity* copy = findEntity(g, uint32_t(twin["id"].integer()));
+    CHECK(both && tiny && copy && tiny->rigid.mass == 0 && !tiny->rigid.centerGiven && !tiny->collider.trigger && copy->rigid.mass == 10 &&
+          !copy->collider.trigger, "a link of another size keeps its target's given mass, or a link is a zone as its target: %s", error.c_str());
+    weighed->rigid.mass = 0, weighed->rigid.centerGiven = false, weighed->collider.trigger = false;
     const size_t entities = g.entities.size(), joints = g.joints.size();
     Value wrong = Value::map(), none = Value::map();
     wrong.set("target", target), wrong.set("face", "up");

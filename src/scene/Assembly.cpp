@@ -367,7 +367,7 @@ Attached attachLink(SceneGraph& g, uint32_t target, const FaceSnap& at, const Li
     e.instanceOf = 0;
     e.position = anchor + at.normal * depth;
     e.rotationDeg = eulerDegrees(Q);
-    e.rigid.fixed = false;
+    e.rigid.fixed = e.rigid.kinematic = e.collider.trigger = false; // whatever the target is - fixed, kinematic, a zone - a link is a body its joint moves
     e.rigid.velocity = e.rigid.angularVelocity = Vector3(0.0_r);
     makeBody(e);
     g.entities.push_back(e);

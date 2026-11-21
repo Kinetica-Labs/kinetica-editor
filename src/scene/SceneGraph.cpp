@@ -185,6 +185,8 @@ bool fail(std::string& bad, const std::string& what) {
 
 } // namespace
 
+std::string presentKey(const std::string& key) { return renamed(key); }
+
 // ---------------------------------------------------------------------------
 // Saving
 // ---------------------------------------------------------------------------
@@ -195,13 +197,20 @@ static std::string quoted(const std::string& name) {
     return "\"" + n + "\"";
 }
 
+// A word that names something - a tag, an action of a controller - as the file writes it: bare, or in quotes when it
+// would read as a number ("7"), so that what reads the line back word by word (scene_get) has the name, not 7.0.
+static std::string named(const std::string& word) {
+    double number = 0;
+    return parseNumber(word, number) ? quoted(word) : word;
+}
+
 // The collider role, a line of its own with every field (written only when the role is on).
 static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
     o << "  collider kind " << kColliderNames[int(c.kind)] << " fit " << (c.fitToGeometry ? 1 : 0) << " size " << vec(c.size)
       << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << (c.trigger ? " trigger 1" : "") << "\n";
     if (c.ignores.empty()) return; // both written when set: a file without them reads everywhere
     o << "  ignores";
-    for (const std::string& t : c.ignores) o << " " << t;
+    for (const std::string& t : c.ignores) o << " " << named(t);
     o << "\n";
 }
 
@@ -209,7 +218,7 @@ static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
 static void saveTags(std::ostringstream& o, const std::vector<std::string>& tags) {
     if (tags.empty()) return;
     o << "  tags";
-    for (const std::string& t : tags) o << " " << t;
+    for (const std::string& t : tags) o << " " << named(t);
     o << "\n";
 }
 
@@ -406,13 +415,13 @@ static void saveController(std::ostringstream& o, const ControllerObject& c) {
     saveTags(o, c.tags);
     saveComponents(o, c.components);
     for (const ControllerAction& a : c.actions) {
-        o << "  action " << a.name << " " << kControlValues[int(a.value)] << " drive " << kControlDrives[int(a.drive)] << " target " << a.target;
+        o << "  action " << named(a.name) << " " << kControlValues[int(a.value)] << " drive " << kControlDrives[int(a.drive)] << " target " << a.target;
         if (a.drive == ControlDrive::Jog) o << " dof " << kDofNames[std::clamp(a.dof, 0, 5)];
         o << " speed " << num(a.speed) << "\n";
     }
     for (const ControllerAction& a : c.actions)
         for (const ControlBinding& b : a.bindings) {
-            o << "  bind " << a.name << " " << b.device;
+            o << "  bind " << named(a.name) << " " << b.device;
             for (const std::string& k : b.controls) o << " " << k;
             o << (b.invert ? " invert" : "") << (b.toggle ? " toggle" : "") << "\n";
         }
@@ -1018,7 +1027,8 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         case Block::Sensor: last(g.sensors); break;
         case Block::Wheel: last(g.wheels); break;
         case Block::Controller: last(g.controllers); break;
-        default: last(g.sequences); break;
+        case Block::Sequence: last(g.sequences); break;
+        case Block::None: return fail(bad, w[0]); // no default: a kind of block added later is missed here loudly, by the compiler
         }
         if (w[0] == "component") { // "component <plugin>.<name> key value key value…": a plugin's, kept as it is
             if (w.size() < 2 || w.size() % 2 != 0) return fail(bad, w[0]);
@@ -1070,8 +1080,7 @@ static auto partOf(Graph& g, uint32_t id, Get get) -> decltype(get(g.entities.fr
         for (auto& o : objects)
             if (o.id == id) found = get(o);
     };
-    look(g.entities), look(g.groups), look(g.arrays), look(g.lights), look(g.cameras), look(g.joints), look(g.batteries), look(g.drivers);
-    look(g.sensors), look(g.wheels), look(g.controllers), look(g.sequences);
+    eachObjectList(g, look);
     return id == 0 ? nullptr : found;
 }
 std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }

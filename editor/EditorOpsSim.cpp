@@ -175,7 +175,8 @@ QJsonObject liveState(const Simulation& s) {
         QJsonObject shape{{"id", int(e.id)}, {"name", QString::fromStdString(e.name)}, {"position", json(st.position)},
                           {"rotation", json(eulerDegrees(st.rotation))}, {"velocity", json(st.velocity)}, {"spin", json(st.angularVelocity)}};
         if (!st.awake) shape.insert("asleep", true); // at rest: its velocity is 0 because it sleeps, not by chance
-        if (st.mass <= 0) shape.insert("fixed", true);
+        if (robot->stands(b)) shape.insert("fixed", true);
+        else if (st.mass <= 0) shape.insert("kinematic", true); // led - by its own velocity or by a sequence: it moves, forces do not move it
         shapes.append(shape);
     }
     for (const JointObject& j : robot->graph().joints) joints.append(jointState(s, j));
@@ -476,7 +477,7 @@ QString applyCommands(Simulation& s, const QJsonObject& commands) {
 
 void EditorOps::addStateOp() {
     add("sim_state", "The live state: time and frame, every body's pose (position of its frame, rotation: Euler degrees [x, y, z], the "
-        "turn R = Ry Rx Rz - as the scene file), velocity and spin (asleep: at rest, put to sleep; fixed: a static body), every "
+        "turn R = Ry Rx Rz - as the scene file), velocity and spin (asleep: at rest, put to sleep; fixed: a static body; kinematic: one led by its own velocity or by a sequence), every "
         "joint's coordinates, main angle or travel, its drive's effort (N m or N) and a DC motor's current and power, every sensor's reading "
         "as the robot reads it (its datasheet's device: an IMU's accel and gyro, a sonar's distance, an encoder's count, a wrench's force and "
         "torque, a pad's force) with its probe's truth beside it, which entities "

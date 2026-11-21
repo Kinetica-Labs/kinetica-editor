@@ -602,6 +602,24 @@ void testTags(Checker& c, QMainWindow& w, SceneBuilder& b) {
     ops->runNow("selection_set", {{"ids", QJsonArray{joint, base}}});
     pump(200);
     c.check(b.selection().size() == 2, "a joint selected together with a shape: the window stands");
+    // Two shapes with different tags selected: a word typed into the card goes on both, each keeps its own.
+    ops->runNow("scene_tag", {{"ids", QJsonArray{base}}, {"tag", "свой"}});
+    ops->runNow("scene_tag", {{"ids", QJsonArray{link}}, {"tag", "чужой"}});
+    ops->runNow("selection_set", {{"ids", QJsonArray{base, link}}});
+    pump(200);
+    if (field) {
+        const QString typed = field->text() + " общий";
+        field->selectAll(), field->insert(typed);
+        emit field->editingFinished();
+    }
+    pump(200);
+    const auto tagsOf = [&](int id) {
+        QStringList words;
+        for (const QJsonValue& t : ops->runNow("scene_get", {{"id", id}}).value("tags").toArray()) words << t.toString();
+        return words.join(' ');
+    };
+    c.check(tagsOf(base) == "свой общий" && tagsOf(link) == "чужой общий",
+            ("a tag typed for two shapes goes on both, each keeps its own: «" + tagsOf(base) + "», «" + tagsOf(link) + "»").toStdString().c_str());
     ops->runNow("selection_set", {{"ids", QJsonArray{}}});
 }
 

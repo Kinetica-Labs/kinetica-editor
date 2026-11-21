@@ -2,6 +2,7 @@
 // the physics line is written only when it differs from the defaults and comes back.
 #include "TestRunner.h"
 
+#include "scene/SceneEdits.h"
 #include "scene/SceneGraph.h"
 
 #include <clocale>
@@ -146,6 +147,32 @@ void testSceneFormatOnlyGrows() {
           !has("anchorA"), "the keys' earlier names are not saved under the new ones:\n%s", now.c_str());
     CHECK(!old.load("joint \"J\"\n  object id 5\n  link a 1 b 2 anchorA 1 2 3 anchor_a 1 2 3\nend\n", error),
           "a key given twice, under its earlier name and the new one, is read");
+
+    // A script written before the rename names a key the old way: it sets and reads the same field.
+    CHECK(old.load(before, error), "a file with the keys' earlier names does not load: %s", error.c_str());
+    const uint32_t set = setField(old, 5, "link", "anchorA", {"7", "8", "9"}, error);
+    CHECK(set == 5 && old.joints[0].anchorA.x == 7 && old.joints[0].anchorA.z == 9, "a key's earlier name does not set its field: %s", error.c_str());
+    const std::vector<BlockWord> read = getField(getObject(old, 5), "link", "frameB", 3);
+    CHECK(read.size() == 3 && read[0].text == "4" && read[2].text == "6", "a key's earlier name does not read its field");
+    CHECK(setWorldField(old, "physics", "contactHertz", {"120"}, error) && old.world.physics.contactHertz == 120,
+          "a key's earlier name does not set the world's field: %s", error.c_str());
+    CHECK(old.save().find("anchorA") == std::string::npos && old.save().find("contactHertz") == std::string::npos,
+          "a field set under a key's earlier name is saved under it");
+    // A plugin's component spells its keys itself: one that looks like a key's earlier name is found and kept as it is.
+    SceneGraph own;
+    CHECK(own.load("entity \"X\"\n  object id 5\n  component wear.meter linearDamping 3\nend\n", error), "a component's key: %s", error.c_str());
+    const uint32_t kept = setField(own, 5, "component wear.meter", "linearDamping", {"4"}, error);
+    const uint32_t added = setField(own, 5, "component wear.meter", "heightFile", {"9"}, error);
+    const std::vector<PluginComponent> none, &meter = kept && added ? own.entities[0].components : none;
+    CHECK(meter.size() == 1 && meter[0].values.size() == 2 && meter[0].values[0] == std::make_pair(std::string("linearDamping"), std::string("4")) &&
+          meter[0].values[1].first == "heightFile", "a component's key that looks like an earlier name was renamed or doubled: %s", error.c_str());
+    // An action named as a number is the same word on its action line and on its bind line.
+    SceneGraph panel, again;
+    CHECK(panel.load("controller \"Пульт\"\n  object id 9\n  action 7 axis drive grip target 30 speed 2\n  bind 7 keys Space toggle\nend\n", error),
+          "a controller: %s", error.c_str());
+    const std::string written = panel.save();
+    CHECK(written.find("action \"7\"") != std::string::npos && written.find("bind \"7\"") != std::string::npos && again.load(written, error) &&
+          again.save() == written, "an action named as a number is not written as a name on both its lines:\n%s", written.c_str());
 }
 
 void testSceneGraphRoundTrip() {

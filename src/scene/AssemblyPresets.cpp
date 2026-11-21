@@ -37,8 +37,6 @@ std::string numbered(const SceneGraph& g, const std::string& word) {
     return word + " " + std::to_string(n + 1);
 }
 
-Real massOf(const Entity& e) { return e.rigid.density * e.size.x * e.size.y * e.size.z; }
-
 // A copy of the target: its geometry and components, a link of its own.
 LinkSpec copyLink(const SceneGraph& g, const Entity& target, JointType joint, int axis) {
     LinkSpec s;
@@ -122,7 +120,7 @@ void keepClearance(const SceneGraph& g, const FaceSnap& f, int along, Real carri
 std::vector<Attached> car(SceneGraph& g, uint32_t target, const FaceSnap& at) {
     const Entity t = *findEntity(g, target);
     const int along = at.halfAcross[0] >= at.halfAcross[1] ? 0 : 1, faceAxis = int(at.face) / 2;
-    const Real r = wheelRadius(at), carried = 0.25_r * massOf(t);
+    const Real r = wheelRadius(at), carried = 0.25_r * bodyMass(resolveInstance(g, t));
     std::vector<Attached> out;
     for (int side = 0; side < 2; ++side) {
         const FaceSnap f = side == 0 ? at : snapToFace(g, target, BoxFace(int(at.face) ^ 1), Vector3(0.0_r));
@@ -257,7 +255,7 @@ bool cornerOf(const SceneGraph& g, uint32_t body, Side side, Real radius, Corner
     c.f = snapToFace(g, body, left ? BoxFace::MinusZ : BoxFace::PlusZ, Vector3(0.0_r));
     c.along = std::fabs(dot(snapAxis(c.f, 0), c.forward)) >= std::fabs(dot(snapAxis(c.f, 1), c.forward)) ? 0 : 1;
     const Real end = side == Side::FrontLeft || side == Side::FrontRight ? 1.0_r : side == Side::Left || side == Side::Right ? 0.0_r : -1.0_r;
-    c.r = radius > 0 ? radius : wheelRadius(c.f), c.carried = 0.25_r * massOf(*t);
+    c.r = radius > 0 ? radius : wheelRadius(c.f), c.carried = 0.25_r * bodyMass(resolveInstance(g, *t));
     c.offset = end * std::max(0.0_r, c.f.halfAcross[c.along] - 1.2_r * c.r) * (dot(snapAxis(c.f, c.along), c.forward) >= 0 ? 1.0_r : -1.0_r);
     c.where = sideName(side);
     return true;
@@ -369,13 +367,14 @@ std::vector<Attached> applyPreset(SceneGraph& g, uint32_t target, const FaceSnap
         return out;
     }
     const Entity t = *found;
+    const Real carried = bodyMass(resolveInstance(g, t));
     LinkSpec s;
     switch (p) {
     case LinkPreset::Hinge: s = copyLink(g, t, JointType::Hinge, 2); break;
     case LinkPreset::Elbow: s = copyLink(g, t, JointType::Hinge, 0); break;
-    case LinkPreset::Wheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, massOf(t), false); break;
-    case LinkPreset::MotorWheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, massOf(t), true); break;
-    case LinkPreset::Shock: s = shock(g, at, resolveInstance(g, t).size * 0.5_r, massOf(t), 0.5_r * minComp(t.size)); break;
+    case LinkPreset::Wheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, carried, false); break;
+    case LinkPreset::MotorWheel: s = wheel(g, wheelRadius(at), int(at.face) / 2, carried, true); break;
+    case LinkPreset::Shock: s = shock(g, at, resolveInstance(g, t).size * 0.5_r, carried, 0.5_r * minComp(t.size)); break;
     case LinkPreset::Car: return car(g, target, at);
     case LinkPreset::Weld: s = copyLink(g, t, JointType::Fixed, 2); break;
     case LinkPreset::Ball: s = copyLink(g, t, JointType::Ball, 2); break;

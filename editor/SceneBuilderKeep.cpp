@@ -5,8 +5,9 @@
 //
 // The live pose is read on the simulation's thread from the object's body in the physics engine: the
 // running world builds a body at its entity's pose (RobotWorld::build), so the body's pose is the
-// object's. A fixed body never moves; an array's copies and glued groups are not kept (their poses
-// are not their own).
+// object's. What is kept is what moves freely (RobotWorld::isFree): a body moved by forces or by its own
+// velocity. A fixed body never moves; a body a sequence leads is where its track puts it; an array's
+// copies and glued groups are not kept (their poses are not their own).
 #include "SceneBuilder.h"
 #include "UiLanguage.h"
 
@@ -20,9 +21,8 @@ namespace {
 // Where the object `id` is now in the simulation (false: it has no body that moves).
 bool livePose(const Simulation& s, uint32_t id, Vector3& position, Quaternion& rotation) {
     const int b = s.robot() ? s.robot()->bodyOf(id) : -1;
-    if (b < 0 || !s.physics()->alive(b)) return false;
+    if (b < 0 || !s.physics()->alive(b) || !s.robot()->isFree(id)) return false;
     const BodyState state = s.physics()->state(b);
-    if (state.mass <= 0) return false;
     position = state.position, rotation = state.rotation;
     return true;
 }

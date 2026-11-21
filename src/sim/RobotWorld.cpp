@@ -182,7 +182,7 @@ void RobotWorld::build(PhysicsWorld& physics) {
         stands_[size_t(b)] = d.type == BodyDesc::Type::Static;
         if (e.collider.enabled && e.collider.trigger) zones_.push_back({e.id, b});
         if (animated.count(e.id)) animated_.push_back({e.id, b});
-        else if (d.type == BodyDesc::Type::Dynamic && !isArrayCopyId(e.id)) free_.push_back(e.id); // a take records it, a robot's link too
+        else if (d.type != BodyDesc::Type::Static && !isArrayCopyId(e.id)) free_.push_back(e.id); // a take records it: a robot's link, a body led by its own velocity
         if (entityOfBody_.size() <= size_t(b)) entityOfBody_.resize(size_t(b) + 1, 0);
         entityOfBody_[size_t(b)] = e.id;
     }
@@ -626,9 +626,8 @@ void RobotWorld::readPoses(const PhysicsWorld& physics) {
     for (Entity& e : live_.entities) {
         const int b = bodyOf(e.id);
         if (b < 0 || !physics.alive(b)) continue;
+        if (stands(b)) continue; // static: where it was put. A kinematic body has no mass and moves
         const BodyState s = physics.state(b);
-        const bool led = std::any_of(animated_.begin(), animated_.end(), [&](const auto& a) { return a.second == b; });
-        if (s.mass <= 0 && !led) continue; // static: where it was put
         setWorldPose(live_, e, s.position, s.rotation);
     }
 }
@@ -639,21 +638,31 @@ uint32_t RobotWorld::objectIdOfBody(int body) const {
     return isArrayCopyId(id) ? arrayOfCopyId(id) : id;
 }
 
+bool RobotWorld::stands(int body) const { return body < 0 || size_t(body) >= stands_.size() || stands_[size_t(body)] != 0; }
+
+bool RobotWorld::isFree(uint32_t entity) const { return std::find(free_.begin(), free_.end(), entity) != free_.end(); }
+
 int RobotWorld::bodyOf(uint32_t entity) const {
     auto it = bodyOfEntity_.find(entity);
     return it == bodyOfEntity_.end() ? -1 : it->second;
 }
 
+// An array's copy is no object of its own: a zone names the array it belongs to, once, and the copies of an array
+// of zones are one zone - the array.
 std::vector<std::pair<uint32_t, std::vector<uint32_t>>> RobotWorld::zones() const {
     std::vector<std::pair<uint32_t, std::vector<uint32_t>>> out;
     for (const auto& [entity, body] : zones_) {
-        out.push_back({entity, {}});
-        const auto stands = [this](int b) { return size_t(b) >= stands_.size() || stands_[size_t(b)] != 0; };
-        for (const auto& [zone, visitor] : inside_)
-            if (zone == body && visitor >= 0 && size_t(visitor) < entityOfBody_.size() && entityOfBody_[size_t(visitor)] != 0 &&
-                !(stands(body) && stands(visitor))) // the floor under a zone on it, a wall through it: they were always there
-                out.back().second.push_back(entityOfBody_[size_t(visitor)]);
-        std::sort(out.back().second.begin(), out.back().second.end());
+        const uint32_t zone = isArrayCopyId(entity) ? arrayOfCopyId(entity) : entity;
+        auto row = std::find_if(out.begin(), out.end(), [zone](const auto& z) { return z.first == zone; });
+        if (row == out.end()) row = out.insert(out.end(), {zone, {}});
+        for (const auto& [sensor, visitor] : inside_) {
+            if (sensor != body || (stands(body) && stands(visitor))) continue; // the floor under a zone on it, a wall through it: they were always there
+            if (const uint32_t id = objectIdOfBody(visitor); id != 0 && id != zone) row->second.push_back(id);
+        }
+    }
+    for (auto& [zone, ids] : out) {
+        std::sort(ids.begin(), ids.end());
+        ids.erase(std::unique(ids.begin(), ids.end()), ids.end());
     }
     return out;
 }

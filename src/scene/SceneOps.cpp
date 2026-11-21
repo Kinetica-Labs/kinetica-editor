@@ -19,12 +19,13 @@ const char* kindOf(const SceneGraph& g, uint32_t id) {
     auto in = [id](const auto& v) { return std::any_of(v.begin(), v.end(), [id](const auto& o) { return o.id == id; }); };
     return in(g.entities) ? "entity" : in(g.groups) ? "group" : in(g.arrays) ? "array" : in(g.lights) ? "light" : in(g.cameras) ? "camera"
          : in(g.batteries) ? "battery" : in(g.drivers) ? "driver" : in(g.sensors) ? "sensor" : in(g.wheels) ? "wheel"
-         : in(g.controllers) ? "controller" : findJoint(g, id) ? "joint" : "";
+         : in(g.controllers) ? "controller" : in(g.sequences) ? "sequence" : findJoint(g, id) ? "joint" : "";
 }
 
 // The words scene_list's `kind` takes: a row's kind, a sensor's own ("encoder", "imu"...: SensorSpec.h), and "body" - an
 // entity with the rigid role, what physics moves.
-const char* const kListKinds[] = {"entity", "body", "group", "array", "light", "camera", "joint", "battery", "driver", "sensor", "wheel", "controller"};
+const char* const kListKinds[] = {"entity", "body", "group", "array", "light", "camera", "joint", "battery", "driver", "sensor", "wheel", "controller",
+                                  "sequence"};
 
 bool isOfKind(const SceneGraph& g, uint32_t id, const std::string& word) {
     if (word == kindOf(g, id)) return true;
@@ -64,8 +65,7 @@ bool objectList(const SceneGraph& g, const std::string& word, const std::string&
             out.push(row);
         }
     };
-    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras), add(g.joints), add(g.batteries), add(g.drivers);
-    add(g.sensors), add(g.wheels), add(g.controllers);
+    eachObjectList(g, add);
     return true;
 }
 
@@ -89,7 +89,7 @@ Value fieldValues(const std::string& block, const Value& a) {
 std::vector<SceneOp> readOps() {
     return {
         query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
-              "camera, joint, battery, driver, sensor, wheel, controller), a sensor's own (encoder, imu, sonar, touch, wrench, effort, "
+              "camera, joint, battery, driver, sensor, wheel, controller, sequence), a sensor's own (encoder, imu, sonar, touch, wrench, effort, "
               "stereo), or body - an entity with the rigid role. With tag - only those marked with it (scene_tag); a row says its "
               "tags when it has any. What a plugin's field of a scene object chooses from",
               "{kind?: str, tag?: str}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {

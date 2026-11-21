@@ -34,11 +34,10 @@ std::string direction(const Vector3& d) {
     return names[best];
 }
 
+// The kilograms said of a body: none for one that does not move, nor for a model whose mass only its file knows.
 Real massOf(const Entity& e) {
-    static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 0.0_r};
-    if (!e.rigid.dynamic()) return 0;
-    if (e.rigid.mass > 0) return e.rigid.mass;
-    return e.rigid.density * share[int(e.shape)] * e.size.x * e.size.y * e.size.z;
+    if (!e.rigid.dynamic() || (e.shape == ShapeKind::Mesh && !(e.rigid.mass > 0))) return 0;
+    return bodyMass(e);
 }
 
 std::string shapeWords(const Entity& e) {

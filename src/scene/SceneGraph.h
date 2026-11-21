@@ -449,6 +449,15 @@ struct SceneGraph {
 // The world's "world" and "physics" lines, both always (save() leaves out a physics line of defaults).
 std::string worldText(const WorldSettings& w);
 
+// Every list of objects a scene holds, kind by kind in the file's order: `f` is called with each (the lists hold
+// different types, so `f` takes any of them). A kind added to the graph is added here once, and whatever walks all
+// the objects - their tags, their components, scene_list - has it.
+template <class Graph, class F>
+void eachObjectList(Graph& g, F&& f) {
+    f(g.entities), f(g.groups), f(g.arrays), f(g.lights), f(g.cameras), f(g.joints), f(g.batteries), f(g.drivers), f(g.sensors), f(g.wheels),
+        f(g.controllers), f(g.sequences);
+}
+
 // ---------------------------------------------------------------------------
 // Many objects at once (SceneHierarchy.cpp): hierarchy, instances, arrays. None of these call the
 // physics engine; the running world and an editor use them alike.
@@ -460,6 +469,11 @@ const SceneObject* findObject(const SceneGraph& g, uint32_t id);
 std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id);
 const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id);
 bool tagWord(const std::string& word);
+
+// A key of the scene file under the name the format has for it today: one of its earlier names (anchorA) comes
+// back as the present one (anchor_a), any other word as it is - what a script or a journal written before names
+// still means the same.
+std::string presentKey(const std::string& key);
 // The plugins' components of an object of any kind (nullptr: no such object).
 std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id);
 const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id);
@@ -525,5 +539,9 @@ std::string entityGeometryKey(const Entity& e, const std::string& baseDirectory 
 // The same mesh posed in the world: turned by the rotation and moved to the position.
 // No role at all: drawn, but not part of the simulation.
 bool entityIsGeometryOnly(const Entity& e);
+// What a rigid body of this shape weighs, kg: the mass given to it (rigid mass) - the engine's own number -, else an
+// estimate: its density over the drawn shape's volume (a model: its box; the engine counts the collider's). What
+// tunes a servo or a spring to a body asks here. An instance is resolved first (resolveInstance): its role is its master's.
+Real bodyMass(const Entity& e);
 
 } // namespace ke

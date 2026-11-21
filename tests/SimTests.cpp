@@ -245,8 +245,19 @@ void testSimKinematicBodyLeads() {
     g.entities.push_back(hung);
     Simulation s;
     s.load(g);
+    s.startRecording();
     for (int k = 0; k < 60; ++k) s.stepFrame();
     CHECK(std::fabs(s.physics()->state(s.robot()->bodyOf(4)).position.y - 1.5_r) < 1e-5_r, "gravity does not take a kinematic body hung in the air");
+    // What rides on it and what is recorded read the world's own scene: the body is there where the engine has it.
+    const Entity* shown = findEntity(s.robot()->live(), 1);
+    CHECK(shown && std::fabs(shown->position.x - 1) < 0.01_r, "the world's scene does not follow a kinematic body: x %f (the engine has it at 1)",
+          shown ? double(shown->position.x) : -1.0);
+    CHECK(s.robot()->isFree(1) && !s.robot()->isFree(3) && !s.robot()->stands(s.robot()->bodyOf(1)) && s.robot()->stands(s.robot()->bodyOf(3)),
+          "a kinematic body moves freely and does not stand; one that is fixed too stands");
+    SequenceObject take;
+    const bool taken = s.takeRecording("Запись", take);
+    const bool tracked = std::any_of(take.tracks.begin(), take.tracks.end(), [](const auto& t) { return t.object == 1; });
+    CHECK(taken && tracked, "a take has no track of a kinematic body that moved (%zu tracks)", take.tracks.size());
     const BodyState pusher = s.physics()->state(s.robot()->bodyOf(1)), box = s.physics()->state(s.robot()->bodyOf(2)),
                     post = s.physics()->state(s.robot()->bodyOf(3));
     std::printf("  after 1 s: the kinematic body at x %.3f y %.3f (mass %.1f), the box it met at x %.3f, the fixed one at x %.3f\n",
@@ -382,6 +393,41 @@ void testSimIgnoresAndTriggers() {
           back.entities[4].collider.trigger && !back.entities[0].collider.trigger, "ignores and trigger come back from the file: %s", error.c_str());
     CHECK(text.find("ignores призрак") != std::string::npos && text.find("trigger 1") != std::string::npos &&
           SceneGraph().save().find("ignores") == std::string::npos, "the words are written for the colliders that have them only");
+
+    // A row of an array falls into a zone: its copies are no objects of their own - the zone names the array, once.
+    SceneGraph rows;
+    Entity bin = zone;
+    bin.id = 1, bin.position = {0.3_r, 0.3_r, 0}, bin.size = {2, 0.6_r, 0.6_r};
+    rows.entities.push_back(bin);
+    rows.entities.push_back(solid(2, "Кирпич", Vector3(0.1_r), {0, 1, 0}, false));
+    Value row = Value::map(), ids = Value::list(), step = Value::list(), made = Value::map();
+    ids.push(2), step.push(0.3), step.push(0), step.push(0);
+    row.set("ids", ids), row.set("count", 3), row.set("step", step);
+    CHECK(findSceneOp("scene_array")->edit(rows, row, made, error) && rows.arrays.size() == 1, "a row of three bricks: %s", error.c_str());
+    Simulation fall;
+    fall.load(rows);
+    for (int k = 0; k < 120; ++k) fall.stepFrame();
+    const auto named = fall.robot()->zones();
+    std::printf("  three copies of an array in a zone: %zu zone(s), %zu name(s) inside\n", named.size(), named.empty() ? size_t(0) : named[0].second.size());
+    CHECK(named.size() == 1 && named[0].first == 1 && named[0].second == std::vector<uint32_t>{rows.arrays[0].id},
+          "a zone names the array whose copies are inside it, once, not the copies");
+
+    // A row of zones is one zone, the array: a ball in its second copy is inside the array.
+    SceneGraph bins;
+    Entity cell = zone;
+    cell.id = 1, cell.position = {0, 0.3_r, 0}, cell.size = Vector3(0.6_r);
+    bins.entities.push_back(cell);
+    bins.entities.push_back(solid(2, "Шар", Vector3(0.2_r), {1, 1.5_r, 0}, false)); // over the second copy, a metre along
+    Value cells = Value::map(), cellIds = Value::list(), apart = Value::list(), rowOf = Value::map();
+    cellIds.push(1), apart.push(1), apart.push(0), apart.push(0);
+    cells.set("ids", cellIds), cells.set("count", 2), cells.set("step", apart);
+    CHECK(findSceneOp("scene_array")->edit(bins, cells, rowOf, error) && bins.arrays.size() == 1, "a row of two zones: %s", error.c_str());
+    Simulation drop;
+    drop.load(bins);
+    for (int k = 0; k < 120; ++k) drop.stepFrame();
+    const auto cellsNow = drop.robot()->zones();
+    CHECK(cellsNow.size() == 1 && cellsNow[0].first == bins.arrays[0].id && cellsNow[0].second == std::vector<uint32_t>{2},
+          "a row of zones is not one zone under its array's id with the ball inside (%zu zones)", cellsNow.size());
 }
 
 void testSimServoHoldsAndDroops() {
@@ -522,6 +568,38 @@ void testSimActuatorHolds() {
                 answer["stiffness"].number(), answer["damping"].number(), droop, double(turned[dof]));
     CHECK(droop < 1.2, "the tuned servo holds the rod within a degree: %f", droop);
     CHECK(std::fabs(double(turned[dof]) - 0.5) < 0.03, "told 0.5 rad, it turns there: %f", double(turned[dof]));
+
+    // The same rod given its real weight: the servo is tuned to those kilograms, not to the shape's density.
+    SceneGraph heavy;
+    rod.rigid.enabled = true, rod.rigid.mass = 5;
+    heavy.entities = {post, rod};
+    Value tuned = Value::map();
+    CHECK(findSceneOp("assembly_actuator")->edit(heavy, args, tuned, error), "the actuator on a rod of a given mass: %s", error.c_str());
+    Simulation h;
+    h.load(heavy);
+    for (int k = 0; k < 120; ++k) h.stepFrame();
+    Real hx[6] = {};
+    h.robot()->jointCoordinates(*h.physics(), uint32_t(tuned["id"].number()), hx);
+    const double sag = std::fabs(double(hx[dof])) * 180 / 3.141592653589793;
+    std::printf("  the same rod given 5 kg: k %.1f, droop %.3f deg\n", tuned["stiffness"].number(), sag);
+    CHECK(tuned["stiffness"].number() > 5 * answer["stiffness"].number() && sag < 1.2,
+          "a rod given 5 kg droops %f deg under a servo of k %f", sag, tuned["stiffness"].number());
+
+    // Its centre of mass given far out on the rod: the servo is tuned to that arm of the weight, not to the shape's middle.
+    SceneGraph tipped;
+    rod.rigid.centerGiven = true, rod.rigid.centerOfMass = {0.2_r, 0, 0};
+    tipped.entities = {post, rod};
+    Value outer = Value::map();
+    CHECK(findSceneOp("assembly_actuator")->edit(tipped, args, outer, error), "the actuator on a rod of a given centre of mass: %s", error.c_str());
+    Simulation t;
+    t.load(tipped);
+    for (int k = 0; k < 120; ++k) t.stepFrame();
+    Real tx[6] = {};
+    t.robot()->jointCoordinates(*t.physics(), uint32_t(outer["id"].number()), tx);
+    const double tip = std::fabs(double(tx[dof])) * 180 / 3.141592653589793;
+    std::printf("  its centre of mass 0.2 m further out: k %.1f, droop %.3f deg\n", outer["stiffness"].number(), tip);
+    CHECK(outer["stiffness"].number() > 1.4 * tuned["stiffness"].number() && tip < 1.2,
+          "a rod whose centre of mass is given further out droops %f deg under a servo of k %f", tip, outer["stiffness"].number());
 }
 
 // The channels the plots draw, against the engine's own numbers. A box falling free from rest keeps its

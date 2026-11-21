@@ -36,6 +36,21 @@ void take(const std::string& before, const std::string& after, std::string& targ
     if (after != before) target = after;
 }
 
+// The tags field shows the active object's words; the others selected may hold different ones. A word typed goes on
+// each of them, a word erased comes off each, and the rest of each one's own stays (the object shown takes the field
+// as it is, the order of its words too).
+void takeTags(const std::vector<std::string>& before, const std::vector<std::string>& after, std::vector<std::string>& target) {
+    if (after == before) return;
+    if (target == before) {
+        target = after;
+        return;
+    }
+    const auto has = [](const std::vector<std::string>& words, const std::string& w) { return std::find(words.begin(), words.end(), w) != words.end(); };
+    target.erase(std::remove_if(target.begin(), target.end(), [&](const std::string& w) { return has(before, w) && !has(after, w); }), target.end());
+    for (const std::string& w : after)
+        if (!has(before, w) && !has(target, w)) target.push_back(w);
+}
+
 void takeObject(const SceneObject& before, const SceneObject& after, SceneObject& target) {
     take(before.name, after.name, target.name);
     take(before.visible, after.visible, target.visible);
@@ -43,7 +58,7 @@ void takeObject(const SceneObject& before, const SceneObject& after, SceneObject
     take(before.color, after.color, target.color);
     take(before.position, after.position, target.position);
     take(before.rotationDeg, after.rotationDeg, target.rotationDeg);
-    if (after.tags != before.tags) target.tags = after.tags;
+    takeTags(before.tags, after.tags, target.tags);
 }
 
 // The geometry and its look (the components' numbers are their cards', which write the one field edited themselves).

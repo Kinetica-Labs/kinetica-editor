@@ -192,6 +192,29 @@ void testSceneTags() {
     const SceneOp* op = findSceneOp("scene_tag");
     CHECK(!op->edit(g, tag({base}, "two words"), r, error) && !op->edit(g, tag({base}, ""), r, error) && !op->edit(g, tag({999}, "x"), r, error),
           "a tag of two words, an empty one and an object that is not there are refused");
+    // A sequence is an object too: what scene_tag marks, scene_list finds - by its tag and by its kind.
+    Value take = Value::map(), demo = Value::map(), sequences = Value::map();
+    take.set("name", "Дубль");
+    const int sequence = run("sequence_add", take)["id"].integer();
+    demo.set("tag", "демо"), sequences.set("kind", "sequence");
+    CHECK(run("scene_tag", tag({sequence}, "демо"))["changed"].integer() == 1 && run("scene_list", demo)["objects"].size() == 1 &&
+          run("scene_list", demo)["objects"].items()[0]["kind"].text() == "sequence" && run("scene_list", sequences)["objects"].size() == 1,
+          "a tagged sequence is not found by scene_list: %s", error.c_str());
+    // A tag that reads as a number stays the word it is for whoever reads the block line by line.
+    Value numeric = Value::map(), ignored = Value::list();
+    ignored.push("2024"), numeric.set("id", link), numeric.set("ignores", ignored);
+    run("scene_tag", tag({link}, "7")), run("scene_collider", numeric);
+    Value of = Value::map();
+    of.set("id", link);
+    bool words = false, names = false;
+    const Value block = run("scene_get", of); // kept: the lines are read out of it
+    for (const Value& line : block["lines"].items()) {
+        if (line.size() == 2 && line.items()[0].text("") == "tags") words = line.items()[1].type() == Value::Type::Text && line.items()[1].text() == "7";
+        if (line.size() == 2 && line.items()[0].text("") == "ignores") names = line.items()[1].type() == Value::Type::Text && line.items()[1].text() == "2024";
+    }
+    SceneGraph numbers;
+    CHECK(words && names && numbers.load(g.save(), error) && numbers.save() == g.save() && objectTags(numbers, uint32_t(link))->front() == "7",
+          "a tag or an ignored tag that reads as a number comes back as a number, or does not come back from the file: %s", error.c_str());
     const std::string text = g.save();
     SceneGraph back;
     CHECK(back.load(text, error) && back.save() == text && objectTags(back, uint32_t(lamp)) && objectTags(back, uint32_t(lamp))->size() == 1 &&
@@ -240,6 +263,24 @@ void testComponentsOnAnyObject() {
     Value r = Value::map();
     CHECK(run("component_remove", off)["id"].integer() == joint && run("component_list", of)["components"].size() == 2 &&
           !findSceneOp("component_set")->edit(g, none, r, error), "component_remove takes the joint's off; an object that is not there is refused");
+    // An instance shows its master's components - component_set on it writes there, component_list says the master's
+    // values of it; a copy of the instance, a shape of its own, keeps them as they are now.
+    const uint32_t twin = copySubtree(g, uint32_t(base), true, 0);
+    Value on = Value::map(), seven = Value::map();
+    seven.set("cycles", 7), on.set("id", int(twin)), on.set("type", "wear.meter"), on.set("values", seven);
+    const bool written = run("component_set", on)["id"].integer() == base;
+    const uint32_t own = copySubtree(g, twin, false, 0);
+    const Entity* shape = findEntity(g, own);
+    const auto cycles = [](const Entity& e) { return e.components.empty() ? std::string("none") : e.components[0].values[0].second; };
+    double listed = 0;
+    const Value now = run("component_list", of); // kept: the rows are read out of it
+    for (const Value& row : now["components"].items())
+        if (row["id"].integer() == int(twin)) listed = row["values"]["cycles"].number();
+    const std::string masters = cycles(*findEntity(g, uint32_t(base)));
+    std::printf("  an instance of a shape with a component: the master's value %s, the instance shows %s (listed %g), its copy keeps %s\n", masters.c_str(),
+                cycles(resolveInstance(g, *findEntity(g, twin))).c_str(), listed, shape ? cycles(*shape).c_str() : "?");
+    CHECK(written && masters != "none" && cycles(resolveInstance(g, *findEntity(g, twin))) == masters && listed == 7 && shape &&
+          shape->instanceOf == 0 && cycles(*shape) == masters, "an instance does not show its master's components, or its copy lost them");
 }
 
 void testSceneArrayOp() {

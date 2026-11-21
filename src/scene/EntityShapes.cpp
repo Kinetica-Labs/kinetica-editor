@@ -122,6 +122,11 @@ bool entityIsGeometryOnly(const Entity& e) {
     return !e.rigid.enabled && !e.collider.enabled;
 }
 
+Real bodyMass(const Entity& e) {
+    static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 1.0_r}; // box, sphere, cylinder, cone, plane, mesh
+    return e.rigid.mass > 0 ? e.rigid.mass : e.rigid.density * share[int(e.shape)] * e.size.x * e.size.y * e.size.z;
+}
+
 std::string entityGeometryKey(const Entity& e, const std::string& baseDirectory) {
     std::string key = std::to_string(int(e.shape)) + "|" + (e.shape == ShapeKind::Mesh ? resolvePath(e.meshFile, baseDirectory) : "");
     for (int k = 0; k < (e.shape == ShapeKind::Mesh ? 1 : 3); ++k) key += "|" + numberText(e.shape == ShapeKind::Mesh ? maxComp(e.size) : e.size[k]);

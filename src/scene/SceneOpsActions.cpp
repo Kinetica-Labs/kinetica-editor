@@ -349,8 +349,12 @@ bool componentListOp(const SceneGraph& g, const Value& a, Value& r, std::string&
     const std::string type = a["type"].text("");
     Value list = Value::list();
     const auto each = [&](const auto& objects) {
-        for (const auto& x : objects)
-            for (const PluginComponent& c : x.components) {
+        for (const auto& x : objects) {
+            const std::vector<PluginComponent>* shown = &x.components;
+            if constexpr (std::is_same_v<std::decay_t<decltype(x)>, Entity>) { // an instance: its master's, as component_set writes them
+                if (const Entity* master = x.instanceOf != 0 ? findEntity(g, masterOf(g, x.id)) : nullptr) shown = &master->components;
+            }
+            for (const PluginComponent& c : *shown) {
                 if (!type.empty() && c.type != type) continue;
                 Value values = Value::map();
                 for (const auto& [key, word] : c.values) values.set(key, componentValue(word));
@@ -358,9 +362,9 @@ bool componentListOp(const SceneGraph& g, const Value& a, Value& r, std::string&
                 row.set("id", x.id), row.set("type", c.type), row.set("values", values);
                 list.push(row);
             }
+        }
     };
-    each(g.entities), each(g.groups), each(g.arrays), each(g.lights), each(g.cameras), each(g.joints), each(g.batteries), each(g.drivers);
-    each(g.sensors), each(g.wheels), each(g.controllers), each(g.sequences);
+    eachObjectList(g, each);
     r.set("components", list);
     return true;
 }
@@ -435,7 +439,8 @@ std::vector<SceneOp> actionSceneOps() {
                           "word); the plugin's schema says what they mean and draws its card. One undo step",
          "{id: int, type: str, values?: {}}", {}, componentSetOp, true},
         {"component_remove", "A plugin's component taken off an object", "{id: int, type: str}", {}, componentRemoveOp, true},
-        {"component_list", "Every plugin component in the scene (of one type: <plugin>.<component>): its object and values", "{type?: str}",
+        {"component_list", "Every plugin component in the scene (of one type: <plugin>.<component>): its object and values; an instance of a "
+                           "shape is a row too, with its master's values", "{type?: str}",
          componentListOp, {}, false},
         {"scene_collider", "A shape's collider by numbers, apart from what it looks like: the kind; a box's size, a sphere's diameter, a "
                            "capsule's or a cylinder's diameter and height; its centre (offset) and turn (rotation) on the shape, in the shape's "

@@ -181,7 +181,8 @@ Entity resolveInstance(const SceneGraph& g, const Entity& e) {
         master = next;
     }
     Entity out = *master;                                             // geometry and roles of the master
-    static_cast<SceneObject&>(out) = static_cast<const SceneObject&>(e); // name, pose, visibility, id: its own
+    static_cast<SceneObject&>(out) = static_cast<const SceneObject&>(e); // name, pose, visibility, id, tags: its own
+    out.components = master->components; // a plugin's components are the master's, as its roles are (component_set writes there)
     out.instanceOf = e.instanceOf;
     return out;
 }

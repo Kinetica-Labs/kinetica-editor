@@ -68,8 +68,8 @@ PresetOptions presetOptions(const Value& a) {
 Entity linkLike(const SceneGraph& g, const Entity& target, const Value& a) {
     static const Vector3 palette[] = {{0.85_r, 0.55_r, 0.25_r}, {0.3_r, 0.6_r, 0.9_r}, {0.45_r, 0.8_r, 0.45_r}, {0.85_r, 0.4_r, 0.55_r}, {0.75_r, 0.75_r, 0.3_r}};
     Entity e = resolveInstance(g, target);
-    vectorArg(a, "size", e.size);
-    e.rigid.fixed = false;
+    if (vectorArg(a, "size", e.size)) e.rigid.mass = 0, e.rigid.centerGiven = e.rigid.inertiaGiven = false; // another size, another body: the target's kilograms are not its
+    e.rigid.fixed = e.rigid.kinematic = false; // whatever kind of body the target is, a link is moved by its joint
     e.rigid.velocity = e.rigid.angularVelocity = Vector3(0.0_r);
     const auto links = std::count_if(g.entities.begin(), g.entities.end(), [](const Entity& o) { return o.name.rfind("Звено", 0) == 0; });
     e.name = a.has("name") ? a["name"].text("") : "Звено " + std::to_string(links + 1);
@@ -244,12 +244,13 @@ std::string bodiesForJoint(SceneGraph& g, uint32_t a, uint32_t b) {
 }
 
 // A servo tuned to what its joint carries: it holds the pose it is told and droops under gravity a degree at most (a turn:
-// k = m g d / 0.0175 rad, d the link's centre off the axis; a travel: 2 mm, k = m g / 0.002), critically damped
-// (c = 2 sqrt(k I), I the link's inertia about the axis; m along a travel). The link is the joint's a.
+// k = m g d / 0.0175 rad, d the link's centre of mass off the axis; a travel: 2 mm, k = m g / 0.002), critically damped
+// (c = 2 sqrt(k I), I the link's inertia about the axis; m along a travel). The link is the joint's a. Its mass, centre
+// of mass and inertia are the ones given to it (the rigid line), else those of its shape: a rod of its longest side.
 void tuneServo(const SceneGraph& g, const JointObject& j, int dof, JointDrive& drive) {
     const Entity* link = findEntity(g, j.a);
-    static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 1.0_r}; // box, sphere, cylinder, cone, plane, mesh
-    const Real mass = link ? std::max(link->rigid.density * share[int(link->shape)] * link->size.x * link->size.y * link->size.z, 0.01_r) : 1.0_r;
+    const Entity body = link ? resolveInstance(g, *link) : Entity();
+    const Real mass = link ? std::max(bodyMass(body), 0.01_r) : 1.0_r;
     Vector3 originA, anchor;
     Quaternion frameA, frameB;
     jointWorldFrames(g, j, originA, frameA, anchor, frameB);
@@ -257,12 +258,21 @@ void tuneServo(const SceneGraph& g, const JointObject& j, int dof, JointDrive& d
     e[dof % 3] = 1;
     const Vector3 axis = frameB.rotate(e);
     const AABB box = objectBounds(g, j.a);
-    const Vector3 off = (box.valid() ? box.center() : anchor) - anchor;
-    const Real d = std::max(length(off - axis * dot(off, axis)), 0.05_r), reach = link ? maxComp(link->size) : 0.1_r;
+    Vector3 centre = box.valid() ? box.center() : anchor, at;
+    Quaternion turn;
+    if (link) worldPose(g, *link, at, turn);
+    if (body.rigid.centerGiven) centre = at + turn.rotate(body.rigid.centerOfMass);
+    const Vector3 off = centre - anchor;
+    const Real d = std::max(length(off - axis * dot(off, axis)), 0.05_r), reach = link ? maxComp(body.size) : 0.1_r;
+    Real about = mass * reach * reach / 12; // about the axis through the centre of mass
+    if (body.rigid.inertiaGiven) {
+        const Vector3 a = turn.conjugate().rotate(axis), &i = body.rigid.inertiaDiagonal, &p = body.rigid.inertiaProducts;
+        about = i.x * a.x * a.x + i.y * a.y * a.y + i.z * a.z * a.z + 2 * (p.x * a.x * a.y + p.y * a.x * a.z + p.z * a.y * a.z);
+    }
     const Real gravity = std::max(length(g.world.gravity), 1.0_r);
     if (dof >= DofRx) {
         drive.stiffness = std::max(mass * gravity * d / 0.0175_r, 10.0_r);
-        drive.damping = 2 * std::sqrt(drive.stiffness * mass * (d * d + reach * reach / 12));
+        drive.damping = 2 * std::sqrt(drive.stiffness * (mass * d * d + about));
     } else {
         drive.stiffness = std::max(mass * gravity / 0.002_r, 100.0_r);
         drive.damping = 2 * std::sqrt(drive.stiffness * mass);
