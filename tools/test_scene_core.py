@@ -198,7 +198,11 @@ class SceneCore(unittest.TestCase):
             os.symlink(real, link)
             out = subprocess.run([link], input='{"op": "sensor_models"}\n', capture_output=True, text=True, timeout=30)
             self.assertEqual(out.returncode, 0, out.stderr)
-            self.assertIn(os.path.join(bundle, "data", "sensors"), out.stdout)
+            # The program names the folder by its real path (Windows: the temporary folder's long name, not RUNNER~1).
+            files = json.loads(out.stdout.splitlines()[0])["result"]["files"]
+            want = os.path.normcase(os.path.join(os.path.realpath(bundle), "data", "sensors"))
+            self.assertTrue(files)
+            self.assertEqual({os.path.normcase(os.path.dirname(os.path.normpath(f))) for f in files}, {want})
 
     def test_a_bad_data_dir_is_an_error(self):
         out = subprocess.run([find_core(), "--data-dir", "/nonexistent"], input="", capture_output=True, text=True, timeout=30)
