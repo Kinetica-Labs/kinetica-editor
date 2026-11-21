@@ -529,7 +529,7 @@ void Viewport::drawBodies(const QMatrix4x4& view, const QMatrix4x4& proj) {
     const GpuMesh* bound = nullptr;
     int coloured = -1;
     for (const ke::Frame::Body& b : snap_->bodies) {
-        if (!b.mesh || b.opacity < 1) continue;
+        if (!b.mesh || b.opacity < 1 || (b.marker && !marksVisible_)) continue; // a mark of the editor - an IK goal, a camera's target - is not filmed
         if (!surface || !(b.texture == *surface)) setSurfaceTexture(b.texture), surface = &b.texture;
         meshProg_.setUniformValue(uModel, modelMatrix(b));
         meshProg_.setUniformValue(uColor, qv(b.color) * sleepDim(b));
@@ -547,7 +547,7 @@ void Viewport::drawBodies(const QMatrix4x4& view, const QMatrix4x4& proj) {
 void Viewport::drawSeeThrough(const QMatrix4x4& view, const QMatrix4x4& proj) {
     seeThrough_.clear();
     for (const ke::Frame::Body& b : snap_->bodies)
-        if (b.opacity < 1 && b.mesh) seeThrough_.push_back(&b);
+        if (b.opacity < 1 && b.mesh && (marksVisible_ || !b.marker)) seeThrough_.push_back(&b);
     if (seeThrough_.empty()) return;
     glEnable(GL_DEPTH_TEST);
     glDepthMask(GL_FALSE);
@@ -603,10 +603,17 @@ void Viewport::paintGL() {
     drawFloor(vp);
     drawBodies(view, proj);
     drawSeeThrough(view, proj);
-    drawOverlays3D(vp);
+    if (marksVisible_) drawOverlays3D(vp);
+    else drawOverlayLines(vp); // a plugin's or an agent's lines are the scene's
     glBindVertexArray(0);
     glUseProgram(0);
     if (overlayVisible_) drawOverlay();
+    else { // the view's own words are off: a plugin's or an agent's pictures are the scene's and stay
+        QPainter p(this);
+        if (marksVisible_) drawJointTies(p);
+        drawOverlayFills(p);
+        drawOverlayMarks(p);
+    }
     endGpuFrame();
     countFrame(painting.nsecsElapsed());
 }
@@ -696,7 +703,7 @@ void Viewport::drawOverlay() {
     f.setPointSizeF(10.5);
     f.setBold(true);
     p.setFont(f);
-    drawJointTies(p);
+    if (marksVisible_) drawJointTies(p);
     drawOverlayFills(p); // under the view's own words
     p.setPen(QColor(235, 238, 245));
     p.drawText(14, 24, QString::fromStdString(snap_->sceneName));

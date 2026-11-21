@@ -127,9 +127,10 @@ void EditorOps::addViewOps() {
                                "menus and tooltips painted where they stand - drawn by the editor, never read from the screen, so no other "
                                "program's window is in it; "
                                "width: scaled to so many pixels across, smoothly; clean: without the text and the navigation cube over the view - "
-                               "a picture for the documentation; view_frame {id} first puts an object in the middle of it; file: where to save it - none, a new file in the temporary folder, "
+                               "a picture for the documentation; marks: false - without the editor's own marks in the scene either (joints and their ties, "
+                               "sensors, lights, cameras, the gizmo, the selection's outline): what a camera would film - what a plugin or an agent drew (view_draw) stays in both; view_frame {id} first puts an object in the middle of it; file: where to save it - none, a new file in the temporary folder, "
                                "named in the answer)",
-            "{file?: str, window?: bool, screen?: bool, width?: int, clean?: bool}",
+            "{file?: str, window?: bool, screen?: bool, width?: int, clean?: bool, marks?: bool}",
             [this](const QJsonObject& a) {
         static int shots = 0;
         const QString file = a.contains("file") ? a.value("file").toString()
@@ -138,10 +139,13 @@ void EditorOps::addViewOps() {
         const bool clean = a.value("clean").toBool();
         QWidget* banner = clean ? window_->findChild<QWidget*>("apiBanner") : nullptr;
         const bool bannerShown = banner && banner->isVisible();
+        const bool marks = a.value("marks").toBool(true);
         if (clean) view_->setOverlayVisible(false);
+        if (!marks) view_->setMarksVisible(false);
         if (bannerShown) banner->hide();
         QImage image = a.value("screen").toBool() ? seenWindow(window_) : a.value("window").toBool() ? wholeWindow(window_) : view_->grabFramebuffer();
         if (clean) view_->setOverlayVisible(true);
+        if (!marks) view_->setMarksVisible(true);
         if (bannerShown) banner->show();
         if (const int width = a.value("width").toInt(); width > 0 && width < image.width())
             image = image.scaledToWidth(width, Qt::SmoothTransformation);

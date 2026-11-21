@@ -179,6 +179,12 @@ void keyedCameraTests(QMainWindow& w, SceneBuilder& b, Viewport* v, Checker& c) 
     std::printf("  a camera keyed 4 m over 1 s, looked through, «Запись» for 0.7 s: the view went %.2f m; the take holds the camera's track %s\n",
                 double(went), held ? "yes" : "no");
     c.check(went > 1.0f && went < 4.01f && held, "in play the view through a keyed camera goes with its keys, and the take brings its track along");
+    // The same switch as an operation: through a camera of the scene, and back to the editor's own view.
+    const bool in = ops->runNow("view_through", {{"camera", int(cam)}}).value("through").toInt() == int(cam) && b.lookingThrough() == cam &&
+                    ops->runNow("view_get", {}).value("through").toInt() == int(cam);
+    const bool out = ops->runNow("view_through", {}).value("through").toInt() == 0 && b.lookingThrough() == 0;
+    c.check(in && out && !ops->runNow("view_through", {{"camera", 99999}}).value("ok").toBool(),
+            "view_through looks through a camera of the scene and back; a camera that is not there is refused");
 }
 
 // The play range (the world's duration, the Sequencer's «До»): ▶ runs to its end and stays paused on that frame; a take

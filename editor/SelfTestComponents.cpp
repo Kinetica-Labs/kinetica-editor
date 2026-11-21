@@ -26,6 +26,8 @@
 #include <QSlider>
 #include <QSpinBox>
 #include <QDir>
+#include <QImage>
+#include <QTemporaryDir>
 #include <QMenu>
 #include <QPainter>
 #include <QPushButton>
@@ -490,6 +492,14 @@ void testJointTies(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
                       near(two.a, v->pixelOf(Vector3(-0.1f, 0.5f, 0))) && near(two.b, v->pixelOf(Vector3(-0.6f, 0.11f, 0)));
     const bool ground = hung && one.id == hung && one.grounded && near(one.pin, v->pixelOf(Vector3(1.0f, 1.5f, 0))) && near(one.a, v->pixelOf(Vector3(1.5f, 0.9f, 0)));
     c.check(v->jointTies().size() == 2 && both && ground, "a joint is drawn as a tie: a line from each of its two bodies to its pin; one to the world has the ground at its pin");
+    QTemporaryDir shots; // a frame as a camera would film it: none of the editor's marks in it
+    const QString marked = shots.path() + "/marked.png", bare = shots.path() + "/bare.png";
+    ops->runNow("view_screenshot", {{"file", marked}});
+    ops->runNow("view_screenshot", {{"file", bare}, {"marks", false}});
+    const QColor with = QImage(marked).pixelColor(two.pin.toPoint()), without = QImage(bare).pixelColor(two.pin.toPoint());
+    pump(100);
+    c.check(std::abs(with.red() - without.red()) + std::abs(with.green() - without.green()) + std::abs(with.blue() - without.blue()) > 60 && tieOf(hinge).id == hinge,
+            "a frame asked without the editor's marks has no joint's pin in it, and the view itself keeps them");
     b.play();
     const bool swung = waitUntil([&] { return tieOf(hung).id == hung && std::hypot(tieOf(hung).a.x() - one.a.x(), tieOf(hung).a.y() - one.a.y()) > 25; }, 6000);
     const Viewport::JointTie later = tieOf(hung);

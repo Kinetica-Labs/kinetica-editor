@@ -172,6 +172,9 @@ public:
     void dragTool(const QPointF& from, const QPointF& to); // a drag tool's two points: under the press, under the release
     // The 2D text over the view (the scene's name, the axes, the navigation cube); off for the gallery's pictures.
     void setOverlayVisible(bool on) { overlayVisible_ = on; update(); }
+    // The editor's own marks in the scene - joints and their ties, sensors, lights, cameras, the gizmo, outlines: off, the
+    // frame is what a camera would film. What a plugin or an agent drew (view_draw) is the scene's and stays.
+    void setMarksVisible(bool on) { marksVisible_ = on; update(); }
     // While an agent drives the editor through the API the gizmo is not drawn: nobody takes its handles then, and its
     // arrows stood over the hand the agent moved, hiding what it did.
     void setAgentDriving(bool driving) { // said at every call of an agent: a paint only when it changes - a paint a call
@@ -437,7 +440,7 @@ private:
     ke::AABB focusBox_;            // what to frame when valid (the builder's objects)
     std::vector<int> highlight_;   // bodies outlined as selected
     std::vector<int> hoverBodies_, ghostBodies_;
-    bool overlayVisible_ = true, agentDriving_ = false;
+    bool overlayVisible_ = true, marksVisible_ = true, agentDriving_ = false;
     std::vector<char> unpickable_;          // per body: the mouse passes through
     std::vector<float> colliderGuides_;     // x y z state per point, two points a segment
     std::vector<ShapeHandle> handles_;      // the collider mode's points

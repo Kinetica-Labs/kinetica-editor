@@ -9,6 +9,8 @@
 #include "Viewport.h"
 
 #include <QAction>
+
+#include <algorithm>
 #include <QWidget>
 
 using namespace ke;
@@ -83,7 +85,7 @@ void EditorOps::addStateOps() {
     });
     addSync("view_get", "The view's camera: the eye, the point it orbits, the distance, the vertical field of view", "{}", [this](const QJsonObject&) {
         const OrbitCamera& c = view_->camera();
-        return ok({{"eye", json(c.eye())}, {"target", json(c.target())}, {"distance", double(c.distance())}, {"fov", double(c.fovDeg())}, {"follow_body",int(view_->followedBody())}});
+        return ok({{"eye", json(c.eye())}, {"target", json(c.target())}, {"distance", double(c.distance())}, {"fov", double(c.fovDeg())}, {"follow_body",int(view_->followedBody())}, {"through", int(builder_->lookingThrough())}});
     });
     addSync("view_look", "The view's camera at an eye, looking at a target (the orbit goes on around the target)", "{eye: [x,y,z], target: [x,y,z]}",
             [this](const QJsonObject& a) {
@@ -94,5 +96,15 @@ void EditorOps::addStateOps() {
         view_->camera().lookAt(eye, target);
         view_->update();
         return ok();
+    });
+    addSync("view_through", "The view looks through a camera of the scene - its eye, its turn and its lens, wherever its keys or the running world take "
+                            "it - as «Смотрю через» in the view's corner; no camera (or 0): the editor's own view again, as it was",
+            "{camera?: int}", [this](const QJsonObject& a) {
+        const uint32_t id = uint32_t(a.value("camera").toInt());
+        const std::vector<Camera>& cameras = builder_->graph().cameras;
+        if (id && std::none_of(cameras.begin(), cameras.end(), [id](const Camera& c) { return c.id == id; })) return error(QString("no camera %1").arg(id));
+        view_->followBody(0);
+        builder_->lookThrough(id);
+        return ok({{"through", int(builder_->lookingThrough())}});
     });
 }
