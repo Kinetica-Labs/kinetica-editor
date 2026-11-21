@@ -136,7 +136,7 @@ class _Draw:
         draw.line("путь", [(0, 0, 0), (1, 0.5, 0), (2, 0, 0)])        # a line through the points
         draw.segments("силы", [a0, a1, b0, b1])                        # pairs: the arrows of forces
         draw.points("метки", points, colour="#33ccff", size=4)
-        draw.label("v", (0, 1.2, 0), "3.2 м/с")
+        draw.label("v", (0, 1.2, 0), "3.2 м/с")                           # size=20: larger letters
         draw.circle("зона", (0, 0, 0), 0.8)                            # about the world's y; axis="x", or a direction
         draw.box("габарит", (0, 0.5, 0), (1, 1, 2))                    # its twelve edges
         draw.fill("знак", ["M 0 0 L 1 0 L 0.5 1 Z"], object=cube, at=(0, 0.4, 0), space="label", scale=0.05)  # a filled picture
@@ -153,8 +153,9 @@ class _Draw:
     def points(self, key, points, colour=None, size=6):
         self._send(key, points=_xyz(points), colour=colour, size=size)
 
-    def label(self, key, at, text, colour=None):
-        self._send(key, at=_xyz([at])[0], text=str(text), colour=colour)
+    def label(self, key, at, text, colour=None, size=None):
+        """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own."""
+        self._send(key, at=_xyz([at])[0], text=str(text), colour=colour, **({"size": size} if size else {}))
 
     def circle(self, key, centre, radius, axis="y", colour=None):
         """A circle around `centre`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
@@ -165,12 +166,15 @@ class _Draw:
         """The twelve edges of a box of `size` (x, y, z) around `centre`, along the world's axes."""
         self._send(key, box={"centre": _xyz([centre])[0], "size": _xyz([size])[0]}, colour=colour)
 
-    def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None):
+    def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None, stroke=None,
+             stroke_width=None):
         """A flat picture, filled, painted over the scene: `outlines` are rows "M x y L x y C x1 y1 x2 y2 x y Z" in the
         picture's own units, x right and y up. space "world": on its own plane at `at`, turned by `turn` (Euler degrees),
         a unit `scale` metres; "label": on the screen at the world's point `at`, facing the viewer; "screen": in the frame
         at `place` = (x, y), fractions of the view - in both a unit is `scale` of the view's height. `object` (an object
-        of the scene or its id): the picture is its own and goes where it goes; a click on it selects the object."""
+        of the scene or its id): the picture is its own and goes where it goes; a click on it selects the object. `stroke`:
+        an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - so that letters
+        read on any background."""
         what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale)}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
@@ -178,6 +182,10 @@ class _Draw:
             what["turn"] = _xyz([turn])[0]
         if place is not None:
             what["place"] = [float(place[0]), float(place[1])]
+        if stroke is not None:
+            what["stroke"] = [int(stroke[i:i + 2], 16) / 255 for i in (1, 3, 5)] if isinstance(stroke, str) else [float(c) for c in stroke]
+            if stroke_width is not None:
+                what["stroke_width"] = float(stroke_width)
         self._send(key, colour=colour, **what)
 
     def clear(self, key=None):

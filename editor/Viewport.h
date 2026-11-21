@@ -123,6 +123,7 @@ public:
     // same key again replaces it. Drawn while the scene plays: gone at Stop, as everything of a run.
     struct Fill { // a flat picture's closed outlines (ViewportFills.cpp)
         std::vector<QPainterPath> parts; // y down, in thousandths of the picture's unit
+        std::vector<QPainterPath> edges; // each part's edge, as wide as asked: painted under the parts in the stroke's colour (none: no stroke)
         QRectF box;                      // around them all
     };
     struct Drawing {
@@ -146,9 +147,11 @@ public:
         QPointF place{0.5, 0.5};
         float scale = 1;
         uint32_t object = 0;
+        QColor stroke; // the edge's colour, when the fill has edges: letters read on any background
     };
     // view_draw's fill - rows of "M x y L x y C x1 y1 x2 y2 x y Z" - as a Fill (null and `error`: a row that is none).
-    static std::shared_ptr<const Fill> fillOf(const QStringList& rows, QString& error);
+    // `edge`: an edge so wide, in the picture's units, round every outline (0: none).
+    static std::shared_ptr<const Fill> fillOf(const QStringList& rows, QString& error, double edge = 0);
     QPolygonF fillBox(const QString& key) const; // where the last paint drew the key's filled picture: its box's corners (empty: not in the view)
     // Where an object that is no body of the frame is now (a light, a group): the scene builder's answer.
     void setObjectPose(std::function<bool(uint32_t, ke::Vector3&, ke::Quaternion&)> pose) { objectPose_ = std::move(pose); }

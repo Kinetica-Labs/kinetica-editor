@@ -164,11 +164,12 @@ void EditorOps::addInputOps() {
                          "unit `scale` metres (1); label: on the screen at the world's point `at`, facing the viewer; screen: in the frame at "
                          "`place`, fractions of the view from its left top - in both a unit is `scale` of the view's height. object: the picture "
                          "is that object's and goes where it goes - one in the world lies on it (`at` and `turn` in the object's own frame), a label "
-                         "hangs at `at` from the object's place along the world's axes, above a body however it tumbles; a click on it selects the object. Drawn while "
+                         "hangs at `at` from the object's place along the world's axes, above a body however it tumbles; a click on it selects the object. "
+                         "stroke: an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - letters read on any background. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
-            "object?: int, clear?: bool}",
+            "object?: int, stroke?: [r,g,b], stroke_width?: number, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -236,7 +237,13 @@ void EditorOps::addInputOps() {
             QStringList rows;
             for (const QJsonValue& row : a.value("fill").toArray()) rows << row.toString();
             QString why;
-            if (!(d.fill = Viewport::fillOf(rows, why))) return error(why);
+            const double edge = a.contains("stroke") ? a.value("stroke_width").toDouble(0.05) : 0.0;
+            if (edge < 0 || edge > 10) return error("stroke_width: from 0 to 10 of the picture's units");
+            if (!(d.fill = Viewport::fillOf(rows, why, edge))) return error(why);
+            if (const QJsonArray c = a.value("stroke").toArray(); c.size() == 3)
+                d.stroke = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
+                                            float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
+            else if (a.contains("stroke")) return error("stroke: [r, g, b], each from 0 to 1");
             const QString space = a.value("space").toString("world");
             if (space != "world" && space != "label" && space != "screen") return error("space: world, label or screen");
             d.space = space == "world" ? Viewport::Drawing::Space::World : space == "label" ? Viewport::Drawing::Space::Label : Viewport::Drawing::Space::Screen;

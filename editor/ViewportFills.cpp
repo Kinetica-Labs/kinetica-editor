@@ -33,8 +33,11 @@ bool planeToScreen(const QMatrix4x4& vp, const ke::Vector3& at, const ke::Quater
 
 } // namespace
 
-std::shared_ptr<const Viewport::Fill> Viewport::fillOf(const QStringList& rows, QString& error) {
+std::shared_ptr<const Viewport::Fill> Viewport::fillOf(const QStringList& rows, QString& error, double edge) {
     auto fill = std::make_shared<Fill>();
+    QPainterPathStroker pen; // an edge is the outline stroked twice as wide: half of it lies outside the part
+    pen.setWidth(2 * edge * kUnits);
+    pen.setJoinStyle(Qt::RoundJoin);
     int numbers = 0;
     for (const QString& row : rows) {
         const QStringList words = row.split(' ', Qt::SkipEmptyParts);
@@ -60,6 +63,7 @@ std::shared_ptr<const Viewport::Fill> Viewport::fillOf(const QStringList& rows, 
         }
         if (!fine) return error = "fill: each outline is a row of M x y, L x y, C x1 y1 x2 y2 x y and Z, beginning with M", nullptr;
         fill->box = fill->box.united(path.boundingRect());
+        if (edge > 0) fill->edges.push_back(pen.createStroke(path));
         fill->parts.push_back(std::move(path));
     }
     if (numbers > 400000) return error = "fill: at most 200000 points a drawing", nullptr;
@@ -108,6 +112,8 @@ void Viewport::drawOverlayFills(QPainter& p) {
         const QPolygonF drawn = to.map(QPolygonF(QVector<QPointF>{box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()}));
         if (!drawn.boundingRect().intersects(QRectF(QPointF(0, 0), view))) continue; // out of the view
         p.setPen(Qt::NoPen);
+        p.setBrush(d.stroke);
+        for (const QPainterPath& edge : d.fill->edges) p.drawPath(to.map(edge)); // all the edges first: none lies over a neighbour's fill
         p.setBrush(d.colour);
         for (const QPainterPath& part : d.fill->parts) p.drawPath(to.map(part)); // each by itself: a root's roof laps over its sign
         fillsDrawn_.push_back({key, d.object, drawn, at});

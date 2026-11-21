@@ -90,13 +90,14 @@ class PluginSdk(unittest.TestCase):
         try:
             plugin.draw.fill("sign", ["M 0 0 L 1 0 L 0 1 Z"], object=7, at=(0, 0.4, 0), space="label", scale=0.05, colour="#ffcc00")
             plugin.draw.fill("board", ["M 0 0 L 1 0 L 0 1 Z"], turn=(0, 90, 0))
-            plugin.draw.fill("title", ["M 0 0 L 1 0 L 0 1 Z"], space="screen", place=(0.5, 0.1), scale=0.06)
+            plugin.draw.fill("title", ["M 0 0 L 1 0 L 0 1 Z"], space="screen", place=(0.5, 0.1), scale=0.06, stroke="#000000", stroke_width=0.08)
         finally:
             plugin._Draw._send = send
         row = ["M 0 0 L 1 0 L 0 1 Z"]
         self.assertEqual(drawn, [("sign", "#ffcc00", {"fill": row, "at": [0.0, 0.4, 0.0], "space": "label", "scale": 0.05, "object": 7}),
                                  ("board", None, {"fill": row, "at": [0.0, 0.0, 0.0], "space": "world", "scale": 1.0, "turn": [0.0, 90.0, 0.0]}),
-                                 ("title", None, {"fill": row, "at": [0.0, 0.0, 0.0], "space": "screen", "scale": 0.06, "place": [0.5, 0.1]})])
+                                 ("title", None, {"fill": row, "at": [0.0, 0.0, 0.0], "space": "screen", "scale": 0.06, "place": [0.5, 0.1],
+                                                  "stroke": [0.0, 0.0, 0.0], "stroke_width": 0.08})])
         before = list(plugin._changes)
         try:
             hook = plugin.on_change(lambda scene: None)

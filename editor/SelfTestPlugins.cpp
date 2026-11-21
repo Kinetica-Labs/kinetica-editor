@@ -679,11 +679,22 @@ def redraw(scene):
     };
     const bool words = refused({{"fill", QJsonArray{"L 0 0 Z"}}}) && refused({{"fill", plate}, {"space", "sky"}}) && refused({{"fill", plate}, {"object", 99999}}) &&
                        refused({{"fill", plate}, {"scale", 0}}) && !v->hasDrawing("агент/нет");
+    // An edge: the same plate in the frame, white, with a red edge a fifth of its unit wide - 0.02 of the view's height
+    // outside it, where there was only the scene before.
+    ops->runNow("view_draw", {{"key", "агент/кадр"}, {"fill", plate}, {"space", "screen"}, {"place", QJsonArray{0.25, 0.75}}, {"scale", 0.1},
+                              {"colour", QJsonArray{1, 1, 1}}, {"stroke", QJsonArray{1, 0, 0}}, {"stroke_width", 0.2}});
+    pump(100);
+    const QImage edged = v->grabFramebuffer();
+    const QRectF plateBox = v->fillBox("агент/кадр").boundingRect();
+    const QColor outside = edged.pixelColor(QPointF(plateBox.center().x(), plateBox.top() - 0.01 * v->height()).toPoint()),
+                 inside = edged.pixelColor(plateBox.center().toPoint());
+    const bool edge = outside.red() > 200 && outside.green() < 60 && inside.green() > 200;
     const bool cleared = ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;
     pump(60);
     c.check(lies && stands && words && cleared && v->fillBox("агент/мир").isEmpty(),
             "one in the world lies on its plane in the view's perspective, one on the screen stands at its place of the frame; a row that is no outline, a space "
             "that is none, an object that is not there and a scale of 0 are refused");
+    c.check(edge, "a stroke is an edge of its colour round the outline, as wide as asked, under the fill");
 
     ops->runNow("component_set", {{"id", int(cube)}, {"type", "signs.sign"}});
     const QString first = QString("signs/%1/a").arg(cube), second = QString("signs/%1/bc").arg(cube);
