@@ -60,6 +60,8 @@ venv/
 
 # The editor's runs: journals, screenshots, captures, profiles
 *.jsonl
+# the window's recorded answers are a test fixture, not a log
+!tests/data/*.jsonl
 kinetica-journal-*
 shots/
 *.perf
