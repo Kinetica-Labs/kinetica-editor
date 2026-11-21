@@ -117,3 +117,11 @@ void testGoalPathTurnLength();
 void testSmoothPath();
 void testAssemblyDrive();
 void testAssemblyAttachOp();
+// WorldOpsTests.cpp
+void testWorldOpsNeedAWorld();
+void testWorldOpsFramesArg();
+void testWorldOpsRobotCommand();
+void testWorldOpsImpulse();
+void testWorldOpsSensorsAndControllers();
+void testWorldOpsMeasure();
+void testWorldOpsLiveState();

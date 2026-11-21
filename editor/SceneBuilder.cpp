@@ -4,7 +4,7 @@
 #include "SceneBuilder.h"
 #include "UiLanguage.h"
 #include "scene/Collider.h"
-#include "core/Probe.h"
+#include "sim/WorldOps.h"
 #include "scene/SensorSpec.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
@@ -482,10 +482,7 @@ bool SceneBuilder::loadIntoSimulation() {
     undoAtPlay_ = undo_.size();
     ctrl_->setSceneName(displayName());
     const SceneGraph g = graph_;
-    ctrl_->post([g](Simulation& s) {
-        ke::Probe::clear(); // the channels of the scene before go with it
-        s.load(g);
-    }, "load");
+    ctrl_->post([g](Simulation& s) { ke::startWorld(s, g); }, "load");
     return true;
 }
 

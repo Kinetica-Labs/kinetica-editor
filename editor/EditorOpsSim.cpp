@@ -1,20 +1,14 @@
-// Time and the view in the API (EditorOps.h): play, pause, stop, N frames stepped, the live state of the
-// bodies and joints and the channels the plots draw, read on the simulation's thread (ke::Simulation); a
-// screenshot, framing, an agent's note in the console, and every button of the window by its text
-// (FreeCAD's runCommand: what the UI can do, a script can). The live state and the channels are the
-// privileged loop's truth of the physics engine (the observability contract): for checks and plots, never
-// a robot's input - a robot reads its joints through encoders.
+// Time and the view in the API (EditorOps.h): play, pause, stop, N frames stepped, the live state and the world's
+// own operations (src/sim/WorldOps.h) put on the simulation's thread; a screenshot, framing, an agent's note in the
+// console, and every button of the window by its text (FreeCAD's runCommand: what the UI can do, a script can).
 #include "EditorOps.h"
 #include "EditorRuntime.h"
 #include "SceneBuilder.h"
 #include "SimController.h"
 #include "UiWindowSpace.h"
 #include "Viewport.h"
-#include "core/Probe.h"
-#include "scene/Assembly.h"
 #include "scene/SceneGraph.h"
-#include "scene/SensorSpec.h"
-#include "sim/Simulation.h"
+#include "sim/WorldOps.h"
 
 #include <QAbstractButton>
 #include <QAction>
@@ -28,10 +22,6 @@
 #include <QPointer>
 #include <QTabBar>
 #include <QWidget>
-
-#include <algorithm>
-#include <cmath>
-#include <map>
 
 using namespace ke;
 
@@ -52,199 +42,12 @@ QJsonObject activateVisibleTab(QWidget* window, const QString& text) {
     return EditorOps::ok();
 }
 
-QJsonArray json(const Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; }
-
 const char* modeName(SceneBuilder::Mode m) {
     return m == SceneBuilder::Mode::Edit ? "edit" : m == SceneBuilder::Mode::Playing ? "playing" : "paused";
 }
 
-// What the running world said about a thing it could not build («Плечо»: ...), else "".
-QString buildNote(const RobotWorld& robot, const std::string& name) {
-    for (const std::string& n : robot.notes())
-        if (n.rfind("«" + name + "»", 0) == 0) return QString::fromStdString(n);
-    return QString();
-}
-
-// One joint now: its kind, its six coordinates (travel of frame a from frame b along b's x y z [m], turns about
-// them [rad]), its main coordinate (a hinge's angle, a slider's travel), its drive's effort and, for a DC motor,
-// its current and the power it takes.
-QJsonObject jointState(const Simulation& s, const JointObject& j) {
-    QJsonObject r{{"id", int(j.id)}, {"name", QString::fromStdString(j.name)}, {"kind", jointKindWord(j)}, {"built", false}};
-    const RobotWorld& robot = *s.robot();
-    Real x[6];
-    if (!robot.jointCoordinates(*s.physics(), j.id, x)) return r.insert("problem", buildNote(robot, j.name)), r;
-    QJsonArray coords;
-    for (const Real c : x) coords.append(double(c));
-    r.insert("built", true);
-    r.insert("coordinates", coords);
-    const int main = mainFreedom(j);
-    if (main < 0) return r;
-    r.insert(main >= DofRx ? "angle" : "travel", double(x[main]));
-    const JointDrive& d = j.dof[main].drive;
-    if (!d.enabled) return r;
-    const double effort = double(robot.jointEffort(*s.physics(), j.id));
-    r.insert("effort", effort);
-    if (d.constant > 0) { // a DC motor's torque is K I
-        const double current = effort / double(d.constant);
-        r.insert("motors", QJsonArray{QJsonObject{{"dof", main}, {"current", current}, {"power", double(d.voltage) * current}}});
-    }
-    return r;
-}
-
-// A sensor's quantities by its kind's words (what Python's kinetica.Sensor reads): an IMU's accel and gyro, a wrench's
-// force and torque, a sonar's distance, a touch pad's force and points, an effort's effort, an encoder's count and the
-// coordinate it means (`reading`: with a known zero only).
-QJsonObject sensorValues(SensorKind kind, const SensorValues& v, bool referenced) {
-    const auto vec = [](const Vector3& x) { return QJsonArray{double(x.x), double(x.y), double(x.z)}; };
-    switch (kind) {
-    case SensorKind::Imu: return {{"accel", vec(v.a)}, {"gyro", vec(v.b)}};
-    case SensorKind::Wrench: return {{"force", vec(v.a)}, {"torque", vec(v.b)}};
-    case SensorKind::Sonar: return {{"distance", double(v.value)}};
-    case SensorKind::Touch: return {{"force", double(v.value)}, {"points", double(v.count)}};
-    case SensorKind::Effort: return {{"effort", double(v.value)}};
-    case SensorKind::Encoder:
-        return {{"count", double(v.count)}, {"relative", double(v.value)}, {"reading", referenced ? QJsonValue(double(v.value)) : QJsonValue()}};
-    case SensorKind::Stereo: break;
-    }
-    return {};
-}
-
-} // namespace
-
-// One sensor now as the robot reads it (its datasheet's device) - nothing of the truth: what a controller gets.
-QJsonObject sensorReading(const LiveSensor& x) {
-    const SensorReading& r = x.reading();
-    QJsonObject out = sensorValues(x.spec().kind, r, r.referenced);
-    out.insert("id", int(x.spec().id));
-    out.insert("kind", sensorKindKey(x.spec().kind));
-    if (!x.spec().model.empty()) out.insert("model", QString::fromStdString(x.spec().model));
-    out.insert("sample_ns", double(r.sampleNs));
-    if (r.saturated) out.insert("saturated", true);
-    out.insert("problem", QString::fromStdString(r.problem));
-    return out;
-}
-
-QJsonArray sensorReadings(const Simulation& s) {
-    QJsonArray out;
-    if (const RobotWorld* robot = s.robot())
-        for (const auto& x : robot->sensors()) out.append(sensorReading(*x));
-    return out;
-}
-
-QJsonObject bodyStates(const Simulation& s) {
-    QJsonObject out;
-    const RobotWorld* robot = s.robot();
-    const PhysicsWorld* physics = s.physics();
-    if (!robot || !physics) return out;
-    const auto vec = [](const Vector3& x) { return QJsonArray{double(x.x), double(x.y), double(x.z)}; };
-    for (const Entity& e : robot->graph().entities) {
-        const int b = robot->bodyOf(e.id);
-        if (b < 0 || !physics->alive(b)) continue;
-        const BodyState st = physics->state(b);
-        if (st.mass <= 0) continue; // a fixed body: nothing a plugin pushes
-        out.insert(QString::number(e.id), QJsonObject{{"position", vec(st.centre)}, {"velocity", vec(st.velocity)},
-                                                      {"spin", vec(st.angularVelocity)}, {"mass", double(st.mass)}});
-    }
-    return out;
-}
-
-namespace {
-
-// One sensor now: what the robot reads, and beside it the truth of its probe - the privileged loop's, for checks.
-QJsonObject sensorState(const LiveSensor& x) {
-    QJsonObject out = sensorReading(x);
-    QJsonObject truth = sensorValues(x.spec().kind, x.truth(), true);
-    truth.remove("count"), truth.remove("relative"), truth.remove("points");
-    out.insert("truth", truth);
-    return out;
-}
-
-// The live state on the simulation's thread: the time, every body's pose and velocity, every joint's
-// coordinates and drive, every sensor's reading (and its truth), which entities touch, and what the world could
-// not build.
-QJsonObject liveState(const Simulation& s) {
-    QJsonObject out{{"ok", true}, {"time", double(s.time())}, {"frame", double(s.frame())}};
-    const RobotWorld* robot = s.robot();
-    const PhysicsWorld* physics = s.physics();
-    if (!robot || !physics) return out;
-    QJsonArray shapes, joints, contacts, notes;
-    for (const Entity& e : robot->graph().entities) {
-        const int b = robot->bodyOf(e.id);
-        if (b < 0 || !physics->alive(b)) continue;
-        const BodyState st = physics->state(b);
-        QJsonObject shape{{"id", int(e.id)}, {"name", QString::fromStdString(e.name)}, {"position", json(st.position)},
-                          {"rotation", json(eulerDegrees(st.rotation))}, {"velocity", json(st.velocity)}, {"spin", json(st.angularVelocity)}};
-        if (!st.awake) shape.insert("asleep", true); // at rest: its velocity is 0 because it sleeps, not by chance
-        if (robot->stands(b)) shape.insert("fixed", true);
-        else if (st.mass <= 0) shape.insert("kinematic", true); // led - by its own velocity or by a sequence: it moves, forces do not move it
-        shapes.append(shape);
-    }
-    for (const JointObject& j : robot->graph().joints) joints.append(jointState(s, j));
-    // The contact points of the last substep by the pair of entities they join (0: the floor), their normal
-    // force (the impulse over that substep) and the deepest overlap.
-    const double h = double(s.frameDt) / robot->engineSteps(robot->graph().world.physics.substeps);
-    struct Touch { int points = 0; double force = 0, depth = 0; };
-    std::map<std::pair<uint32_t, uint32_t>, Touch> touches;
-    for (const ContactPoint& c : physics->contacts()) {
-        uint32_t a = robot->objectIdOfBody(c.a), b = robot->objectIdOfBody(c.b);
-        if (a > b) std::swap(a, b);
-        Touch& t = touches[{a, b}];
-        ++t.points;
-        t.force += double(c.normalImpulse) / h;
-        t.depth = std::max(t.depth, double(c.depth));
-    }
-    for (const auto& [pair, t] : touches)
-        contacts.append(QJsonObject{{"a", int(pair.first)}, {"b", int(pair.second)}, {"points", t.points}, {"force", t.force}, {"depth", t.depth}});
-    for (const std::string& n : robot->notes()) notes.append(QString::fromStdString(n));
-    out.insert("shapes", shapes);
-    out.insert("joints", joints);
-    QJsonArray grips; // did the hand take it: each goal's gripper as the gripper reports it
-    for (const Frame::GripInfo& g : robot->grips(*physics)) {
-        static const char* words[] = {"open", "closing", "holding", "empty"};
-        grips.append(QJsonObject{{"goal", int(g.goal)}, {"state", words[int(g.state)]}, {"gap", double(g.gap)}});
-    }
-    if (!grips.isEmpty()) out.insert("grips", grips);
-    QJsonArray sensors;
-    for (const auto& x : robot->sensors()) sensors.append(sensorState(*x));
-    out.insert("sensors", sensors);
-    QJsonObject timers; // where the last frame's step went: the drives, the engine, the sensors (core/Probe.h)
-    for (const Probe::Channel& c : Probe::snapshot().channels)
-        if (c.name.rfind("physics/", 0) == 0 && c.name.size() > 3 && c.name.compare(c.name.size() - 3, 3, " ms") == 0)
-            timers.insert(QString::fromStdString(c.name.substr(8, c.name.size() - 11)), c.value);
-    out.insert("step_ms", timers);
-    out.insert("contacts", contacts);
-    QJsonArray triggers; // the zones - the colliders that are triggers - and what stands inside each
-    for (const auto& [zone, inside] : robot->zones()) {
-        QJsonArray ids;
-        for (uint32_t id : inside) ids.append(int(id));
-        triggers.append(QJsonObject{{"id", int(zone)}, {"inside", ids}});
-    }
-    if (!triggers.isEmpty()) out.insert("triggers", triggers);
-    if (!notes.isEmpty()) out.insert("notes", notes);
-    return out;
-}
-
-// sim_measure's arguments as the channels to measure: their labels are the ids, as the plots' are names.
-ChannelRequests channelRequests(const QJsonObject& a) {
-    ChannelRequests r;
-    r.scene = a.value("scene").toBool(false);
-    for (const QJsonValue& v : a.value("objects").toArray()) r.objects.push_back({uint32_t(v.toInt()), std::to_string(v.toInt())});
-    for (const QJsonValue& v : a.value("joints").toArray()) r.joints.push_back({uint32_t(v.toInt()), std::to_string(v.toInt())});
-    for (const QJsonValue& v : a.value("goals").toArray()) r.goals.push_back({uint32_t(v.toInt()), std::to_string(v.toInt())});
-    if (a.contains("group")) {
-        GroupRef g{"group", {}};
-        for (const QJsonValue& v : a.value("group").toArray()) g.members.push_back({uint32_t(v.toInt()), std::to_string(v.toInt())});
-        r.groups.push_back(g);
-    }
-    return r;
-}
-
-QJsonObject measurementsJson(const std::vector<Measurement>& ms) {
-    QJsonArray out;
-    for (const Measurement& m : ms)
-        out.append(QJsonObject{{"id", QString::fromStdString(m.info.id)}, {"value", m.value}, {"unit", QString::fromStdString(m.info.unit)},
-                               {"name", QString::fromStdString(m.info.name)}});
-    return QJsonObject{{"channels", out}};
+QJsonObject worldAnswer(bool done, const Value& value, const std::string& why) {
+    return done ? coreAnswerJson(value) : EditorOps::error(QString::fromStdString(why));
 }
 
 } // namespace
@@ -262,70 +65,31 @@ void EditorOps::addSimOps() {
     // thread; the answer is the state after them.
     addStepOp();
     addRecordOp();
-    // A panel's actions set while the scene runs (RobotWorld::setControllerInput): what its keys, a pad, a script or a
-    // policy do - each value held until set again.
-    add("controller_input", "The values of a controller's actions while the scene runs, held until set again: a vector2 [x, y] (move: x "
-                            "along the floor's x, y away), an axis or a button a number, -1..1 (lift, turn, grip 0..1); the scene's first "
-                            "controller when no id - the UR5e's panel moves its IK goal and the arm follows",
-        "{id?: int, values: {action: number | [x, y]}}", [this](const QJsonObject& a, const Reply& reply) {
-        if (builder_->editing()) return reply(error("the scene is not running: ▶ or sim_step first"));
-        const ke::SceneGraph& g = builder_->graph();
-        const uint32_t id = a.contains("id") ? uint32_t(a.value("id").toInt()) : g.controllers.empty() ? 0 : g.controllers.front().id;
-        std::vector<std::pair<std::string, ke::Vector3>> values;
-        const QJsonObject given = a.value("values").toObject();
-        for (auto it = given.begin(); it != given.end(); ++it) {
-            const QJsonArray xy = it.value().toArray();
-            values.push_back({it.key().toStdString(), it.value().isArray() ? ke::Vector3(ke::Real(xy.at(0).toDouble()), ke::Real(xy.at(1).toDouble()), 0)
-                                                                          : ke::Vector3(ke::Real(it.value().toDouble()), 0, 0)});
-        }
-        if (values.empty()) return reply(error("values: {action: value}, e.g. {\"move\": [0, 1]}"));
-        ctrl_->post([this, reply, id, values](ke::Simulation& s) {
-            std::string why = s.robot() ? std::string() : "the scene is not built";
-            for (const auto& [name, v] : values)
-                if (why.empty() && !s.robot()->setControllerInput(id, name, v, why)) break;
-            QMetaObject::invokeMethod(this, [this, reply, why, id] { reply(why.empty() ? ok({{"id", int(id)}}) : error(QString::fromStdString(why))); },
-                                      Qt::QueuedConnection);
-        }, "controller");
-    });
-    // The robot's side of the observability contract: what its sensors read, never the truth beside it - a controller's
-    // input (a plugin's on_tick gets the same); and its commands to the running world, no edits of the scene.
-    add("sensor_read", "What the scene's sensors read now, as the robot reads them (their datasheets' devices): no truth - the "
-                       "input of a controller. The scene must be running or paused",
-        "{ids?: [int]}", [this](const QJsonObject& a, const Reply& reply) {
-        if (builder_->editing()) return reply(error("the scene is not running: ▶ or sim_step first - sensors read a running world"));
-        std::vector<uint32_t> ids;
-        for (const QJsonValue& v : a.value("ids").toArray()) ids.push_back(uint32_t(v.toInt()));
-        ctrl_->post([this, reply, ids](Simulation& s) {
-            QJsonArray sensors;
-            QString missing;
-            if (const RobotWorld* robot = s.robot()) {
-                for (const auto& x : robot->sensors())
-                    if (ids.empty() || std::find(ids.begin(), ids.end(), x->spec().id) != ids.end()) sensors.append(sensorReading(*x));
-                for (uint32_t id : ids)
-                    if (!robot->sensor(id)) missing += (missing.isEmpty() ? "" : ", ") + QString::number(id);
+    // The world's own operations (WorldOps.h): the edit mode answers each at once with no world, else the simulation's
+    // thread does and the reply comes back to this one. The controllers' side of the observability contract: sensor_read
+    // gives what the sensors read, never the truth beside it.
+    for (const WorldOp& op : worldOps())
+        add(QString::fromStdString(op.name), QString::fromStdString(op.help), QString::fromStdString(op.args), [this, &op](const QJsonObject& a, const Reply& reply) {
+            const Value args = coreValue(a);
+            const std::vector<ControllerObject>& controllers = builder_->graph().controllers; // here: the simulation's thread must not read the graph
+            const uint32_t first = controllers.empty() ? 0 : controllers.front().id;
+            if (builder_->editing()) {
+                Value value = Value::map();
+                std::string why;
+                const bool done = op.run(nullptr, first, args, value, why);
+                return reply(worldAnswer(done, value, why));
             }
-            const QJsonObject out{{"time", double(s.time())}, {"sensors", sensors}};
-            QMetaObject::invokeMethod(this, [reply, out, missing] {
-                reply(missing.isEmpty() ? ok(out) : error("no sensor " + missing + " (scene_list names the sensors)"));
-            }, Qt::QueuedConnection);
-        }, "sensor_read");
-    });
-    add("robot_command", "Commands to the running world, not edits of the scene: a joint's target (its servo, rad or m) or velocity (its "
-                         "velocity motor), a driver's duty (-1..1), held until commanded again; a body's force and torque ([x, y, z] N, "
-                         "N m, world, at its centre of mass) over the next frame. Stop forgets them (the scene as authored is untouched, "
-                         "no undo step, no journal line). E.g. {commands: {\"7\": {\"target\": 0.8}, \"23\": {\"force\": [0, 2, 0]}}}",
-        "{commands: {}}", [this](const QJsonObject& a, const Reply& reply) {
-        if (builder_->editing()) return reply(error("the scene is not running: ▶ or sim_step first - commands drive a running world"));
-        const QJsonObject commands = a.value("commands").toObject();
-        if (commands.isEmpty()) return reply(error("commands: {id: {target | velocity | duty: number}}"));
-        ctrl_->post([this, reply, commands](Simulation& s) {
-            const QString why = applyCommands(s, commands);
-            QMetaObject::invokeMethod(this, [reply, why] { reply(why.isEmpty() ? ok() : error(why)); }, Qt::QueuedConnection);
-        }, "robot_command");
-    });
+            QPointer<EditorOps> self(this);
+            ctrl_->post([self, reply, &op, first, args](Simulation& s) {
+                Value value = Value::map();
+                std::string why;
+                const bool done = op.run(&s, first, args, value, why);
+                QMetaObject::invokeMethod(qApp, [self, reply, done, value, why] {
+                    if (self) reply(worldAnswer(done, value, why));
+                }, Qt::QueuedConnection);
+            }, op.name.c_str());
+        });
     addStateOp();
-    addImpulseOp();
-    addChannelsOp();
 }
 
 // console_note: a line in the API console and nothing else - an agent's reasoning between its calls, so that
@@ -431,48 +195,19 @@ void EditorOps::addStepOp() {
         if (runtime_->stopping()) return reply(error("runtime is stopping"));
         if (builder_->editing() && !builder_->loadPaused()) return reply(error("the scene cannot be built"));
         if (builder_->mode() == SceneBuilder::Mode::Playing) builder_->pause();
-        const int frames = std::clamp(a.value("frames").toInt(1), 0, 6000); // 0: built, not stepped
+        const int frames = framesArg(coreValue(a)); // 0: built, not stepped
         const auto cancellation = runtime_->cancellationEpoch();
         const auto epoch = cancellation->load();
         // Through the simulation's loop, frame by frame: a plugin's on_tick answers each before the next (the lockstep).
         ctrl_->stepFrames(frames, [cancellation, epoch] { return cancellation->load() != epoch; },
                           [this, reply, frames](Simulation& after, int completed) {
-            QJsonObject state = liveState(after);
-            state.insert("requested_frames", frames), state.insert("completed_frames", completed);
-            state.insert("cancelled", completed != frames);
+            const QJsonObject state = coreAnswerJson(stepAnswer(after, frames, completed));
             QMetaObject::invokeMethod(this, [this, reply, state] {
                 if (refresh_) refresh_();
                 reply(state);
             }, Qt::QueuedConnection);
         });
     });
-}
-
-// {id: {target | velocity | duty: value}} into the running world (RobotWorld::command), on the simulation's thread; what
-// went wrong, "; "-joined (empty: all of them done).
-QString applyCommands(Simulation& s, const QJsonObject& commands) {
-    if (!s.robot() || !s.physics()) return "the scene is not built";
-    QStringList wrong;
-    const auto vec = [](const QJsonValue& v) {
-        const QJsonArray a = v.toArray();
-        return Vector3(Real(a.at(0).toDouble()), Real(a.at(1).toDouble()), Real(a.at(2).toDouble()));
-    };
-    for (auto it = commands.begin(); it != commands.end(); ++it) {
-        const QJsonObject what = it.value().toObject();
-        if (what.isEmpty()) wrong << it.key() + ": {target | velocity | duty: number} or {force, torque: [x, y, z]}";
-        if (what.contains("force") || what.contains("torque")) { // a body pushed over the next frame (a physics plugin's)
-            std::string why;
-            if (!s.robot()->push(*s.physics(), uint32_t(it.key().toUInt()), vec(what.value("force")), vec(what.value("torque")), why))
-                wrong << QString::fromStdString(why);
-            continue;
-        }
-        for (auto w = what.begin(); w != what.end(); ++w) {
-            std::string why;
-            if (!s.robot()->command(*s.physics(), uint32_t(it.key().toUInt()), w.key().toStdString(), Real(w.value().toDouble()), why))
-                wrong << QString::fromStdString(why);
-        }
-    }
-    return wrong.join("; ");
 }
 
 void EditorOps::addStateOp() {
@@ -489,7 +224,7 @@ void EditorOps::addStateOp() {
         [this](const QJsonObject&, const Reply& reply) {
         if (builder_->mode() == SceneBuilder::Mode::Edit) return reply(ok({{"mode", "edit"}}));
         ctrl_->post([this, reply](Simulation& s) {
-            QJsonObject state = liveState(s);
+            QJsonObject state = coreAnswerJson(liveState(s));
             QMetaObject::invokeMethod(this, [this, reply, state]() mutable {
                 state.insert("mode", modeName(builder_->mode()));
                 const auto t = ctrl_->timing();
@@ -503,30 +238,5 @@ void EditorOps::addStateOp() {
                 reply(state);
             }, Qt::QueuedConnection);
         }, "sim_state");
-    });
-}
-
-// sim_measure: the channels the plots draw (sim/Channels.h), measured now on the simulation's thread - the same
-// numbers the plots record, read by an agent without opening them. Nothing is changed, and the plots' own requests
-// (ke::Simulation::channels) stay as they are.
-void EditorOps::addChannelsOp() {
-    add("sim_measure", "The plots' channels measured now (the physics engine's truth, for checks): scene - energy of motion, rotation and "
-                       "height, momentum, angular momentum, the deepest contact; objects - each body by entity id: mass, centre, height, "
-                       "velocity, energy, spin, sleep, contact force; group - several bodies as one; joints - each freedom's coordinate (0: the "
-                       "pose the joint was made in), a "
-                       "servo's target, the drive's effort; goals - an IK goal's miss (mm) and turn miss (°). Each channel: id "
-                       "(\"<id>/<quantity>\"), value, unit, name",
-        "{scene?: bool, objects?: [int], group?: [int], joints?: [int], goals?: [int]}", [this](const QJsonObject& a, const Reply& reply) {
-        if (builder_->mode() == SceneBuilder::Mode::Edit) return reply(error("the scene is not running: play or step it first"));
-        const ChannelRequests requests = channelRequests(a);
-        if (requests.empty()) return reply(error("nothing asked: scene, objects, group, joints or goals"));
-        QPointer<EditorOps> self(this);
-        ctrl_->post([self, reply, requests](Simulation& s) {
-            QJsonObject answer = measurementsJson(measureAll(s, requests));
-            answer.insert("time", double(s.time()));
-            QMetaObject::invokeMethod(qApp, [self, reply, answer] {
-                if (self) reply(ok(answer));
-            }, Qt::QueuedConnection);
-        }, "sim_measure");
     });
 }

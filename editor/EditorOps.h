@@ -30,15 +30,8 @@
 
 class QWidget;
 class SceneBuilder;
-namespace ke { struct SceneGraph; struct SceneOp; class Simulation; }
+namespace ke { struct SceneGraph; struct SceneOp; }
 
-// The controllers' side of a running world (EditorOpsSim.cpp), on the simulation's thread: what every sensor reads as the
-// robot reads it - no truth -, and commands into the world, not the scene ({id: {target | velocity | duty: value}};
-// what went wrong, empty: all done). sensor_read, robot_command and the plugins' on_tick use the same two.
-QJsonArray sensorReadings(const ke::Simulation& s);
-// The moving bodies as the engine has them - the truth: a physics plugin's input ({id: {position, velocity, spin, mass}}).
-QJsonObject bodyStates(const ke::Simulation& s);
-QString applyCommands(ke::Simulation& s, const QJsonObject& commands);
 class SimController;
 class Viewport;
 class EditorRuntime;
@@ -123,14 +116,12 @@ private:
     // An edit is an operation of its own (one undo step) and a step of scene_batch.
     QJsonObject transact(const std::function<QJsonObject(ke::SceneGraph&)>& change);
     void addSceneOps();     // EditorOps.cpp: the list, a block, a new scene, undo and redo
-    void addSimOps();       // EditorOpsSim.cpp: play, pause, stop, step, the live state, the channels
+    void addSimOps();       // EditorOpsSim.cpp: play, pause, stop, step, the live state, the world's operations
     void addRuntimeOps();   // EditorOpsRuntime.cpp: the lease, its limits, stop, quit
-    void addImpulseOp();    // EditorOpsImpulse.cpp: a push on a running body, without an edit of the graph
     void addStepOp();
     void addRecordOp();                      // EditorOpsRecord.cpp: sim_record, the Sequencer's take
     void finishTake(const Reply& reply);     // the take into the scene as a new sequence (reply may be empty)
     void addStateOp();
-    void addChannelsOp();   // EditorOpsSim.cpp: the channels the simulation measures, read after N frames
     ke::RuntimePolicy::Usage runtimeUsage() const;
     void stopRuntime(const QString& reason, std::function<void()> done);
     void addNoteOp();       // EditorOpsSim.cpp: an agent's line of reasoning in the console

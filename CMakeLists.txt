@@ -75,6 +75,7 @@ add_library(kecore STATIC
   src/sim/LiveSensors.h    src/sim/LiveSensors.cpp
   src/sim/Channels.h       src/sim/Channels.cpp
   src/sim/Simulation.h     src/sim/Simulation.cpp
+  src/sim/WorldOps.h       src/sim/WorldOps.cpp
 )
 # ke/Config.h: the options that change the core's types, one header for the library and its programs.
 configure_file(src/Config.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/ke/Config.h)
@@ -116,7 +117,7 @@ if(Qt6_FOUND)
     editor/EditorRuntime.h   editor/EditorRuntime.cpp editor/EditorOpsRuntime.cpp
     editor/AgentInstanceGuard.h editor/AgentInstanceGuard.cpp
     editor/EditorOps.h       editor/EditorOps.cpp editor/EditorOpsCore.cpp editor/EditorOpsAssembly.cpp
-    editor/EditorOpsState.cpp editor/EditorOpsInput.cpp editor/EditorOpsSim.cpp editor/EditorOpsImpulse.cpp
+    editor/EditorOpsState.cpp editor/EditorOpsInput.cpp editor/EditorOpsSim.cpp
     editor/EditorJournal.cpp editor/EditorJournalRestore.cpp
     editor/EditorServer.h    editor/EditorServer.cpp
     editor/ApiConsole.h      editor/ApiConsole.cpp
@@ -232,6 +233,7 @@ if(KE_TESTS)
     tests/ArrayTests.cpp
     tests/SceneActionTests.cpp
     tests/AssemblyTests.cpp
+    tests/WorldOpsTests.cpp
   )
   target_link_libraries(ke_tests PRIVATE kecore)
   target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"

@@ -105,6 +105,13 @@ int main() {
     run("assembly: a camera's flight - a spline through the points at constant speed, the turns by SQUAD", testSmoothPath);
     run("assembly: assembly_attach by name - a link on a face, its joint at the face's centre", testAssemblyAttachOp);
     run("assembly: a joint's drive by its fields - a servo's target changed keeps its stiffness, a line with a key twice refused", testAssemblyDrive);
+    run("world ops: each has its own word when the scene is not built", testWorldOpsNeedAWorld);
+    run("world ops: sim_step's frames as the window's Qt conversions read them", testWorldOpsFramesArg);
+    run("world ops: robot_command - a servo, a force, bad entries in the order of their keys, keys read as toUInt reads them", testWorldOpsRobotCommand);
+    run("world ops: sim_impulse - the order of its checks, v = J / m, a static body refused", testWorldOpsImpulse);
+    run("world ops: sensor_read and controller_input", testWorldOpsSensorsAndControllers);
+    run("world ops: sim_measure against the engine's own channels", testWorldOpsMeasure);
+    run("world ops: the live state against the Simulation, the flags of a static, a kinematic and a sleeping body", testWorldOpsLiveState);
     std::printf(g_failures ? "\n%d FAILURE(S)\n" : "\nALL PASSED\n", g_failures);
     return g_failures;
 }

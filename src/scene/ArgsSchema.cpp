@@ -99,11 +99,6 @@ bool listHas(const Value& list, const Value& v) {
     return std::any_of(list.items().begin(), list.items().end(), [&](const Value& x) { return sameJson(x, v); });
 }
 
-// A key present, null or not (QJsonObject::contains); Value::has says "present and not null".
-bool present(const Value& map, const std::string& key) {
-    return map.type() == Value::Type::Map && std::find(map.keys().begin(), map.keys().end(), key) != map.keys().end();
-}
-
 Strings sortedKeys(const Value& map) {
     Strings k = map.type() == Value::Type::Map ? map.keys() : Strings();
     std::sort(k.begin(), k.end());
@@ -481,9 +476,9 @@ Value argsSchema(const std::string& argsLine) {
         first = false;
     }
     for (const std::string& piece : topLevel(outside, ',')) // fields said in the words after the groups
-        if (const auto named = optionalNames(piece, true); !named.empty() && !present(properties, named[0].first))
+        if (const auto named = optionalNames(piece, true); !named.empty() && !properties.contains(named[0].first))
             properties.set(named[0].first, typeOf(piece.substr(named[0].second)));
-    if (present(properties, "ids") && properties["ids"].size() == 0) {
+    if (properties.contains("ids") && properties["ids"].size() == 0) {
         Value ids = onlyType("array");
         ids.set("items", onlyType("integer")), ids.set("description", "ids; none: the selection");
         properties.set("ids", ids);
@@ -499,7 +494,7 @@ namespace {
 // What is wrong with one field's value against the schema (empty: nothing).
 std::string fieldProblem(const std::string& key, const Value& v, const Value& properties) {
     if (!key.empty() && key[0] == '_') return {};
-    if (!present(properties, key)) {
+    if (!properties.contains(key)) {
         if (properties.size() == 0) return "аргументов нет, а дано «" + key + "»";
         std::string names;
         for (const std::string& k : sortedKeys(properties)) names += (names.empty() ? "" : ", ") + k;
@@ -507,21 +502,21 @@ std::string fieldProblem(const std::string& key, const Value& v, const Value& pr
     }
     const Value& f = properties[key];
     const std::string type = f["type"].text("");
-    if (!fits(v, type)) return key + ": ожидалось " + typeName(type) + (present(f, "description") ? " (" + f["description"].text("") + ")" : std::string());
-    if (present(f, "enum") && !listHas(f["enum"], v)) {
+    if (!fits(v, type)) return key + ": ожидалось " + typeName(type) + (f.contains("description") ? " (" + f["description"].text("") + ")" : std::string());
+    if (f.contains("enum") && !listHas(f["enum"], v)) {
         std::string allowed;
         for (const Value& e : f["enum"].items()) allowed += (allowed.empty() ? "" : ", ") + wordOrNumber(e);
         return key + ": «" + wordOrNumber(v) + "» не из списка: " + allowed;
     }
-    const bool low = present(f, "minimum"), high = present(f, "maximum");
+    const bool low = f.contains("minimum"), high = f.contains("maximum");
     if (v.type() == Value::Type::Number && ((low && v.number() < f["minimum"].number()) || (high && v.number() > f["maximum"].number())))
         return key + ": " + numberG(v.number()) + " вне " + numberG(f["minimum"].number()) + "…" + numberG(f["maximum"].number());
-    if (v.type() == Value::Type::List && present(f, "minItems") && (int(v.items().size()) < f["minItems"].integer() || int(v.items().size()) > f["maxItems"].integer()))
+    if (v.type() == Value::Type::List && f.contains("minItems") && (int(v.items().size()) < f["minItems"].integer() || int(v.items().size()) > f["maxItems"].integer()))
         return key + ": ожидалось " + std::to_string(f["minItems"].integer()) + " числа";
-    if (v.type() == Value::Type::List && present(f, "items")) {
+    if (v.type() == Value::Type::List && f.contains("items")) {
         const Value& item = f["items"];
         for (const Value& x : v.items())
-            if (!fits(x, item["type"].text("")) || (present(item, "enum") && !listHas(item["enum"], x)))
+            if (!fits(x, item["type"].text("")) || (item.contains("enum") && !listHas(item["enum"], x)))
                 return key + ": в списке ожидалось " + typeName(item["type"].text(""));
     }
     return {};
@@ -537,7 +532,7 @@ std::string argsProblem(const Value& args, const Value& schema) {
     for (const std::string& key : sortedKeys(args))
         if (const std::string p = fieldProblem(key, args[key], properties); !p.empty()) add(p);
     for (const Value& r : schema["required"].items())
-        if (!present(args, r.text(""))) add("нет обязательного поля «" + r.text("") + "»");
+        if (!args.contains(r.text(""))) add("нет обязательного поля «" + r.text("") + "»");
     return problems;
 }
 

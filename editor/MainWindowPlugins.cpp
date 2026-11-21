@@ -12,7 +12,7 @@
 #include "Viewport.h"
 #include "PluginPanel.h"
 #include "RunHooks.h"
-#include "sim/Simulation.h"
+#include "sim/WorldOps.h"
 #include <QPointer>
 #include "SceneBuilder.h"
 #include "SimController.h"
@@ -66,13 +66,13 @@ void MainWindow::syncControllers() {
     const auto live = runLive_ = std::make_shared<std::atomic<bool>>(true);
     const bool world = runHooks_->ticking(true); // the bodies' truth gathered only when a physics plugin takes it
     ctrl_->setLockstep([self, hooks, ctrl, live, world](ke::Simulation& s) {
-        QJsonObject packet{{"time", double(s.time())}, {"dt", double(s.frameDt)}, {"frame", double(s.frame())}, {"sensors", sensorReadings(s)}};
-        if (world) packet.insert("bodies", bodyStates(s));
+        QJsonObject packet{{"time", double(s.time())}, {"dt", double(s.frameDt)}, {"frame", double(s.frame())}, {"sensors", coreJson(ke::sensorReadings(s))}};
+        if (world) packet.insert("bodies", coreJson(ke::bodyStates(s)));
         hooks->send("tick", packet, [self, ctrl, live, frame = s.frame()](QJsonObject commands) { // on the wire's thread
             if (!commands.isEmpty() && live->load())
                 ctrl->post([self, live, commands](ke::Simulation& s) {
                     if (!live->load()) return; // stopped meanwhile: the world is gone
-                    const QString why = applyCommands(s, commands);
+                    const QString why = QString::fromStdString(ke::applyCommands(s, coreValue(commands)));
                     if (!why.isEmpty()) // a command that did nothing is said, once a run - not sixty times a second
                         QMetaObject::invokeMethod(self, [self, why] {
                             if (self && !self->commandWarned_) self->commandWarned_ = true, emit self->plugins_->output(uiText("Kinetica", "такт"), uiText("Kinetica", "команда не выполнена: ") + why);
