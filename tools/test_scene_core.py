@@ -1,4 +1,4 @@
-"""``ke.Scene()`` against the real program build/kinetica-core, with no window: the hello's height, the errors a
+"""``ke.Scene()`` against the real program build/kinetica-core, with no window: a falling box's height, the errors a
 script meets where they happen, a world restarted by an edit, relative paths, the child's life and death, and that
 nothing but answers ever goes to the program's stdout."""
 import gc
@@ -299,12 +299,6 @@ class SceneCore(unittest.TestCase):
             scene.step(2)
             channels = scene.measure(objects=[box])
             self.assertAlmostEqual(channels[f"{box.id}/velocity y"], 3, delta=1e-3)  # a field push: 3 m/s to every body, whatever it weighs
-
-    def test_the_hello_runs(self):
-        out = subprocess.run([sys.executable, os.path.join(ROOT, "examples", "python", "01_hello.py")], cwd=ROOT,
-                             capture_output=True, text=True, timeout=60)
-        self.assertEqual(out.returncode, 0, out.stderr)
-        self.assertIn("m high", out.stdout)
 
 
 if __name__ == "__main__":

@@ -33,7 +33,7 @@ jobs:
       - name: Tests
         run: ctest --test-dir build --output-on-failure
       - name: Python - стенд испытателей, SDK плагинов, сервер MCP и ke.Scene()
-        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core
+        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples
       - name: Окно и kinetica-core отвечают одинаково
         timeout-minutes: 10
         env:
@@ -72,7 +72,7 @@ jobs:
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Python - ke.Scene() и kinetica-core.exe
-        run: cd tools && python -m unittest test_scene_core
+        run: cd tools && python -m unittest test_scene_core test_examples
       - name: Готовая программа
         shell: pwsh
         run: |

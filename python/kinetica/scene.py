@@ -274,6 +274,17 @@ class Scene:
         return self.objects[self._call("scene_add_force", f"scene.add_force({_q(shape)}, {_q(mode)}{shown})", shape=shape, mode=mode,
                                        **args)["id"]]
 
+    def add_joint(self, a, b=None, kind="hinge", anchor=(0, 0, 0), axis=None):
+        """A joint between body `a` and body `b` (None: the world) at a world point `anchor`, along a world direction
+        `axis`: kind "hinge", "slider", "weld", "ball", "cylinder", "universal" or "planar". A shape with no physics
+        becomes a body - `a` the moving link, `b` held still."""
+        args = {"a": a.id, "b": b.id if b is not None else 0, "type": kind, "anchor": list(anchor)}
+        shown = a.ref + (f", {b.ref}" if b is not None else "") + f", kind={_q(kind)}, anchor={_t(anchor)}"
+        if axis is not None:
+            args["axis"] = list(axis)
+            shown += f", axis={_t(axis)}"
+        return self.objects[self._call("assembly_joint", f"scene.add_joint({shown})", **args)["id"]]
+
     def add_camera(self, eye=None, target=None, kind=None, at=None):
         """A camera at `eye` (else the editor's eye), looking at `target` (else the scene's centre). kind="target": a
         target camera that always looks there - or at object `at`, which it follows in play."""
@@ -369,6 +380,12 @@ class Scene:
         args = {k: v for k, v in (("objects", ids(objects)), ("group", ids(group)), ("joints", ids(joints)), ("goals", ids(goals))) if v}
         answer = self._call("sim_measure", scene=bool(scene), **args)
         return {c["id"]: c["value"] for c in answer["channels"]}
+
+    def command(self, commands):
+        """Commands to the running world, not edits of the scene: {joint: {"target": rad or m} or {"velocity": ...},
+        driver: {"duty": -1..1}, body: {"force": [x, y, z], "torque": [x, y, z]}} - a joint's and a driver's held until
+        commanded again, a body's force over the next frame. Stop forgets them."""
+        return self._call("robot_command", commands={str(getattr(k, "id", k)): v for k, v in commands.items()})
 
     def push(self, body, impulse, point=None):
         """One impulse on a running body, N s (at `point`, world metres; else at its centre of mass)."""
