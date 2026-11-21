@@ -24,6 +24,13 @@ class OperationError(RuntimeError):
     """An operation answered ``{"ok": false, "error": ...}``."""
 
 
+def check(op, answer):
+    """The answer of an operation, or OperationError when it says it failed: the one rule of both transports."""
+    if not answer.get("ok"):
+        raise OperationError(f"{op}: {answer.get('error')}")
+    return answer
+
+
 class Client:
     def __init__(self, host="127.0.0.1", port=None, timeout=120.0, src=None):
         self._sock = socket.create_connection((host, port or DEFAULT_PORT), timeout=timeout)
@@ -71,10 +78,7 @@ class Client:
             raise TimeoutError(f"{op}: no answer from the editor in {self._timeout} s")
         if slot[1] is None:
             raise ConnectionError(self._gone or "the editor closed the connection")
-        answer = slot[1].get("result", {})
-        if not answer.get("ok"):
-            raise OperationError(f"{op}: {answer.get('error')}")
-        return answer
+        return check(op, slot[1].get("result", {}))
 
     def close(self):
         self._sock.close()

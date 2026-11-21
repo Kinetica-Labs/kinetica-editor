@@ -8,6 +8,7 @@
 import json
 
 from .client import Client
+from .core import Core
 from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
                       _q, _t)
 
@@ -168,12 +169,27 @@ class Operations:
 
 
 class Scene:
-    def __init__(self, client):
-        self._client = client  # the wire (client.py): a call goes through an operation's own method or `ed`, never past them
+    """The scene as objects. ``Scene()`` starts kinetica-core, a world with no window (the clock, the selection and the
+    view are the editor's: their operations answer that kinetica-core has none); ``connect()`` is the scene of a window.
+    ``Scene().open(path)`` begins with a file; ``close()`` or a ``with`` block ends the program."""
+
+    def __init__(self, client=None, *, executable=None):
+        if isinstance(client, str):
+            raise TypeError("Scene() takes a connection or nothing; to open a file: Scene().open(path)")
+        self._client = client if client is not None else Core(executable)  # the wire (client.py, core.py): a call goes through an operation's own method or `ed`, never past them
         self.objects = Objects(self)
         self.world = World(self)
         self.editor = Editor(self)
         self.ed = Operations(self)
+
+    def close(self):
+        self._client.close()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        self.close()
 
     def _call(self, op, py=None, **args):
         return self._client.call(op, py, **args)
@@ -316,7 +332,8 @@ class Scene:
         self._call("sim_pause", "scene.pause()")
 
     def stop(self):
-        """Back to the scene as it was before it ran (edits made while running go, as in Unity)."""
+        """The world dropped: the scene is as it was before it ran, except that an edit which stopped the world (a body
+        added, a joint changed) is kept; an edit the world took while it ran is gone with it."""
         self._call("sim_stop", "scene.stop()")
 
     def step(self, frames=1):

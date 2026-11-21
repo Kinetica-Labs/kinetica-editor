@@ -121,7 +121,8 @@ class Body(SceneObject):
         return self._get("shape", key, count)
 
     position = property(lambda self: self._shape("position"),
-                        lambda self, v: self._set("shape", "position", v, f"{self.ref}.position = {tuple(v)}"))
+                        lambda self, v: self._set("shape", "position", v, f"{self.ref}.position = {tuple(v)}"),
+                        doc="The authored place (the scene file's line), m - not where the body is now: scene.measure(objects=[body]) says that.")
     rotation = property(lambda self: self._shape("rotation"),
                         lambda self, v: self._set("shape", "rotation", v, f"{self.ref}.rotation = {tuple(v)}"))
     size = property(lambda self: self._shape("size"),
