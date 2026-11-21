@@ -36,12 +36,14 @@ WORDS = {
            "brick": "Кирпич", "ball": "Шар", "cart": "Тележка", "wall": "Стена", "base": "База", "cube": "Куб", "crate": "Ящик",
            "box": "куб", "sphere": "сфера", "cylinder": "цилиндр", "cone": "конус", "plane": "плоскость",
            "sun": "солнце", "lamp": "лампа", "spot": "прожектор", "camera": "камера с целью",
-           "ghost": "призрак звена", "imu": "IMU", "sonar": "сонар", "beam": "луч сонара"},
+           "ghost": "призрак звена", "imu": "IMU", "sonar": "сонар", "beam": "луч сонара",
+           "zone": "зона", "part": "деталь: внутри", "miss": "шар: мимо", "bin": "Корзина"},
     "en": {"object": "Object", "world": "World", "plugins_x": 320, "other": "ru",
            "brick": "Brick", "ball": "Ball", "cart": "Cart", "wall": "Wall", "base": "Base", "cube": "Cube", "crate": "Crate",
            "box": "box", "sphere": "sphere", "cylinder": "cylinder", "cone": "cone", "plane": "plane",
            "sun": "sun", "lamp": "lamp", "spot": "spot", "camera": "target camera",
-           "ghost": "ghost of the link", "imu": "IMU", "sonar": "sonar", "beam": "sonar's beam"},
+           "ghost": "ghost of the link", "imu": "IMU", "sonar": "sonar", "beam": "sonar's beam",
+           "zone": "zone", "part": "the part: inside", "miss": "the ball: missed", "bin": "Bin"},
 }
 
 
@@ -292,7 +294,7 @@ def first(s):
     s.window("first-4-wall", [(1306, 416, 1362, 479, 1), (1226, 482, 1596, 508, 2), (1226, 510, 1596, 536, 3)])
     s.ed.selection_set(ids=[ball])
     s.ed.gizmo_set(tool="move")
-    s.window("first-5-ball", [RIGID + (1,), PLACE + (2,), (1226, 865, 1596, 891, 3)])
+    s.window("first-5-ball", [RIGID + (1,), PLACE + (2,), (1226, 885, 1596, 911, 3)])
     s.part("first-5-play", TOOLBAR, marks=[(488, 26, 562, 104, 0)])
     s.ed.gizmo_set(tool="select")
     s.ed.selection_set(ids=[])
@@ -415,6 +417,26 @@ def lights(s):
     s.label("camera", [0.3, 0.9, 1.5])
     s.ed.selection_set(ids=[])
     s.view("lights")
+
+
+@shot_of
+def zone(s):
+    """A zone - a collider that is a trigger, made see-through: the part that fell into it, the ball that missed."""
+    s.new([1.5, 1.2, 2.3], [0.35, 0.3, 0])
+    bin = s.add("box", "bin", position=[0, 0.3, 0], size=[0.6, 0.6, 0.6], role="collider")
+    s.ed.scene_collider(id=bin, trigger=True)
+    s.ed.scene_set(id=bin, line="shape", key="opacity", values=[0.3])
+    s.ed.scene_add(shape="sphere", position=[0, 1.0, 0], size=[0.2, 0.2, 0.2], role="rigid")
+    s.ed.scene_add(shape="sphere", position=[0.9, 1.0, 0], size=[0.2, 0.2, 0.2], role="rigid")
+    s.ed.selection_set(ids=[])
+    s.ed.sim_play()
+    s.ed.sim_pause()
+    s.ed.sim_step(frames=90)
+    s.label("zone", [-0.28, 0.75, 0.3])
+    s.label("part", [0.02, 0.38, 0.1])
+    s.label("miss", [0.85, 0.42, 0.1])
+    s.view("zone")
+    s.ed.sim_stop()
 
 
 @shot_of

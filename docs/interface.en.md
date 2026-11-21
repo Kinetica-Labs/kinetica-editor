@@ -242,6 +242,31 @@ The Body field of the <img src="images/ui/icons/rigid.png" height="22" alt=""> R
 The Opacity field of a shape's card: `1` is solid, less is see-through. That is how glass, a screen or a safety guard
 is made. It is the look only: physics takes such a shape as any other.
 
+### A zone: it notices and does not push
+
+The Zone tick of the <img src="images/ui/icons/collider.png" height="22" alt=""> Collider card makes an area of a shape: bodies pass through it, and it tells who stands inside.
+That is how a bin a part is to reach is made, or an area around a robot that nothing may enter.
+
+![The part fell into the zone, the ball missed](images/ui/en/zone.png)
+
+```python
+bin = scene.objects["Bin"]
+scene.play()
+scene.step(120)
+print(bin.inside)        # what stands in the zone now
+```
+
+### Who does not collide with whom
+
+A body can be taught not to notice others - by their tags:
+
+```python
+cover.tag("cover")
+part.ignores = ["cover"]   # the part passes through whatever is tagged "cover"
+```
+
+The rule works both ways. The links of one robot do not collide with each other without it.
+
 ### Tags
 
 The card of any object has a Tags field - words apart by spaces: `target`, `keep`, `robot-1`. By themselves they do
