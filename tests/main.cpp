@@ -69,6 +69,7 @@ int main() {
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
     run("actions: scene_array - a row of copies by its count and step", testSceneArrayOp);
+    run("actions: a plugin's component on an object of any kind - a shape, a joint, a light", testComponentsOnAnyObject);
     run("actions: tags on objects of any kind - put, found by, kept in the file", testSceneTags);
     run("actions: a block's fields are read in the core - scene_get, world_get, world_set by line and key", testSceneFieldsReadInTheCore);
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);

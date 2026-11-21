@@ -285,14 +285,24 @@ Entity* entityById(SceneGraph& g, uint32_t id) {
     return nullptr;
 }
 
+// The components of the object an operation names: an instance's are its master's, as its roles are.
+std::vector<PluginComponent>* componentsOf(SceneGraph& g, const Value& a, uint32_t& id, std::string& e) {
+    id = uint32_t(a["id"].integer());
+    if (entityById(g, id)) id = masterOf(g, id);
+    std::vector<PluginComponent>* found = objectComponents(g, id);
+    if (!found) e = "no object " + std::to_string(a["id"].integer());
+    return found;
+}
+
 bool componentSetOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
-    Entity* body = entityById(g, masterOf(g, uint32_t(a["id"].integer()))); // an instance's are its master's, as its roles
+    uint32_t id = 0;
+    std::vector<PluginComponent>* components = componentsOf(g, a, id, e);
     const std::string type = a["type"].text("");
-    if (!body) return e = "no shape " + std::to_string(a["id"].integer()), false;
+    if (!components) return false;
     if (type.find('.') == std::string::npos || type.find(' ') != std::string::npos)
         return e = "type is <plugin>.<component>, e.g. turbines.turbine", false;
-    auto it = std::find_if(body->components.begin(), body->components.end(), [&](const PluginComponent& c) { return c.type == type; });
-    if (it == body->components.end()) body->components.push_back({type, {}}), it = body->components.end() - 1;
+    auto it = std::find_if(components->begin(), components->end(), [&](const PluginComponent& c) { return c.type == type; });
+    if (it == components->end()) components->push_back({type, {}}), it = components->end() - 1;
     const Value& given = a["values"];
     for (size_t k = 0; k < given.keys().size(); ++k) {
         const std::string& key = given.keys()[k];
@@ -302,34 +312,38 @@ bool componentSetOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
         if (at == it->values.end()) it->values.push_back({key, componentWord(v)});
         else at->second = componentWord(v);
     }
-    r.set("id", body->id), r.set("type", type);
+    r.set("id", id), r.set("type", type);
     return true;
 }
 
 bool componentRemoveOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
-    Entity* body = entityById(g, masterOf(g, uint32_t(a["id"].integer())));
+    uint32_t id = 0;
+    std::vector<PluginComponent>* components = componentsOf(g, a, id, e);
     const std::string type = a["type"].text("");
-    if (!body) return e = "no shape " + std::to_string(a["id"].integer()), false;
-    const auto before = body->components.size();
-    body->components.erase(std::remove_if(body->components.begin(), body->components.end(), [&](const PluginComponent& c) { return c.type == type; }),
-                           body->components.end());
-    if (body->components.size() == before) return e = "«" + body->name + "» has no component " + type, false;
-    r.set("id", body->id);
+    if (!components) return false;
+    const auto before = components->size();
+    components->erase(std::remove_if(components->begin(), components->end(), [&](const PluginComponent& c) { return c.type == type; }), components->end());
+    if (components->size() == before) return e = "object " + std::to_string(id) + " has no component " + type, false;
+    r.set("id", id);
     return true;
 }
 
 bool componentListOp(const SceneGraph& g, const Value& a, Value& r, std::string&) {
     const std::string type = a["type"].text("");
     Value list = Value::list();
-    for (const Entity& x : g.entities)
-        for (const PluginComponent& c : x.components) {
-            if (!type.empty() && c.type != type) continue;
-            Value values = Value::map();
-            for (const auto& [key, word] : c.values) values.set(key, componentValue(word));
-            Value row = Value::map();
-            row.set("id", x.id), row.set("type", c.type), row.set("values", values);
-            list.push(row);
-        }
+    const auto each = [&](const auto& objects) {
+        for (const auto& x : objects)
+            for (const PluginComponent& c : x.components) {
+                if (!type.empty() && c.type != type) continue;
+                Value values = Value::map();
+                for (const auto& [key, word] : c.values) values.set(key, componentValue(word));
+                Value row = Value::map();
+                row.set("id", x.id), row.set("type", c.type), row.set("values", values);
+                list.push(row);
+            }
+    };
+    each(g.entities), each(g.groups), each(g.arrays), each(g.lights), each(g.cameras), each(g.joints), each(g.batteries), each(g.drivers);
+    each(g.sensors), each(g.wheels), each(g.controllers), each(g.sequences);
     r.set("components", list);
     return true;
 }
@@ -400,11 +414,11 @@ std::vector<SceneOp> actionSceneOps() {
         {"scene_tag", "A tag - one word, 'target', 'keep' - put on objects of any kind or taken off them; no `on`: switched. scene_list "
                       "{tag} finds by it, scene_get says an object's tags. For a plugin or a script to find what it is to act on",
          "{ids, tag: str, on?: bool}", {}, tagOp, true},
-        {"component_set", "A plugin's component on a shape - added if it has none - with these values (a number, [x, y, z], a flag, a "
+        {"component_set", "A plugin's component on an object of any kind - a shape, a joint, a light - added if it has none, with these values (a number, [x, y, z], a flag, a "
                           "word); the plugin's schema says what they mean and draws its card. One undo step",
          "{id: int, type: str, values?: {}}", {}, componentSetOp, true},
-        {"component_remove", "A plugin's component taken off a shape", "{id: int, type: str}", {}, componentRemoveOp, true},
-        {"component_list", "Every plugin component in the scene (of one type: <plugin>.<component>): its shape and values", "{type?: str}",
+        {"component_remove", "A plugin's component taken off an object", "{id: int, type: str}", {}, componentRemoveOp, true},
+        {"component_list", "Every plugin component in the scene (of one type: <plugin>.<component>): its object and values", "{type?: str}",
          componentListOp, {}, false},
         {"scene_collider", "A shape's collider by numbers, apart from what it looks like: the kind; a box's size, a sphere's diameter, a "
                            "capsule's or a cylinder's diameter and height; its centre (offset) and turn (rotation) on the shape, in the shape's "

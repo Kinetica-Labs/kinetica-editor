@@ -25,6 +25,15 @@ namespace ke {
 // Mesh: a model read from an OBJ or STL file (Entity::meshFile).
 enum class ShapeKind { Box, Sphere, Cylinder, Cone, Plane, Mesh };
 
+// A plugin's component on an object of any kind - a shape, a joint, a light (docs/contracts/editor-plugin.md): its
+// type, "<plugin>.<name>", and its values as the scene file has them - a key and one word each (a number, a vector
+// "x,y,z", a word). Kept word for word whether or not the plugin is there (Unity's Missing Script): a scene opens and
+// saves the same without it.
+struct PluginComponent {
+    std::string type;
+    std::vector<std::pair<std::string, std::string>> values;
+};
+
 // What a body collides with - its own component on the entity, apart from what the entity looks
 // like (Unity's Collider next to its MeshRenderer, Unreal's simple collision): a horse model may
 // collide as a capsule. The body is always DRAWN with its geometry; the collider is only for
@@ -75,6 +84,7 @@ struct SceneObject {
     // the parent, and moving the parent moves the children (a group). worldPose() composes them.
     uint32_t parent = 0;
     std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
 };
 
 // A group: an object with no geometry of its own that other objects hang under (Ctrl+G in the
@@ -129,17 +139,10 @@ struct ArrayObject : SceneObject {
     uint32_t seed = 1;
 };
 
+
 // A shape in the scene with its roles: a rigid body, a collider, or both (a moving body); a collider
 // alone is a static obstacle. With no role at all it is geometry only: drawn, but no body, no
 // collision, no part in the simulation.
-// A plugin's component on an entity (docs/contracts/editor-plugin.md): its type, "<plugin>.<name>", and its values as the
-// scene file has them - a key and one word each (a number, a vector "x,y,z", a word). Kept word for word whether or not
-// the plugin is there (Unity's Missing Script): a scene opens and saves the same without it.
-struct PluginComponent {
-    std::string type;
-    std::vector<std::pair<std::string, std::string>> values;
-};
-
 struct Entity : SceneObject {
     // An instance shares the geometry and the roles of its master (the entity with this id): change
     // the density, the collider or the shape of one and all change (as 3ds Max's Instance). Only the
@@ -168,7 +171,6 @@ struct Entity : SceneObject {
     SurfaceTexture texture;
     RigidRole rigid;
     ColliderRole collider;
-    std::vector<PluginComponent> components; // the plugins' («component <type> key value…» lines)
 };
 
 // One freedom of a joint (JointModel.h): locked, limited or free, and what drives it - a spring-
@@ -198,6 +200,7 @@ struct JointObject {
     JointFreedom dof[6];                // travel x, y, z; turn x, y, z (JointDof)
     bool collide = false;
     std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
 };
 
 // A battery of the scene (electro/Battery.h): a pack of cells - an equivalent circuit with its own
@@ -206,6 +209,7 @@ struct BatteryObject {
     uint32_t id = 0;
     std::string name;
     std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
     int series = 1, parallel = 1;
     Real capacityAh = 2.5_r;            // of one cell [A h]
     Real r0 = 0.03_r, r1 = 0.015_r;     // of one cell [Ohm]
@@ -224,6 +228,7 @@ struct DriverObject {
     uint32_t id = 0;
     std::string name;
     std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
     uint32_t joint = 0;                 // the joint whose freedom `dof` has the DC motor
     int dof = DofRx;
     uint32_t battery = 0;
@@ -272,6 +277,7 @@ struct ControllerObject {
     uint32_t id = 0;
     std::string name;
     std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
+    std::vector<PluginComponent> components; // the plugins' data on it («component <type> key value…» lines), whatever it is
     std::vector<ControllerAction> actions;
 };
 
@@ -439,6 +445,9 @@ const SceneObject* findObject(const SceneGraph& g, uint32_t id);
 std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id);
 const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id);
 bool tagWord(const std::string& word);
+// The plugins' components of an object of any kind (nullptr: no such object).
+std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id);
+const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id);
 const Entity* findEntity(const SceneGraph& g, uint32_t id); // only an entity (null: none, or another kind)
 // Any object's orientation from its rotationDeg (Ry Rx Rz), and back: Euler degrees of a rotation.
 Quaternion objectRotation(const SceneObject& o);

@@ -200,6 +200,48 @@ void testSceneTags() {
           "a tag with a quote in it is refused in a file; a scene without tags has no such line");
 }
 
+// A plugin's component goes on an object of any kind: component_set puts it on a joint and on a light as on a shape,
+// component_list finds all three, the file keeps each in its object's block.
+void testComponentsOnAnyObject() {
+    SceneGraph g;
+    std::string error;
+    const auto run = [&g, &error](const char* op, const Value& a) {
+        Value r = Value::map();
+        const SceneOp* o = findSceneOp(op);
+        if (!(o->query ? o->query(g, a, r, error) : o->edit(g, a, r, error))) r = Value::map();
+        return r;
+    };
+    Value box = Value::map(), ball = Value::map(), light = Value::map(), hinge = Value::map(), anchor = Value::list();
+    box.set("shape", "box"), box.set("role", "rigid"), box.set("fixed", true), ball.set("shape", "sphere"), ball.set("role", "rigid"), light.set("kind", "point");
+    const int base = run("scene_add", box)["id"].integer(), link = run("scene_add", ball)["id"].integer(), lamp = run("scene_add_light", light)["id"].integer();
+    anchor.push(0), anchor.push(0.3), anchor.push(0);
+    hinge.set("a", link), hinge.set("b", base), hinge.set("anchor", anchor);
+    const int joint = run("assembly_joint", hinge)["id"].integer();
+    const auto put = [&](int id, double value) {
+        Value a = Value::map(), values = Value::map();
+        values.set("cycles", value);
+        a.set("id", id), a.set("type", "wear.meter"), a.set("values", values);
+        return run("component_set", a)["id"].integer() == id;
+    };
+    CHECK(put(base, 1) && put(joint, 12000) && put(lamp, 3), "component_set on a shape, a joint and a light: %s", error.c_str());
+    Value of = Value::map();
+    of.set("type", "wear.meter");
+    const Value all = run("component_list", of);
+    double onJoint = 0;
+    for (const Value& row : all["components"].items())
+        if (row["id"].integer() == joint) onJoint = row["values"]["cycles"].number();
+    CHECK(all["components"].size() == 3 && onJoint == 12000, "component_list finds the three, the joint's value among them");
+    const std::string text = g.save();
+    SceneGraph back;
+    CHECK(back.load(text, error) && back.save() == text && objectComponents(back, uint32_t(joint)) && objectComponents(back, uint32_t(joint))->size() == 1 &&
+          objectComponents(back, uint32_t(lamp))->front().type == "wear.meter", "the components come back from the file: %s", error.c_str());
+    Value off = Value::map(), none = Value::map();
+    off.set("id", joint), off.set("type", "wear.meter"), none.set("id", 999), none.set("type", "wear.meter");
+    Value r = Value::map();
+    CHECK(run("component_remove", off)["id"].integer() == joint && run("component_list", of)["components"].size() == 2 &&
+          !findSceneOp("component_set")->edit(g, none, r, error), "component_remove takes the joint's off; an object that is not there is refused");
+}
+
 void testSceneArrayOp() {
     SceneGraph g;
     std::string error;

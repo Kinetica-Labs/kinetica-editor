@@ -210,6 +210,15 @@ static void saveTags(std::ostringstream& o, const std::vector<std::string>& tags
     o << "\n";
 }
 
+// The plugins' components of an object, a line each - the last lines of its block, whatever it is.
+static void saveComponents(std::ostringstream& o, const std::vector<PluginComponent>& components) {
+    for (const PluginComponent& c : components) {
+        o << "  component " << c.type;
+        for (const auto& [key, word] : c.values) o << " " << key << " " << (word.find(' ') != std::string::npos || word.empty() ? quoted(word) : word);
+        o << "\n";
+    }
+}
+
 static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneObject& s) {
     std::string name = s.name;
     for (char& c : name)
@@ -219,6 +228,7 @@ static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneO
     if (s.parent != 0) o << " parent " << s.parent;
     o << "\n  pose position " << vec(s.position) << " rotation " << vec(s.rotationDeg) << " color " << vec(s.color) << "\n";
     saveTags(o, s.tags);
+    saveComponents(o, s.components);
 }
 
 // A sequence: the object head, its clip line, then each track - its object, then its keys, by time.
@@ -320,11 +330,7 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
                                                                                           // without one reads everywhere
     }
     if (e.collider.enabled) saveCollider(o, e.collider);
-    for (const PluginComponent& c : e.components) {
-        o << "  component " << c.type;
-        for (const auto& [key, word] : c.values) o << " " << key << " " << (word.find(' ') != std::string::npos || word.empty() ? quoted(word) : word);
-        o << "\n";
-    }
+    saveComponents(o, e.components);
     o << "end\n";
 }
 
@@ -354,6 +360,7 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
         if (c == '"') c = '\'';
     o << "joint \"" << name << "\"\n  object id " << j.id << "\n";
     saveTags(o, j.tags);
+    saveComponents(o, j.components);
     o << "  link a " << j.a << " b " << j.b << " anchor_a " << vec(j.anchorA) << " frame_a " << vec(j.frameA) << " anchor_b "
       << vec(j.anchorB) << " frame_b " << vec(j.frameB) << "\n";
     for (int k = 0; k < 6; ++k) saveFreedom(o, k, j.dof[k]);
@@ -364,6 +371,7 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
 static void saveBattery(std::ostringstream& o, const BatteryObject& b) {
     o << "battery " << quoted(b.name) << "\n  object id " << b.id << "\n";
     saveTags(o, b.tags);
+    saveComponents(o, b.components);
     o << "  cells series " << b.series << " parallel " << b.parallel << " capacity " << num(b.capacityAh) << " r0 " << num(b.r0) << " r1 "
       << num(b.r1) << " c1 " << num(b.c1) << " cutoff " << num(b.cutoff) << " soc " << num(b.soc) << "\nend\n";
 }
@@ -371,6 +379,7 @@ static void saveBattery(std::ostringstream& o, const BatteryObject& b) {
 static void saveDriver(std::ostringstream& o, const DriverObject& d) {
     o << "driver " << quoted(d.name) << "\n  object id " << d.id << "\n";
     saveTags(o, d.tags);
+    saveComponents(o, d.components);
     o << "  bridge joint " << d.joint << " dof " << kDofNames[std::clamp(d.dof, 0, 5)] << " battery " << d.battery << " duty " << num(d.duty)
       << " switches " << num(d.switches) << " limit " << num(d.currentLimit) << " stop " << (d.brake ? "brake" : "coast") << "\nend\n";
 }
@@ -382,6 +391,7 @@ static const char* const kControlDrives[] = {"plane", "lift", "turn", "grip", "j
 static void saveController(std::ostringstream& o, const ControllerObject& c) {
     o << "controller " << quoted(c.name) << "\n  object id " << c.id << "\n";
     saveTags(o, c.tags);
+    saveComponents(o, c.components);
     for (const ControllerAction& a : c.actions) {
         o << "  action " << a.name << " " << kControlValues[int(a.value)] << " drive " << kControlDrives[int(a.drive)] << " target " << a.target;
         if (a.drive == ControlDrive::Jog) o << " dof " << kDofNames[std::clamp(a.dof, 0, 5)];
@@ -607,14 +617,6 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
         if (!point || (w.size() == 8 && !turned) || (turned ? e.pathTurns.size() != e.path.size() : !e.pathTurns.empty())) return fail(bad, what);
         e.path.push_back(p);
         if (turned) e.pathTurns.push_back(t);
-        return true;
-    }
-    if (what == "component") { // "component <plugin>.<name> key value key value…": a plugin's, kept as it is
-        if (w.size() < 2 || w.size() % 2 != 0) return fail(bad, what);
-        PluginComponent c;
-        c.type = w[1];
-        for (size_t i = 2; i + 1 < w.size(); i += 2) c.values.push_back({w[i], w[i + 1]});
-        e.components.push_back(std::move(c));
         return true;
     }
     LineReader r(w, 1);
@@ -960,15 +962,35 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         else return fail(bad, w[0]);
         return true;
     }
-    if (w[0] == "tags") { // an object's, whatever it is
-        std::vector<std::string>& tags = block == Block::Entity ? g.entities.back().tags : block == Block::Group ? g.groups.back().tags
-            : block == Block::Array ? g.arrays.back().tags : block == Block::Light ? g.lights.back().tags : block == Block::Camera ? g.cameras.back().tags
-            : block == Block::Joint ? g.joints.back().tags : block == Block::Battery ? g.batteries.back().tags
-            : block == Block::Driver ? g.drivers.back().tags : block == Block::Sensor ? g.sensors.back().tags : block == Block::Wheel ? g.wheels.back().tags
-            : block == Block::Controller ? g.controllers.back().tags : g.sequences.back().tags;
+    if (w[0] == "tags" || w[0] == "component") { // an object's, whatever it is
+        std::vector<std::string>* tags = nullptr;
+        std::vector<PluginComponent>* components = nullptr;
+        const auto last = [&](auto& objects) { tags = &objects.back().tags, components = &objects.back().components; };
+        switch (block) {
+        case Block::Entity: last(g.entities); break;
+        case Block::Group: last(g.groups); break;
+        case Block::Array: last(g.arrays); break;
+        case Block::Light: last(g.lights); break;
+        case Block::Camera: last(g.cameras); break;
+        case Block::Joint: last(g.joints); break;
+        case Block::Battery: last(g.batteries); break;
+        case Block::Driver: last(g.drivers); break;
+        case Block::Sensor: last(g.sensors); break;
+        case Block::Wheel: last(g.wheels); break;
+        case Block::Controller: last(g.controllers); break;
+        default: last(g.sequences); break;
+        }
+        if (w[0] == "component") { // "component <plugin>.<name> key value key value…": a plugin's, kept as it is
+            if (w.size() < 2 || w.size() % 2 != 0) return fail(bad, w[0]);
+            PluginComponent c;
+            c.type = w[1];
+            for (size_t i = 2; i + 1 < w.size(); i += 2) c.values.push_back({w[i], w[i + 1]});
+            components->push_back(std::move(c));
+            return true;
+        }
         for (size_t i = 1; i < w.size(); ++i) {
             if (!tagWord(w[i])) return fail(bad, w[i]);
-            if (std::find(tags.begin(), tags.end(), w[i]) == tags.end()) tags.push_back(w[i]);
+            if (std::find(tags->begin(), tags->end(), w[i]) == tags->end()) tags->push_back(w[i]);
         }
         return true;
     }
@@ -1000,19 +1022,22 @@ bool tagWord(const std::string& word) {
     return true;
 }
 
-template <class Graph>
-static auto tagsIn(Graph& g, uint32_t id) -> decltype(&g.entities.front().tags) {
-    decltype(&g.entities.front().tags) found = nullptr;
+// What every kind of object has under one name - its tags, its components - of the object with this id.
+template <class Graph, class Get>
+static auto partOf(Graph& g, uint32_t id, Get get) -> decltype(get(g.entities.front())) {
+    decltype(get(g.entities.front())) found = nullptr;
     const auto look = [&](auto& objects) {
         for (auto& o : objects)
-            if (o.id == id) found = &o.tags;
+            if (o.id == id) found = get(o);
     };
     look(g.entities), look(g.groups), look(g.arrays), look(g.lights), look(g.cameras), look(g.joints), look(g.batteries), look(g.drivers);
     look(g.sensors), look(g.wheels), look(g.controllers), look(g.sequences);
     return id == 0 ? nullptr : found;
 }
-std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id) { return tagsIn(g, id); }
-const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id) { return tagsIn(g, id); }
+std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }
+const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }
+std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.components; }); }
+const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.components; }); }
 
 bool SceneGraph::load(const std::string& text, std::string& error) {
     SceneGraph g;

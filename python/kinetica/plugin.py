@@ -194,15 +194,17 @@ _components = {}  # name -> the class
 
 
 def component(label=None, help=None):
-    """A class made a component of shapes: its `field` attributes its values. The editor draws its card in the inspector,
-    offers it in «+ Добавить компонент», writes it in the scene file, shows its handles as points on the shape::
+    """A class made a component: its `field` attributes its values. On a shape the editor draws its card in the inspector,
+    offers it in «+ Добавить компонент» and shows its handles as points on the shape; on any other object - a joint, a
+    light, a sensor - it is put by ``scene.ed.component_set(id=..., type=..., values={...})`` and kept in the scene file
+    the same way::
 
         @component(label="Ветряк")
         class Turbine:
             radius = field(1.0, unit="м", range=(0.1, 5.0), label="Радиус", handle="radius")
             power = field(100.0, unit="Вт", label="Мощность")
 
-    ``Turbine.instances(scene)`` - every shape that has it, with its values: ``[(id, {"radius": 1.0, ...}), ...]``."""
+    ``Turbine.instances(scene)`` - every object that has it, with its values: ``[(id, {"radius": 1.0, ...}), ...]``."""
 
     def make(cls):
         name = "".join("_" + ch.lower() if ch.isupper() else ch for ch in cls.__name__).lstrip("_")
@@ -216,7 +218,7 @@ def component(label=None, help=None):
 
 
 def _instances(cls, scene):
-    """The shapes that have this component, with its values (a field the scene does not say: its default)."""
+    """The objects that have this component, with its values (a field the scene does not say: its default)."""
     meta = cls._kinetica
     rows = scene.ed.component_list(type=f"{_link.get('name', '')}.{meta['name']}")["components"]
     defaults = {k: (list(f.default) if isinstance(f.default, (list, tuple)) else f.default) for k, f in meta["fields"].items()}

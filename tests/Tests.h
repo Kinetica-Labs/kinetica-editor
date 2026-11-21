@@ -78,6 +78,7 @@ void testActionsDeleteAndDuplicate();
 void testActionsTransforms();
 void testSceneOpsRegistry();
 void testSceneArrayOp();
+void testComponentsOnAnyObject();
 void testSceneTags();
 void testSceneFieldsReadInTheCore();
 void testTargetCamera();

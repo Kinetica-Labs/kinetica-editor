@@ -94,7 +94,8 @@ SceneGraph robotGraph() {
 // had before the format settled on one style loads too and is saved under the new one.
 void testSceneFormatOnlyGrows() {
     std::string error;
-    for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene"}) { // 2: what the format gained after 1 - kinematic, tags
+    // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape
+    for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();
