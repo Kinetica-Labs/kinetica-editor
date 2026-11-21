@@ -597,7 +597,7 @@ The picture is being prepared…</translation>
     <message>
         <location filename="../editor/LabPanel.cpp" line="71"/>
         <source>Что считает движок — прямо в виде. Щёлкните по контакту или телу: его числа появятся в карточке.</source>
-        <translation>What the engine counts is right in shape. Click on the contact or body: its numbers will appear in the card.</translation>
+        <translation>What the engine computes, right in the view. Click a contact or a body: its numbers appear in the card.</translation>
     </message>
     <message>
         <location filename="../editor/LabPanel.cpp" line="77"/>
@@ -2871,7 +2871,7 @@ The picture is being prepared…</translation>
     <message>
         <location filename="../editor/ProfilerBar.cpp" line="117"/>
         <source> бюджета кадра</source>
-        <translation> staffing</translation>
+        <translation> of the frame budget</translation>
     </message>
     <message>
         <location filename="../editor/ProfilerBar.cpp" line="219"/>
@@ -3923,7 +3923,7 @@ Situation battery: motor without power</translation>
     <message>
         <location filename="../editor/SceneBuilderJoints.cpp" line="176"/>
         <source>Угол, цель и момент — при пуске сцены</source>
-        <translation>Angle, Purpose and Moment – When Starting a Scene</translation>
+        <translation>Angle, target and torque — when the scene plays</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderJoints.cpp" line="184"/>
@@ -5272,7 +5272,7 @@ Sample </translation>
         <location filename="../editor/SimulationBar.cpp" line="20"/>
         <location filename="../editor/SimulationBar.cpp" line="45"/>
         <source>Сохранить положения · K</source>
-        <translation>Preserve the provisions · K</translation>
+        <translation>Keep Simulated Poses · K</translation>
     </message>
     <message>
         <location filename="../editor/SimulationBar.cpp" line="30"/>

@@ -912,12 +912,16 @@ void Viewport::drawOverlayMarks(QPainter& p) {
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
     QPointF at;
+    const QFont plain = p.font();
     for (const auto& [key, d] : drawings_) {
         p.setPen(Qt::NoPen);
         p.setBrush(d.colour);
         for (const Vector3& w : d.points)
             if (screen(w, at)) p.drawEllipse(at, d.size * 0.5, d.size * 0.5);
         if (d.text.isEmpty() || !screen(d.at, at)) continue;
+        QFont letters = plain; // size: a point's width - and a label's letters, when they are to be larger than plain ones
+        letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
+        p.setFont(letters);
         p.setPen(QColor(0, 0, 0, 200));
         p.drawText(at + QPointF(7, -5), d.text);
         p.setPen(d.colour);

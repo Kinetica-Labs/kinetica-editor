@@ -158,7 +158,8 @@ void EditorOps::addInputOps() {
                          "path, a force, a sensor's ray, a label), by key: the same key again replaces it, clear takes it off (a key ending "
                          "in / - all under it; none - all). circle {centre: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
                          "about the axis; box {centre: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
-                         "ring and bounds. Drawn while the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
+                         "ring and bounds. size: a point's width, px (6) - and a label's letters, pt, when larger than plain ones. Drawn while "
+                         "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "colour?: [r,g,b], size?: number, clear?: bool}",
             [this](const QJsonObject& a) {
