@@ -50,7 +50,7 @@ class field:
     "box" (a size, 3 numbers: a point on each of the faces +x, +y, +z).
 
     `ref` makes it an object of the scene instead of a number typed by hand: ``joint=field(ref="joint")``. Its word is a
-    kind ``scene_list`` knows - "joint", "body", "encoder" and the other sensors' own kinds, "sensor", "camera", "light",
+    kind ``scene_list`` knows - "joint", "body", "encoder" and the other sensors' own kinds, "sensor", "camera", "light", "force",
     "driver"... The form offers the scene's objects of that kind by name (the selected one first), a call gives its id -
     one of another kind is refused, naming those there are -, and the command gets the object itself, as
     ``scene.objects[id]`` gives it. A component keeps the id."""

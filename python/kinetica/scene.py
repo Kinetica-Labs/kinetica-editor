@@ -9,10 +9,10 @@ import json
 
 from .client import Client
 from .core import Core
-from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
+from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
                       _q, _t)
 
-_KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller}
+_KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller, "force": Force}
 _SENSORS = {"encoder": Encoder, "imu": Imu, "sonar": Sonar, "touch": Touch, "wrench": Wrench, "effort": Effort, "stereo": Sensor}
 
 
@@ -257,6 +257,17 @@ class Scene:
         args = {k: list(v) for k, v in (("at", at), ("position", position), ("target", target)) if v is not None}
         shown = "".join(f", {k}={_t(v)}" for k, v in args.items())
         return self.objects[self._call("scene_add_light", f"scene.add_light({_q(kind)}{shown})", kind=kind, **args)["id"]]
+
+    def add_force(self, shape="directional", mode="impulse", at=None, strength=None, radius=None):
+        """A force as the menu adds it, with its kind's own strength and radius unless given: it stands at `at`, else
+        at the scene's centre. A directional one pushes along its +Y, a radial one outward from its place."""
+        args = {k: v for k, v in (("strength", strength), ("radius", radius)) if v is not None}
+        shown = "".join(f", {k}={v!r}" for k, v in args.items())
+        if at is not None:
+            args["at"] = list(at)
+            shown += f", at={_t(at)}"
+        return self.objects[self._call("scene_add_force", f"scene.add_force({_q(shape)}, {_q(mode)}{shown})", shape=shape, mode=mode,
+                                       **args)["id"]]
 
     def add_camera(self, eye=None, target=None, kind=None, at=None):
         """A camera at `eye` (else the editor's eye), looking at `target` (else the scene's centre). kind="target": a

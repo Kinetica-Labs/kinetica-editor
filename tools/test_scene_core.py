@@ -229,6 +229,51 @@ class SceneCore(unittest.TestCase):
         gc.collect()
         self.assertEqual(proc.wait(5), 0)
 
+    def test_the_four_forces_and_their_properties(self):
+        with ke.Scene() as scene:
+            kinds = [scene.add_force(shape, mode) for shape, mode in (("directional", "impulse"), ("radial", "impulse"),
+                                                                       ("directional", "constant"), ("radial", "constant"))]
+            self.assertEqual([(f.kind, f.shape, f.mode) for f in kinds], [("force", s, m) for s, m in (
+                ("directional", "impulse"), ("radial", "impulse"), ("directional", "constant"), ("radial", "constant"))])
+            self.assertEqual([f.strength for f in kinds], [5, 10, 10, -10])
+            push = kinds[0]
+            push.strength, push.falloff, push.start, push.acts_on = 7, "inverse_square", 2.5, "crate"
+            self.assertEqual((push.strength, push.falloff, push.start, push.acts_on), (7, "inverse_square", 2.5, "crate"))
+            push.tag("blast")
+            self.assertEqual((scene.objects.tagged("blast"), scene.objects.tagged("crate")), ([push], []))
+            push.acts_on = None
+            self.assertEqual(push.acts_on, "")
+            aimed = scene.add_force("radial", "constant", at=(0, 1, 0), strength=3, radius=2)
+            self.assertEqual((aimed.strength, aimed.radius), (3, 2))
+
+    def test_a_radial_force_needs_its_radius_first(self):
+        with ke.Scene() as scene:
+            with self.assertRaises(OperationError) as caught:
+                scene.add_force("radial", "impulse", radius=0)
+            self.assertIn("radius", str(caught.exception))
+            push = scene.add_force()
+            with self.assertRaises(OperationError):
+                push.shape = "radial"
+            push.radius = 3
+            push.shape = "radial"
+            self.assertEqual(push.shape, "radial")
+
+    def test_a_fired_force_gives_a_box_its_velocity(self):
+        with ke.Scene() as scene:
+            box = scene.add("box", position=(0, 3, 0), role="rigid")
+            scene.world.gravity = (0, 0, 0)
+            push = scene.add_force()
+            push.start = 100
+            with self.assertRaises(OperationError) as caught:
+                push.fire()
+            self.assertIn("not running", str(caught.exception))
+            scene.step(1)
+            self.assertAlmostEqual(scene.measure(objects=[box])[f"{box.id}/velocity y"], 0, delta=1e-4)
+            push.fire()
+            scene.step(2)
+            channels = scene.measure(objects=[box])
+            self.assertAlmostEqual(channels[f"{box.id}/velocity y"], 5 / channels[f"{box.id}/mass"], delta=1e-3)
+
     def test_the_hello_runs(self):
         out = subprocess.run([sys.executable, os.path.join(ROOT, "examples", "python", "01_hello.py")], cwd=ROOT,
                              capture_output=True, text=True, timeout=60)

@@ -228,6 +228,9 @@ class HostsAgree(unittest.TestCase):
         self.fresh_scene()
         self.both("scene_add", shape="sphere", role="rigid", position=[0, 2, 0], name="Шар")
         self.both("scene_add_light", kind="point", at=[0, 3, 0])
+        force = self.both("scene_add_force", shape="radial", mode="impulse", at=[0, 1, 0])["id"]
+        self.assertFalse(ask(self.window, "force_fire", id=force)["ok"])
+        self.both("force_fire", id=force)
         self.both("scene_save", file=rec.DIR_MARK + "/a.kscene")
         text = {}
         for host in (self.window, self.core):

@@ -161,7 +161,7 @@ The toolbar is everything that creates and runs:
 
 | Buttons | What for |
 |---|---|
-| <img src="images/ui/icons/shape.png" height="22" alt=""> Shape, <img src="images/ui/icons/light.png" height="22" alt=""> Light, <img src="images/ui/icons/camera.png" height="22" alt=""> Camera, <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor | add to the scene |
+| <img src="images/ui/icons/shape.png" height="22" alt=""> Shape, <img src="images/ui/icons/light.png" height="22" alt=""> Light, <img src="images/ui/icons/camera.png" height="22" alt=""> Camera, <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor, Force | add to the scene |
 | <img src="images/ui/icons/magnet.png" height="22" alt=""> Magnet | assemble a mechanism face to face |
 | <img src="images/ui/icons/play.png" height="22" alt=""> Play, <img src="images/ui/icons/record.png" height="22" alt=""> Record, <img src="images/ui/icons/pause.png" height="22" alt=""> Pause, <img src="images/ui/icons/stop.png" height="22" alt=""> Stop | the scene's time |
 | <img src="images/ui/icons/undo.png" height="22" alt=""> Undo, <img src="images/ui/icons/redo.png" height="22" alt=""> Redo | a step back and forward |
@@ -277,7 +277,7 @@ for target in scene.objects.tagged("target"):
     print(target.name)
 ```
 
-A tag goes on anything - a shape, a joint, a sensor, a light.
+A tag goes on anything - a shape, a joint, a sensor, a light, a force.
 
 ### Lights and cameras
 
@@ -285,6 +285,31 @@ A tag goes on anything - a shape, a joint, a sensor, a light.
 object.
 
 ![A sun, a lamp, a spot and a target camera](images/ui/en/lights.png)
+
+### Forces
+
+Force puts a force object - a push, a blast, a thrust or a pull. It acts on the centre of mass of rigid bodies while the
+world runs and does not spin them. The gizmo moves and turns it like any object; in Edit it does nothing.
+
+| Kind | Shape | Mode | Default strength |
+|---|---|---|---|
+| Push | directional | impulse | 5 N s |
+| Blast | radial | impulse | 10 N s, radius 3 m, linear falloff |
+| Thrust | directional | constant | 10 N |
+| Pull | radial | constant | -10 N (inward), radius 5 m, linear falloff |
+
+A directional force pushes along its own +Y axis (a negative strength: the other way), a radial one away from its point
+(toward it when the strength is negative). The card has Shape, Mode, Strength, Radius (0 on a directional force: no
+limit; a radial one needs it), Falloff (none; linear - smoothly to zero at the radius; inverse square - cut off at the
+radius), Time - when an impulse fires by itself - and Acts on - only bodies with that tag. A tag added while the world
+runs is noticed after Stop and Play. The Fire button fires an impulse now, in the running world, and cancels its timed
+firing. A robot does not look at a force: it learns of it only through its sensors - the IMU, the encoders, the effort.
+
+```python
+boom = scene.add_force("radial", "impulse", at=(0, 0.5, 0), strength=20, radius=3)
+boom.acts_on = "crate"   # only bodies tagged "crate"
+boom.fire()              # in the running world, at once
+```
 
 ### Copies, groups, arrays
 

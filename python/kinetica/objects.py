@@ -543,6 +543,38 @@ class Camera(SceneObject):
         return self
 
 
+class Force(SceneObject):
+    """A force in the scene: a push along its own +Y axis (shape "directional") or outward from it, inward when the
+    strength is negative ("radial"), once at `start` ("impulse", N s) or all the time ("constant", N), on the rigid
+    bodies in its reach. The core refuses a bad value: set `radius` before shape="radial"."""
+    kind = "force"
+
+    def _effect(key, doc):
+        return property(lambda self: self._get("effect", key),
+                        lambda self, v: self._set("effect", key, v, f"{self.ref}.{key} = {v!r}"), doc=doc)
+
+    shape = _effect("shape", "directional or radial")
+    mode = _effect("mode", "impulse or constant")
+    strength = _effect("strength", "N s (impulse) or N (constant); negative: along -Y, inward")
+    radius = _effect("radius", "Reach, m; 0: no limit (directional only)")
+    falloff = _effect("falloff", "none, linear or inverse_square")
+    start = _effect("start", "Impulse only: the second of the run it fires at")
+    del _effect
+
+    @property
+    def acts_on(self):
+        """The tag a body must carry to be acted on (not the force's own tags, see `tag`); "" or None: every body."""
+        return self._get("effect", "tag") or ""
+
+    @acts_on.setter
+    def acts_on(self, word):
+        self._set("effect", "tag", word or "", f"{self.ref}.acts_on = {word or ''!r}")
+
+    def fire(self):
+        """An impulse force fired now, in the running scene."""
+        self.scene._call("force_fire", f"{self.ref}.fire()", id=self.id)
+
+
 class Group(SceneObject):
     """Objects held together: a click picks the whole group."""
     kind = "group"
