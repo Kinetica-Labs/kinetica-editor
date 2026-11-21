@@ -76,6 +76,7 @@ void testActionsGroupKeepsPoses();
 void testActionsDeleteAndDuplicate();
 void testActionsTransforms();
 void testSceneOpsRegistry();
+void testSceneFieldsReadInTheCore();
 void testTargetCamera();
 void testSequence();
 void testSequenceInterp();

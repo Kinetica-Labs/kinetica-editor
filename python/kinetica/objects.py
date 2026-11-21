@@ -7,7 +7,6 @@ journaled and shown in the API console as the line that made it.
 """
 import json
 
-from . import blocks
 
 
 def _q(text):
@@ -47,15 +46,25 @@ class SceneObject:
 
     @property
     def name(self):
-        return blocks.header(self.block())[1]
+        return self.scene._call("scene_get", id=self.id)["name"]
+
+    def _get(self, line, key, count=1):
+        """What `_set` writes, read: the value after `key` on the block's line `line` - `count` of them as a tuple
+        (None: the block has no such line or key)."""
+        values = self.scene._call("scene_get", id=self.id, line=line, key=key, count=count)["values"]
+        return values if values is None else values[0] if count == 1 else tuple(values)
+
+    def _lines(self, name):
+        """The block's lines that start with the word `name`, each as its words after it."""
+        return [words[1:] for words in self.scene._call("scene_get", id=self.id)["lines"] if words[0] == name]
 
     def _set(self, line, key, values, py):
         values = values if isinstance(values, (list, tuple)) else [values]
         self.scene._call("scene_set", py, id=self.id, line=line, key=key, values=list(values))
 
-    visible = property(lambda self: blocks.value(self.block(), "object", "visible") == 1,
+    visible = property(lambda self: self._get("object", "visible") == 1,
                        lambda self, v: self._set("object", "visible", int(bool(v)), f"{self.ref}.visible = {bool(v)}"))
-    locked = property(lambda self: blocks.value(self.block(), "object", "locked") == 1,
+    locked = property(lambda self: self._get("object", "locked") == 1,
                       lambda self, v: self._set("object", "locked", int(bool(v)), f"{self.ref}.locked = {bool(v)}"),
                       doc="A locked object is not picked in the view nor edited by hand")
 
@@ -93,7 +102,7 @@ class Body(SceneObject):
     kind = "entity"
 
     def _shape(self, key, count=3):
-        return blocks.value(self.block(), "shape", key, count)
+        return self._get("shape", key, count)
 
     position = property(lambda self: self._shape("position"),
                         lambda self, v: self._set("shape", "position", v, f"{self.ref}.position = {tuple(v)}"))
@@ -101,7 +110,7 @@ class Body(SceneObject):
                         lambda self, v: self._set("shape", "rotation", v, f"{self.ref}.rotation = {tuple(v)}"))
     size = property(lambda self: self._shape("size"),
                     lambda self, v: self._set("shape", "size", v, f"{self.ref}.size = {tuple(v)}"))
-    fixed = property(lambda self: blocks.value(self.block(), "rigid", "fixed") == 1,
+    fixed = property(lambda self: self._get("rigid", "fixed") == 1,
                      lambda self, v: self._set("rigid", "fixed", int(bool(v)), f"{self.ref}.fixed = {bool(v)}"))
 
     @property
@@ -229,8 +238,7 @@ class Roles:
         self.body = body
 
     def _words(self):
-        block = self.body.block()
-        return [w for w in self.WORDS if blocks.line(block, w)]
+        return [w for w in self.WORDS if self.body._lines(w)]
 
     def __iter__(self):
         return iter(self._words())
@@ -290,7 +298,7 @@ class Joint(SceneObject):
     @property
     def servo(self):
         """Whether the joint's main freedom has a servo (a drive with stiffness): what a controller's "target" turns."""
-        stiffness = blocks.value(self.block(), "drive", "stiffness")
+        stiffness = self._get("drive", "stiffness")
         return bool(stiffness and stiffness > 0)
 
     @property
@@ -343,7 +351,7 @@ class Sensor(SceneObject):
 
     @property
     def parent(self):
-        return int(blocks.value(self.block(), "object", "parent") or 0)
+        return int(self._get("object", "parent") or 0)
 
     def _reading(self, key):
         sensor = self.scene._live("sensors", self.id)
@@ -357,14 +365,13 @@ class Sensor(SceneObject):
     @property
     def model(self):
         """The model of the catalog its datasheet was copied from ("" : its own numbers)."""
-        words = blocks.line(self.block(), "model")
-        return words[1] if words and len(words) > 1 else ""
+        return next((words[0] for words in self._lines("model") if words), "")
 
     @property
     def spec(self):
         """Its datasheet: {key: number}, the keys of its kind's fields (sensor_models), units in their names."""
-        words = blocks.line(self.block(), "spec") or []
-        return {words[k]: float(words[k + 1]) for k in range(1, len(words) - 1, 2)}
+        words = next(iter(self._lines("spec")), [])
+        return {key: float(value) for key, value in zip(words[0::2], words[1::2])}
 
     def set_spec(self, model=None, **values):
         """A model's numbers from its table, then `values` over them: ``imu.set_spec("BMI088", rate_hz=400)``."""
@@ -379,7 +386,7 @@ class Sensor(SceneObject):
 
 
 class Encoder(Sensor):
-    lines = property(lambda self: int(blocks.value(self.block(), "encoder", "lines")),
+    lines = property(lambda self: int(self._get("encoder", "lines")),
                      lambda self, v: self._set("encoder", "lines", int(v), f"{self.ref}.lines = {int(v)}"))
     count = property(lambda self: None if self._reading("count") is None else int(self._reading("count")),
                      doc="Quadrature steps counted since it began")
@@ -389,13 +396,13 @@ class Encoder(Sensor):
 class Imu(Sensor):
     accel = property(lambda self: self._reading("accel"), doc="Specific force in the chip's axes, m/s^2, as its counts say")
     gyro = property(lambda self: self._reading("gyro"), doc="Angular rate in the chip's axes, rad/s, as its counts say")
-    noise = property(lambda self: blocks.value(self.block(), "imu", "noise") == 1,
+    noise = property(lambda self: self._get("imu", "noise") == 1,
                      lambda self, v: self._set("imu", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
 
 
 class Sonar(Sensor):
     distance = property(lambda self: self._reading("distance"), doc="The echo's distance, m (-1: no echo)")
-    noise = property(lambda self: blocks.value(self.block(), "sonar", "noise") == 1,
+    noise = property(lambda self: self._get("sonar", "noise") == 1,
                      lambda self, v: self._set("sonar", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
 
 
@@ -418,16 +425,16 @@ class Battery(SceneObject):
     voltage = property(lambda self: (self.scene._live("batteries", self.id) or {}).get("voltage"))
     current = property(lambda self: (self.scene._live("batteries", self.id) or {}).get("current"))
     charge = property(lambda self: (self.scene._live("batteries", self.id) or {}).get("charge"), doc="State of charge, 0..1")
-    series = property(lambda self: int(blocks.value(self.block(), "cells", "series")),
+    series = property(lambda self: int(self._get("cells", "series")),
                       lambda self, v: self._set("cells", "series", int(v), f"{self.ref}.series = {int(v)}"))
 
 
 class Driver(SceneObject):
     kind = "driver"
-    duty = property(lambda self: blocks.value(self.block(), "bridge", "duty"),
+    duty = property(lambda self: self._get("bridge", "duty"),
                     lambda self, v: self._set("bridge", "duty", float(v), f"{self.ref}.duty = {float(v)}"),
                     doc="PWM duty -1..1, the sign the direction")
-    brake = property(lambda self: blocks.value(self.block(), "bridge", "stop") == "brake",
+    brake = property(lambda self: self._get("bridge", "stop") == "brake",
                      lambda self, v: self._set("bridge", "stop", "brake" if v else "coast", f"{self.ref}.brake = {bool(v)}"),
                      doc="At duty 0: the winding shorted (brake), not open (coast)")
     current = property(lambda self: (self.scene._live("drivers", self.id) or {}).get("current"), doc="Motor current now, A")
@@ -435,12 +442,12 @@ class Driver(SceneObject):
 
     @property
     def battery(self):
-        id = int(blocks.value(self.block(), "bridge", "battery") or 0)
+        id = int(self._get("bridge", "battery") or 0)
         return self.scene.objects[id] if id else None
 
     @property
     def joint(self):
-        return self.scene.objects[int(blocks.value(self.block(), "bridge", "joint"))]
+        return self.scene.objects[int(self._get("bridge", "joint"))]
 
 
 class Controller(SceneObject):
@@ -450,7 +457,7 @@ class Controller(SceneObject):
 
     @property
     def actions(self):
-        return [line.split()[1] for line in self.block().splitlines() if line.strip().startswith("action ")]
+        return [words[0] for words in self._lines("action")]
 
 
 class Camera(SceneObject):
@@ -461,8 +468,8 @@ class Camera(SceneObject):
     @property
     def target(self):
         """What a target camera looks at: an object - its own target cube (move it to aim) or another; None: free."""
-        words = blocks.line(self.block(), "target")
-        return self.scene.objects[int(words[2])] if words else None
+        at = self._get("target", "object")
+        return None if at is None else self.scene.objects[int(at)]
 
     def aim(self, at=None, point=None):
         """A target camera: always looking at object `at` (wherever it goes), else at its own target cube - put at
@@ -489,7 +496,7 @@ class Group(SceneObject):
 
     @property
     def members(self):
-        return [o for o in self.scene.objects if int(blocks.value(o.block(), "object", "parent") or 0) == self.id]
+        return [o for o in self.scene.objects if int(o._get("object", "parent") or 0) == self.id]
 
     def ungroup(self):
         """The group dissolved, its members kept where they stand: the members."""
@@ -500,11 +507,11 @@ class PointWheel(SceneObject):
     """A wheel as a point of its body (the fast model of a wheel module): a ray to the ground, a spring, a
     tyre, a DC motor - no body of its own."""
     kind = "wheel"
-    radius = property(lambda self: blocks.value(self.block(), "tyre", "radius"))
-    rolling = property(lambda self: blocks.value(self.block(), "tyre", "rolling"),
+    radius = property(lambda self: self._get("tyre", "radius"))
+    rolling = property(lambda self: self._get("tyre", "rolling"),
                        lambda self, v: self._set("tyre", "rolling", float(v), f"{self.ref}.rolling = {float(v)}"),
                        doc="The rolling resistance coefficient C_rr: a torque C_rr N r against the spin")
-    friction = property(lambda self: blocks.value(self.block(), "tyre", "friction"),
+    friction = property(lambda self: self._get("tyre", "friction"),
                         lambda self, v: self._set("tyre", "friction", float(v), f"{self.ref}.friction = {float(v)}"))
 
     def _reading(self, key):

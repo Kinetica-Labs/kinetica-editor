@@ -7,7 +7,6 @@
 """
 import json
 
-from . import blocks
 from .client import Client
 from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
                       _q, _t)
@@ -33,8 +32,8 @@ class Objects:
     def _wrap(self, row):
         kind, id = row["kind"], row["id"]
         if kind == "sensor":
-            text = self._scene._call("scene_get", id=id)["text"]
-            word = next((w for w in _SENSORS if blocks.line(text, w)), "encoder")
+            have = {words[0] for words in self._scene._call("scene_get", id=id)["lines"]}
+            word = next((w for w in _SENSORS if w in have), "encoder")
             return _SENSORS[word](self._scene, id)
         return _KINDS.get(kind, SceneObject)(self._scene, id)
 
@@ -60,22 +59,16 @@ class World:
     def __init__(self, scene):
         self._scene = scene
 
-    def _text(self):
-        return self._scene._call("world_get")["text"]
+    def _get(self, line, key, count=1):
+        values = self._scene._call("world_get", line=line, key=key, count=count)["values"]
+        return values[0] if count == 1 else tuple(values)
 
     def _put(self, line, key, values, py):
-        words = []
-        for text in self._text().splitlines():
-            parts = text.split()
-            if parts and parts[0] == line and key in parts:
-                at = parts.index(key) + 1
-                parts[at:at + len(values)] = [str(v) for v in values]
-            words.append(" ".join(parts))
-        self._scene._call("world_set", py, text="\n".join(words) + "\n")
+        self._scene._call("world_set", py, line=line, key=key, values=values)
 
     @property
     def gravity(self):
-        return blocks.value("world\n" + self._text(), "world", "gravity", 3)
+        return self._get("world", "gravity", 3)
 
     @gravity.setter
     def gravity(self, g):
@@ -84,7 +77,7 @@ class World:
     @property
     def size(self):
         """The box everything lives in, m (the floor at y = 0, the walls at +-x/2, +-z/2)."""
-        return blocks.value("world\n" + self._text(), "world", "size", 3)
+        return self._get("world", "size", 3)
 
     @size.setter
     def size(self, s):
@@ -93,7 +86,7 @@ class World:
     @property
     def substeps(self):
         """The physics engine's substeps per frame of 1/60 s."""
-        return int(blocks.value("world\n" + self._text(), "physics", "substeps"))
+        return int(self._get("physics", "substeps"))
 
     @substeps.setter
     def substeps(self, n):

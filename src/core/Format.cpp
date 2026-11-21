@@ -9,12 +9,16 @@
 
 namespace ke {
 
-bool parseNumber(const std::string& word, float& out) {
+template <class T>
+static bool parse(const std::string& word, T& out) {
     std::istringstream in(word);
     in.imbue(std::locale::classic());
     in >> out;
     return !in.fail() && in.peek() == std::char_traits<char>::eof();
 }
+
+bool parseNumber(const std::string& word, float& out) { return parse(word, out); }
+bool parseNumber(const std::string& word, double& out) { return parse(word, out); }
 
 std::string numberText(float v) {
     if (v == 0) v = 0; // -0 is written as 0

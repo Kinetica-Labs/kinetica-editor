@@ -67,6 +67,7 @@ int main() {
     run("actions: delete takes the subtree, its joints and sensors; a copy carries its sensors", testActionsDeleteAndDuplicate);
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
+    run("actions: a block's fields are read in the core - scene_get, world_get, world_set by line and key", testSceneFieldsReadInTheCore);
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("scene: the Sequencer - a sequence's poses between keys, held, looped; keys, the file, the playhead, a lost track", testSequence);
     run("scene: a key's interpolation - linear, smooth (Hermite, soft ends), step - and sequence_key_set", testSequenceInterp);

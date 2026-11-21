@@ -102,6 +102,52 @@ void testActionsTransforms() {
 // The core's operations by name (scene/SceneOps.h): each is a question or an edit, never both, with its
 // help and arguments; an action answers what a window selects after it; a batch is all or nothing; an
 // action without its objects says so instead of guessing.
+// A block is read where it is written - in the core: scene_get gives an object's kind, name and lines as words, and
+// with a line and a key the values scene_set would set there; world_get and world_set do the same for the world's
+// lines. No client parses the scene file's text.
+void testSceneFieldsReadInTheCore() {
+    SceneGraph g;
+    std::string error;
+    const auto ask = [&g, &error](const char* op, const Value& a) {
+        Value r = Value::map();
+        if (const SceneOp* o = findSceneOp(op); o->query ? !o->query(g, a, r, error) : !o->edit(g, a, r, error)) r = Value::map();
+        return r;
+    };
+    const auto field = [](int id, const char* line, const char* key, int count) {
+        Value a = Value::map();
+        if (id) a.set("id", id);
+        a.set("line", line), a.set("key", key), a.set("count", count);
+        return a;
+    };
+    Value add = Value::map(), size = Value::list();
+    size.push(0.5), size.push(0.25), size.push(2);
+    add.set("shape", "box"), add.set("name", "Ящик 7"), add.set("size", size), add.set("role", "rigid");
+    const int id = ask("scene_add", add)["id"].integer();
+    Value whole = Value::map();
+    whole.set("id", id);
+    const Value block = ask("scene_get", whole);
+    bool shape = false;
+    for (const Value& words : block["lines"].items())
+        shape = shape || (words.size() > 2 && words.items()[0].text() == "shape" && words.items()[1].text() == "box");
+    CHECK(block["kind"].text() == "entity" && block["name"].text() == "Ящик 7" && shape && !block["text"].text().empty(),
+          "scene_get: the block's kind, name and lines as words beside its text");
+    const Value read = ask("scene_get", field(id, "shape", "size", 3));
+    CHECK(read["values"].size() == 3 && read["values"].items()[0].number() == 0.5 && read["values"].items()[2].number() == 2,
+          "scene_get {line, key, count}: the three numbers after 'size'");
+    CHECK(ask("scene_get", field(id, "shape", "glow", 1))["values"].isNull() && ask("scene_get", field(id, "tyre", "radius", 1))["values"].isNull() &&
+          ask("scene_get", field(id, "shape", "size", 99))["values"].isNull(), "a key, a line or as many words that are not there: null");
+    Value set = field(0, "physics", "substeps", 1), values = Value::list();
+    values.push(24);
+    set.set("values", values);
+    ask("world_set", set);
+    const Value steps = ask("world_get", field(0, "physics", "substeps", 1)), gravity = ask("world_get", field(0, "world", "gravity", 3));
+    CHECK(g.world.physics.substeps == 24 && steps["values"].items().at(0).integer() == 24 && gravity["values"].size() == 3 &&
+          gravity["values"].items()[1].number() == -9.81, "world_set {line, key, values} sets one value; world_get reads it and gravity");
+    Value r = Value::map();
+    CHECK(!findSceneOp("world_set")->edit(g, field(0, "weather", "wind", 1), r, error) && g.world.physics.substeps == 24,
+          "world_set of a line the world has not got is refused");
+}
+
 void testSceneOpsRegistry() {
     int malformed = 0;
     for (const SceneOp& op : sceneOps()) malformed += op.name.empty() || op.help.empty() || op.args.empty() || bool(op.query) == bool(op.edit);

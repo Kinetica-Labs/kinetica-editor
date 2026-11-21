@@ -3,6 +3,7 @@
 // batch of edits as one step - the inverse-able edits of SceneEdits.h under their API names.
 #include "scene/SceneOps.h"
 
+#include "core/Format.h"
 #include "scene/Assembly.h"
 #include "scene/Describe.h"
 #include "scene/SceneEdits.h"
@@ -61,6 +62,20 @@ bool objectList(const SceneGraph& g, const std::string& word, Value& out, std::s
 SceneOp query(const char* name, const char* help, const char* args, SceneOp::Query run) { return {name, help, args, std::move(run), {}, false}; }
 SceneOp edit(const char* name, const char* help, const char* args, SceneOp::Edit run) { return {name, help, args, {}, std::move(run), false}; }
 
+// A block's words as an answer holds them: a number as a number, a quoted word as text whatever it reads as.
+Value wordValues(const std::vector<BlockWord>& words) {
+    Value list = Value::list();
+    double number = 0;
+    for (const BlockWord& w : words) list.push(!w.quoted && parseNumber(w.text, number) ? Value(number) : Value(w.text));
+    return list;
+}
+
+// scene_get's and world_get's {line, key?, count?} of a text: the values there, or null.
+Value fieldValues(const std::string& block, const Value& a) {
+    const std::vector<BlockWord> words = getField(block, a["line"].text(""), a["key"].text(""), size_t(std::max(a["count"].integer(1), 1)));
+    return words.empty() ? Value() : wordValues(words);
+}
+
 std::vector<SceneOp> readOps() {
     return {
         query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
@@ -71,17 +86,27 @@ std::vector<SceneOp> readOps() {
             if (!objectList(g, a["kind"].text(""), objects, e)) return false;
             return r.set("objects", objects), true;
         }),
-        query("scene_get", "One object's block of the scene file, or the whole file without an id", "{id?: int}",
-              [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
-            const std::string t = a.has("id") ? getObject(g, uint32_t(a["id"].integer())) : g.save();
-            if (t.empty()) return e = "no object " + std::to_string(a["id"].integer()), false;
-            return r.set("text", t), true;
+        query("scene_get", "One object's block of the scene file: text, and the same read - kind, name, lines (each line as its words, a "
+              "number as a number); the whole file without an id. With line: values - the count words (1) after key on the object's "
+              "line that starts with the words of line, as scene_set names them (no key: right after the line's own; null: not there)",
+              "{id?: int, line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
+            if (!a.has("id")) return a.has("line") ? (e = "a line is an object's: give its id", false) : (r.set("text", g.save()), true);
+            const std::string block = getObject(g, uint32_t(a["id"].integer()));
+            if (block.empty()) return e = "no object " + std::to_string(a["id"].integer()), false;
+            if (a.has("line")) return r.set("values", fieldValues(block, a)), true;
+            const std::vector<std::vector<BlockWord>> lines = blockLines(block);
+            Value all = Value::list();
+            for (const std::vector<BlockWord>& words : lines) all.push(wordValues(words));
+            r.set("text", block), r.set("kind", lines[0][0].text), r.set("name", lines[0].size() > 1 ? lines[0][1].text : "");
+            return r.set("lines", all), true;
         }),
         query("scene_describe", "The scene in words: the bodies as a tree of joints with their shapes, masses, roles and drives; sensors and where "
               "they look; the batteries - for a person or a language model building by text", "{}",
               [](const SceneGraph& g, const Value&, Value& r, std::string&) { return r.set("text", describeScene(g)), true; }),
-        query("world_get", "The world's 'world' and 'physics' lines of the scene file", "{}", [](const SceneGraph& g, const Value&, Value& r, std::string&) {
-            return r.set("text", getWorld(g)), true;
+        query("world_get", "The world's 'world' and 'physics' lines of the scene file: text. With line (world, physics): values - the count "
+              "words (1) after key on that line, as scene_get reads an object's (null: not there)",
+              "{line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string&) {
+            return a.has("line") ? r.set("values", fieldValues(getWorld(g), a)) : r.set("text", getWorld(g)), true;
         }),
     };
 }
@@ -109,8 +134,14 @@ std::vector<SceneOp> coreSceneOps() {
         const uint32_t id = putObject(g, a["block"].text(""), e);
         return r.set("id", id), id != 0;
     }));
-    ops.push_back(edit("world_set", "The world's 'world' and 'physics' lines, as world_get gives them (gravity, box, physics engine; a missing physics line: defaults)",
-                       "{text: str}", [](SceneGraph& g, const Value& a, Value&, std::string& e) { return putWorld(g, a["text"].text(""), e); }));
+    ops.push_back(edit("world_set", "The world's 'world' and 'physics' lines, as world_get gives them (gravity, box, physics engine; a missing physics "
+                       "line: defaults) - or one 'line key values' of them, as scene_set sets an object's: line physics, key substeps",
+                       "{text?: str, line?: str, key?: str, values?: [number|str]}", [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+        if (!a.has("line")) return a.has("text") ? putWorld(g, a["text"].text(""), e) : (e = "give the text, or a line with its key and values", false);
+        std::vector<std::string> values;
+        for (const Value& v : a["values"].items()) values.push_back(fileWord(v));
+        return setWorldField(g, a["line"].text(""), a["key"].text(""), values, e);
+    }));
     ops.push_back(edit("scene_set", "One 'line key values' of an object's block, as in the scene file (a missing role line is added)",
                        "{id: int, line: str, key?: str, values?: [number|str]}", [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         std::vector<std::string> values;

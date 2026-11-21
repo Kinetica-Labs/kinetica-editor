@@ -76,6 +76,23 @@ std::string quoteIfNeeded(const std::string& v, bool quoted) {
     return quoted || v.empty() || v.find(' ') != std::string::npos ? "\"" + v + "\"" : v;
 }
 
+// Whether a line begins with the words of `head` ("rigid", or "drive rx": a line's first words).
+bool startsWith(const std::vector<Word>& w, const std::vector<Word>& head) {
+    if (head.empty() || w.size() < head.size()) return false;
+    for (size_t i = 0; i < head.size(); ++i)
+        if (w[i].text != head[i].text) return false;
+    return true;
+}
+
+// The word after which a key's values stand: the key itself, found past the line's first `head` words (the line's
+// size: it has none); the last of those words for an empty key.
+size_t keyAt(const std::vector<Word>& w, size_t head, const std::string& key) {
+    if (key.empty()) return head - 1;
+    for (size_t i = head; i < w.size(); ++i)
+        if (!w[i].quoted && w[i].text == key) return i;
+    return w.size();
+}
+
 // The line with as many words after word `at` as there are values replaced by them (appended past its end).
 std::string replaceWords(const std::string& line, const std::vector<Word>& w, size_t at, const std::vector<std::string>& values) {
     if (values.empty()) return line;
@@ -87,6 +104,21 @@ std::string replaceWords(const std::string& line, const std::vector<Word>& w, si
     const size_t first = at + 1, last = std::min(w.size(), at + 1 + values.size());
     if (first >= w.size()) return line + (values.empty() ? "" : " " + text);
     return line.substr(0, w[first].begin) + text + line.substr(w[last - 1].end);
+}
+
+// The values after `key` on the first of the lines that starts with the words of `line` replaced (the key appended
+// when the line has none). False: no line starts so.
+bool replaceField(std::vector<std::string>& lines, const std::string& line, const std::string& key, const std::vector<std::string>& values) {
+    const std::vector<Word> head = spans(line);
+    for (std::string& l : lines) {
+        const std::vector<Word> w = spans(l);
+        if (!startsWith(w, head)) continue;
+        const size_t at = keyAt(w, head.size(), key);
+        if (at == w.size()) l += " " + key; // a key the line has not got: appended
+        l = replaceWords(l, w, at, values);
+        return true;
+    }
+    return false;
 }
 
 } // namespace
@@ -141,28 +173,7 @@ uint32_t setField(SceneGraph& g, uint32_t id, const std::string& line, const std
     }
     std::vector<std::string> lines;
     for (std::string l; std::getline(in, l);) lines.push_back(l);
-    const std::vector<Word> head = spans(line); // "rigid", or "drive rx": a line's first words
-    auto matches = [&head](const std::vector<Word>& w) {
-        if (head.empty() || w.size() < head.size()) return false;
-        for (size_t i = 0; i < head.size(); ++i)
-            if (w[i].text != head[i].text) return false;
-        return true;
-    };
-    bool found = false;
-    for (std::string& l : lines) {
-        const std::vector<Word> w = spans(l);
-        if (found || !matches(w)) continue;
-        found = true;
-        size_t at = head.size() - 1;
-        if (!key.empty()) {
-            at = w.size();
-            for (size_t i = head.size(); i < w.size() && at == w.size(); ++i)
-                if (!w[i].quoted && w[i].text == key) at = i;
-            if (at == w.size()) l += " " + key, at = w.size(); // a key the line has not got: appended
-        }
-        l = replaceWords(l, w, at, values);
-    }
-    if (!found) {
+    if (!replaceField(lines, line, key, values)) {
         std::string added = "  " + line + (key.empty() ? "" : " " + key);
         for (const std::string& v : values) added += " " + quoteIfNeeded(v, false);
         lines.insert(lines.end() - 1, added); // before "end"
@@ -170,6 +181,31 @@ uint32_t setField(SceneGraph& g, uint32_t id, const std::string& line, const std
     std::string block;
     for (const std::string& l : lines) block += l + "\n";
     return putObject(g, block, error);
+}
+
+std::vector<std::vector<BlockWord>> blockLines(const std::string& block) {
+    std::vector<std::vector<BlockWord>> out;
+    std::istringstream in(block);
+    for (std::string l; std::getline(in, l);) {
+        std::vector<BlockWord> words;
+        for (const Word& w : spans(l)) words.push_back({w.text, w.quoted});
+        if (!words.empty() && !(words.size() == 1 && words[0].text == "end")) out.push_back(std::move(words));
+    }
+    return out;
+}
+
+std::vector<BlockWord> getField(const std::string& block, const std::string& line, const std::string& key, size_t count) {
+    const std::vector<Word> head = spans(line);
+    std::istringstream in(block);
+    for (std::string l; std::getline(in, l);) {
+        const std::vector<Word> w = spans(l);
+        if (!startsWith(w, head)) continue;
+        const size_t at = keyAt(w, head.size(), key);
+        std::vector<BlockWord> out;
+        for (size_t i = at + 1; i < w.size() && out.size() < count; ++i) out.push_back({w[i].text, w[i].quoted});
+        return out.size() == count ? out : std::vector<BlockWord>();
+    }
+    return {};
 }
 
 // The sensors and point wheels riding on what is removed - an entity or a joint, the joints of an
@@ -225,6 +261,20 @@ bool putWorld(SceneGraph& g, const std::string& text, std::string& error) {
     }
     g.world = one.world;
     return true;
+}
+
+bool setWorldField(SceneGraph& g, const std::string& line, const std::string& key, const std::vector<std::string>& values,
+                   std::string& error) {
+    std::istringstream in(getWorld(g));
+    std::vector<std::string> lines;
+    for (std::string l; std::getline(in, l);) lines.push_back(l);
+    if (!replaceField(lines, line, key, values)) {
+        error = "the world has no line '" + line + "' (world, physics)";
+        return false;
+    }
+    std::string text;
+    for (const std::string& l : lines) text += l + "\n";
+    return putWorld(g, text, error);
 }
 
 // ---------------------------------------------------------------------------

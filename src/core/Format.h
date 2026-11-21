@@ -31,5 +31,6 @@ template<class T, std::enable_if_t<std::is_integral<T>::value, int> = 0>
 std::string numberText(T v) { return std::to_string(v); }
 // The whole word as a number ("1.5x", "" and "1,5" are not); false leaves `out` unspecified.
 bool parseNumber(const std::string& word, float& out);
+bool parseNumber(const std::string& word, double& out);
 
 } // namespace ke
