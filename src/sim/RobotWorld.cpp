@@ -826,7 +826,7 @@ void RobotWorld::findDrawn() const {
         b.mesh = meshOf(source);
         b.color = source.color;
         b.texture = source.texture;
-        for (std::string* file : {&b.texture.file, &b.texture.heightFile}) // a relative picture: from the scene file's folder
+        for (std::string* file : {&b.texture.file, &b.texture.heightFile, &b.texture.normalFile}) // a relative picture: from the scene file's folder
             if (!file->empty() && !std::filesystem::u8path(*file).is_absolute() && !graph_.baseDirectory.empty())
                 *file = (std::filesystem::u8path(graph_.baseDirectory) / std::filesystem::u8path(*file)).u8string();
         b.marker = isHandle(source);

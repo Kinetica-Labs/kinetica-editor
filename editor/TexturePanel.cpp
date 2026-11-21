@@ -108,6 +108,7 @@ void TexturePanel::setTexture(const ke::SurfaceTexture& value, const QString& di
     bumpHeight_->setValue(value.bumpHeight > 0 ? value.bumpHeight * 1000 : 1);
     bumpHeight_->setEnabled(value.bumpHeight > 0);
     heightFile_->setText(QString::fromStdString(value.heightFile));
+    normalFile_->setText(QString::fromStdString(value.normalFile));
     fitRepeats_ = 1.0 / std::max(0.0001f, ke::maxComp(size));
     kind_->setCurrentIndex(int(value.kind)); repeats_->setValue(value.repeats);
     file_->setText(QString::fromStdString(value.file)); refresh(); filling_ = false;
@@ -125,6 +126,7 @@ void TexturePanel::writeTo(ke::SurfaceTexture& value) const {
     if (validPath(file_->text())) value.file = file_->text().toStdString();
     value.bumpHeight = bump_->isChecked() ? float(bumpHeight_->value() * 0.001) : 0;
     if (validPath(heightFile_->text())) value.heightFile = heightFile_->text().toStdString();
+    if (validPath(normalFile_->text())) value.normalFile = normalFile_->text().toStdString();
 }
 void TexturePanel::dragEnterEvent(QDragEnterEvent* e) {
     const auto urls = e->mimeData()->urls();

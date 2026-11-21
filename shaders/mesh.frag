@@ -1,5 +1,5 @@
 // Lit surfaces (mesh.vert says how they are lit): a triplanar pattern or picture, a surface-gradient
-// bump, see-through glass and optional shadows.
+// bump, a normal map, see-through glass and optional shadows.
 // The host prepends #version 130 or #version 330 core.
 in vec3 vN;
 in vec3 vPosV;
@@ -10,6 +10,10 @@ uniform float uTextureRepeats;
 uniform sampler2D uAlbedo, uHeightMap;
 uniform int uHeightMapEnabled;
 uniform float uBumpHeight;
+uniform sampler2D uNormalMap;
+uniform int uNormalMapEnabled;
+uniform mat4 uModel, uView;
+uniform mat3 uTextureFrame;
 // Material: project along three axes and blend by the surface normal.
 float checker(vec2 uv) {
     vec2 cell = floor(uv * 2.0);
@@ -90,6 +94,25 @@ vec3 bumpedNormal(vec3 normal, vec3 pattern) {
     if (abs(det) < 1e-20) return normal;
     vec3 gradient = dFdx(height) * r1 + dFdy(height) * r2;
     return normalize(abs(det) * normal - sign(det) * uBumpHeight * gradient);
+}
+// A normal map (green up), read as the picture is - along the three axes of the material's frame. Each reading is
+// turned from its own plane into the frame, leaning on the surface's own normal there, and the three are blended by
+// the same weights as the picture; then out of the frame into the view, where the lights are.
+vec3 mappedNormal(vec3 normal) {
+    if (uNormalMapEnabled == 0) return normal;
+    vec3 m = normalize(vMaterialNormal);
+    vec3 w = pow(abs(m), vec3(8.0));
+    w /= max(w.x + w.y + w.z, 1e-8);
+    vec3 p = vMaterialPos * uTextureRepeats;
+    vec3 tx = texture(uNormalMap, p.zy + vec2(0.5)).xyz * 2.0 - 1.0;
+    vec3 ty = texture(uNormalMap, p.xz + vec2(0.5)).xyz * 2.0 - 1.0;
+    vec3 tz = texture(uNormalMap, p.xy + vec2(0.5)).xyz * 2.0 - 1.0;
+    tx = vec3(tx.xy + m.zy, abs(tx.z) * m.x);
+    ty = vec3(ty.xy + m.xz, abs(ty.z) * m.y);
+    tz = vec3(tz.xy + m.xy, abs(tz.z) * m.z);
+    vec3 inFrame = normalize(tx.zyx * w.x + ty.xzy * w.y + tz.xyz * w.z);
+    vec3 seen = normalize(mat3(uView) * mat3(uModel) * (transpose(uTextureFrame) * inFrame));
+    return dot(normalize(vN), normal) < 0.0 ? -seen : seen; // a face seen from behind: turned as its own normal was
 }
 uniform vec3 uColor;
 uniform int uVertexColor; // 1: the mesh's own colours (a model's materials) instead of uColor
@@ -214,7 +237,7 @@ void main() {
     vec3 v = normalize(-vPosV);
     if (dot(n, v) < 0.0) n = -n;
     vec3 pattern = uTextureKind == 0 ? vec3(1.0) : surfacePattern();
-    n = bumpedNormal(n, pattern);
+    n = bumpedNormal(mappedNormal(n), pattern);
     vec3 base = surfaceAlbedo(uVertexColor == 1 ? vColor : uColor, pattern);
     vec3 l = normalize(vec3(0.35, 0.7, 0.6));
     float diff = max(dot(n, l), 0.0);

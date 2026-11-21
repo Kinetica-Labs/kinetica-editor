@@ -58,22 +58,27 @@ GLuint Viewport::imageTexture(const QString& file) {
 }
 
 // A body's surface (ke::SurfaceTexture) into the mesh shader: the pattern or the picture projected
-// along the three axes of its frame (mesh.frag), and its bump. The colour map on unit 4, the height
-// map on unit 3; a missing picture leaves the body's own colour.
+// along the three axes of its frame (mesh.frag), its bump and its normal map. The colour map on unit 4, the height
+// map on unit 3, the normal map on unit 2; a missing picture leaves the body's own colour, a missing map a flat surface.
 void Viewport::setSurfaceTexture(const ke::SurfaceTexture& texture) {
     const QString colorFile = QString::fromStdString(texture.file), heightFile = QString::fromStdString(texture.heightFile);
+    const QString normalFile = QString::fromStdString(texture.normalFile);
     const bool useColor = texture.kind == ke::TextureKind::Image, useHeight = texture.bumpHeight > 0 && !heightFile.isEmpty();
     const bool newColor = useColor && !imageTextures_.count(QFileInfo(colorFile).absoluteFilePath());
     const bool newHeight = useHeight && !imageTextures_.count(QFileInfo(heightFile).absoluteFilePath());
-    // Room for both maps before either is bound: an eviction cannot take one this draw needs.
-    if (imageTextures_.size() >= 23 && (newColor || newHeight)) releaseImageTextures();
+    const bool newNormal = !normalFile.isEmpty() && !imageTextures_.count(QFileInfo(normalFile).absoluteFilePath());
+    // Room for the three maps before any is bound: an eviction cannot take one this draw needs.
+    if (imageTextures_.size() >= 22 && (newColor || newHeight || newNormal)) releaseImageTextures();
     glActiveTexture(GL_TEXTURE0);
     const GLuint albedo = useColor ? imageTexture(colorFile) : 0, height = useHeight ? imageTexture(heightFile) : 0;
+    const GLuint normals = normalFile.isEmpty() ? 0 : imageTexture(normalFile);
     const int kind = useColor && !albedo ? 0 : int(texture.kind);
     glActiveTexture(GL_TEXTURE4);
     glBindTexture(GL_TEXTURE_2D, albedo);
     glActiveTexture(GL_TEXTURE3);
     glBindTexture(GL_TEXTURE_2D, height);
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, normals);
     glActiveTexture(GL_TEXTURE0);
     // A height map chosen and missing: no bump, rather than the colour's brightness in its place.
     const float bump = texture.heightFile.empty() || height ? float(texture.bumpHeight) : 0.0f;
@@ -83,6 +88,8 @@ void Viewport::setSurfaceTexture(const ke::SurfaceTexture& texture) {
     meshProg_.setUniformValue("uBumpHeight", bump);
     meshProg_.setUniformValue("uHeightMapEnabled", height ? 1 : 0);
     meshProg_.setUniformValue("uHeightMap", 3);
+    meshProg_.setUniformValue("uNormalMap", 2);
+    meshProg_.setUniformValue("uNormalMapEnabled", normals ? 1 : 0);
     meshProg_.setUniformValue("uAlbedo", 4);
     meshProg_.setUniformValue("uTextureFrame", frame);
     meshProg_.setUniformValue("uTextureOffset", qv(texture.offset));

@@ -31,6 +31,7 @@ private:
     QCheckBox* bump_;
     QDoubleSpinBox* bumpHeight_;
     QLineEdit* heightFile_;
+    QLineEdit* normalFile_; // a normal map: a picture of the surface's normals, in place of or over the bump
     void buildBumpControls(QVBoxLayout* col, QFormLayout* form);
     QLabel* status_;
     QLabel* preview_;

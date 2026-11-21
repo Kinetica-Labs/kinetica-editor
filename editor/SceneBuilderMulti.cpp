@@ -69,6 +69,7 @@ void takeShape(const Entity& before, const Entity& after, Entity& t) {
     take(before.texture.repeats, after.texture.repeats, t.texture.repeats);
     take(before.texture.bumpHeight, after.texture.bumpHeight, t.texture.bumpHeight);
     if (before.texture.heightFile != after.texture.heightFile) t.texture.heightFile = after.texture.heightFile;
+    if (before.texture.normalFile != after.texture.normalFile) t.texture.normalFile = after.texture.normalFile;
     take(before.size, after.size, t.size);
     take(before.opacity, after.opacity, t.opacity);
 }

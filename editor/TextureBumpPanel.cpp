@@ -1,4 +1,5 @@
-// Bump from the existing image by default; an optional grayscale height image gives control.
+// Bump from the existing image by default; an optional grayscale height image gives control. A normal map - the
+// surface's normals as a picture, the way ready texture sets bring their relief - has its own row.
 #include "TexturePanel.h"
 #include "UiLanguage.h"
 #include <QCheckBox>
@@ -35,5 +36,18 @@ void TexturePanel::buildBumpControls(QVBoxLayout* col, QFormLayout* form) {
             uiText("Kinetica", "Изображения (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;Все файлы (*)"));
         if (file.isEmpty()) return;
         filling_ = true; heightFile_->setText(file); bump_->setChecked(true); filling_ = false; emit edited();
+    });
+    normalFile_ = new QLineEdit; normalFile_->setObjectName("textureNormalFile");
+    normalFile_->setPlaceholderText(uiText("Kinetica", "Нет"));
+    normalFile_->setToolTip(uiText("Kinetica", "Карта нормалей (normal map): сиреневая картинка из набора текстур, зелёный канал — вверх (OpenGL). Только освещение: геометрия прежняя."));
+    auto* normals = new QHBoxLayout; normals->addWidget(normalFile_);
+    auto* pick = new QPushButton(uiText("Kinetica", "Выбрать…")); pick->setObjectName("textureNormalChoose"); normals->addWidget(pick);
+    form->addRow(uiText("Kinetica", "Карта нормалей"), normals);
+    connect(normalFile_, &QLineEdit::editingFinished, this, [this] { if (!filling_) emit edited(); });
+    connect(pick, &QPushButton::clicked, this, [this] {
+        const QString file = QFileDialog::getOpenFileName(this, uiText("Kinetica", "Карта нормалей: зелёный канал — вверх"), directory_,
+            uiText("Kinetica", "Изображения (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;Все файлы (*)"));
+        if (file.isEmpty()) return;
+        filling_ = true; normalFile_->setText(file); filling_ = false; emit edited();
     });
 }

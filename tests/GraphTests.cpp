@@ -41,6 +41,7 @@ SceneGraph robotGraph() {
     link.rotationDeg = {10, 20, 30};
     link.collider.kind = ColliderKind::Capsule;
     link.texture.kind = TextureKind::Checker;
+    link.texture.normalFile = "maps/steel normal.png";
     Entity goal;
     goal.id = 3, goal.name = "Цель";
     goal.shape = ShapeKind::Sphere;
@@ -121,10 +122,10 @@ void testSceneFormatOnlyGrows() {
     std::string error;
     // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
     // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores; 8: the force block;
-    // 9: the world line's play range end, duration
+    // 9: the world line's play range end, duration; 10: a texture's normal map
     for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
                              "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene", "scene-format-8.kscene",
-                             "scene-format-9.kscene"}) {
+                             "scene-format-9.kscene", "scene-format-10.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();
@@ -192,7 +193,9 @@ void testSceneGraphRoundTrip() {
     CHECK(again == text, "save -> load -> save changed the text:\n%s\n---\n%s", text.c_str(), again.c_str());
     CHECK(back.entities.size() == 3 && back.entities[0].name == "База 'A'" && back.entities[0].locked, "the base is not restored");
     CHECK(back.entities[1].rotationDeg.z == 30.0_r && back.entities[1].collider.kind == ColliderKind::Capsule &&
-          back.entities[1].rigid.density == 2700 && back.entities[1].texture.kind == TextureKind::Checker, "the link is not restored");
+          back.entities[1].rigid.density == 2700 && back.entities[1].texture.kind == TextureKind::Checker &&
+          back.entities[1].texture.normalFile == "maps/steel normal.png" && text.find(" normal_file \"maps/steel normal.png\"") != std::string::npos &&
+          back.entities[0].texture.normalFile.empty(), "the link is not restored");
     CHECK(back.entities[2].goalOf == 2 && back.entities[2].path.size() == 2 && back.entities[2].pathLoop, "the goal's path is not restored");
     const JointFreedom& turn = back.joints.at(0).dof[DofRx];
     CHECK(turn.motion == JointMotion::Limited && turn.lower == -1.5_r && turn.drive.enabled && turn.drive.stiffness == 400 &&

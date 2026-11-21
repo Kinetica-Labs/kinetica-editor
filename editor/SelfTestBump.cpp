@@ -1,8 +1,10 @@
 // A linear height ramp has an analytical normal: normalize(-height * repeats, 0, 1).
 // Compare its actual shaded pixels, then verify zero, constant and missing height-map fallbacks.
+// A normal map of one colour is that one tilt everywhere: the same analytical pixel with no bump at all.
 #include "SelfTestSupport.h"
 #include <QCheckBox>
 #include <QDoubleSpinBox>
+#include <QLineEdit>
 #include <QTemporaryDir>
 #include <QImage>
 #include <cmath>
@@ -72,6 +74,22 @@ int runBumpTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sh
     c.check(std::abs(brightnessAt(v, v->grabFramebuffer(), point) - flat) < 2, "constant height has zero gradient");
     b.editEntity(cube, [](Entity& e) { e.texture.heightFile = "/missing/height.png"; }); pump(150);
     c.check(std::abs(brightnessAt(v, v->grabFramebuffer(), point) - flat) < 2, "missing explicit height map falls back to flat surface");
+    const Vector3 tilt = normalize(Vector3(-0.16f, 0, 1)); // the ramp's own slope, said as a normal: red is x, blue is out of the face
+    QImage normals(64, 64, QImage::Format_RGB32);
+    normals.fill(QColor(int(std::lround((tilt.x * 0.5f + 0.5f) * 255)), 128, int(std::lround((tilt.z * 0.5f + 0.5f) * 255))));
+    const QString normalPath = tmp.path() + "/нормали.png";
+    normals.save(normalPath);
+    b.editEntity(cube, [&](Entity& e) { e.texture.bumpHeight = 0, e.texture.heightFile.clear(), e.texture.normalFile = normalPath.toStdString(); });
+    b.select(0); pump(200);
+    const float mapped = brightnessAt(v, v->grabFramebuffer(), point);
+    std::printf("  a normal map of one tilt: brightness %.1f, analytical %.1f (flat %.1f)\n", mapped, expectedPixel(0.16f), flat);
+    c.check(std::abs(mapped - expectedPixel(0.16f)) < 4 && flat > mapped + 8, "a normal map of one tilt lights the face as that tilt does, with no bump");
+    b.select(cube); pump(100);
+    auto* normalField = w.findChild<QLineEdit*>("textureNormalFile");
+    c.check(normalField && normalField->text() == normalPath && b.graph().save().find(" normal_file \"") != std::string::npos,
+            "the normal map is a field of the texture's card and a word of the scene file");
+    b.editEntity(cube, [](Entity& e) { e.texture.normalFile = "/missing/normal.png"; }); b.select(0); pump(150);
+    c.check(std::abs(brightnessAt(v, v->grabFramebuffer(), point) - flat) < 2, "a missing normal map leaves the surface flat");
     b.lookThrough(0);
     return c.failures;
 }

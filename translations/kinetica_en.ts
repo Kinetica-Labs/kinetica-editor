@@ -5443,48 +5443,65 @@ Sample </translation>
         <translation>Save · K</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="15"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="16"/>
         <source>Рельеф (bump)</source>
         <translation>Bump Mapping</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="16"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="17"/>
         <source>Визуальная выпуклость из яркости текстуры. Геометрия и столкновения остаются прежними.</source>
         <translation>Visual bulge from the brightness of the texture. Geometry and collisions remain the same.</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="19"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="20"/>
         <source> мм</source>
         <translation> mm</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="20"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="21"/>
         <source>Кажущаяся высота рельефа: белое выше чёрного. Начните с 1 мм.</source>
         <translation>Apparent height: white above black. Start at 1 mm.</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="23"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="24"/>
         <source>Из яркости текущей текстуры</source>
         <translation>From the brightness of the current texture</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="25"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="26"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="44"/>
         <source>Выбрать…</source>
         <translation>Select…</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="26"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="27"/>
         <source>Карта высот</source>
         <translation>Height Map</translation>
     </message>
     <message>
-        <location filename="../editor/TextureBumpPanel.cpp" line="34"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="35"/>
         <source>Карта высот: белое выше, чёрное ниже</source>
         <translation>Altitude map: white above, black below</translation>
     </message>
     <message>
+        <location filename="../editor/TextureBumpPanel.cpp" line="42"/>
+        <source>Карта нормалей (normal map): сиреневая картинка из набора текстур, зелёный канал — вверх (OpenGL). Только освещение: геометрия прежняя.</source>
+        <translation>Normal map: the lilac picture of a texture set, green channel up (OpenGL). Lighting only: the geometry stays as it is.</translation>
+    </message>
+    <message>
+        <location filename="../editor/TextureBumpPanel.cpp" line="45"/>
+        <source>Карта нормалей</source>
+        <translation>Normal map</translation>
+    </message>
+    <message>
+        <location filename="../editor/TextureBumpPanel.cpp" line="48"/>
+        <source>Карта нормалей: зелёный канал — вверх</source>
+        <translation>Normal map: green channel up</translation>
+    </message>
+    <message>
         <location filename="../editor/TexturePanel.cpp" line="70"/>
-        <location filename="../editor/TextureBumpPanel.cpp" line="35"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="36"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="49"/>
         <source>Изображения (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff);;Все файлы (*)</source>
         <translation>Images (*.png *.jpg *.jpeg *.bmp *.webp *.tif *.tiff); All files (*)</translation>
     </message>
@@ -5584,7 +5601,7 @@ Sample </translation>
         <translation>Built-in granite: a noise of four octaves and intersperses - looks like a stone, the stereo works on it.</translation>
     </message>
     <message>
-        <location filename="../editor/TexturePanel.cpp" line="117"/>
+        <location filename="../editor/TexturePanel.cpp" line="118"/>
         <source>Файл не читается. Выберите изображение до 64 Мп без кавычек в пути.</source>
         <translation>The file is not readable. Select an image up to 64 MP without quotation marks on the way.</translation>
     </message>
@@ -6721,6 +6738,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="157"/>
+        <location filename="../editor/TextureBumpPanel.cpp" line="41"/>
         <source>Нет</source>
         <translation>None</translation>
     </message>

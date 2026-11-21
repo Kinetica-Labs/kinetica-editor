@@ -320,16 +320,17 @@ static void saveCamera(std::ostringstream& o, const Camera& c) {
 }
 
 static void saveTexture(std::ostringstream& o, const SurfaceTexture& t) {
-    if (t.kind == TextureKind::None && t.bumpHeight == 0) return;
+    if (t.kind == TextureKind::None && t.bumpHeight == 0 && t.normalFile.empty()) return;
     if (int(t.kind) < 0 || int(t.kind) > 4 || !std::isfinite(t.repeats) || t.repeats <= 0 || t.repeats > 10000 ||
         t.file.find_first_of("\"\r\n") != std::string::npos ||
-        t.heightFile.find_first_of("\"\r\n") != std::string::npos ||
+        t.heightFile.find_first_of("\"\r\n") != std::string::npos || t.normalFile.find_first_of("\"\r\n") != std::string::npos ||
         !std::isfinite(t.bumpHeight) || t.bumpHeight < 0 || t.bumpHeight > 0.05_r)
         throw std::invalid_argument("invalid surface texture settings");
     const char* kinds[] = {"none", "checker", "image", "speckle", "stone"}; // TextureKind
     o << "  texture kind " << kinds[int(t.kind)]
       << " repeats " << num(t.repeats) << " file \"" << t.file << "\"";
     if (t.bumpHeight > 0) o << " bump " << num(t.bumpHeight) << " height_file \"" << t.heightFile << "\"";
+    if (!t.normalFile.empty()) o << " normal_file \"" << t.normalFile << "\""; // written when set: a file without it reads everywhere
     o << "\n";
 }
 
@@ -597,6 +598,7 @@ static bool inertiaOk(const RigidRole& r) {
 static bool readTextureKey(const std::string& k, LineReader& r, SurfaceTexture& t) {
     if (k == "file") return r.text(t.file);
     if (k == "height_file") return r.text(t.heightFile);
+    if (k == "normal_file") return r.text(t.normalFile);
     if (k == "bump") return r.number(t.bumpHeight) && std::isfinite(t.bumpHeight) && t.bumpHeight >= 0 && t.bumpHeight <= 0.05_r;
     if (k == "repeats") return r.number(t.repeats) && std::isfinite(t.repeats) && t.repeats > 0 && t.repeats <= 10000;
     if (k != "kind") return false;

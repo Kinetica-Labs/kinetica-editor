@@ -110,6 +110,7 @@ void rebaseFiles(SceneGraph& g, const std::string& directory) {
         e.meshFile = rebased(e.meshFile, g.baseDirectory, directory);
         e.texture.file = rebased(e.texture.file, g.baseDirectory, directory);
         e.texture.heightFile = rebased(e.texture.heightFile, g.baseDirectory, directory);
+        e.texture.normalFile = rebased(e.texture.normalFile, g.baseDirectory, directory);
     }
     g.baseDirectory = directory;
 }
