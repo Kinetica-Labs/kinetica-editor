@@ -36,7 +36,7 @@ bool readSceneFile(const std::string& path, SceneGraph& out, std::string& error)
     const fs::path p = fs::u8path(path);
     std::error_code ec;
     const fs::path whole = fs::absolute(p, ec).lexically_normal();
-    if (!fs::exists(p, ec)) return refuse(error, "нет файла «" + path + "»" + (p.is_relative() ? " (искали: " + whole.u8string() + ")" : ""));
+    if (!fs::exists(p, ec)) return refuse(error, "нет файла «" + path + "»" + (p.is_relative() ? " (искали: " + whole.generic_u8string() + ")" : ""));
     if (fs::is_directory(p, ec)) return refuse(error, "«" + path + "» - каталог, а не файл");
     std::ifstream in(p, std::ios::binary);
     if (!in) return refuse(error, "файл «" + path + "» не читается");
@@ -44,7 +44,7 @@ bool readSceneFile(const std::string& path, SceneGraph& out, std::string& error)
     text << in.rdbuf();
     SceneGraph g;
     if (!g.load(validUtf8(text.str()), error)) return false;
-    g.baseDirectory = whole.parent_path().u8string(); // model files next to the scene
+    g.baseDirectory = whole.parent_path().generic_u8string(); // model files next to the scene
     out = std::move(g);
     return true;
 }
@@ -54,9 +54,9 @@ bool writeSceneFile(const SceneGraph& g, const std::string& path, std::string& s
     if (path.empty()) return refuse(error, "не назван файл");
     std::error_code ec;
     const fs::path whole = fs::absolute(fs::u8path(path), ec).lexically_normal();
-    if (!fs::is_directory(whole.parent_path(), ec)) return refuse(error, "нет каталога «" + whole.parent_path().u8string() + "» для файла «" + path + "»");
+    if (!fs::is_directory(whole.parent_path(), ec)) return refuse(error, "нет каталога «" + whole.parent_path().generic_u8string() + "» для файла «" + path + "»");
     SceneGraph saved = g;
-    rebaseFiles(saved, whole.parent_path().u8string()); // into another folder, the models' and textures' paths are written from there
+    rebaseFiles(saved, whole.parent_path().generic_u8string()); // into another folder, the models' and textures' paths are written from there
     fs::path part = whole;
     part += ".part";
     {
@@ -66,7 +66,7 @@ bool writeSceneFile(const SceneGraph& g, const std::string& path, std::string& s
     }
     fs::rename(part, whole, ec);
     if (ec) return fs::remove(part, ec), refuse(error, "файл «" + path + "» не записывается");
-    savedAs = whole.u8string();
+    savedAs = whole.generic_u8string(); // forward slashes on every system, as the window answers
     return true;
 }
 

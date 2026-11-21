@@ -276,7 +276,8 @@ void testWorldOpsLiveState() {
           "joints, sensors with their truth, contacts and timers");
 
     for (int k = 0; k < 600 && s.physics()->state(s.robot()->bodyOf(6)).awake; ++k) s.stepFrame();
-    const Value* asleep = shapeOf(liveState(s), 6);
+    const Value rested = liveState(s); // kept: shapeOf points into it
+    const Value* asleep = shapeOf(rested, 6);
     CHECK(asleep && (*asleep)["asleep"].truth(), "a body at rest that was put to sleep says so");
 
     const Value step = stepAnswer(s, 7, 3);
