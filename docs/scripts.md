@@ -7,6 +7,48 @@
 умение: формат файла, компонент с ручками, инструмент, панель, контроллер в такте ([plugins.md](plugins.md)).
 Ряд кубиков, пирамида, тележка с датчиком — скрипты. Импорт URDF — плагин.
 
+## Без окна: ke.Scene()
+
+Первая программа — без редактора. `ke.Scene()` запускает `kinetica-core` (`cmake --build build --target kinetica-core`;
+в архиве он лежит рядом с `kinetica`; другое место — `executable=` или `KE_CORE`) и отдаёт ту же объектную модель,
+что `ke.connect()`. Из корня репозитория: `python3 examples/python/01_hello.py`.
+
+```python
+import kinetica as ke
+
+with ke.Scene() as scene:
+    box = scene.add("box", position=(0, 1, 0), role="rigid")
+    scene.run(1.0)
+    print(f"after 1 s the box's centre is {scene.measure(objects=[box])[f'{box.id}/height']:.3f} m high")
+```
+
+Печатает `after 1 s the box's centre is 0.120 m high`; от запуска до ответа проходит около 0,03 с. Три правила:
+
+- **Пол уже есть** (объект 1, ваш первый получит номер 2); окна, выделения, вида и консоли нет.
+- **Путь считается от каталога, где вы запустили скрипт**: `scene.open("a.kscene")`, не найдя файла, называет
+  абсолютный путь, который искал.
+- **Время идёт только по `run` и `step`**: часов нет, `sim_play` и `sim_pause` отвечают, что их нет.
+
+Правка, пока мир построен (после `run`), либо уходит в мир на ходу и пропадает со `stop`, либо останавливает мир и
+остаётся в сцене: следующий `run` начнётся с кадра 0, а ответ правки говорит `play_stopped: true` и `reload` — что
+пришлось перестроить. Так, второе тело после `run` — это перезапуск; что мир принимает на ходу — `src/scene/LiveEdit.h`.
+
+Чего у `kinetica-core` нет, он говорит словами ошибки: `нет операции «view_zoom» в kinetica-core (ops_list называет все её
+операции; выбор, вид, консоль, плагины и журнал есть только у окна)`. Операции с `ids` не берут выделение: передайте `ids`.
+Журнала нет — скрипт сам себе запись. Все отличия от окна — `docs/contracts/operations.md`, «Хозяева операций».
+
+То же из C++, без трубы (`examples/cpp/hello.cpp`, цель `ke-hello`, запуск из корня):
+
+```cpp
+Scene scene("data");                                    // пол с номером 1; таблицы датчиков из ./data/sensors
+const Value added = scene.call("scene_add", parseJson(R"({"shape":"box","role":"rigid","position":[0,1,0]})"));
+const Value state = scene.call("sim_step", parseJson(R"({"frames":60})"));   // ответ — то же дерево Value, что идёт по проводу
+for (const Value& shape : state["shapes"].items())
+    if (shape["id"].integer() == added["id"].integer()) std::printf("%.3f m\n", shape["position"].items()[1].number());
+```
+
+Дальше — скрипт в окне.
+
 ## Написать
 
 ```python

@@ -14,8 +14,9 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOM
 cmake --build build -j
 build/ke_tests                                   # ядро; KE_TEST=<подстрока> — выборочно
 build/kinetica --self-test                       # окно: жмёт кнопки, тащит гизмо; KE_EDITOR_TEST=<группа>
-cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp   # стенд испытателей, SDK плагинов, сервер MCP - без окна
+cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_hosts_agree   # стенд испытателей, SDK, MCP, ke.Scene() - без окна; test_hosts_agree поднимает одно скрытое окно
 build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; без --agent-eval - человеку; к --api ходят клиент и MCP ke-editor (.mcp.json)
+build/kinetica-core --version; python3 examples/python/01_hello.py          # без окна: ke.Scene()
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
 ```
 
@@ -43,6 +44,8 @@ CI проверяет абляцию тремя `git grep` (задача `ablati
   сцену и заканчивается - один шаг отмены. Плагин (`plugins/<имя>/plugin.py`) - отдельный процесс Python, клиент
   того же API, даёт редактору новое умение; хост читает ещё папки, добавленные в окне, `<app data>/plugins` и
   `KE_PLUGINS`; остальные плагины проекта - в репозитории kinetica-plugins.
+- **Два хозяина операций:** окно и `kinetica-core` (без окна, `ke.Scene()`) зовут одно ядро — `src/api`, `src/scene/Document`,
+  `src/sim/WorldOps`, `src/scene/LiveEdit`, `src/scene/ArgsSchema`; у окна остаются часы, поток, выделение и вид.
 - **API = UI.** Любое действие — операция (ядро `SceneOps`, окно `EditorOps`) с JSON-ответом; кнопка, консоль,
   Python и агент по сети (`--api`, MCP `tools/ke_editor_mcp.py`) зовут одни и те же операции. Правка — шаг
   отмены и строка в журнале JSON lines, который только дописывается (`<app data>/ops-journal.jsonl`, на Linux

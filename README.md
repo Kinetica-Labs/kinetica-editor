@@ -26,6 +26,10 @@ Python, `@command` становится кнопкой, строкой конс�
 перезапустился ([docs/plugins.md](docs/plugins.md), контракты — [docs/contracts](docs/contracts/README.md)).
 Плагины проекта — в отдельном репозитории kinetica-plugins.
 
+Вторая программа — `kinetica-core`, та же сцена и те же операции без окна: `ke.Scene()` в Python
+(`python3 examples/python/01_hello.py`) или `ke::Scene` в C++ (`examples/cpp/hello.cpp`); начать с неё —
+[docs/scripts.md](docs/scripts.md), «Без окна».
+
 Состояние: готовы ядро, модель сцены робота, физика на Box3D, мир робота с суставами, приводами и целями
 ИК, всё окно редактора. Пример — UR5e с целью ИК, схватом и кубиками (`examples/ur5e.kscene`).
 Дальше: панели и компоненты плагинов, датчики в живом мире, импорт URDF/SDF, стерео, дрон.
@@ -98,6 +102,7 @@ C:\Qt\6.7.3\msvc2019_64\bin\windeployqt build\Release\kinetica.exe   # библ�
 build/kinetica --scene examples/ur5e.kscene   # окно со сценой UR5e (Windows: build\Release\kinetica.exe)
 build/ke_tests                                # тесты ядра
 build/kinetica --self-test                    # самотест окна: жмёт кнопки, тащит гизмо; код выхода = ошибки
+build/kinetica-core --version                 # программа без окна; python3 examples/python/01_hello.py
 ```
 
 Скрипты и ИИ-агенты: `build/kinetica --api 47801` слушает API на 127.0.0.1 (JSON по строке на вызов).
