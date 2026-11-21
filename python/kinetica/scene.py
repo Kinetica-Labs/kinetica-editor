@@ -9,10 +9,11 @@ import json
 
 from .client import Client
 from .core import Core
-from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench, _axis,
+from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Light, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench,
+                      _axis,
                       _q, _t)
 
-_KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller, "force": Force}
+_KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller, "force": Force, "light": Light}
 _SENSORS = {"encoder": Encoder, "imu": Imu, "sonar": Sonar, "touch": Touch, "wrench": Wrench, "effort": Effort, "stereo": Sensor}
 
 

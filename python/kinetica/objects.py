@@ -560,6 +560,20 @@ class Camera(SceneObject):
         return self
 
 
+class Light(SceneObject):
+    """A light: the sun, a lamp ("point") or a spot."""
+    kind = "light"
+
+    def _lamp(key, doc, read=lambda v: v, write=lambda v: v):
+        return property(lambda self: read(self._get("kind", key)),
+                        lambda self, v: self._set("kind", key, write(v), f"{self.ref}.{key} = {v!r}"), doc=doc)
+
+    intensity = _lamp("intensity", "How bright it is (1: as made)")
+    range = _lamp("range", "How far a lamp or a spot shines, m")
+    shadows = _lamp("shadows", "Whether bodies cast shadows from it", read=lambda v: v == 1, write=lambda v: int(bool(v)))
+    del _lamp
+
+
 class Force(SceneObject):
     """A force in the scene: a push along its own +Y axis (shape "directional") or outward from it, inward when the
     strength is negative ("radial"), once at `start` ("impulse", N s) or all the time ("constant", N), on the rigid
