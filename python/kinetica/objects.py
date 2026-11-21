@@ -64,6 +64,9 @@ class SceneObject:
         zone = self.scene._live("triggers", self.id)
         return None if zone is None else [self.scene.objects[i] for i in zone["inside"]]
 
+    position = property(lambda self: self._get("pose", "position", 3),
+                        doc="Its place on its parent, m - the scene file's line: where a key or an edit has put it")
+
     def _get(self, line, key, count=1):
         """What `_set` writes, read: the value after `key` on the block's line `line` - `count` of them as a tuple
         (None: the block has no such line or key)."""

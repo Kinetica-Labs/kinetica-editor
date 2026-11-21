@@ -88,6 +88,12 @@ class Examples(unittest.TestCase):
         self.assertLess(level, 0.5)            # and it levelled itself
         self.assertGreater(drift, 0.5)         # with nothing to measure its place it drifts: the lesson's last line
 
+    def test_09_animation(self):
+        _, numbers = said("09_animation.py")
+        halfway, pushed = numbers[0][1], numbers[0][-1]
+        self.assertAlmostEqual(halfway, 1.0, delta=0.01)   # between its keys at x = 3 and x = -1
+        self.assertAlmostEqual(pushed, 1.4, delta=0.03)    # the pusher's face at 1.3 m, the crate's centre 0.1 m beyond
+
 
 if __name__ == "__main__":
     unittest.main()

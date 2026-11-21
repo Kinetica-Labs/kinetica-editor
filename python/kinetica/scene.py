@@ -381,6 +381,18 @@ class Scene:
         answer = self._call("sim_measure", scene=bool(scene), **args)
         return {c["id"]: c["value"] for c in answer["channels"]}
 
+    def key(self, *objects, time=None, interp=None):
+        """A key of each object at `time` s (the playhead when none) where it stands now - what the Sequencer's ◆ and its
+        «◈ Автоключ» make: between keys an object goes in a line ("smooth": a curve through them, "step": held). A keyed
+        body is led along its track while the scene plays and pushes what it meets; a camera or a light only moves."""
+        args = {"ids": [o.id for o in objects], **({"time": float(time)} if time is not None else {}), **({"interp": interp} if interp else {})}
+        shown = ", ".join([o.ref for o in objects] + ([f"time={time!r}"] if time is not None else []) + ([f"interp={_q(interp)}"] if interp else []))
+        return self._call("sequence_key", f"scene.key({shown})", **args)
+
+    def seek(self, time):
+        """The sequence's playhead at `time` s: every keyed object stands where its keys have it then."""
+        return self._call("sequence_seek", f"scene.seek({time!r})", time=float(time))
+
     def command(self, commands):
         """Commands to the running world, not edits of the scene: {joint: {"target": rad or m} or {"velocity": ...},
         driver: {"duty": -1..1}, force: {"strength": N}, body: {"force": [x, y, z], "torque": [x, y, z]}} - a joint's, a

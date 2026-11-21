@@ -27,7 +27,7 @@ Python, `@command` становится кнопкой, строкой конс�
 Плагины проекта — в отдельном репозитории kinetica-plugins.
 
 Вторая программа — `kinetica-core`, та же сцена и те же операции без окна: `ke.Scene()` в Python
-(`python3 examples/python/01_hello.py` — первая из восьми ступеней: от падающего куба до дрона, `docs/scripts.md`) или `ke::Scene` в C++ (`examples/cpp/hello.cpp`); начать с неё —
+(`python3 examples/python/01_hello.py` — первая из девяти ступеней: от падающего куба до дрона и анимации, `docs/scripts.md`) или `ke::Scene` в C++ (`examples/cpp/hello.cpp`); начать с неё —
 [docs/scripts.md](docs/scripts.md), «Без окна».
 
 Состояние: готовы ядро, модель сцены робота, физика на Box3D, мир робота с суставами, приводами и целями
