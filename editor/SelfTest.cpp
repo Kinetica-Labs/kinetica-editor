@@ -3,6 +3,7 @@
 #include "SelfTestSupport.h"
 
 #include "ApiConsole.h"
+#include "ArgsSchema.h"
 #include "EditorOps.h"
 #include "scene/SceneActions.h"
 #include "scene/SceneEdits.h"
@@ -482,6 +483,11 @@ void testApiConsole(Checker& c) {
                 single.value("id").toInt() == 5,
             "the API console reads single quotes and a call without 'ed.'");
     c.check(!ApiConsole::parseCall("ed.scene_list(id=)", name, single, error), "the API console refuses a broken line");
+    // A field that both shapes of a call have takes the words of either: a sensor's kind on a body, or on a joint.
+    const QJsonObject either = argsSchema("{target: int, kind: 'imu'|'sonar'} | {joint: int, kind: 'wrench'|'effort'}");
+    c.check(argsProblem({{"joint", 5}, {"kind", "wrench"}}, either).isEmpty() && argsProblem({{"target", 5}, {"kind", "imu"}}, either).isEmpty() &&
+                !argsProblem({{"joint", 5}, {"kind", "lidar"}}, either).isEmpty(),
+            "a field of both shapes of a call takes the words of either, and no other word");
 }
 
 // The ids of `g` from `from` up moved by `by`: the scene the lines made again after an undo, where the

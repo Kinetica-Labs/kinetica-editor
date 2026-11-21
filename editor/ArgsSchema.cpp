@@ -197,7 +197,15 @@ QJsonObject argsSchema(const QString& argsLine) {
         for (const QString& piece : topLevel(g, ',')) fieldsOf(piece, fields, true);
         QSet<QString> here;
         for (const Field& f : fields) {
-            if (!properties.contains(f.name) || properties.value(f.name).toObject().isEmpty()) properties.insert(f.name, f.type);
+            QJsonObject known = properties.value(f.name).toObject();
+            if (known.isEmpty()) {
+                properties.insert(f.name, f.type);
+            } else if (known.contains("enum") && f.type.contains("enum")) { // a word of either group: kind 'imu'|… | 'wrench'|…
+                QJsonArray words = known.value("enum").toArray();
+                for (const QJsonValue& w : f.type.value("enum").toArray())
+                    if (!words.contains(w)) words.append(w);
+                known.insert("enum", words), properties.insert(f.name, known);
+            }
             if (f.required) here.insert(f.name);
         }
         required = first ? here : required.intersect(here); // either group: required only what both require
