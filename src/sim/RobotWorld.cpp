@@ -100,6 +100,26 @@ void describeLights(const SceneGraph& g, Frame& out) {
     }
 }
 
+// The world, not the scene, says where the object is: a key of the playing sequence or a moving body, up its parents.
+bool RobotWorld::led(uint32_t id) const {
+    const SequenceObject* q = playingSequence(live_);
+    for (const SceneObject* o = findObject(live_, id); o; o = o->parent ? findObject(live_, o->parent) : nullptr)
+        if ((q && trackOf(*q, o->id)) || !stands(bodyOf(o->id))) return true;
+    return false;
+}
+
+void RobotWorld::describeCameras(Frame& out) const {
+    for (const Camera& c : live_.cameras) {
+        const bool aimed = c.kind == CameraKind::Target && c.target;
+        if (!led(c.id) && !(aimed && led(c.target))) continue;
+        Frame::CameraPose pose;
+        pose.id = c.id;
+        worldPose(live_, c, pose.position, pose.rotation);
+        if (c.kind == CameraKind::Target) pose.rotation = lookTurn(pose.position, cameraTarget(live_, c));
+        out.cameras.push_back(pose);
+    }
+}
+
 // The scene starts as its active sequence has it at 0 s: an animated body begins where its track does, not with a jump.
 static SceneGraph atSequenceStart(SceneGraph g) {
     if (SequenceObject* q = playingSequence(g)) seekSequence(g, *q, 0);
@@ -616,6 +636,10 @@ SequenceObject RobotWorld::takeRecording(const std::string& name) {
         std::vector<AnimKey> keys = thinKeys(take_[i], 0.0005_r, 0.2_r);
         q.tracks.push_back({free_[i], std::move(keys)});
     }
+    // What led the run comes along - a camera's keys, a light's, a led body's: the take alone gives the whole run back.
+    if (const SequenceObject* played = playingSequence(graph_); played && !q.tracks.empty())
+        for (const SequenceTrack& t : played->tracks)
+            if (!trackOf(q, t.object)) q.tracks.push_back(t);
     recording_ = false;
     take_.clear();
     return q;
@@ -694,6 +718,7 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out, bool contacts) co
     if (contacts || Probe::layerOn(DrawLayer::ContactPoints))
         for (const ContactPoint& c : contactsNow(physics)) out.contacts.push_back({c.point, c.normal, c.depth, c.normalImpulse, c.a, c.b});
     describeLights(live_, out);
+    describeCameras(out);
     for (const std::string& n : notes_) out.info.push_back({"Не построено", n});
     out.grips = grips(physics);
 }

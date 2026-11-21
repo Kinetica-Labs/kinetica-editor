@@ -1108,6 +1108,37 @@ void testSimRecording() {
     CHECK(replayWorst < 0.001_r, "the take replayed: the box %f mm off its run", double(replayWorst) * 1e3);
 }
 
+// A camera on keys while a box falls: the frame says where the world has the camera (the scene as written does not), a
+// camera nothing moves is not listed, and the take brings the camera's track along with the box's.
+void testSimKeyedCamera() {
+    SceneGraph g;
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 1, 0}, false));
+    Camera keyed, still;
+    keyed.id = 2, keyed.position = {5, 1, 0};
+    still.id = 3, still.position = {0, 1, 5};
+    g.cameras = {keyed, still};
+    SequenceObject q;
+    q.id = 4, q.active = true;
+    q.tracks.push_back({2, {{0, {5, 1, 0}, Vector3(0.0_r)}, {2, {5, 1, 4}, Vector3(0.0_r)}}});
+    g.sequences.push_back(q);
+    Simulation s;
+    s.load(g);
+    s.startRecording();
+    while (s.time() < 1.0_r - 1e-6_r) s.stepFrame();
+    Frame frame;
+    s.fill(frame);
+    const bool listed = frame.cameras.size() == 1 && frame.cameras[0].id == 2;
+    const Real z = listed ? frame.cameras[0].position.z : -1;
+    SequenceObject take;
+    const bool taken = s.takeRecording("Запись 1", take);
+    const SequenceTrack* camera = trackOf(take, 2);
+    std::printf("  a camera keyed 0..4 m over 2 s, a box falling: after 1 s the frame lists %zu camera(s), the keyed one at z %.3f m; the take: %zu "
+                "tracks, the camera's with %zu keys\n", frame.cameras.size(), double(z), take.tracks.size(), camera ? camera->keys.size() : size_t(0));
+    CHECK(listed && std::fabs(z - 2) < 0.05_r, "the frame has the keyed camera halfway, z %f, and not the one nothing moves", double(z));
+    CHECK(taken && take.tracks.size() == 2 && trackOf(take, 1) && camera && camera->keys.size() == 2 && !take.play,
+          "the take holds the box's run and the camera's keys");
+}
+
 // A robot's link in a take: an arm on a post, its shoulder's motor turning it at 2 rad/s. Recorded 1.5 s, the take has
 // the arm's track (a link its joint moves, recorded as any body; the fixed post none); played back, the arm is a
 // kinematic body on that track - its angle goes as the motor turned it, frame by frame.

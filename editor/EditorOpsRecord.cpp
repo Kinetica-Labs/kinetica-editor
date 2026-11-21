@@ -37,7 +37,7 @@ void EditorOps::addRecordOp() {
                       "sequence does not lead is recorded a frame, its pose and velocity; off - the scene stops and the take comes in as a new "
                       "sequence «Запись N», open, not played by ▶ (a scene_put: one undo step), each body a track of keys that give its run back within 0.5 mm and "
                       "0.2 degrees (Hermite between recorded keys); a robot's links its joints and IK move are recorded too, bodies that "
-                      "stood still are not. ■ Stop while recording ends it the same way", "{on: bool}", [this](const QJsonObject& a, const Reply& reply) {
+                      "stood still are not; the tracks of the sequence that played come along - a camera's keys, a light's. ■ Stop while recording ends it the same way", "{on: bool}", [this](const QJsonObject& a, const Reply& reply) {
         const bool on = a.value("on").toBool(!recording_);
         if (on == recording_) return reply(error(on ? "already recording" : "not recording"));
         if (on) {

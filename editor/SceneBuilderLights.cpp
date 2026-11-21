@@ -262,6 +262,8 @@ void SceneBuilder::refreshMarkers() {
         add(c, m);
         if (c.kind == CameraKind::Target && !out.empty() && out.back().id == c.id)
             out.back().aimed = true, out.back().aim = cameraTarget(graph_, c), out.back().rotation = lookTurn(out.back().position, out.back().aim);
+        if (const Frame::CameraPose* live = liveCamera(c.id); live && !out.empty() && out.back().id == c.id)
+            out.back().position = live->position, out.back().rotation = live->rotation;
     }
     emit sceneMarkers(std::move(out));
 }
@@ -299,6 +301,8 @@ void SceneBuilder::emitCameraView() {
     }
     Vector3 eye, forward, up;
     cameraFrame(graph_, *c, eye, forward, up);
+    if (const Frame::CameraPose* live = liveCamera(c->id))
+        eye = live->position, forward = live->rotation.rotate(Vector3(0, 0, -1)), up = live->rotation.rotate(Vector3(0, 1, 0));
     if (c->kind == CameraKind::Target && c->target && !editing())
         if (const auto at = liveObjectPositions_.find(c->target); at != liveObjectPositions_.end()) {
             const Quaternion turn = lookTurn(eye, at->second);
@@ -319,6 +323,14 @@ void SceneBuilder::lookThrough(uint32_t cameraId) {
     refreshLightsAndCameras();
     if (!editing()) applyEditDuringPlay(0); // the running scene's cameras follow
     emit statusMessage(cameraId ? uiText("Kinetica", "Вид через камеру: движение вида двигает камеру. Esc — назад к виду редактора") : uiText("Kinetica", "Вид редактора"));
+}
+
+// In play, a camera the running world moves: where the last frame has it.
+const Frame::CameraPose* SceneBuilder::liveCamera(uint32_t id) const {
+    if (editing()) return nullptr;
+    for (const Frame::CameraPose& c : liveCameras_)
+        if (c.id == id) return &c;
+    return nullptr;
 }
 
 void SceneBuilder::lookThroughActiveCamera() {

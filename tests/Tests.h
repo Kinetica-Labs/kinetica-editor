@@ -92,6 +92,7 @@ void testSimSensors();
 void testSimSequence();
 void testSimRecording();
 void testSimRecordingArm();
+void testSimKeyedCamera();
 void testSimController();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();

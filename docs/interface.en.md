@@ -399,7 +399,7 @@ The object's track and its keys - the diamonds on the time scale:
 
 ![The Sequencer panel](images/ui/en/sequencer-panel.png)
 
-<img src="images/ui/icons/record.png" height="22" alt=""> Record (`Ctrl+R`) plays the scene and records the bodies' motion as a new sequence. Loop repeats the sequence.
+<img src="images/ui/icons/record.png" height="22" alt=""> Record (`Ctrl+R`) plays the scene and records the bodies' motion as a new sequence. The tracks of the sequence that played during the recording - a camera's keys, a light's - come along into the take: whether the camera or the physics comes first does not matter. Loop repeats the sequence.
 
 <a id="world"></a>
 

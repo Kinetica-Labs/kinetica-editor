@@ -534,11 +534,20 @@ void SceneBuilder::updateGizmoTarget() {
 // where the selected object's body is now, not where it was put.
 void SceneBuilder::onSimulationSnapshot(const Frame& s) {
     if (editing()) return;
-    if (const Camera* c = cameraById(throughId_); c && c->kind == CameraKind::Target && c->target) {
+    const Camera* through = cameraById(throughId_);
+    const bool aimed = through && through->kind == CameraKind::Target && through->target;
+    if (aimed) {
         for (const Frame::Body& b : s.bodies) liveObjectPositions_[b.object] = b.pos; // where the running world has its target
         for (const GoalVis& g : s.goals) liveObjectPositions_[g.id] = g.position;
-        emitCameraView();
     }
+    const auto same = [](const Frame::CameraPose& a, const Frame::CameraPose& b) {
+        return a.id == b.id && a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
+               a.rotation.w == b.rotation.w && a.rotation.x == b.rotation.x && a.rotation.y == b.rotation.y && a.rotation.z == b.rotation.z;
+    };
+    const bool moved = !std::equal(s.cameras.begin(), s.cameras.end(), liveCameras_.begin(), liveCameras_.end(), same);
+    liveCameras_ = s.cameras;
+    if (moved) refreshLightsAndCameras(); // its keys, the body that carries it: the view through it and its mark follow
+    else if (aimed) emitCameraView();
     std::vector<uint32_t> bodyEntity(s.bodies.size());
     for (size_t b = 0; b < s.bodies.size(); ++b) { // an array's copy plays as the array (RobotWorld::objectIdOfBody)
         const uint32_t id = s.bodies[b].object;

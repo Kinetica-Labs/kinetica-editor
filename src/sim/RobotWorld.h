@@ -74,6 +74,8 @@ public:
     int bodyOf(uint32_t entity) const;       // -1: none
     // The zones - the shapes whose collider is a trigger - and the entities that stood inside each after the last step.
     std::vector<std::pair<uint32_t, std::vector<uint32_t>>> zones() const;
+    bool led(uint32_t object) const;      // the world moves it: a key of the playing sequence or a moving body, up its parents
+    void describeCameras(Frame& out) const; // Frame::cameras: the cameras it moves
     bool stands(int body) const;          // a static body (or none): the engine never moves it
     bool isFree(uint32_t entity) const;   // its body is moved by the engine - by forces or by its own velocity -, not led by a sequence
     // A joint's six coordinates now (JointModel.h: frame a against frame b) from its links' poses in the

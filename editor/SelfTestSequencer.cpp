@@ -146,6 +146,39 @@ void autoKeyTests(QMainWindow& w, SceneBuilder& b, Checker& c) {
     autoKey->click();
 }
 
+// A keyed camera looked through while a take is recorded: the view goes where the camera's keys take it (the world moves
+// the camera, the scene as written does not), and the take holds the camera's track beside the cube's.
+void keyedCameraTests(QMainWindow& w, SceneBuilder& b, Viewport* v, Checker& c) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    const auto call = [&](const char* name, const QJsonObject& args) { ops->run(name, args, [](const QJsonObject&) {}, "ui"); };
+    auto* record = w.findChild<QAction*>("actionRecord");
+    auto* stop = w.findChild<QAction*>("actionStop");
+    if (!record || !stop) return void(c.check(false, "the top bar has «Запись» and ■ Стоп"));
+    b.newScene();
+    const uint32_t cube = made(b, b.createActions()[0]);
+    b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.0f, 1.0f, 0.0f), e.rigid.enabled = e.collider.enabled = true; });
+    const uint32_t cam = made(b, b.cameraAction());
+    const QJsonArray ids{int(cam)};
+    call("sequence_key", {{"ids", ids}, {"time", 0}});
+    call("scene_move", {{"ids", ids}, {"by", QJsonArray{0, 0, 4}}});
+    call("sequence_key", {{"ids", ids}, {"time", 1}});
+    call("sequence_seek", {{"time", 0}});
+    b.lookThrough(cam);
+    pump(100);
+    const QVector3D before = v->camera().eye();
+    record->trigger();
+    pump(700);
+    const float went = (v->camera().eye() - before).length();
+    stop->trigger();
+    pump(400);
+    const SequenceObject* take = activeSequence(b.graph());
+    const bool held = take && take->name == "Запись 1" && trackOf(*take, cam) && trackOf(*take, cube);
+    b.lookThrough(0);
+    std::printf("  a camera keyed 4 m over 1 s, looked through, «Запись» for 0.7 s: the view went %.2f m; the take holds the camera's track %s\n",
+                double(went), held ? "yes" : "no");
+    c.check(went > 1.0f && went < 4.01f && held, "in play the view through a keyed camera goes with its keys, and the take brings its track along");
+}
+
 } // namespace
 
 int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
@@ -439,5 +472,6 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     c.check(wide && widened > narrow + 100 && reach >= w.width() - 12 && std::abs(dock->width() - narrow) <= 2,
             "⇔ spreads the bottom panel the window's whole width and back");
     autoKeyTests(w, b, c);
+    keyedCameraTests(w, b, v, c);
     return c.failures;
 }

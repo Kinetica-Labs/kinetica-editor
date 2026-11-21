@@ -84,6 +84,7 @@ int main() {
     run("sim: the active sequence - a kinematic pusher on its track pushes a box ahead of it", testSimSequence);
     run("sim: a take - a run recorded, thinned to keys within 0.5 mm, replayed as the active sequence", testSimRecording);
     run("sim: a take records a robot's link its joint moves, and replays it kinematic", testSimRecordingArm);
+    run("sim: a keyed camera is in the frame where its keys have it, and its track comes along in the take", testSimKeyedCamera);
     run("sim: the UR5e's panel - move takes the goal and the hand after it, grip closes the fingers", testSimController);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
     run("scene format: the sample of every line and key still loads, nothing lost", testSceneFormatOnlyGrows);

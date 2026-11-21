@@ -64,6 +64,15 @@ struct Frame {
     };
     std::vector<LightInfo> lights;
 
+    // The cameras the running world itself moves, where it has them: a key of the playing sequence or a moving body,
+    // on the camera, on its target or up their parents. A camera not listed stands where the scene has it.
+    struct CameraPose {
+        uint32_t id = 0;
+        Vector3 position{0.0_r};
+        Quaternion rotation; // its world turn: a target camera's already looks at its target
+    };
+    std::vector<CameraPose> cameras;
+
     // A gripper on an IK goal's effector as the gripper itself reports it (Robotiq's gOBJ: from its fingers' own
     // travel, not from the physics' contacts): open, closing, holding - its fingers stopped short of closed, so
     // something is between them - or closed on nothing.
