@@ -146,16 +146,10 @@ void turnGlyph(JointGizmoLines& out, const ke::JointVis& j, int k, const Vector3
 
 } // namespace
 
-void appendJointGizmo(JointGizmoLines& out, const ke::JointVis& j, float size, bool debug) {
+void appendJointGizmo(JointGizmoLines& out, const ke::JointVis& j, float size) {
     const float r = std::max(size, 0.01f);
     const Vector3 o = j.anchorB;
     for (int k = 0; k < 3; ++k) travelGlyph(out, j, k, o, r), turnGlyph(out, j, k, o, r);
-    if (!debug) return;
-    for (int k = 0; k < 3; ++k) { // the two frames: b's longer, a's shorter
-        segment(out.axis[k], j.anchorB, j.anchorB + j.frameB.rotate(unitAxis(k)) * (2.2f * r));
-        segment(out.debug, j.anchorA, j.anchorA + j.frameA.rotate(unitAxis(k)) * (1.4f * r));
-    }
-    segment(out.debug, j.anchorA, j.anchorB);
 }
 
 void appendBoxEdges(std::vector<float>& lines, const Vector3& centre, const ke::Quaternion& rotation, const Vector3& size) {

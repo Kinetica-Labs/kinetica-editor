@@ -214,7 +214,6 @@ struct Options {
     QCommandLineOption shot{"screenshot", "Save a PNG of the viewport and quit.", "file"};
     QCommandLineOption size{"size", "Window size WxH.", "size", "1600x950"};
     QCommandLineOption software{"software-gl", "Render on the CPU (Mesa llvmpipe) - for PCs without a usable GPU."};
-    QCommandLineOption icons{"dump-icons", "Write every icon of the editor as a PNG into the directory and quit.", "dir"};
     QCommandLineOption window{"window", "The screenshot shows the whole window, panels too."};
     QCommandLineOption scene{"scene", "Open a scene file (*.kscene) in the scene builder.", "file"};
     QCommandLineOption play{"play", "Start the opened builder scene in simulation mode."};
@@ -235,7 +234,7 @@ struct Options {
     QCommandLineOption resumeEditor{"resume-editor", "Restore the editor's scene after a restart.", "file"};
 
     void addTo(QCommandLineParser& cli) const {
-        cli.addOptions({frames, shot, size, software, icons, window, scene, selfTest, shots, gizmoShots, edit, camera,
+        cli.addOptions({frames, shot, size, software, window, scene, selfTest, shots, gizmoShots, edit, camera,
                         firstStart, thumbnail, galleryShot, physics, play, focusObject, api, agentEval, language, script});
         auto resume = resumeEditor;
         resume.setFlags(QCommandLineOption::HiddenFromHelp);
@@ -400,7 +399,6 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "--agent-eval requires --api <port>\n");
         return 2;
     }
-    if (cli.isSet(o.icons)) return dumpIcons(cli.value(o.icons)) > 0 ? 0 : 1;
     if (unattended(cli, o) && qEnvironmentVariableIsEmpty("KE_JOURNAL")) // a test's edits are not the person's history
         qputenv("KE_JOURNAL", (QDir::tempPath() + "/kinetica-journal-" + QString::number(QCoreApplication::applicationPid()) + ".jsonl").toUtf8());
 

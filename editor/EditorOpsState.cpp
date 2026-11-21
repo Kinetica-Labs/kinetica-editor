@@ -86,21 +86,6 @@ void EditorOps::addStateOps() {
         const OrbitCamera& c = view_->camera();
         return ok({{"eye", json(c.eye())}, {"target", json(c.target())}, {"distance", double(c.distance())}, {"fov", double(c.fovDeg())}, {"follow_body",int(view_->followedBody())}});
     });
-    addSync("view_follow", "Orbit a moving body's centre of mass; body 0 restores the saved scene view. Viewer only.", "{body: id|0}",
-            [this](const QJsonObject& a) {
-        if (a.size()!=1 || !a.value("body").isDouble()) return error("body must be an integer id or zero");
-        const double n=a.value("body").toDouble(-1);
-        if (n<0 || n>UINT32_MAX || n!=std::floor(n)) return error("invalid body id");
-        if (n>0) {
-            bool found=false;
-            if (view_->snapshot()) for (const auto& b:view_->snapshot()->bodies)
-                if (b.object==uint32_t(n) && b.movable) found=true;
-            if (!found) return error("no movable body in the displayed snapshot");
-            builder_->lookThrough(0);
-        }
-        if (!view_->followBody(uint32_t(n))) return error("no movable body in the displayed snapshot");
-        return ok({{"follow_body",int(view_->followedBody())}});
-    });
     addSync("view_look", "The view's camera at an eye, looking at a target (the orbit goes on around the target)", "{eye: [x,y,z], target: [x,y,z]}",
             [this](const QJsonObject& a) {
         QVector3D eye, target;

@@ -51,5 +51,3 @@ QPixmap linkPixmap(LinkIcon kind, int size);
 enum class LayoutIcon { LeftBar, Customize, BottomPanel, RightBar, Count };
 QIcon layoutIcon(LayoutIcon kind, int size = 20);
 
-// Writes every icon as a PNG into `dir` (for the README and a quick look); returns the file count.
-int dumpIcons(const QString& dir, int size = 96);

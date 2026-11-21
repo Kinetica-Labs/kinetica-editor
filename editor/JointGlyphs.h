@@ -18,14 +18,12 @@ void appendJointGlyph(std::vector<float>& lines, const ke::JointVis& j, float si
 // (x red, y green, z blue): a travel is an arrow - short and dim when locked, long with heads when
 // free, a span with end ticks when limited, a spring's zigzag beside it when driven; a turn is a
 // ring - none when locked, whole when free, the arc of its limits when limited, an arrowhead when
-// driven - with a spoke at the turn it has now. Debug adds both frames as short axes and the line
-// between their origins (the solver's error).
+// driven - with a spoke at the turn it has now.
 struct JointGizmoLines {
     std::vector<float> axis[3]; // x, y, z
     std::vector<float> dim;     // locked travel
-    std::vector<float> debug;   // the frames and the gap between them
 };
-void appendJointGizmo(JointGizmoLines& out, const ke::JointVis& j, float size, bool debug);
+void appendJointGizmo(JointGizmoLines& out, const ke::JointVis& j, float size);
 // A box's twelve edges: the magnet's ghost of the shape about to be put.
 void appendBoxEdges(std::vector<float>& lines, const ke::Vector3& centre, const ke::Quaternion& rotation, const ke::Vector3& size);
 

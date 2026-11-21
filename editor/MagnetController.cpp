@@ -195,7 +195,7 @@ void MagnetController::showPreview(const Place& p, int preset) {
         if (!ke::putObject(one, blocks[k].toString().toStdString(), error) || one.entities.empty()) continue;
         const ke::JointVis v = jointVisFromJson(joints[k].toObject());
         JointGizmoLines lines; // the preview in one colour: every freedom's glyph together
-        appendJointGizmo(lines, v, float(v.size), false);
+        appendJointGizmo(lines, v, float(v.size));
         for (const auto* part : {&lines.axis[0], &lines.axis[1], &lines.axis[2], &lines.dim}) glyphs_.insert(glyphs_.end(), part->begin(), part->end());
         const ke::Entity& e = one.entities[0];
         ghost_.push_back({ghostEdges(one, e), v.anchorA, ke::normalize(v.axis), v.reference, int(v.type),

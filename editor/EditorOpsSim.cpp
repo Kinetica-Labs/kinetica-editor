@@ -385,14 +385,6 @@ void EditorOps::addViewOps() {
         else builder_->frameAll();
         return ok();
     });
-    addSync("view_joint_debug", "Joints drawn with both their frames and the gap between them (on / off)", "{on: bool}", [this](const QJsonObject& a) {
-        view_->setJointDebug(a.value("on").toBool());
-        return ok();
-    });
-    addSync("view_axis", "Look along an axis: 0..5 = +x -x +y -y +z -z (the navigation cube's balls)", "{axis: int}", [this](const QJsonObject& a) {
-        view_->viewAlong(std::clamp(a.value("axis").toInt(), 0, 5));
-        return ok();
-    });
     addSync("view_hud", "The performance plate in the view's lower left corner: the frames a second in large figures coloured by "
             "smoothness, the last two seconds of frame times, one frame's paint and the physics' step, the scene's speed against the "
             "wall clock, the renderer (a GPU or the processor). on: show or hide it; answers whether it shows and its numbers",

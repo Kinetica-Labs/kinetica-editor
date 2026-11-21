@@ -350,12 +350,11 @@ void Viewport::drawJoints(const QMatrix4x4& vp) {
     JointGizmoLines gizmo;
     std::vector<float> typed[6];
     for (const auto& j : snap_->joints) {
-        if (j.generic) appendJointGizmo(gizmo, j, float(j.size), jointDebug_);
+        if (j.generic) appendJointGizmo(gizmo, j, float(j.size));
         else appendJointGlyph(typed[std::clamp(int(j.type), 0, 5)], j, float(j.size));
     }
     for (int k = 0; k < 3; ++k) drawLines(gizmo.axis[k], GL_LINES, vp, axes[k]);
     drawLines(gizmo.dim, GL_LINES, vp, QVector4D(0.6f, 0.62f, 0.66f, 0.8f));
-    drawLines(gizmo.debug, GL_LINES, vp, QVector4D(1.0f, 1.0f, 1.0f, 0.9f));
     for (int type = 0; type < 6; ++type) drawLines(typed[type], GL_LINES, vp, colors[type]);
     glEnable(GL_DEPTH_TEST);
 }

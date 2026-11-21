@@ -187,7 +187,6 @@ public:
     bool createMode() const { return createMode_; }
     const CreateWhat& createWhat() const { return createWhat_; }
     // Joints drawn with both their frames and the gap between them (the solver's error).
-    void setJointDebug(bool on) { jointDebug_ = on; update(); }
     std::vector<PickHit> pickAll(const Ray& ray) const { return picker_ ? picker_(ray) : std::vector<PickHit>(); }
     uint32_t pickEntity(const Ray& ray, ke::Vector3* hit = nullptr) const;
     // A click: the nearest object under the cursor; a second click on the same spot (or Alt+click)
@@ -402,7 +401,7 @@ private:
     EditTool editTool_;
     MagnetTool magnetTool_;
     CreateTool createTool_;
-    bool magnetMode_ = false, jointDebug_ = false, createMode_ = false;
+    bool magnetMode_ = false, createMode_ = false;
     CreateWhat createWhat_;
     std::vector<float> magnetGhost_, magnetJoint_;
     ViewportTool* grabbed_ = nullptr; // tool that received the press, keeps the drag

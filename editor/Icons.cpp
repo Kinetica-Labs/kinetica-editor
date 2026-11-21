@@ -4,7 +4,6 @@
 #include "Icons.h"
 
 #include <QCoreApplication>
-#include <QDir>
 #include <QLinearGradient>
 #include <QPainter>
 #include <QPainterPath>
@@ -927,51 +926,3 @@ QIcon colliderIcon(ke::ColliderKind kind, int size) { return makeIcon(Family::Co
 QIcon linkIcon(LinkIcon kind, int size) { return makeIcon(Family::Link, int(kind), size, linkDraw(kind)); }
 QPixmap linkPixmap(LinkIcon kind, int size) { return render(size, 2.0, linkDraw(kind)); }
 
-int dumpIcons(const QString& dir, int size) {
-    QDir().mkpath(dir);
-    int n = 0;
-    auto save = [&](const QString& name, const Draw& draw) { n += render(size, 1.0, draw).save(dir + "/" + name + ".png") ? 1 : 0; };
-    const char* shapes[] = {"shape-cube", "shape-sphere", "shape-cylinder", "shape-cone", "shape-plane", "shape-model"};
-    for (int k = 0; k < 6; ++k) save(shapes[k], shapeDraw(ke::ShapeKind(k)));
-    const char* roles[] = {"role-rigid", "role-collider"};
-    static_assert(sizeof(roles) / sizeof(roles[0]) == size_t(RoleIcon::Count), "a file name for every RoleIcon");
-    for (int k = 0; k < int(RoleIcon::Count); ++k) save(roles[k], roleDraw(RoleIcon(k)));
-    const char* links[] = {"link-rotary", "link-linear", "link-wheel", "link-weld", "link-ball"};
-    static_assert(sizeof(links) / sizeof(links[0]) == size_t(LinkIcon::Count), "a file name for every LinkIcon");
-    for (int k = 0; k < int(LinkIcon::Count); ++k) save(links[k], linkDraw(LinkIcon(k)));
-    const char* colliders[] = {"collider-auto", "collider-box", "collider-sphere", "collider-capsule", "collider-hull", "collider-cylinder"};
-    for (int k = 0; k < 6; ++k) save(colliders[k], colliderDraw(ke::ColliderKind(k)));
-    const char* controls[] = {"play", "record", "recording", "pause", "stop", "step", "reset", "undo", "redo", "visible", "hidden", "locked", "unlocked",
-                              "tool-select", "tool-move", "tool-rotate", "tool-scale"};
-    static_assert(sizeof(controls) / sizeof(controls[0]) == size_t(ControlIcon::Count), "a file name for every ControlIcon");
-    for (int k = 0; k < int(ControlIcon::Count); ++k) {
-        const ControlIcon c = ControlIcon(k);
-        save(controls[k], [c](QPainter& p) { drawControl(p, c); });
-    }
-    const char* objects[] = {"group", "array-line", "array-grid", "array-circle"};
-    static_assert(sizeof(objects) / sizeof(objects[0]) == size_t(ObjectIcon::Count), "a file name for every ObjectIcon");
-    for (int k = 0; k < int(ObjectIcon::Count); ++k) {
-        const ObjectIcon o = ObjectIcon(k);
-        save(objects[k], [o](QPainter& p) { drawObjectIcon(p, o); });
-    }
-    const char* layouts[] = {"layout-left", "layout-menu", "layout-bottom", "layout-right"};
-    static_assert(sizeof(layouts) / sizeof(layouts[0]) == size_t(LayoutIcon::Count), "a file name for every LayoutIcon");
-    for (int k = 0; k < int(LayoutIcon::Count); ++k) {
-        const LayoutIcon o = LayoutIcon(k);
-        save(layouts[k], [o](QPainter& p) { drawLayout(p, o, true); });
-    }
-    const char* lights[] = {"light-sun", "light-bulb", "light-spot", "camera"};
-    static_assert(sizeof(lights) / sizeof(lights[0]) == size_t(SceneIcon::Count), "a file name for every SceneIcon");
-    for (int k = 0; k < int(SceneIcon::Count); ++k) {
-        const SceneIcon o = SceneIcon(k);
-        save(lights[k], [o](QPainter& p) { drawSceneIcon(p, o); });
-    }
-    const char* devices[] = {"device-encoder", "device-imu", "device-sonar", "device-touch", "device-wrench", "device-effort", "device-stereo",
-                             "device-battery", "device-driver", "device-joint", "device-controller"};
-    static_assert(sizeof(devices) / sizeof(devices[0]) == size_t(DeviceIcon::Count), "a file name for every DeviceIcon");
-    for (int k = 0; k < int(DeviceIcon::Count); ++k) {
-        const DeviceIcon o = DeviceIcon(k);
-        save(devices[k], [o](QPainter& p) { drawDeviceIcon(p, o); });
-    }
-    return n;
-}
