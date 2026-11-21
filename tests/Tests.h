@@ -63,6 +63,7 @@ void testSimRecordingArm();
 void testSimController();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
+void testSceneFormatOnlyGrows();
 void testScenePhysicsLine();
 void testSceneGraphLocale();
 // AblationTests.cpp

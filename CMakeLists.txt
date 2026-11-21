@@ -232,7 +232,8 @@ if(KE_TESTS)
   )
   target_link_libraries(ke_tests PRIVATE kecore)
   target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"
-                                               KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data")
+                                               KE_DATA="${CMAKE_CURRENT_SOURCE_DIR}/data"
+                                               KE_TEST_DATA="${CMAKE_CURRENT_SOURCE_DIR}/tests/data")
   if(MSVC)
     target_compile_options(ke_tests PRIVATE /W4 /wd4100 /utf-8)
   else()

@@ -195,7 +195,7 @@ QJsonObject jointVisJson(const ke::JointVis& v, const char* kindWord) {
     }
     return QJsonObject{{"kind", kindWord}, {"anchor", json3(v.anchorA)}, {"axis", json3(v.axis)}, {"reference", json3(v.reference)},
                        {"size", double(v.size)}, {"limited", v.limited}, {"lower", double(v.lower)}, {"upper", double(v.upper)},
-                       {"frameA", json4(v.frameA)}, {"frameB", json4(v.frameB)}, {"motion", motion}, {"lowers", lower},
+                       {"frame_a", json4(v.frameA)}, {"frame_b", json4(v.frameB)}, {"motion", motion}, {"lowers", lower},
                        {"uppers", upper}, {"driven", driven}};
 }
 
@@ -205,7 +205,7 @@ ke::JointVis jointVisFromJson(const QJsonObject& j) {
     v.size = float(j.value("size").toDouble());
     v.limited = j.value("limited").toBool(), v.lower = float(j.value("lower").toDouble()), v.upper = float(j.value("upper").toDouble());
     v.generic = j.contains("motion");
-    v.frameA = quat(j.value("frameA")), v.frameB = quat(j.value("frameB"));
+    v.frameA = quat(j.value("frame_a")), v.frameB = quat(j.value("frame_b"));
     const QJsonArray motion = j.value("motion").toArray(), lower = j.value("lowers").toArray(), upper = j.value("uppers").toArray(),
                      driven = j.value("driven").toArray();
     for (int k = 0; k < 6 && k < motion.size(); ++k) {

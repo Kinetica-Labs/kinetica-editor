@@ -7,6 +7,9 @@
 #include <clocale>
 #include <cmath>
 #include <cstdio>
+#include <fstream>
+#include <map>
+#include <sstream>
 
 using namespace ke;
 
@@ -84,6 +87,41 @@ SceneGraph robotGraph() {
 }
 
 } // namespace
+
+// The format's promise (docs/contracts/operations.md): it only grows. tests/data/scene-format-1.kscene holds every
+// line and key the format had when the promise was made and is never edited: it loads, and every word of it - a
+// key or a value - is still in what is saved (new keys with their defaults may join them). A key under the name it
+// had before the format settled on one style loads too and is saved under the new one.
+void testSceneFormatOnlyGrows() {
+    std::ifstream file(std::string(KE_TEST_DATA) + "/scene-format-1.kscene", std::ios::binary);
+    std::stringstream sample;
+    sample << file.rdbuf();
+    SceneGraph g;
+    std::string error;
+    const bool loaded = !sample.str().empty() && g.load(sample.str(), error);
+    CHECK(loaded, "the format's sample does not load: %s", error.c_str());
+    std::map<std::string, int> left;
+    size_t words = 0;
+    for (std::string w; sample >> w; ++words) ++left[w];
+    std::istringstream saved(loaded ? g.save() : std::string());
+    for (std::string w; saved >> w;) --left[w];
+    std::string lost;
+    for (const auto& [word, count] : left)
+        if (count > 0) lost += " " + word;
+    std::printf("  the format's sample: %zu words, lost on load and save:%s\n", words, lost.empty() ? " none" : lost.c_str());
+    CHECK(lost.empty(), "words of the format's sample are not in what is saved:%s", lost.c_str());
+
+    SceneGraph old;
+    const std::string before = "world gravity 0 -9.81 0 size 4 3 4\nphysics substeps 16 contactHertz 300 jointDamping 7\n"
+                               "joint \"J\"\n  object id 5\n  link a 1 b 2 anchorA 1 2 3 frameB 4 5 6\nend\n";
+    CHECK(old.load(before, error), "a file with the keys' earlier names does not load: %s", error.c_str());
+    const std::string now = old.save();
+    auto has = [&now](const char* text) { return now.find(text) != std::string::npos; };
+    CHECK(has("contact_hertz 300") && has("joint_damping 7") && has("anchor_a 1 2 3") && has("frame_b 4 5 6") && !has("contactHertz") &&
+          !has("anchorA"), "the keys' earlier names are not saved under the new ones:\n%s", now.c_str());
+    CHECK(!old.load("joint \"J\"\n  object id 5\n  link a 1 b 2 anchorA 1 2 3 anchor_a 1 2 3\nend\n", error),
+          "a key given twice, under its earlier name and the new one, is read");
+}
 
 void testSceneGraphRoundTrip() {
     const std::string text = robotGraph().save();

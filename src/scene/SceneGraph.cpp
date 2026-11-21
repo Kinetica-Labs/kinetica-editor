@@ -3,7 +3,7 @@
 //
 //   # Kinetica scene
 //   world gravity 0 -9.81 0 size 4 3 4
-//   physics substeps 16 contactHertz 120 contactDamping 10 jointHertz 240 jointDamping 2 sleeping 1 continuous 1 linearDamping 0 angularDamping 0
+//   physics substeps 16 contact_hertz 120 contact_damping 10 joint_hertz 240 joint_damping 2 sleeping 1 continuous 1 linear_damping 0 angular_damping 0
 //   entity "Base"
 //     object id 3 visible 1 locked 0
 //     shape box size 0.3 0.1 0.3 position 0 0.05 0 rotation 0 0 0 color 0.6 0.6 0.6
@@ -17,13 +17,13 @@
 //   end
 //   joint "Elbow"
 //     object id 9
-//     link a 5 b 3 anchorA 0 -0.1 0 frameA 0 0 0 anchorB 0 0.1 0 frameB 0 0 0
+//     link a 5 b 3 anchor_a 0 -0.1 0 frame_a 0 0 0 anchor_b 0 0.1 0 frame_b 0 0 0
 //     limit rx lower -1.5 upper 1.5
 //     drive rx stiffness 0 damping 0 target 0 velocity 1 force 10
 //   end
 //   joint "Shock absorber"
 //     object id 10
-//     link a 6 b 3 anchorA 0 0 0 frameA 0 0 90 anchorB 0.25 -0.05 0.2 frameB 0 0 90
+//     link a 6 b 3 anchor_a 0 0 0 frame_a 0 0 90 anchor_b 0.25 -0.05 0.2 frame_b 0 0 90
 //     limit tx lower -0.05 upper 0.05
 //     drive tx stiffness 3000 damping 80 target 0 velocity 0
 //   end
@@ -64,6 +64,7 @@
 
 #include <cstdlib>
 #include <sstream>
+#include <utility>
 
 namespace ke {
 
@@ -99,6 +100,19 @@ std::vector<std::string> words(const std::string& line) {
     return out;
 }
 
+// A key under the name it had before the format settled on one style (words joined by '_'): files and journal
+// snapshots written then still load, and are saved under the new name. The format only grows; a rename goes here.
+std::string renamed(const std::string& key) {
+    static const std::pair<const char*, const char*> kRenamed[] = {
+        {"anchorA", "anchor_a"}, {"anchorB", "anchor_b"}, {"frameA", "frame_a"}, {"frameB", "frame_b"},
+        {"contactHertz", "contact_hertz"}, {"contactDamping", "contact_damping"}, {"jointHertz", "joint_hertz"},
+        {"jointDamping", "joint_damping"}, {"linearDamping", "linear_damping"}, {"angularDamping", "angular_damping"},
+        {"heightFile", "height_file"}, {"rotationStep", "rotation_step"}};
+    for (const auto& [was, now] : kRenamed)
+        if (key == was) return now;
+    return key;
+}
+
 // Reads the words of one line as "key value(s)" pairs. `need(k)` says how many numbers follow key k.
 class LineReader {
 public:
@@ -107,7 +121,7 @@ public:
     // The next key; one met before on this line comes back as "<key> twice", which no reader takes: a line
     // like "drive rx target 1 damping 5 target 2" is refused, not read with its stiffness lost.
     std::string key() {
-        const std::string& k = w_[i_++];
+        const std::string k = renamed(w_[i_++]);
         if (std::find(seen_.begin(), seen_.end(), k) != seen_.end()) return k + " twice";
         seen_.push_back(k);
         return k;
@@ -225,7 +239,7 @@ static const char* kPatternNames[] = {"line", "grid", "circle"};
 static void saveArray(std::ostringstream& o, const ArrayObject& a) {
     saveObjectHead(o, "array", a);
     o << "  pattern " << kPatternNames[int(a.pattern)] << " template " << a.templateId << " count " << a.count[0] << " "
-      << a.count[1] << " " << a.count[2] << " step " << vec(a.step) << " radius " << num(a.radius) << " rotationStep "
+      << a.count[1] << " " << a.count[2] << " step " << vec(a.step) << " radius " << num(a.radius) << " rotation_step "
       << vec(a.rotationStepDeg) << " jitter " << num(a.jitter) << " seed " << a.seed << "\n";
     o << "end\n";
 }
@@ -258,7 +272,7 @@ static void saveTexture(std::ostringstream& o, const SurfaceTexture& t) {
     const char* kinds[] = {"none", "checker", "image", "speckle", "stone"}; // TextureKind
     o << "  texture kind " << kinds[int(t.kind)]
       << " repeats " << num(t.repeats) << " file \"" << t.file << "\"";
-    if (t.bumpHeight > 0) o << " bump " << num(t.bumpHeight) << " heightFile \"" << t.heightFile << "\"";
+    if (t.bumpHeight > 0) o << " bump " << num(t.bumpHeight) << " height_file \"" << t.heightFile << "\"";
     o << "\n";
 }
 
@@ -328,8 +342,8 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
     for (char& c : name)
         if (c == '"') c = '\'';
     o << "joint \"" << name << "\"\n  object id " << j.id << "\n";
-    o << "  link a " << j.a << " b " << j.b << " anchorA " << vec(j.anchorA) << " frameA " << vec(j.frameA) << " anchorB "
-      << vec(j.anchorB) << " frameB " << vec(j.frameB) << "\n";
+    o << "  link a " << j.a << " b " << j.b << " anchor_a " << vec(j.anchorA) << " frame_a " << vec(j.frameA) << " anchor_b "
+      << vec(j.anchorB) << " frame_b " << vec(j.frameB) << "\n";
     for (int k = 0; k < 6; ++k) saveFreedom(o, k, j.dof[k]);
     if (j.collide) o << "  collide\n";
     o << "end\n";
@@ -417,9 +431,9 @@ static void saveWheel(std::ostringstream& o, const WheelObject& w) {
 
 static std::string physicsText(const PhysicsSettings& p) {
     std::ostringstream o;
-    o << "physics substeps " << p.substeps << " contactHertz " << num(p.contactHertz) << " contactDamping " << num(p.contactDamping)
-      << " jointHertz " << num(p.jointHertz) << " jointDamping " << num(p.jointDamping) << " sleeping " << (p.sleeping ? 1 : 0)
-      << " continuous " << (p.continuous ? 1 : 0) << " linearDamping " << num(p.linearDamping) << " angularDamping "
+    o << "physics substeps " << p.substeps << " contact_hertz " << num(p.contactHertz) << " contact_damping " << num(p.contactDamping)
+      << " joint_hertz " << num(p.jointHertz) << " joint_damping " << num(p.jointDamping) << " sleeping " << (p.sleeping ? 1 : 0)
+      << " continuous " << (p.continuous ? 1 : 0) << " linear_damping " << num(p.linearDamping) << " angular_damping "
       << num(p.angularDamping) << "\n";
     return o.str();
 }
@@ -468,10 +482,10 @@ static bool readPhysics(LineReader& r, PhysicsSettings& p, std::string& bad) {
     while (!r.done()) {
         const std::string k = r.key();
         const bool ok = k == "substeps" ? r.count(p.substeps, 1, 64)
-            : k == "contactHertz" ? rate(p.contactHertz) : k == "contactDamping" ? damping(p.contactDamping)
-            : k == "jointHertz" ? rate(p.jointHertz) : k == "jointDamping" ? damping(p.jointDamping)
+            : k == "contact_hertz" ? rate(p.contactHertz) : k == "contact_damping" ? damping(p.contactDamping)
+            : k == "joint_hertz" ? rate(p.jointHertz) : k == "joint_damping" ? damping(p.jointDamping)
             : k == "sleeping" ? r.flag(p.sleeping) : k == "continuous" ? r.flag(p.continuous)
-            : k == "linearDamping" ? damping(p.linearDamping) : k == "angularDamping" ? damping(p.angularDamping) : false;
+            : k == "linear_damping" ? damping(p.linearDamping) : k == "angular_damping" ? damping(p.angularDamping) : false;
         if (!ok) return fail(bad, k);
     }
     return true;
@@ -495,7 +509,7 @@ static bool readShape(LineReader& r, Entity& e, const std::string& shapeName, st
 // One "key value(s)" of a role line; false if the key is not one of that role's.
 static bool readTextureKey(const std::string& k, LineReader& r, SurfaceTexture& t) {
     if (k == "file") return r.text(t.file);
-    if (k == "heightFile") return r.text(t.heightFile);
+    if (k == "height_file") return r.text(t.heightFile);
     if (k == "bump") return r.number(t.bumpHeight) && std::isfinite(t.bumpHeight) && t.bumpHeight >= 0 && t.bumpHeight <= 0.05_r;
     if (k == "repeats") return r.number(t.repeats) && std::isfinite(t.repeats) && t.repeats > 0 && t.repeats <= 10000;
     if (k != "kind") return false;
@@ -629,7 +643,7 @@ static bool readArrayLine(const std::vector<std::string>& w, ArrayObject& a, std
         const bool ok = k == "template" ? r.integer(a.templateId)
                       : k == "count" ? r.integer(a.count[0]) && r.integer(a.count[1]) && r.integer(a.count[2])
                       : k == "step" ? r.vector(a.step) : k == "radius" ? r.number(a.radius)
-                      : k == "rotationStep" ? r.vector(a.rotationStepDeg) : k == "jitter" ? r.number(a.jitter)
+                      : k == "rotation_step" ? r.vector(a.rotationStepDeg) : k == "jitter" ? r.number(a.jitter)
                       : k == "seed" ? r.integer(a.seed) : false;
         if (!ok) return fail(bad, k);
     }
@@ -707,8 +721,8 @@ static bool readJointLine(const std::vector<std::string>& w, JointObject& j, std
     while (!r.done()) {
         const std::string k = r.key();
         const bool ok = w[0] == "object" ? k == "id" && r.integer(j.id)
-                      : k == "a" ? r.integer(j.a) : k == "b" ? r.integer(j.b) : k == "anchorA" ? r.vector(j.anchorA)
-                      : k == "anchorB" ? r.vector(j.anchorB) : k == "frameA" ? r.vector(j.frameA) : k == "frameB" ? r.vector(j.frameB)
+                      : k == "a" ? r.integer(j.a) : k == "b" ? r.integer(j.b) : k == "anchor_a" ? r.vector(j.anchorA)
+                      : k == "anchor_b" ? r.vector(j.anchorB) : k == "frame_a" ? r.vector(j.frameA) : k == "frame_b" ? r.vector(j.frameB)
                       : false;
         if (!ok) return fail(bad, k);
     }

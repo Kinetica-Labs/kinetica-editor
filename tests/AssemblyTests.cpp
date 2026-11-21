@@ -183,7 +183,7 @@ void testWorldAndKindEdits() {
     std::string text = getWorld(g);
     const bool both = text.find("world ") == 0 && text.find("\nphysics ") != std::string::npos;
     text.replace(text.find("gravity 0 -9.81 0"), 17, "gravity 0 0 0");
-    text.replace(text.find("jointHertz 480"), 14, "jointHertz 120");
+    text.replace(text.find("joint_hertz 480"), 15, "joint_hertz 120");
     const bool put = putWorld(other, text, error);
     const bool refused = !putWorld(other, "entity \"Куб\"\n  object id 3\nend\n", error);
     g.entities.push_back(block("Основание", Vector3(0.2_r), Vector3(0.0_r), true));

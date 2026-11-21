@@ -57,6 +57,7 @@ int main() {
     run("sim: a take records a robot's link its joint moves, and replays it kinematic", testSimRecordingArm);
     run("sim: the UR5e's panel - move takes the goal and the hand after it, grip closes the fingers", testSimController);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
+    run("scene format: the sample of every line and key still loads, nothing lost", testSceneFormatOnlyGrows);
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);
     run("scene graph: the file does not depend on the locale (decimal comma)", testSceneGraphLocale);
