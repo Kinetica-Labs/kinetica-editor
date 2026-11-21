@@ -55,7 +55,8 @@
   в новый файл-образец рядом, не в этот: `scene-format-2.kscene` — слово `kinematic` у роли `rigid` и строка
   `tags` у объекта любого вида; `scene-format-3.kscene` — строка `component` плагина у того, что не фигура;
   `scene-format-4.kscene` — `mass`, `center_of_mass` и `inertia` у роли `rigid`; `scene-format-5.kscene` — `opacity`
-  у формы; `scene-format-6.kscene` — `gravity_scale`, `linear_damping` и `angular_damping` у роли `rigid`. Новое слово пишется в файл, только когда оно задано: сцену без него читает и
+  у формы; `scene-format-6.kscene` — `gravity_scale`, `linear_damping` и `angular_damping` у роли `rigid`;
+  `scene-format-7.kscene` — `trigger` у роли `collider` и строка `ignores`. Новое слово пишется в файл, только когда оно задано: сцену без него читает и
   редактор, который этого слова ещё не знает.
 - Текст сцены разбирает только ядро. `scene_get {id}` отдаёт рядом с текстом блока его вид, имя и строки
   словами (число — числом); `scene_get {id, line, key, count}` и `world_get {line, key, count}` — значения после

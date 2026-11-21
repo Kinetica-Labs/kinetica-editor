@@ -219,7 +219,24 @@ bool colliderOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     for (Entity& x : g.entities) body = x.id == id ? &x : body;
     if (!body) return e = "no shape " + std::to_string(a["id"].integer()), false;
     if (isHandle(*body)) return e = "«" + body->name + "» - цель: намерение, а не тело, коллайдера у неё нет", false;
+    std::vector<std::string> ignores;
+    for (const Value& v : a["ignores"].items()) {
+        if (!tagWord(v.text(""))) return e = "ignores is a list of tags, one word each", false;
+        if (std::find(ignores.begin(), ignores.end(), v.text("")) == ignores.end()) ignores.push_back(v.text(""));
+    }
+    const bool touch = a.has("trigger") || a.has("ignores");
+    if (touch && !a.has("kind") && !a.has("size") && !a.has("diameter") && !a.has("height") && !a.has("offset") && !a.has("rotation")) {
+        ColliderRole& now = body->collider; // what it touches alone: its form stays as it is, a fitted one fitted
+        now.enabled = true;
+        if (a.has("trigger")) now.trigger = a["trigger"].truth();
+        if (a.has("ignores")) now.ignores = ignores;
+        Value words = Value::list();
+        for (const std::string& t : now.ignores) words.push(t);
+        return r.set("id", body->id), r.set("trigger", now.trigger), r.set("ignores", words), true;
+    }
     ColliderRole c = heldCollider(*body, entityLocalMesh(*body, g.baseDirectory));
+    c.trigger = a.has("trigger") ? a["trigger"].truth() : body->collider.trigger;
+    c.ignores = a.has("ignores") ? ignores : body->collider.ignores;
     if (a.has("kind")) {
         const int k = wordIndex(a["kind"].text(""), kinds);
         if (k < 0) return e = "kind is box, sphere, capsule or cylinder (a hull follows the geometry: scene_set collider kind hull)", false;
@@ -422,8 +439,10 @@ std::vector<SceneOp> actionSceneOps() {
          componentListOp, {}, false},
         {"scene_collider", "A shape's collider by numbers, apart from what it looks like: the kind; a box's size, a sphere's diameter, a "
                            "capsule's or a cylinder's diameter and height; its centre (offset) and turn (rotation) on the shape, in the shape's "
-                           "frame. What is not given stays as the collider is now (a fitted one's numbers from the geometry); fitting is off after",
-         "{id: int, kind?: 'box'|'sphere'|'capsule'|'cylinder', size?: [x,y,z], diameter?: m, height?: m, offset?: [x,y,z], rotation?: [x,y,z]}",
+                           "frame. What is not given stays as the collider is now (a fitted one's numbers from the geometry); fitting is off after. "
+                           "What it touches: trigger - a zone that touches nothing and tells what is inside it (sim_state triggers); ignores - the "
+                           "tags (scene_tag) of what it has no contact with. These two alone leave the collider's form as it is",
+         "{id: int, kind?: 'box'|'sphere'|'capsule'|'cylinder', size?: [x,y,z], diameter?: m, height?: m, offset?: [x,y,z], rotation?: [x,y,z], trigger?: bool, ignores?: [str]}",
          {}, colliderOp, true},
         transform("scene_move", "Objects moved by a step in the world, their angles kept (the gizmo's arrows)", "{ids, by: [x,y,z]}"),
         transform("scene_turn", "Objects turned about an axis by degrees around a pivot (no pivot: the last object's centre) - the rings",

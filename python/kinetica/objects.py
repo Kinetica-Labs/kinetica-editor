@@ -121,6 +121,25 @@ class Body(SceneObject):
                     lambda self, v: self._set("shape", "size", v, f"{self.ref}.size = {tuple(v)}"))
     fixed = property(lambda self: self._get("rigid", "fixed") == 1,
                      lambda self, v: self._set("rigid", "fixed", int(bool(v)), f"{self.ref}.fixed = {bool(v)}"))
+    trigger = property(lambda self: self._get("collider", "trigger") == 1,
+                       lambda self, v: self.scene._call("scene_collider", f"{self.ref}.trigger = {bool(v)}", id=self.id, trigger=bool(v)),
+                       doc="A zone: its collider touches nothing and tells what is inside it (inside)")
+
+    @property
+    def ignores(self):
+        """The tags of what its collider has no contact with: ``part.ignores = ["robot-cover"]``."""
+        return [str(word) for line in self._lines("ignores") for word in line]
+
+    @ignores.setter
+    def ignores(self, tags):
+        self.scene._call("scene_collider", f"{self.ref}.ignores = {list(tags)!r}", id=self.id, ignores=list(tags))
+
+    @property
+    def inside(self):
+        """What stands inside this zone now (its collider a trigger): the objects; None when the scene is not running."""
+        zone = self.scene._live("triggers", self.id)
+        return None if zone is None else [self.scene.objects[i] for i in zone["inside"]]
+
     opacity = property(lambda self: (lambda v: 1.0 if v is None else v)(self._get("shape", "opacity")),
                        lambda self, v: self._set("shape", "opacity", float(v), f"{self.ref}.opacity = {float(v)}"),
                        doc="How solid it looks: 1 - solid, less - see-through (glass). Its look only")

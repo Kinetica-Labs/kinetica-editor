@@ -4452,6 +4452,16 @@ or create one from the toolbar.</translation>
         <translation>Opacity</translation>
     </message>
     <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="430"/>
+        <source>зона: ничего не толкает, замечает, что внутри</source>
+        <translation>Zone: pushes nothing, notices what is inside</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="430"/>
+        <source>Зона пропускает тела сквозь себя и сообщает, кто в ней стоит: корзина, куда должна попасть деталь, область ограждения. Кто внутри — в ответе sim_state (triggers) и в Python: zone.inside.</source>
+        <translation>A zone lets bodies pass through it and tells who stands inside: a bin a part is to reach, a guarded area. Who is inside - in the answer of sim_state (triggers) and in Python: zone.inside.</translation>
+    </message>
+    <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="240"/>
         <source>1 — сплошное; меньше — просвечивает: стекло, экран, ограждение. Только вид: физика этого не знает.</source>
         <translation>1: solid; less: see-through - glass, a screen, a guard. Its look only: physics does not know it.</translation>

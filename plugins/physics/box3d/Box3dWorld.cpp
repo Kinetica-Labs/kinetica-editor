@@ -81,6 +81,7 @@ public:
         def.enableContinuous = s.continuous;
         def.workerCount = uint32_t(std::max(threads, 1)); // Box3D's own scheduler; the same bits on any count (tested)
         world_ = b3CreateWorld(&def);
+        b3World_SetCustomFilterCallback(world_, &Box3dWorld::mayTouch, this);
         b3BodyDef ground = b3DefaultBodyDef();
         ground_ = b3CreateBody(world_, &ground);
     }
@@ -104,9 +105,11 @@ public:
         d.gravityScale = float(body.gravityScale);
         d.userData = handle(index);
         const b3BodyId id = b3CreateBody(world_, &d);
+        const size_t zones = triggers_.size();
         for (const ShapeDesc& s : shapes)
-            if (!addShape(id, body, s, error)) {
+            if (!addShape(id, index, body, s, error)) {
                 b3DestroyBody(id);
+                triggers_.resize(zones);
                 return -1;
             }
         if ((body.massGiven || body.centreGiven || body.inertiaGiven) && body.type == BodyDesc::Type::Dynamic) {
@@ -122,6 +125,7 @@ public:
             b3Body_SetMassData(id, m);
         }
         bodies_.push_back(id);
+        marks_.push_back(body.marks), ignores_.push_back(body.ignores);
         return index;
     }
 
@@ -323,6 +327,22 @@ public:
         return true;
     }
 
+    std::vector<std::pair<int, int>> triggered() const override {
+        std::vector<std::pair<int, int>> out;
+        std::vector<b3ShapeId> inside;
+        for (const auto& [body, shape] : triggers_) {
+            if (!b3Shape_IsValid(shape)) continue; // its body was removed
+            inside.resize(size_t(std::max(b3Shape_GetSensorCapacity(shape), 0)));
+            const int n = inside.empty() ? 0 : b3Shape_GetSensorData(shape, inside.data(), int(inside.size()));
+            for (int k = 0; k < n; ++k) {
+                if (!b3Shape_IsValid(inside[size_t(k)])) continue;
+                const std::pair<int, int> pair{body, indexOf(b3Shape_GetUserData(inside[size_t(k)]))};
+                if (pair.second >= 0 && pair.second != body && std::find(out.begin(), out.end(), pair) == out.end()) out.push_back(pair);
+            }
+        }
+        return out;
+    }
+
     std::vector<ContactPoint> contacts() const override {
         std::vector<ContactPoint> out;
         std::vector<b3ContactData> data;
@@ -374,39 +394,53 @@ public:
     }
 
 private:
-    bool addShape(b3BodyId id, const BodyDesc& body, const ShapeDesc& s, std::string& error) {
+    bool addShape(b3BodyId id, int index, const BodyDesc& body, const ShapeDesc& s, std::string& error) {
         b3ShapeDef d = b3DefaultShapeDef();
         d.density = float(body.density);
         d.baseMaterial.friction = float(s.friction);
         d.baseMaterial.restitution = float(s.restitution);
         d.filter.groupIndex = -body.group; // Box3D: a negative group never collides with itself
+        d.userData = handle(index);        // the body's index, for mayTouch and triggered
+        d.enableCustomFiltering = body.marks != 0 || body.ignores != 0; // asked about only the pairs that have a rule
+        d.isSensor = s.trigger;
+        d.enableSensorEvents = true; // a zone's own, and what may be inside one
+        b3ShapeId shape = b3_nullShapeId;
         switch (s.kind) {
         case ShapeDesc::Kind::Box: {
             const b3BoxHull box = b3MakeTransformedBoxHull(float(s.halfExtents.x), float(s.halfExtents.y), float(s.halfExtents.z),
                                                            b3t(s.position, s.rotation));
-            b3CreateHullShape(id, &d, &box.base);
-            return true;
+            shape = b3CreateHullShape(id, &d, &box.base);
+            break;
         }
         case ShapeDesc::Kind::Sphere: {
             const b3Sphere sphere{b3v(s.position), float(s.radius)};
-            b3CreateSphereShape(id, &d, &sphere);
-            return true;
+            shape = b3CreateSphereShape(id, &d, &sphere);
+            break;
         }
         case ShapeDesc::Kind::Capsule: {
             const Vector3 half = s.rotation.rotate(Vector3(0, s.halfHeight, 0));
             const b3Capsule capsule{b3v(s.position - half), b3v(s.position + half), float(s.radius)};
-            b3CreateCapsuleShape(id, &d, &capsule);
-            return true;
+            shape = b3CreateCapsuleShape(id, &d, &capsule);
+            break;
         }
         case ShapeDesc::Kind::Hull: {
             b3HullData* hull = boundedHull(s.points);
             if (!hull) return error = "the points make no solid hull", false;
-            b3CreateTransformedHullShape(id, &d, hull, b3t(s.position, s.rotation), b3Vec3{1, 1, 1});
+            shape = b3CreateTransformedHullShape(id, &d, hull, b3t(s.position, s.rotation), b3Vec3{1, 1, 1});
             b3DestroyHull(hull);
-            return true;
+            break;
         }
         }
-        return false;
+        if (s.trigger) triggers_.push_back({index, shape});
+        return true;
+    }
+
+    // Box3D asks before two shapes begin to touch, from its worker threads: read only, and only what no step changes.
+    static bool mayTouch(b3ShapeId a, b3ShapeId b, void* context) {
+        const Box3dWorld* w = static_cast<const Box3dWorld*>(context);
+        const int i = indexOf(b3Shape_GetUserData(a)), j = indexOf(b3Shape_GetUserData(b));
+        if (i < 0 || j < 0 || size_t(i) >= w->marks_.size() || size_t(j) >= w->marks_.size()) return true;
+        return (w->ignores_[size_t(i)] & w->marks_[size_t(j)]) == 0 && (w->ignores_[size_t(j)] & w->marks_[size_t(i)]) == 0;
     }
 
     struct Joint {
@@ -426,6 +460,8 @@ private:
     b3WorldId world_;
     b3BodyId ground_;
     std::vector<b3BodyId> bodies_;
+    std::vector<uint64_t> marks_, ignores_;            // by the body's index, as its BodyDesc gave them
+    std::vector<std::pair<int, b3ShapeId>> triggers_; // the zones: the body's index and its trigger shape
     std::vector<Joint> joints_;
 };
 

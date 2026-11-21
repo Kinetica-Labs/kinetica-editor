@@ -81,6 +81,7 @@ std::vector<ShapeDesc> colliderShapes(const Entity& e, const TriMesh& local) {
     }
     if (sizedByNumbers(c.kind)) s.position = c.offset, s.rotation = colliderTurn(c);
     s.friction = e.rigid.friction, s.restitution = e.rigid.restitution;
+    s.trigger = e.collider.enabled && e.collider.trigger;
     return {s};
 }
 
@@ -131,9 +132,25 @@ void RobotWorld::build(PhysicsWorld& physics) {
     const std::unordered_set<uint32_t> animated = animatedEntities(graph_);
     posed_ = graph_;
     const PhysicsSettings& p = graph_.world.physics;
+    // The tags some collider ignores, in the order met - a bit each (the engine tells marks by bits): a body's marks
+    // are its tags among them, its ignores its collider's.
+    std::vector<std::string> ignored;
+    for (const Entity& e : flat_)
+        if (e.collider.enabled)
+            for (const std::string& t : e.collider.ignores)
+                if (std::find(ignored.begin(), ignored.end(), t) == ignored.end()) ignored.push_back(t);
+    if (ignored.size() > 64) notes_.push_back("коллайдеры называют больше 64 разных меток в «ignores»: лишние не учтены"), ignored.resize(64);
+    const auto bits = [&ignored](const std::vector<std::string>& tags) {
+        uint64_t out = 0;
+        for (size_t k = 0; k < ignored.size(); ++k)
+            if (std::find(tags.begin(), tags.end(), ignored[k]) != tags.end()) out |= uint64_t(1) << k;
+        return out;
+    };
     for (const Entity& e : flat_) {
         if (!e.visible || entityIsGeometryOnly(e)) continue;
         BodyDesc d;
+        d.marks = bits(e.tags);
+        if (e.collider.enabled) d.ignores = bits(e.collider.ignores);
         d.type = animated.count(e.id) ? BodyDesc::Type::Kinematic // the sequence's: led along its track, it pushes what it meets
                : e.rigid.dynamic() ? BodyDesc::Type::Dynamic
                : e.rigid.enabled && e.rigid.kinematic && !e.rigid.fixed ? BodyDesc::Type::Kinematic // its own velocity and spin lead it
@@ -161,6 +178,9 @@ void RobotWorld::build(PhysicsWorld& physics) {
             continue;
         }
         bodyOfEntity_[e.id] = b;
+        if (size_t(b) >= stands_.size()) stands_.resize(size_t(b) + 1, 1);
+        stands_[size_t(b)] = d.type == BodyDesc::Type::Static;
+        if (e.collider.enabled && e.collider.trigger) zones_.push_back({e.id, b});
         if (animated.count(e.id)) animated_.push_back({e.id, b});
         else if (d.type == BodyDesc::Type::Dynamic && !isArrayCopyId(e.id)) free_.push_back(e.id); // a take records it, a robot's link too
         if (entityOfBody_.size() <= size_t(b)) entityOfBody_.resize(size_t(b) + 1, 0);
@@ -515,6 +535,7 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
         for (const auto& x : sensors_) x->step(physics, *this, dt / Real(n), clockNs_);
     }
     pushes_.clear();
+    if (!zones_.empty()) inside_ = physics.triggered();
     readPoses(physics);
     if (--framesToLostCheck_ < 0) framesToLostCheck_ = 29, dropLost(physics); // after the poses: the scene keeps where it was last
     if (recording_) sampleTake(physics);
@@ -621,6 +642,20 @@ uint32_t RobotWorld::objectIdOfBody(int body) const {
 int RobotWorld::bodyOf(uint32_t entity) const {
     auto it = bodyOfEntity_.find(entity);
     return it == bodyOfEntity_.end() ? -1 : it->second;
+}
+
+std::vector<std::pair<uint32_t, std::vector<uint32_t>>> RobotWorld::zones() const {
+    std::vector<std::pair<uint32_t, std::vector<uint32_t>>> out;
+    for (const auto& [entity, body] : zones_) {
+        out.push_back({entity, {}});
+        const auto stands = [this](int b) { return size_t(b) >= stands_.size() || stands_[size_t(b)] != 0; };
+        for (const auto& [zone, visitor] : inside_)
+            if (zone == body && visitor >= 0 && size_t(visitor) < entityOfBody_.size() && entityOfBody_[size_t(visitor)] != 0 &&
+                !(stands(body) && stands(visitor))) // the floor under a zone on it, a wall through it: they were always there
+                out.back().second.push_back(entityOfBody_[size_t(visitor)]);
+        std::sort(out.back().second.begin(), out.back().second.end());
+    }
+    return out;
 }
 
 void RobotWorld::fill(const PhysicsWorld& physics, Frame& out, bool contacts) const {

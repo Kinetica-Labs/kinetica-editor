@@ -340,6 +340,50 @@ void testSimBodyOwnGravityAndDamping() {
           SceneGraph().save().find("gravity_scale") == std::string::npos, "the words are written for the bodies that have them only");
 }
 
+// Who touches whom, by tags: a body whose collider ignores a tag falls through the table marked with it, and one that
+// ignores nothing lands on the same kind of table. A trigger collider touches nothing and tells what is inside it:
+// the ball falls through the zone, and the zone names the ball while it is there - and not the one that never came.
+void testSimIgnoresAndTriggers() {
+    SceneGraph g;
+    Entity table = solid(1, "Стол-призрак", Vector3(0.5_r), {0, 0.25_r, 0}, true);
+    table.tags = {"призрак"};
+    Entity through = solid(2, "Сквозь", Vector3(0.2_r), {0, 1, 0}, false);
+    through.collider.ignores = {"призрак"};
+    Entity zone = solid(5, "Зона", Vector3(0.6_r), {4, 0.3_r, 0}, true);
+    zone.rigid.enabled = false, zone.collider.trigger = true; // a collider alone: it stands, and is a zone
+    g.entities.push_back(table), g.entities.push_back(through);
+    g.entities.push_back(solid(3, "Стол", Vector3(0.5_r), {2, 0.25_r, 0}, true));
+    g.entities.push_back(solid(4, "На стол", Vector3(0.2_r), {2, 1, 0}, false));
+    g.entities.push_back(zone);
+    g.entities.push_back(solid(6, "В зону", Vector3(0.2_r), {4, 1.5_r, 0}, false));
+    g.entities.push_back(solid(7, "Мимо", Vector3(0.2_r), {6, 1.5_r, 0}, false));
+    g.entities.push_back(solid(8, "Плита под зоной", {1, 0.1_r, 1}, {4, 0.05_r, 0}, true)); // it stands in the zone that stands: not news
+    Simulation s;
+    s.load(g);
+    const auto inside = [&s] {
+        const auto zones = s.robot()->zones();
+        return zones.size() == 1 && zones[0].first == 5 ? zones[0].second : std::vector<uint32_t>{999};
+    };
+    s.stepFrame();
+    const std::vector<uint32_t> early = inside();
+    for (int k = 0; k < 120; ++k) s.stepFrame();
+    const auto y = [&s](uint32_t id) { return double(s.physics()->state(s.robot()->bodyOf(id)).position.y); };
+    const std::vector<uint32_t> late = inside();
+    std::printf("  after 2 s: the body that ignores the table's tag at y %.3f (the floor), the plain one at y %.3f (on its table); the ball fell through "
+                "the zone to y %.3f; inside the zone at first %zu, then %zu (entity %u)\n", y(2), y(4), y(6), early.size(), late.size(),
+                late.empty() ? 0u : late[0]);
+    CHECK(std::fabs(y(2) - 0.1) < 0.02 && std::fabs(y(4) - 0.6) < 0.02, "the body that ignores the tag falls through the table: y %f; the plain one lands on its: y %f", y(2), y(4));
+    CHECK(std::fabs(y(6) - 0.2) < 0.02, "a trigger touches nothing: the ball lies on the slab inside it, y %f", y(6));
+    CHECK(early.empty() && late == std::vector<uint32_t>{6}, "the zone names what is inside it - nothing while the ball is above, the ball once it is in");
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    CHECK(back.load(text, error) && back.save() == text && back.entities[1].collider.ignores == std::vector<std::string>{"призрак"} &&
+          back.entities[4].collider.trigger && !back.entities[0].collider.trigger, "ignores and trigger come back from the file: %s", error.c_str());
+    CHECK(text.find("ignores призрак") != std::string::npos && text.find("trigger 1") != std::string::npos &&
+          SceneGraph().save().find("ignores") == std::string::npos, "the words are written for the colliders that have them only");
+}
+
 void testSimServoHoldsAndDroops() {
     JointDrive d;
     d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;

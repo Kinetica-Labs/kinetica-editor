@@ -212,6 +212,13 @@ QJsonObject liveState(const Simulation& s) {
             timers.insert(QString::fromStdString(c.name.substr(8, c.name.size() - 11)), c.value);
     out.insert("step_ms", timers);
     out.insert("contacts", contacts);
+    QJsonArray triggers; // the zones - the colliders that are triggers - and what stands inside each
+    for (const auto& [zone, inside] : robot->zones()) {
+        QJsonArray ids;
+        for (uint32_t id : inside) ids.append(int(id));
+        triggers.append(QJsonObject{{"id", int(zone)}, {"inside", ids}});
+    }
+    if (!triggers.isEmpty()) out.insert("triggers", triggers);
     if (!notes.isEmpty()) out.insert("notes", notes);
     return out;
 }

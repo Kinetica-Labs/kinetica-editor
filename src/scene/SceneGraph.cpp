@@ -198,10 +198,13 @@ static std::string quoted(const std::string& name) {
 // The collider role, a line of its own with every field (written only when the role is on).
 static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
     o << "  collider kind " << kColliderNames[int(c.kind)] << " fit " << (c.fitToGeometry ? 1 : 0) << " size " << vec(c.size)
-      << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << "\n";
+      << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << (c.trigger ? " trigger 1" : "") << "\n";
+    if (c.ignores.empty()) return; // both written when set: a file without them reads everywhere
+    o << "  ignores";
+    for (const std::string& t : c.ignores) o << " " << t;
+    o << "\n";
 }
 
-// The part every object has, for groups and arrays: a quoted name, its object line and its pose.
 // An object's tags, a line of their own - written when it has any: a file without them reads everywhere.
 static void saveTags(std::ostringstream& o, const std::vector<std::string>& tags) {
     if (tags.empty()) return;
@@ -219,6 +222,7 @@ static void saveComponents(std::ostringstream& o, const std::vector<PluginCompon
     }
 }
 
+// The part every object has, for groups and arrays: a quoted name, its object line and its pose.
 static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneObject& s) {
     std::string name = s.name;
     for (char& c : name)
@@ -595,7 +599,7 @@ static bool readRoleKey(const std::string& role, const std::string& k, LineReade
         ColliderRole& c = e.collider;
         if (k != "kind")
             return k == "fit" ? r.flag(c.fitToGeometry) : k == "size" ? r.vector(c.size) : k == "offset" ? r.vector(c.offset)
-                 : k == "rotation" ? r.vector(c.rotationDeg) : false;
+                 : k == "rotation" ? r.vector(c.rotationDeg) : k == "trigger" ? r.flag(c.trigger) : false;
         std::string kind;
         if (!r.text(kind)) return false;
         for (int i = 0; i < kColliderCount; ++i)
@@ -628,6 +632,13 @@ static bool readEntityLine(const std::vector<std::string>& w, Entity& e, std::st
     if (what == "goal") { // "goal effector <id>"
         LineReader r(w, 1);
         return (!r.done() && r.key() == "effector" && r.integer(e.goalOf) && r.done() && e.goalOf != 0) || fail(bad, what);
+    }
+    if (what == "ignores") { // "ignores <tag> <tag>…": what the collider does not touch
+        for (size_t i = 1; i < w.size(); ++i) {
+            if (!tagWord(w[i])) return fail(bad, w[i]);
+            if (std::find(e.collider.ignores.begin(), e.collider.ignores.end(), w[i]) == e.collider.ignores.end()) e.collider.ignores.push_back(w[i]);
+        }
+        return true;
     }
     if (what == "path") { // "path speed <m/s> loop <0|1> smooth <0|1> [turn <m a rad>]"
         LineReader r(w, 1);

@@ -432,7 +432,10 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
         .number(uiText("Kinetica", "Диаметр, м"), 0.005, 50, 0.01, 3, c->size.x).shown([=] { return manual() && round(); }).name("colliderDiameter")
         .number(uiText("Kinetica", "Высота, м"), 0.005, 50, 0.01, 3, c->size.y).shown([=] { return manual() && tall(); }).name("colliderHeight")
         .vector(uiText("Kinetica", "Сдвиг, м"), -50, 50, 0.05, 3, c->offset).shown(manual)
-        .vector(uiText("Kinetica", "Поворот, °"), -360, 360, 5, 1, c->rotationDeg).shown(manual);
+        .vector(uiText("Kinetica", "Поворот, °"), -360, 360, 5, 1, c->rotationDeg).shown(manual)
+        .toggle(uiText("Kinetica", "зона: ничего не толкает, замечает, что внутри"), c->trigger).name("colliderTrigger")
+        .tip(uiText("Kinetica", "Зона пропускает тела сквозь себя и сообщает, кто в ней стоит: корзина, куда должна попасть деталь, "
+                                "область ограждения. Кто внутри — в ответе sim_state (triggers) и в Python: zone.inside."));
     // The collider in the view (Unity's «Edit Collider»): the gizmo and the points hold it, the model stays.
     colliderEditButton_ = new QPushButton(uiText("Kinetica", "Править коллайдер в виде"));
     colliderEditButton_->setObjectName("colliderEdit");

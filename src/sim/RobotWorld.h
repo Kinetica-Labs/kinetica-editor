@@ -72,6 +72,8 @@ public:
     const SceneGraph& live() const { return live_; }
     uint32_t objectIdOfBody(int body) const; // the entity a body is (0: none)
     int bodyOf(uint32_t entity) const;       // -1: none
+    // The zones - the shapes whose collider is a trigger - and the entities that stood inside each after the last step.
+    std::vector<std::pair<uint32_t, std::vector<uint32_t>>> zones() const;
     // A joint's six coordinates now (JointModel.h: frame a against frame b) from its links' poses in the
     // engine; false when it was not built. The truth of the engine, for plots and checks - a robot reads
     // its joints through encoders.
@@ -235,6 +237,9 @@ private:
     SceneGraph posed_;                                 // the graph at the clip's time (Animation.h)
     std::vector<std::pair<uint32_t, int>> animated_;   // the clip's entities and their kinematic bodies
     std::vector<uint32_t> free_;                       // the entities on dynamic bodies no sequence leads: what a take records
+    std::vector<std::pair<uint32_t, int>> zones_;      // the entities whose collider is a trigger, and their bodies
+    std::vector<char> stands_;                         // body -> it is static: what stands in a zone that stands is not news
+    std::vector<std::pair<int, int>> inside_;          // after the last step: a zone's body and a body inside it
     bool recording_ = false;
     int64_t takeFromNs_ = 0;
     std::vector<std::vector<AnimKey>> take_;           // a sample a frame, an entity of free_ each

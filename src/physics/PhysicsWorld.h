@@ -31,6 +31,7 @@ struct ShapeDesc {
     Vector3 position{0.0_r};
     Quaternion rotation;
     Real friction = 0.5_r, restitution = 0;
+    bool trigger = false; // a zone: it touches nothing; triggered() tells the bodies whose shapes are inside it
 };
 
 // A body: static (the floor, a table), kinematic (moved by hand) or dynamic. Its mass is the shapes'
@@ -49,6 +50,9 @@ struct BodyDesc {
     Matrix3x3 inertia = Matrix3x3::identity();        // about the centre of mass, the body's axes, kg m^2
     Real linearDamping = 0, angularDamping = 0;       // 1/s
     Real gravityScale = 1;                            // how much of the world's gravity takes it: 0 - it floats
+    // Who it does not touch, by marks (bits): bodies a and b have no contact when a.ignores has a bit of b.marks, or
+    // b.ignores a bit of a.marks. Both zero: it touches everything, as before.
+    uint64_t marks = 0, ignores = 0;
     int group = 0;                                    // > 0: the bodies of one group never touch each other (one robot's links)
 };
 
@@ -136,6 +140,8 @@ public:
     // The nearest body a ray from `from` to `to` meets, but `ignore`; false: none.
     virtual bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore = -1) const = 0;
     virtual std::vector<ContactPoint> contacts() const = 0;
+    // The zones after the last step: (the body of a trigger shape, a body with a shape inside it), each pair once.
+    virtual std::vector<std::pair<int, int>> triggered() const = 0;
     virtual std::vector<ContactPoint> contactsOf(int body) const = 0; // one body's, at the cost of its own contacts only
 
     virtual void setGravity(const Vector3& gravity) = 0;

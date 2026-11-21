@@ -55,6 +55,8 @@ struct ColliderRole {
     Vector3 size{0.2_r};         // box: edges; sphere: diameter = x; capsule, cylinder: diameter = x, full height = y
     Vector3 offset{0.0_r};       // collider centre relative to the object's centre, in the object's frame
     Vector3 rotationDeg{0.0_r};  // collider orientation relative to the object (capsule axis = y)
+    bool trigger = false;        // a zone: it touches nothing and notices what is inside it (a bin a part is to reach, a guard's area)
+    std::vector<std::string> ignores; // tags: no contact between it and a body marked with any of them (a part and the robot's own cover)
 };
 struct RigidRole {
     bool enabled = false;

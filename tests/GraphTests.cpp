@@ -115,9 +115,9 @@ void testSceneOpacity() {
 void testSceneFormatOnlyGrows() {
     std::string error;
     // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
-    // 5: a shape's opacity; 6: a body's own gravity and damping
+    // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores
     for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
-                             "scene-format-5.kscene", "scene-format-6.kscene"}) {
+                             "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();
