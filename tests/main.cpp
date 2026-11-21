@@ -21,7 +21,14 @@ int main() {
     run("document: a load and a new scene are one step each", testDocumentLoadAndNewScene);
     run("document: the floor is the text the window gave", testFloorSceneIsTheWindowsFloor);
     run("document: the answer of an undo against the recorded ones", testHistoryAnswers);
+    run("document: Play remembers the scene, Stop brings it back and cuts the steps, a kept edit stays", testDocumentPlayBookkeeping);
     run("live edit: what a built world takes and what it needs a new world for", testLiveEditClassifier);
+    run("scene api: the window's recorded answers, line by line, through a Scene with no window", testSceneApiTranscript);
+    run("scene api: ops_list is the window's entries for its own operations and no others", testSceneApiOperationsList);
+    run("scene api: a built world takes a light on the way and is stopped by a body; Stop gives the scene back", testSceneApiBuiltWorld);
+    run("scene api: the words of this host's refusals", testSceneApiRefusals);
+    run("scene api: files - a save, an open in another host, the errors in words", testSceneApiFiles);
+    run("scene api: the same script on two fresh scenes says the same", testSceneApiTwoScenesAgree);
     run("probe: channels, counters, timers, debug drawing", testProbe);
     run("core: units as data (UCUM) and fields as data - their schema, their check, a key's suffix against its unit", testUnitsAndFields);
     run("runtime: bounded pipeline admission", testRuntimePolicyBounds);

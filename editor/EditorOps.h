@@ -52,7 +52,7 @@ public:
     void run(const QString& name, const QJsonObject& args, const Reply& reply, const QString& source = "api");
     // An operation that answers at once (every edit and query), called by the user interface: its answer.
     QJsonObject runNow(const QString& name, const QJsonObject& args);
-    QJsonArray list(const QStringList& families = {}) const; // name, help, args, schema, kind of every operation (of these families only)
+    QJsonArray list(const ke::Value& families = ke::Value()) const; // name, help, args, schema, kind of every operation (of these families only)
     // What brings the window up to the simulation's newest frame (MainWindow sets it).
     void setRefresh(std::function<void()> refresh) { refresh_ = std::move(refresh); }
     bool recording() const { return recording_; } // a take runs (sim_record)
@@ -113,6 +113,9 @@ private:
     using GraphEdit = std::function<QJsonObject(ke::SceneGraph&, const QJsonObject& args)>;
     void add(const QString& name, const QString& help, const QString& args, Handler run);
     void addSync(const QString& name, const QString& help, const QString& args, std::function<QJsonObject(const QJsonObject&)> run);
+    // One of the operations the windowless host has too: its help and arguments line are ke::hostOps()'s.
+    void addHost(const char* name, Handler run);
+    void addHostSync(const char* name, std::function<QJsonObject(const QJsonObject&)> run);
     // An edit is an operation of its own (one undo step) and a step of scene_batch.
     QJsonObject transact(const std::function<QJsonObject(ke::SceneGraph&)>& change);
     void addSceneOps();     // EditorOps.cpp: the list, a block, a new scene, undo and redo

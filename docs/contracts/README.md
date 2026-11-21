@@ -11,7 +11,7 @@
 | [drives](drives.md) — приводы суставов | `src/scene/JointModel.h` (`JointDrive`) | считаются ядром (`src/sim/RobotWorld.cpp`) поверх physics | `tests/SimTests.cpp` |
 | [sensors](sensors.md) — датчики робота | `src/devices/*.h`, `SensorObject` в `src/scene/SceneGraph.h` | модели устройств ядра | `tests/DeviceTests.cpp` |
 | [editor-plugin](editor-plugin.md) — плагин окна: каждая кнопка есть команда, видна строкой Python | `python/kinetica/plugin.py`, операции `plugin_*` (`editor/PluginHost.h`) | все части окна и сторонние плагины | самотест «каждая кнопка — операция» |
-| [operations](operations.md) — API редактора | `src/scene/SceneOps.h` | реестр операций ядра; окно и сервер — клиенты | `tests/SceneActionTests.cpp`, `tests/AssemblyTests.cpp` |
+| [operations](operations.md) — API редактора; хозяева операций: окно и сцена без окна | `src/scene/SceneOps.h`, `src/api/Scene.h` | реестр операций ядра; окно и сцена без окна — хозяева | `tests/SceneActionTests.cpp`, `tests/AssemblyTests.cpp`, `tests/SceneApiTests.cpp` |
 
 ## Плагины: кто угодно может написать свой
 

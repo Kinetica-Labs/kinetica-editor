@@ -7,6 +7,7 @@
 #include "SimController.h"
 #include "UiWindowSpace.h"
 #include "Viewport.h"
+#include "api/Scene.h"
 #include "scene/SceneGraph.h"
 #include "sim/WorldOps.h"
 
@@ -42,10 +43,6 @@ QJsonObject activateVisibleTab(QWidget* window, const QString& text) {
     return EditorOps::ok();
 }
 
-const char* modeName(SceneBuilder::Mode m) {
-    return m == SceneBuilder::Mode::Edit ? "edit" : m == SceneBuilder::Mode::Playing ? "playing" : "paused";
-}
-
 QJsonObject worldAnswer(bool done, const Value& value, const std::string& why) {
     return done ? coreAnswerJson(value) : EditorOps::error(QString::fromStdString(why));
 }
@@ -53,14 +50,14 @@ QJsonObject worldAnswer(bool done, const Value& value, const std::string& why) {
 } // namespace
 
 void EditorOps::addSimOps() {
-    auto mode = [this] { return ok({{"mode", modeName(builder_->mode())}}); };
+    auto mode = [this] { return ok({{"mode", modeWord(builder_->mode())}}); };
     addSync("sim_play", "Run the scene (built from the graph)", "{}", [this, mode](const QJsonObject&) {
         if (runtime_->stopping()) return error("runtime is stopping");
         builder_->play();
         return mode();
     });
     addSync("sim_pause", "Pause it", "{}", [this, mode](const QJsonObject&) { builder_->pause(); return mode(); });
-    addSync("sim_stop", "Stop: the scene as it was before play", "{}", [this, mode](const QJsonObject&) { builder_->stop(); return mode(); });
+    addHostSync("sim_stop", [this, mode](const QJsonObject&) { builder_->stop(); return mode(); });
     // Paused (built from the graph first when editing), then exactly N frames on the simulation's
     // thread; the answer is the state after them.
     addStepOp();
@@ -190,8 +187,7 @@ void EditorOps::addViewOps() {
 
 // Bulk stepping is cancelled between frames by the runtime's independent atomic epoch.
 void EditorOps::addStepOp() {
-    add("sim_step", "Step N frames (1/60 s each) on pause and answer the live state, as sim_state gives it (frames 0: the scene built as play "
-                    "builds it, its state at time 0)", "{frames?: int}", [this](const QJsonObject& a, const Reply& reply) {
+    addHost("sim_step", [this](const QJsonObject& a, const Reply& reply) {
         if (runtime_->stopping()) return reply(error("runtime is stopping"));
         if (builder_->editing() && !builder_->loadPaused()) return reply(error("the scene cannot be built"));
         if (builder_->mode() == SceneBuilder::Mode::Playing) builder_->pause();
@@ -211,22 +207,13 @@ void EditorOps::addStepOp() {
 }
 
 void EditorOps::addStateOp() {
-    add("sim_state", "The live state: time and frame, every body's pose (position of its frame, rotation: Euler degrees [x, y, z], the "
-        "turn R = Ry Rx Rz - as the scene file), velocity and spin (asleep: at rest, put to sleep; fixed: a static body; kinematic: one led by its own velocity or by a sequence), every "
-        "joint's coordinates, main angle or travel, its drive's effort (N m or N) and a DC motor's current and power, every sensor's reading "
-        "as the robot reads it (its datasheet's device: an IMU's accel and gyro, a sonar's distance, an encoder's count, a wrench's force and "
-        "torque, a pad's force) with its probe's truth beside it, which entities "
-        "touch (contacts: a, b - 0 the floor -, points, normal force N, deepest overlap m), what the world could not build (notes); "
-        "frame_timing: the last 120 frames' mean wall ms in posted commands, the wait for the plugins' on_tick (controllers_ms), the step "
-        "and the snapshot, and the window's painting - its "
-        "frames a second, one frame's ms and the renderer, a GPU or llvmpipe (the scene runs slower than "
-        "the wall clock when they pass frame_dt_ms). The physics engine's truth, for checks - not a robot's sensors", "{}",
+    addHost("sim_state",
         [this](const QJsonObject&, const Reply& reply) {
         if (builder_->mode() == SceneBuilder::Mode::Edit) return reply(ok({{"mode", "edit"}}));
         ctrl_->post([this, reply](Simulation& s) {
             QJsonObject state = coreAnswerJson(liveState(s));
             QMetaObject::invokeMethod(this, [this, reply, state]() mutable {
-                state.insert("mode", modeName(builder_->mode()));
+                state.insert("mode", modeWord(builder_->mode()));
                 const auto t = ctrl_->timing();
                 state.insert("frame_timing", QJsonObject{{"frames", t.frames}, {"frame_dt_ms", t.frameDtMs}, {"commands_ms", t.commandsMs},
                                                           {"controllers_ms", t.controllersMs},

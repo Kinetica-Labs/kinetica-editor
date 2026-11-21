@@ -13,6 +13,7 @@
 
 #include <fstream>
 #include <set>
+#include <stdexcept>
 #include <sstream>
 
 namespace {
@@ -94,6 +95,13 @@ void testDocumentTransact() {
     CHECK(!d.transact(spoil, error, [] { return false; }) && d.history.steps() == 1 &&
               d.graph.save() == with && error == "no",
           "a step the caller did not take is not taken back");
+    bool thrown = false;
+    try {
+        d.transact([](SceneGraph& g, std::string&) -> bool { g.entities.clear(); throw std::runtime_error("boom"); }, error);
+    } catch (const std::runtime_error&) {
+        thrown = true;
+    }
+    CHECK(thrown && d.history.steps() == 1 && d.graph.save() == with, "a change that throws leaves the graph to the bit and takes its step back");
     CHECK(d.transact([](SceneGraph& g, std::string&) { g.entities.push_back(Entity()); g.entities.back().id = 0; return true; }, error) &&
               d.graph.entities.back().id != 0 && d.history.steps() == 2,
           "a new entity of id 0 is given an id");
@@ -195,4 +203,33 @@ void testHistoryAnswers() {
     got = historyAnswer(openedGraph, opened.graph, true, back, opened.history.steps());
     CHECK(!got["changed"].items().empty() && got["undone"].truth() && !got["world"].truth() && sameKeys(got, recorded(53)),
           "an open undone: the objects that differ, the keys of the recorded line 53");
+}
+
+void testDocumentPlayBookkeeping() {
+    Document d = withFloor();
+    run(d, "scene_add", R"({"shape": "box"})");
+    const std::string before = d.graph.save();
+    const SceneGraph built = d.beginPlay();
+    CHECK(d.mode == PlayMode::Paused && built.save() == before && d.backup.save() == before && d.running.save() == before,
+          "Play remembers the scene and hands it to build from");
+    run(d, "scene_add", R"({"shape": "sphere"})");
+    run(d, "world_set", R"({"line": "world", "key": "gravity", "values": [0, -5, 0]})");
+    CHECK(d.history.steps() == 3, "the steps made while it runs are in the history (%zu)", d.history.steps());
+    d.endPlay(false);
+    CHECK(d.mode == PlayMode::Edit && d.graph.save() == before && d.history.steps() == 1 && !d.history.canRedo(),
+          "Stop brings the scene back and the steps made on the way go");
+
+    d.beginPlay();
+    run(d, "scene_add", R"({"shape": "sphere"})");
+    const std::string edited = d.graph.save();
+    d.endPlay(true);
+    CHECK(d.mode == PlayMode::Edit && d.graph.save() == edited && d.history.steps() == 2, "a kept edit stays, with its step");
+
+    d.beginPlay();
+    run(d, "scene_add", R"({"shape": "cone"})");
+    const SceneGraph kept = floorScene(9);
+    d.endPlay(false, &kept);
+    CHECK(d.history.steps() == 3 && d.undo() && d.graph.save() == kept.save(), "the step of what the world took with it comes after the cut");
+    CHECK(std::string(modeWord(PlayMode::Edit)) == "edit" && std::string(modeWord(PlayMode::Playing)) == "playing" &&
+              std::string(modeWord(PlayMode::Paused)) == "paused", "the three words of a mode");
 }

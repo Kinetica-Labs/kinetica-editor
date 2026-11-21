@@ -1,7 +1,8 @@
 #pragma once
 // The scene as a document: the graph, its undo history, the counter of object ids and the one transaction every edit
 // goes through (Document.cpp). What a window or a script adds around it - the typing merge of the hand's input, the
-// selection, files, the built world - is the host's. The answer of edit_undo / edit_redo is built here too.
+// selection, files, the built world - is the host's. The answer of edit_undo / edit_redo is built here too, and what a
+// host keeps around Play: the scene as it was before it and the one the world was built from (beginPlay / endPlay).
 #include "core/Value.h"
 #include "scene/SceneGraph.h"
 
@@ -11,6 +12,9 @@
 #include <vector>
 
 namespace ke {
+
+enum class PlayMode { Edit, Playing, Paused };
+const char* modeWord(PlayMode m); // "edit" | "playing" | "paused": the API's word
 
 // Whole-graph snapshots, newest last, at most 100: what Ctrl+Z walks back through.
 class History {
@@ -43,6 +47,9 @@ public:
 
     SceneGraph graph;
     History history;
+    PlayMode mode = PlayMode::Edit;
+    SceneGraph backup;  // the scene as it was before Play: what Stop brings back
+    SceneGraph running; // what the world was built from, with the edits it took on the way
 
     uint32_t newId() { return next_++; } // never reused within a session: not by a new scene, an open, an undo
     uint32_t nextIdToGive() const { return next_; }
@@ -55,9 +62,15 @@ public:
     bool undo() { return history.undo(graph); }
     bool redo() { return history.redo(graph); }
 
+    SceneGraph beginPlay(); // Paused; the graph to build the world from
+    // Edit again. Not keepEdits: the scene before Play comes back and the steps made while it ran go - the step
+    // `keptBefore` (the objects an edit that stopped the world took with it), when given, is taken after them.
+    void endPlay(bool keepEdits, const SceneGraph* keptBefore = nullptr);
+
 private:
     bool take(const Remember& remember);
     uint32_t next_ = 1;
+    size_t stepsAtPlay_ = 0;
 };
 
 } // namespace ke

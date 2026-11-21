@@ -57,6 +57,8 @@ def F(note, path, text):
 IO_TEXT = ("the window prints the operating system's message as the Qt catalogue of that machine translates it (masked: a Qt without "
            "the Russian catalogue says it in English, and the empty name is Qt's English text); the host will say it from its own Russian set")
 JSON_TEXT = "the window prints Qt's parser message; the host prints «не JSON: <что> (знак N)»"
+UNKNOWN_OP = "the window says «нет операции «X» (ops_list называет все)»; the host names itself and what only the window has"
+NO_SELECTION = "the host has no selection: the operation gets the ids it is given, and with none refuses in its own words (a replay passes the window's selection)"
 JOINT_SHAPE = "the window learns of a joint's refusal a frame later and answers until_stop; the host calls setJoints in place and answers play_stopped with reload joints"
 BOX = {"shape": "box", "role": "rigid"}
 
@@ -79,7 +81,7 @@ TRANSCRIPT = [
     R("ops_list of the sim family: the host lists only its own subset of these names; entries of shared names are equal", "ops_list",
       {"families": ["sim"]}, window_only=True),
     R("ops_list of a family that is not there", "ops_list", {"families": ["nosuchfamily"]}),
-    R("an operation the window does not have", "no_such_operation"),
+    R("an operation the window does not have", "no_such_operation", mask=["error"], by_design=UNKNOWN_OP),
     R("a field the operation does not take", "scene_list", {"zz": 1}),
     R("scene_open with no file: the required-field text", "scene_open"),
     R("scene_save with no file: the required-field text", "scene_save"),
@@ -158,19 +160,19 @@ TRANSCRIPT = [
     R("scene_get of the third camera: the same view, not the active camera", "scene_get", {"id": 21}, window_only=True, filled=["eye"]),
     R("selection_set of the post and the box", "selection_set", {"ids": [3, 2]}, window_only=True),
     R("scene_tag with no ids and a selection: the window fills ids from the selection", "scene_tag", {"tag": "probe"},
-      window_only=True, filled=["ids"], by_design="the host refuses: нужен список ids"),
+      window_only=True, filled=["ids"], by_design=NO_SELECTION),
     R("scene_list of the tag: which objects the selection carried", "scene_list", {"tag": "probe"}, window_only=True, filled=["ids"]),
     R("selection_set of nothing again", "selection_set", {"ids": []}, window_only=True),
     R("scene_tag with no ids and nothing selected: refused by the operation itself", "scene_tag", {"tag": "probe2"},
-      window_only=True, filled=["ids"], by_design="the host refuses: нужен список ids"),
+      window_only=True, filled=["ids"], by_design=NO_SELECTION),
     R("scene_list of the second tag: nobody", "scene_list", {"tag": "probe2"}, window_only=True, filled=["ids"]),
     R("scene_move with no ids and nothing selected", "scene_move", {"by": [0, 0, 0]}, window_only=True, filled=["ids"],
-      by_design="the host refuses: нужен список ids"),
+      by_design=NO_SELECTION),
     R("scene_delete with no ids and nothing selected", "scene_delete", window_only=True, filled=["ids"],
-      by_design="the host refuses: нужен список ids"),
+      by_design=NO_SELECTION),
     R("an empty list of ids given: refused with the same text as no ids", "scene_tag", {"ids": [], "tag": "probe3"}),
     R("scene_duplicate with an empty list of ids", "scene_duplicate", {"ids": []}),
-    R("scene_group with no ids and nothing selected", "scene_group", window_only=True, filled=["ids"], by_design="the host refuses: нужен список ids"),
+    R("scene_group with no ids and nothing selected", "scene_group", window_only=True, filled=["ids"], by_design=NO_SELECTION),
 
     # --- ids in odd forms (an operation that takes ids; the tag is harmless) -------------------------------------------------------
     R("ids as a number", "scene_tag", {"ids": 2, "tag": "t1"}),
@@ -606,10 +608,12 @@ def play(window, entries, number_from=1):
 ABOUT = {
     "about": "The answers of the editor window (build/kinetica --agent-eval, started with no --scene in a throwaway config) to the requests below, in "
              "order, over one connection; recorded by tools/record_window_transcript.py before any logic left the window. Replayed offline "
-             "by ke_tests against ke::Session and live against both hosts. Every line is {n, note, request{op,args}, answer}; the "
+             "by ke_tests against ke::Scene and live against both hosts. Every line is {n, note, request{op,args}, answer}; the "
              "request is sent as {\"id\": n, \"op\", \"args\"}. Fields: window_only - the windowless host has no such operation or no "
-             "selection/view/clock, skip it there (but its effects on later lines are the same: those lines are not window_only); filled - "
-             "keys the window fills in by itself from its selection or view, the host does not, so the answer differs by design; "
+             "selection/view/clock, do not compare its answer there; the host still runs the line, for what it does to the scene is "
+             "what later lines read; filled - keys the window fills in by itself from its selection or view (a replay supplies them: "
+             "ids from the selection_set lines, a light's at and a camera's eye from the scene_get that follows), the host does not, "
+             "so the answer differs by design; "
              "by_design - why the host's answer will differ in the text; settle - the request is repeated (up to 5 s) until "
              "the answer equals this one, because the window learns of a refusal a frame later and its first reading is a transient; "
              "first_reading - what the first reading said when that was not the settled answer (a race: never compared); sleep_s - wait this long before "

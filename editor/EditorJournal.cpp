@@ -8,6 +8,7 @@
 #include "EditorOps.h"
 
 #include "SceneBuilder.h"
+#include "api/Scene.h"
 #include "scene/SceneOps.h"
 
 #include <QCoreApplication>
@@ -46,11 +47,13 @@ bool EditorOps::windowOnly(const QString& name) {
 
 QString EditorOps::kind(const QString& name) const {
     if (pluginOps_.count(name)) return "action";
+    if (const ke::HostOp* host = ke::hostOp(name.toStdString())) return QString::fromStdString(host->kind);
+    if (const ke::WorldOp* world = ke::worldOp(name.toStdString())) return QString::fromStdString(world->kind);
     if (name == "view_draw" || name == "console_note" || (name.startsWith("ui_") && name != "ui_actions")) return "window"; // no journal line, yet not a look
     if (isQuery(name)) return "query";
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
-    if ((core && core->edit) || name == "scene_new" || name == "scene_open" || name == "edit_undo" || name == "edit_redo") return "edit";
-    if (name == "scene_save" || name.startsWith("journal_") || name.startsWith("runtime_")) return "action";
+    if (core && core->edit) return "edit";
+    if (name.startsWith("journal_") || name.startsWith("runtime_")) return "action";
     return windowOnly(name) || name.startsWith("sim_") ? "window" : "action";
 }
 

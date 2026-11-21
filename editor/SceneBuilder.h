@@ -98,7 +98,7 @@ class Vec3Row;
 class SceneBuilder : public QObject {
     Q_OBJECT
 public:
-    enum class Mode { Edit, Playing, Paused };
+    using Mode = ke::PlayMode;
     // What a Shift + gizmo drag makes (the "Клонировать" popover): independent copies, instances of
     // the originals (one geometry, one set of components), or one array per original.
     enum class CloneKind { Copy, Instance, Array };

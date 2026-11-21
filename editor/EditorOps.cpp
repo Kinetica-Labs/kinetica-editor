@@ -1,12 +1,13 @@
 // The operator registry (EditorOps.h): running a call with the guard that keeps the window from saying
 // an API edit twice, the journal and the console as listeners, one undo step around an edit, and the
-// operations only the window has - a new scene, files, undo and redo. The scene's own operations come
-// from the core (EditorOpsCore.cpp).
+// operations of the document - a new scene, files, undo and redo - whose help and arguments are api/Scene.h's, since
+// the windowless host says them alike. The scene's own operations come from the core (EditorOpsCore.cpp).
 #include "EditorOps.h"
 
 #include "EditorRuntime.h"
 
 #include "SceneBuilder.h"
+#include "api/Scene.h"
 #include "core/Format.h"
 #include "scene/ArgsSchema.h"
 #include "scene/Assembly.h"
@@ -31,14 +32,7 @@ EditorOps::EditorOps(SceneBuilder* builder, Viewport* view, SimController* ctrl,
     addInputOps();
     addJournalOps();
     addStateOps();
-    addSync("ops_list", "Every operation of the editor: name, help, arguments, their JSON Schema, and kind - query (reads), edit (the "
-                        "scene, one undo step), window (the selection, the view, play and pause: never the authored scene) or "
-                        "action (files, plugins, the program). families: only the operations whose names begin so - "
-                        "[\"scene\", \"sim\"] gives scene_* and sim_*", "{families?: [str]}", [this](const QJsonObject& a) {
-        QStringList families;
-        for (const QJsonValue& f : a.value("families").toArray()) families << f.toString();
-        return ok({{"ops", list(families)}});
-    });
+    addHostSync("ops_list", [this](const QJsonObject& a) { return ok({{"ops", list(coreValue(a.value("families")))}}); });
 }
 
 QJsonObject EditorOps::ok(QJsonObject fields) {
@@ -50,6 +44,15 @@ QJsonObject EditorOps::error(const QString& why) { return QJsonObject{{"ok", fal
 
 void EditorOps::add(const QString& name, const QString& help, const QString& args, Handler run) {
     ops_[name] = Op{help, args, std::move(run), ke::argsSchema(args.toStdString())}; // the line a person reads is the schema a model's client builds from
+}
+
+void EditorOps::addHost(const char* name, Handler run) {
+    const HostOp& op = *hostOp(name);
+    add(QString::fromStdString(op.name), QString::fromStdString(op.help), QString::fromStdString(op.args), std::move(run));
+}
+
+void EditorOps::addHostSync(const char* name, std::function<QJsonObject(const QJsonObject&)> run) {
+    addHost(name, [run](const QJsonObject& a, const Reply& reply) { reply(run(a)); });
 }
 
 void EditorOps::addSync(const QString& name, const QString& help, const QString& args, std::function<QJsonObject(const QJsonObject&)> run) {
@@ -90,7 +93,7 @@ void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& r
         if (guarded) builder_->apiCallFinished();
         if (playing && answer.value("ok").toBool()) { // decided after the edit: the one the world could not take stopped it, and is kept
             if (builder_->editing()) answer.insert("play_stopped", true), answer.insert("reload", ke::reloadWord(builder_->lastReload()));
-            else answer.insert("until_stop", "сцена играет: правка действует до ■ Стоп - sim_stop вернёт сцену, какой она была до ▶");
+            else answer.insert("until_stop", ke::untilStopNote());
         }
         const QJsonObject used = answer.contains("_args") ? answer.take("_args").toObject() : args; // what the window filled in
         if (!query && !pluginOps_.count(name)) journal(source, name, used, answer); // a plugin's command: its edits are the lines
@@ -112,14 +115,13 @@ QJsonObject EditorOps::runNow(const QString& name, const QJsonObject& args) {
     return answer;
 }
 
-QJsonArray EditorOps::list(const QStringList& families) const {
+QJsonArray EditorOps::list(const Value& families) const {
     QJsonArray out;
     for (const auto& [name, op] : ops_) {
         if (wiring(name)) continue; // a plugin process's own, not an operation anyone calls
-        if (!families.isEmpty() && !families.contains(name.section('_', 0, 0))) continue;
-        QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}, {"kind", kind(name)}};
-        entry.insert("schema", coreJson(op.schema)); // JSON Schema: a plugin's fields, or the core's line of arguments read (scene/ArgsSchema.h)
-        out.append(entry);
+        const std::string word = name.toStdString();
+        if (!ke::inFamilies(word, families)) continue;
+        out.append(coreJson(ke::opsListEntry(word, op.help.toStdString(), op.args.toStdString(), kind(name).toStdString(), op.schema))); // JSON Schema: a plugin's fields, or the core's line of arguments read (scene/ArgsSchema.h)
     }
     return out;
 }
@@ -137,15 +139,15 @@ QJsonObject EditorOps::transact(const std::function<QJsonObject(SceneGraph&)>& c
 }
 
 void EditorOps::addSceneOps() {
-    addSync("scene_open", "A scene file opened (one undo step back to the scene before)", "{file: str}", [this](const QJsonObject& a) {
+    addHostSync("scene_open", [this](const QJsonObject& a) {
         QString err;
         return builder_->openFile(a.value("file").toString(), err) ? ok() : error(err);
     });
-    addSync("scene_save", "The scene saved to a file", "{file: str}", [this](const QJsonObject& a) {
+    addHostSync("scene_save", [this](const QJsonObject& a) {
         QString err;
         return builder_->saveFile(a.value("file").toString(), err) ? ok({{"file", QFileInfo(a.value("file").toString()).absoluteFilePath()}}) : error(err);
     });
-    addSync("scene_new", "A new scene: the floor and nothing else", "{}", [this](const QJsonObject&) {
+    addHostSync("scene_new", [this](const QJsonObject&) {
         builder_->newScene();
         return ok();
     });
@@ -155,7 +157,6 @@ void EditorOps::addSceneOps() {
         const bool done = undo ? builder_->undoStep() : builder_->redoStep();
         return coreAnswerJson(ke::historyAnswer(before, builder_->graph(), undo, done, builder_->undoSteps()));
     };
-    addSync("edit_undo", "Undo the last step. Answers what it changed: the objects' ids, whether the world did; undone false: nothing "
-            "left to undo", "{}", [stepped](const QJsonObject&) { return stepped(true); });
-    addSync("edit_redo", "Redo the step undone last. Answers what it changed, as edit_undo", "{}", [stepped](const QJsonObject&) { return stepped(false); });
+    addHostSync("edit_undo", [stepped](const QJsonObject&) { return stepped(true); });
+    addHostSync("edit_redo", [stepped](const QJsonObject&) { return stepped(false); });
 }

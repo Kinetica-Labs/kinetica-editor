@@ -15,16 +15,17 @@
 
 namespace ke {
 
-// One operation of the world: its help and arguments line as ops_list shows them, and its run. `world` null: the scene is
+// One operation of the world: its help and arguments line and its kind as ops_list shows them, and its run. `world` null: the scene is
 // not built - each operation says so in its own words. `firstController` is the scene's first controller (0: none), what
 // controller_input takes when no id is given; the caller reads it from its graph so that run never does. False: `error`.
 struct WorldOp {
     using Run = std::function<bool(Simulation* world, uint32_t firstController, const Value& args, Value& answer, std::string& error)>;
-    std::string name, help, args;
+    std::string name, help, args, kind; // kind: "query" (reads) or "window" (the running world's own state: never the authored scene)
     Run run;
 };
 
 const std::vector<WorldOp>& worldOps();
+const WorldOp* worldOp(const std::string& name); // null: not one of them
 
 // A world built from the graph, the channels of the scene before gone with it. Stop loads an empty graph without this.
 void startWorld(Simulation& s, const SceneGraph& g);

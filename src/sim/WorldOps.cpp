@@ -278,24 +278,24 @@ std::vector<WorldOp> makeOps() {
          "The values of a controller's actions while the scene runs, held until set again: a vector2 [x, y] (move: x "
          "along the floor's x, y away), an axis or a button a number, -1..1 (lift, turn, grip 0..1); the scene's first "
          "controller when no id - the UR5e's panel moves its IK goal and the arm follows",
-         "{id?: int, values: {action: number | [x, y]}}", controllerInput},
+         "{id?: int, values: {action: number | [x, y]}}", "window", controllerInput},
         {"sensor_read",
          "What the scene's sensors read now, as the robot reads them (their datasheets' devices): no truth - the "
          "input of a controller. The scene must be running or paused",
-         "{ids?: [int]}", sensorRead},
+         "{ids?: [int]}", "query", sensorRead},
         {"robot_command",
          "Commands to the running world, not edits of the scene: a joint's target (its servo, rad or m) or velocity (its "
          "velocity motor), a driver's duty (-1..1), held until commanded again; a body's force and torque ([x, y, z] N, "
          "N m, world, at its centre of mass) over the next frame. Stop forgets them (the scene as authored is untouched, "
          "no undo step, no journal line). E.g. {commands: {\"7\": {\"target\": 0.8}, \"23\": {\"force\": [0, 2, 0]}}}",
-         "{commands: {}}", robotCommand},
+         "{commands: {}}", "window", robotCommand},
         {"sim_impulse",
          "Apply one physical world-space impulse in N s to an already built dynamic rigid body addressed by scene entity id. "
          "Optional point is in world metres; omitted point applies at the centre of mass. Wakes a sleeping body; adds momentum "
          "without teleporting, resetting velocity or editing the graph. Available while playing or paused after sim_step(0). "
          "Missing or fixed bodies and malformed or nonfinite commands are refused. Returns only acceptance, not the body's pose "
          "or velocity: this is external actuation, not a sensor observation.",
-         "{body: positive scene entity id, impulse: [x,y,z] N s, point?: [x,y,z] world metres}", impulse},
+         "{body: positive scene entity id, impulse: [x,y,z] N s, point?: [x,y,z] world metres}", "window", impulse},
         {"sim_measure",
          "The plots' channels measured now (the physics engine's truth, for checks): scene - energy of motion, rotation and "
          "height, momentum, angular momentum, the deepest contact; objects - each body by entity id: mass, centre, height, "
@@ -303,7 +303,7 @@ std::vector<WorldOp> makeOps() {
          "pose the joint was made in), a "
          "servo's target, the drive's effort; goals - an IK goal's miss (mm) and turn miss (°). Each channel: id "
          "(\"<id>/<quantity>\"), value, unit, name",
-         "{scene?: bool, objects?: [int], group?: [int], joints?: [int], goals?: [int]}", measure},
+         "{scene?: bool, objects?: [int], group?: [int], joints?: [int], goals?: [int]}", "query", measure},
     };
 }
 
@@ -312,6 +312,12 @@ std::vector<WorldOp> makeOps() {
 const std::vector<WorldOp>& worldOps() {
     static const std::vector<WorldOp> ops = makeOps();
     return ops;
+}
+
+const WorldOp* worldOp(const std::string& name) {
+    for (const WorldOp& op : worldOps())
+        if (op.name == name) return &op;
+    return nullptr;
 }
 
 void startWorld(Simulation& s, const SceneGraph& g) {

@@ -1,5 +1,5 @@
-// The scene as a document (Document.h): the history, the ids, the transaction, the new scene, the floor, and the answer
-// of an undo.
+// The scene as a document (Document.h): the history, the ids, the transaction, the new scene, the floor, the answer
+// of an undo, and the bookkeeping of Play.
 #include "scene/Document.h"
 
 #include "scene/Assembly.h"
@@ -9,6 +9,8 @@
 #include <set>
 
 namespace ke {
+
+const char* modeWord(PlayMode m) { return m == PlayMode::Edit ? "edit" : m == PlayMode::Playing ? "playing" : "paused"; }
 
 void History::push(const SceneGraph& before) {
     past_.push_back(before);
@@ -101,12 +103,19 @@ bool Document::take(const Remember& remember) {
 bool Document::transact(const std::function<bool(SceneGraph&, std::string&)>& change, std::string& error, const Remember& remember) {
     SceneGraph before = graph;
     const bool taken = take(remember);
-    graph.idFloor = next_; // the core's new ids never take one this session gave out before
-    if (!change(graph, error)) {
+    const auto restore = [&] {
         graph = std::move(before);
         if (taken) history.pop();
-        return false;
+    };
+    graph.idFloor = next_; // the core's new ids never take one this session gave out before
+    bool done = false;
+    try {
+        done = change(graph, error);
+    } catch (...) {
+        restore();
+        throw;
     }
+    if (!done) return restore(), false;
     adoptIds();
     return true;
 }
@@ -120,6 +129,22 @@ void Document::load(SceneGraph g, const Remember& remember) {
     take(remember);
     graph = std::move(g);
     adoptIds();
+}
+
+SceneGraph Document::beginPlay() {
+    backup = running = graph;
+    stepsAtPlay_ = history.steps();
+    mode = PlayMode::Paused;
+    return graph;
+}
+
+void Document::endPlay(bool keepEdits, const SceneGraph* keptBefore) {
+    if (!keepEdits) {
+        graph = backup;
+        history.cut(stepsAtPlay_);
+        if (keptBefore) history.push(*keptBefore);
+    }
+    mode = PlayMode::Edit;
 }
 
 } // namespace ke

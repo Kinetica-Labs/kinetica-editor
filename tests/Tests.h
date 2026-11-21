@@ -23,8 +23,16 @@ void testDocumentIds();
 void testDocumentLoadAndNewScene();
 void testFloorSceneIsTheWindowsFloor();
 void testHistoryAnswers();
+void testDocumentPlayBookkeeping();
 // LiveEditTests.cpp
 void testLiveEditClassifier();
+// SceneApiTests.cpp
+void testSceneApiTranscript();
+void testSceneApiOperationsList();
+void testSceneApiBuiltWorld();
+void testSceneApiRefusals();
+void testSceneApiFiles();
+void testSceneApiTwoScenesAgree();
 // CoreTests.cpp
 void testProbe();
 void testUnitsAndFields();
