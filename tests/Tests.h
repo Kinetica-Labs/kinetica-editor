@@ -100,6 +100,7 @@ void testSceneFormatOnlyGrows();
 void testSceneOpacity();
 void testScenePhysicsLine();
 void testSceneGraphLocale();
+void testSceneForceFile();
 // AblationTests.cpp
 void testSceneRefusesOtherPhysics();
 // ArrayTests.cpp
@@ -113,6 +114,7 @@ void testSceneOpsRegistry();
 void testSceneArrayOp();
 void testComponentsOnAnyObject();
 void testSceneTags();
+void testSceneForces();
 void testSceneFieldsReadInTheCore();
 void testTargetCamera();
 void testSequence();

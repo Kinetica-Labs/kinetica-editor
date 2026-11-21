@@ -17,6 +17,8 @@ namespace {
 
 const char* kShapes[] = {"box", "sphere", "cylinder", "cone", "plane"};
 const char* kLights[] = {"sun", "point", "spot"};
+const char* kForceShapes[] = {"directional", "radial"};
+const char* kForceModes[] = {"impulse", "constant"};
 
 template <size_t N>
 int wordIndex(const std::string& w, const char* (&words)[N]) {
@@ -90,6 +92,22 @@ bool addLightOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     if (!optionalVector(a, "position", position, placed, e) || !optionalVector(a, "target", target, aimed, e)) return false;
     if (!aimed) target = at;
     return merge(r, answerOf({placed ? placeLight(g, LightKind(kind), position, target) : addLight(g, LightKind(kind), at)})), true;
+}
+
+bool addForceOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    const int shape = wordIndex(a["shape"].text(""), kForceShapes), mode = wordIndex(a["mode"].text(""), kForceModes);
+    if (shape < 0 || mode < 0) return e = "shape is directional or radial, mode is impulse or constant", false;
+    const AABB box = sceneBounds(g);
+    Vector3 at = box.valid() ? box.center() : Vector3(0.0_r), given;
+    bool there = false;
+    if (!optionalVector(a, "at", given, there, e)) return false;
+    if (there) at = given;
+    const uint32_t id = addForce(g, ForceShape(shape), ForceMode(mode), at);
+    Force& made = g.forces.back();
+    if (a.has("strength")) made.strength = Real(a["strength"].number(0));
+    if (a.has("radius")) made.radius = Real(a["radius"].number(0));
+    if (const char* fault = forceFault(made)) return g.forces.pop_back(), e = fault, false;
+    return merge(r, answerOf({id})), true;
 }
 
 bool addCameraOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
@@ -415,6 +433,9 @@ std::vector<SceneOp> actionSceneOps() {
         {"scene_add_light", "A light as the menu adds it: the sun high at a slant, a lamp or a spot over `at` (else the scene's centre); "
                             "with `position` it stands there shining at `target` (else at `at`)",
          "{kind: sun|point|spot, at?: [x,y,z], position?: [x,y,z], target?: [x,y,z]}", {}, addLightOp},
+        {"scene_add_force", "A force as the menu adds it: a push along its own +Y axis or a radial burst or pull, once (impulse) or all the time "
+                            "(constant); strength: N s for an impulse, N for a constant; a new one stands at 'at' or in the scene centre",
+         "{shape: 'directional'|'radial', mode: 'impulse'|'constant', at?: [x,y,z], strength?: number, radius?: m}", {}, addForceOp},
         {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre); kind target: a target camera that always "
                              "looks there - at object `at` (wherever it goes) or the point", "{eye?: [x,y,z], target?: [x,y,z], kind?: 'free'|'target', at?: int}",
          {}, addCameraOp},

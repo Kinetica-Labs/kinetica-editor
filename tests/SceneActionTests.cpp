@@ -4,9 +4,13 @@
 // their sensors, and the gizmo's move, turn and scale.
 #include "TestRunner.h"
 
+#include "core/Json.h"
 #include "scene/Animation.h"
+#include "scene/ArgsSchema.h"
 #include "scene/Assembly.h"
+#include "scene/Document.h"
 #include "scene/SceneActions.h"
+#include "scene/SceneEdits.h"
 #include "scene/SceneOps.h"
 
 #include <algorithm>
@@ -584,4 +588,106 @@ void testPluginComponents() {
                 error.c_str());
     CHECK(added && changed && line && loaded, "a plugin's component: added, a value changed in place, the scene file to the bit");
     CHECK(typed && removed, "component_list gives its values typed; component_remove takes it off");
+}
+
+// A force is an object like a light: scene_add_force makes the four kinds the menu has with their defaults and refuses what
+// forceFault refuses; scene_set, scene_tag, scene_list, scene_get, the copy and the delete, the block's put and remove and
+// the undo reach it with no code of their own.
+void testSceneForces() {
+    Document d;
+    d.newScene();
+    std::string error;
+    Value answer;
+    const auto go = [&](const char* op, const std::string& args) {
+        answer = Value::map();
+        const SceneOp* o = findSceneOp(op);
+        const Value a = parseJson(args);
+        if (!argsProblem(a, argsSchema(o->args)).empty()) return error = argsProblem(a, argsSchema(o->args)), false;
+        return d.transact([&](SceneGraph& g, std::string& why) { return o->query ? o->query(g, a, answer, why) : o->edit(g, a, answer, why); }, error);
+    };
+    const auto add = [&](const char* shape, const char* mode, const char* more = "") {
+        const bool ok = go("scene_add_force", std::string(R"({"shape": ")") + shape + R"(", "mode": ")" + mode + "\"" + more + "}");
+        return ok ? answer["id"].integer() : 0;
+    };
+    const SceneGraph& g = d.graph;
+    struct Kind { const char *shape, *mode; ForceShape s; ForceMode m; Real strength, radius; ForceFalloff falloff; const char* name; } kinds[] = {
+        {"directional", "impulse", ForceShape::Directional, ForceMode::Impulse, 5, 0, ForceFalloff::None, "Толчок 1"},
+        {"radial", "impulse", ForceShape::Radial, ForceMode::Impulse, 10, 3, ForceFalloff::Linear, "Взрыв 1"},
+        {"directional", "constant", ForceShape::Directional, ForceMode::Constant, 10, 0, ForceFalloff::None, "Тяга 1"},
+        {"radial", "constant", ForceShape::Radial, ForceMode::Constant, -10, 5, ForceFalloff::Linear, "Притяжение 1"}};
+    for (const Kind& k : kinds) {
+        add(k.shape, k.mode);
+        const Force& f = g.forces.back();
+        CHECK(f.shape == k.s && f.mode == k.m && f.strength == k.strength && f.radius == k.radius && f.falloff == k.falloff && f.start == 0 &&
+                  f.tag.empty() && f.name == k.name && f.color.y == 0.85_r,
+              "scene_add_force %s %s: the table's defaults and its name (%s)", k.shape, k.mode, f.name.c_str());
+    }
+    add("directional", "impulse");
+    CHECK(g.forces.back().name == "Толчок 2", "the second push is numbered 2");
+    const int own = add("radial", "impulse", R"(, "strength": 7, "radius": 2, "at": [1, 2, 3])");
+    CHECK(g.forces.back().strength == 7 && g.forces.back().radius == 2 && g.forces.back().position.z == 3 && g.forces.back().id == uint32_t(own),
+          "a given strength, radius and place win over the defaults");
+    const size_t count = g.forces.size();
+    const std::string before = g.save();
+    CHECK(!go("scene_add_force", R"({"shape": "radial", "mode": "impulse", "radius": 0})") && error.find("radius") != std::string::npos,
+          "a radial force with radius 0 is refused: %s", error.c_str());
+    CHECK(!go("scene_add_force", R"({"shape": "sphere", "mode": "impulse"})") && !go("scene_add_force", R"({"shape": "radial", "mode": "impulse", "wind": 1})") &&
+          !go("scene_add_force", R"({"shape": "radial", "mode": "impulse", "strength": 1e30})") &&
+          !go("scene_add_force", R"({"shape": "radial", "mode": "impulse", "radius": 1e9})") && g.forces.size() == count && g.save() == before,
+          "an unknown word, an extra field, a strength and a radius out of bounds are refused and add nothing");
+
+    const int id = g.forces[1].id;
+    const std::string line = R"({"id": )" + std::to_string(id) + R"(, "line": "effect", "key": ")";
+    CHECK(go("scene_tag", R"({"ids": [)" + std::to_string(id) + R"(], "tag": "blast"})") && go("scene_list", R"({"kind": "force"})") &&
+              answer["objects"].size() == count && go("scene_list", R"({"tag": "blast"})") && answer["objects"].size() == 1,
+          "scene_tag marks a force; scene_list finds the forces by kind and by tag: %s", error.c_str());
+    CHECK(go("scene_get", R"({"id": )" + std::to_string(id) + "}") && answer["kind"].text() == "force", "scene_get says the kind force");
+    CHECK(go("scene_set", line + R"(strength", "values": [-2]})") && go("scene_get", line + R"(strength"})") && answer["values"].items().at(0).number() == -2,
+          "scene_set of the effect line: strength -2 is read back");
+    CHECK(go("scene_set", line + R"(falloff", "values": ["inverse_square"]})") && g.forces[1].falloff == ForceFalloff::InverseSquare, "falloff set by its word");
+    const std::string kept = g.save();
+    CHECK(!go("scene_set", line + R"(strength", "values": [1e30]})") && !go("scene_set", line + R"(falloff", "values": ["steep"]})") && g.save() == kept,
+          "a strength out of bounds and an unknown falloff are refused, the graph stays");
+    const std::string dir = R"({"id": )" + std::to_string(g.forces[0].id) + R"(, "line": "effect", "key": ")";
+    CHECK(!go("scene_set", dir + R"(shape", "values": ["radial"]})") && g.forces[0].shape == ForceShape::Directional,
+          "a directional force with radius 0 made radial by the shape alone is refused");
+    CHECK(go("scene_set", dir + R"(radius", "values": [3]})") && go("scene_set", dir + R"(shape", "values": ["radial"]})") &&
+              g.forces[0].shape == ForceShape::Radial && g.forces[0].radius == 3, "the radius first, then the shape: accepted");
+
+    const size_t objects = g.forces.size();
+    CHECK(go("scene_duplicate", R"({"ids": [)" + std::to_string(id) + "]}") && g.forces.size() == objects + 1 && g.forces.back().tag.empty() == g.forces[1].tag.empty() &&
+              g.forces.back().strength == g.forces[1].strength, "scene_duplicate copies a force");
+    go("scene_add", R"({"shape": "box", "role": "rigid"})");
+    const int body = answer["id"].integer();
+    const int child = add("directional", "constant");
+    go("scene_set", R"({"id": )" + std::to_string(child) + R"(, "line": "object", "key": "parent", "values": [)" + std::to_string(body) + "]}");
+    CHECK(go("scene_get", R"({"id": )" + std::to_string(child) + "}") && answer["kind"].text() == "force" && g.forces.back().parent == uint32_t(body),
+          "a force parented under a body is found");
+    SceneGraph gone = g;
+    deleteObjects(gone, {uint32_t(body)});
+    CHECK(!findObject(gone, body) && !findObject(gone, child) && findObject(gone, id), "deleted with its parent, a force goes, the others stay");
+    SceneGraph copy = g;
+    const uint32_t group = groupObjects(copy, {uint32_t(body)});
+    copy.forces.back().parent = group;
+    const std::vector<uint32_t> copies = duplicateObjects(copy, {group});
+    CHECK(!copies.empty() && copy.forces.size() == g.forces.size() + 1, "a group with a force under it copies with the force");
+    const Vector3 stood = worldAt(g, child);
+    CHECK(go("scene_remove", R"({"id": )" + std::to_string(body) + "}") && findObject(g, child) && gap(worldAt(g, child), stood) < 1e-4_r,
+          "the body removed, the force under it stays where it stood in the world");
+    const int hidden = add("directional", "impulse");
+    go("scene_set", R"({"id": )" + std::to_string(hidden) + R"(, "line": "object", "key": "visible", "values": [0]})");
+    CHECK(go("scene_show_all", "{}") && static_cast<const Force*>(findObject(g, hidden))->visible, "scene_show_all shows a hidden force");
+
+    const std::string block = getObject(g, id);
+    SceneGraph other = g;
+    CHECK(block.find("effect ") != std::string::npos && removeObject(other, id) && !findObject(other, id) && putObject(other, block, error) == uint32_t(id) &&
+              getObject(other, id) == block, "get, remove and put of a force's block restore the scene: %s", error.c_str());
+    const SceneGraph standing = g;
+    add("radial", "constant");
+    CHECK(d.undo() && d.graph.save() == standing.save(), "undo of an added force restores the graph");
+    Force far;
+    far.id = 900;
+    SceneGraph later = g;
+    later.forces.push_back(far);
+    CHECK(nextId(later) == 901, "nextId counts the forces");
 }

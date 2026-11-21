@@ -92,6 +92,7 @@ int main() {
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);
     run("scene graph: the file does not depend on the locale (decimal comma)", testSceneGraphLocale);
+    run("scene graph: a force the core cannot act on does not load", testSceneForceFile);
     run("scene graph: groups, instances and arrays round trip; a child of a turned group", testHierarchyInstancesRoundTrip);
     run("array: line, grid and circle copies where the pattern puts them, seeded jitter", testExpandArrayPatterns);
     run("actions: a group keeps its members' world poses, ungroup gives them back", testActionsGroupKeepsPoses);
@@ -101,6 +102,7 @@ int main() {
     run("actions: scene_array - a row of copies by its count and step", testSceneArrayOp);
     run("actions: a plugin's component on an object of any kind - a shape, a joint, a light", testComponentsOnAnyObject);
     run("actions: tags on objects of any kind - put, found by, kept in the file", testSceneTags);
+    run("scene actions: a force is an object like a light, added, edited, copied and removed", testSceneForces);
     run("actions: a block's fields are read in the core - scene_get, world_get, world_set by line and key", testSceneFieldsReadInTheCore);
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("scene: the Sequencer - a sequence's poses between keys, held, looped; keys, the file, the playhead, a lost track", testSequence);

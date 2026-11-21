@@ -1,6 +1,6 @@
 #pragma once
 // The scene as data: a robot and its world - bodies, joints, motors, batteries, sensors, wheels,
-// controllers, IK goals, lights and cameras. An editor builds it with buttons and operations,
+// controllers, IK goals, lights, cameras and forces. An editor builds it with buttons and operations,
 // saves it as a small text file anyone can read (*.kscene, SceneGraph.cpp), and the running world
 // (src/sim) turns it into bodies and joints of the physics engine.
 //
@@ -120,6 +120,28 @@ struct Light : SceneObject {
     Real softnessDeg = 10.0_r;  // Spot: the soft edge of the cone
     bool shadows = false;       // the viewer may cast shadows from it (Sun first)
 };
+
+// A force of the scene: a push along its own +y axis (directional) or a burst or pull from its origin (radial), once
+// (impulse, N s) or all the time (constant, N). It acts on the centre of mass of rigid bodies while the world runs
+// (src/sim/RobotWorld.cpp), never as a torque. A negative strength pushes along -y, or inward.
+enum class ForceShape { Directional, Radial };
+enum class ForceMode { Impulse, Constant };
+enum class ForceFalloff { None, Linear, InverseSquare };
+// Single source of the bounds; the reader, scene_add_force and the editor's card use these numbers.
+constexpr Real kForceMaxStrength = 100000_r;  // |strength|, N s or N
+constexpr Real kForceMaxRadius = 1000_r;      // m
+constexpr Real kForceMaxStart = 3600_r;       // s
+struct Force : SceneObject {
+    ForceShape shape = ForceShape::Directional;
+    ForceMode mode = ForceMode::Impulse;
+    Real strength = 1_r;          // N s (impulse) or N (constant); negative: along -axis / inward
+    Real radius = 0_r;            // m; radial: > 0 required; directional: 0 = no limit
+    ForceFalloff falloff = ForceFalloff::None;
+    Real start = 0_r;             // s of world time from play; impulse only, >= 0
+    std::string tag;              // tag word; "" = every dynamic body
+};
+// The one validation of a force: null when it is valid, else an English refusal text.
+const char* forceFault(const Force& f);
 
 // A camera of the scene: a viewpoint the viewer can look through, take screenshots and recordings
 // from. Looks along the object's -z axis turned by its rotation.
@@ -426,6 +448,7 @@ struct SceneGraph {
     std::vector<BatteryObject> batteries;
     std::vector<DriverObject> drivers;
     std::vector<SensorObject> sensors;
+    std::vector<Force> forces;
     std::vector<WheelObject> wheels;
     std::vector<ControllerObject> controllers;
     std::vector<SequenceObject> sequences;
@@ -448,7 +471,7 @@ std::string worldText(const WorldSettings& w);
 // the objects - their tags, their components, scene_list - has it.
 template <class Graph, class F>
 void eachObjectList(Graph& g, F&& f) {
-    f(g.entities), f(g.groups), f(g.arrays), f(g.lights), f(g.cameras), f(g.joints), f(g.batteries), f(g.drivers), f(g.sensors), f(g.wheels),
+    f(g.entities), f(g.groups), f(g.arrays), f(g.lights), f(g.cameras), f(g.joints), f(g.batteries), f(g.drivers), f(g.sensors), f(g.forces), f(g.wheels),
         f(g.controllers), f(g.sequences);
 }
 
@@ -456,7 +479,7 @@ void eachObjectList(Graph& g, F&& f) {
 // Many objects at once (SceneHierarchy.cpp): hierarchy, instances, arrays. None of these call the
 // physics engine; the running world and an editor use them alike.
 // ---------------------------------------------------------------------------
-// The object with this id - an entity, a group, an array, a light, a camera or a sensor (null: none).
+// The object with this id - an entity, a group, an array, a light, a camera, a force or a sensor (null: none).
 const SceneObject* findObject(const SceneGraph& g, uint32_t id);
 // The tags of an object of any kind - a shape, a joint, a battery, a sequence (nullptr: no such object). A tag is one
 // word (tagWord): letters, digits and - _ . : of any alphabet, no spaces or quotes, 48 bytes at most.
@@ -505,6 +528,8 @@ uint32_t nextId(const SceneGraph& g);
 // Lights and cameras in the world (their parents included). A light shines along its -y axis and a
 // camera looks along its -z axis, both turned by the object's world rotation; up is the camera's +y.
 Vector3 lightDirection(const SceneGraph& g, const Light& l);
+// The direction of a directional force: the +y axis turned by the object's world rotation.
+Vector3 forceAxis(const Quaternion& q);
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up);
 // A handle: an IK goal or a camera's own target - intent, not matter: no body, no roles, drawn see-through, moved by
 // the gizmo while the world runs, never seen by a robot's sensors.

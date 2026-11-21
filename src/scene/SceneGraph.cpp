@@ -286,6 +286,31 @@ static void saveLight(std::ostringstream& o, const Light& l) {
     o << "end\n";
 }
 
+static const char* kForceShapeNames[] = {"directional", "radial"};
+static const char* kForceModeNames[] = {"impulse", "constant"};
+static const char* kForceFalloffNames[] = {"none", "linear", "inverse_square"};
+
+const char* forceFault(const Force& f) {
+    if (!std::isfinite(f.strength) || std::fabs(f.strength) > kForceMaxStrength) return "a force's strength is a finite number, at most 100000 in size";
+    if (!std::isfinite(f.radius) || f.radius < 0 || f.radius > kForceMaxRadius) return "a force's radius is from 0 to 1000 m";
+    if (!std::isfinite(f.start) || f.start < 0 || f.start > kForceMaxStart) return "a force's start is from 0 to 3600 s";
+    if (!f.tag.empty() && !tagWord(f.tag)) return "a force's tag is one word, without spaces or quotes";
+    if (f.shape == ForceShape::Radial && f.radius <= 0) return "a radial force needs a radius above 0";
+    return nullptr;
+}
+
+// The effect line: the radius comes before the shape, so that a one-key-at-a-time edit of a directional force into a
+// radial one can set the radius first. falloff, start and tag are written only when set.
+static void saveForce(std::ostringstream& o, const Force& f) {
+    saveObjectHead(o, "force", f);
+    o << "  effect radius " << num(f.radius) << " shape " << kForceShapeNames[int(f.shape)] << " mode " << kForceModeNames[int(f.mode)]
+      << " strength " << num(f.strength);
+    if (f.falloff != ForceFalloff::None) o << " falloff " << kForceFalloffNames[int(f.falloff)];
+    if (f.start != 0) o << " start " << num(f.start);
+    if (!f.tag.empty()) o << " tag " << named(f.tag);
+    o << "\nend\n";
+}
+
 static void saveCamera(std::ostringstream& o, const Camera& c) {
     saveObjectHead(o, "camera", c);
     o << "  lens fov " << num(c.fovDeg) << " near " << num(c.nearClip) << " far " << num(c.farClip) << " active "
@@ -505,6 +530,7 @@ std::string SceneGraph::save() const {
     for (const BatteryObject& b : batteries) saveBattery(o, b);
     for (const DriverObject& d : drivers) saveDriver(o, d);
     for (const SensorObject& x : sensors) saveSensor(o, x);
+    for (const Force& f : forces) saveForce(o, f);
     for (const WheelObject& w : wheels) saveWheel(o, w);
     for (const ControllerObject& c : controllers) saveController(o, c);
     for (const SequenceObject& q : sequences) saveSequence(o, q);
@@ -733,6 +759,32 @@ static bool readLightLine(const std::vector<std::string>& w, Light& l, std::stri
         if (!ok) return fail(bad, k);
     }
     return true;
+}
+
+template <size_t N>
+static bool oneOf(const std::string& word, const char* const (&names)[N], int& out) {
+    for (size_t i = 0; i < N; ++i)
+        if (word == names[i]) return out = int(i), true;
+    return false;
+}
+
+static bool readForceLine(const std::vector<std::string>& w, Force& f, std::string& bad) {
+    if (w[0] == "object" || w[0] == "pose") return readObjectLine(w, f, bad);
+    if (w[0] != "effect") return fail(bad, w[0]);
+    LineReader r(w, 1);
+    while (!r.done()) {
+        const std::string k = r.key();
+        std::string word;
+        int v = 0;
+        const bool ok = k == "radius" ? r.number(f.radius) : k == "strength" ? r.number(f.strength) : k == "start" ? r.number(f.start)
+                      : k == "tag" ? r.text(f.tag)
+                      : k == "shape" ? r.text(word) && oneOf(word, kForceShapeNames, v) && (f.shape = ForceShape(v), true)
+                      : k == "mode" ? r.text(word) && oneOf(word, kForceModeNames, v) && (f.mode = ForceMode(v), true)
+                      : k == "falloff" ? r.text(word) && oneOf(word, kForceFalloffNames, v) && (f.falloff = ForceFalloff(v), true) : false;
+        if (!ok) return fail(bad, k);
+    }
+    const char* fault = forceFault(f);
+    return !fault || fail(bad, fault);
 }
 
 static bool readCameraLine(const std::vector<std::string>& w, Camera& c, std::string& bad) {
@@ -981,7 +1033,7 @@ static bool readSequenceLine(const std::vector<std::string>& w, SequenceObject& 
 }
 
 namespace {
-enum class Block { None, Entity, Group, Array, Light, Camera, Joint, Battery, Driver, Sensor, Wheel, Controller, Sequence };
+enum class Block { None, Entity, Group, Array, Light, Force, Camera, Joint, Battery, Driver, Sensor, Wheel, Controller, Sequence };
 }
 
 // One line of a scene file in the block it belongs to (or starting / ending one).
@@ -1000,6 +1052,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         else if (w[0] == "group") g.groups.emplace_back(), g.groups.back().name = name, block = Block::Group;
         else if (w[0] == "array") g.arrays.emplace_back(), g.arrays.back().name = name, block = Block::Array;
         else if (w[0] == "light") g.lights.emplace_back(), g.lights.back().name = name, block = Block::Light;
+        else if (w[0] == "force") g.forces.emplace_back(), g.forces.back().name = name, block = Block::Force;
         else if (w[0] == "camera") g.cameras.emplace_back(), g.cameras.back().name = name, block = Block::Camera;
         else if (w[0] == "joint") g.joints.emplace_back(), g.joints.back().name = name, block = Block::Joint;
         else if (w[0] == "battery") g.batteries.emplace_back(), g.batteries.back().name = name, block = Block::Battery;
@@ -1020,6 +1073,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         case Block::Group: last(g.groups); break;
         case Block::Array: last(g.arrays); break;
         case Block::Light: last(g.lights); break;
+        case Block::Force: last(g.forces); break;
         case Block::Camera: last(g.cameras); break;
         case Block::Joint: last(g.joints); break;
         case Block::Battery: last(g.batteries); break;
@@ -1054,6 +1108,7 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
     if (block == Block::Entity) return readEntityLine(w, g.entities.back(), bad);
     if (block == Block::Group) return readGroupLine(w, g.groups.back(), bad);
     if (block == Block::Light) return readLightLine(w, g.lights.back(), bad);
+    if (block == Block::Force) return readForceLine(w, g.forces.back(), bad);
     if (block == Block::Camera) return readCameraLine(w, g.cameras.back(), bad);
     if (block == Block::Joint) return readJointLine(w, g.joints.back(), bad);
     if (block == Block::Battery) return readBatteryLine(w, g.batteries.back(), bad);

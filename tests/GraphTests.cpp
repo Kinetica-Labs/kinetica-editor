@@ -17,7 +17,7 @@ using namespace ke;
 namespace {
 
 // A base, an arm link on a driven hinge, an encoder and an IMU on it, a battery and a driver for a
-// wheel motor, a point wheel, a controller and an IK goal on a path, a light and a camera.
+// wheel motor, a point wheel, a controller and an IK goal on a path, a light, a camera and a force.
 SceneGraph robotGraph() {
     SceneGraph g;
     g.world.gravity = {0, -9.81_r, 0};
@@ -82,8 +82,12 @@ SceneGraph robotGraph() {
     sun.id = 11, sun.name = "Солнце", sun.kind = LightKind::Sun, sun.shadows = true;
     Camera eye;
     eye.id = 12, eye.name = "Камера", eye.position = {1, 1, 1}, eye.active = true;
+    Force blast;
+    blast.id = 13, blast.name = "Взрыв", blast.shape = ForceShape::Radial, blast.strength = 10, blast.radius = 3,
+    blast.falloff = ForceFalloff::Linear, blast.start = 2.5_r, blast.tag = "crate", blast.tags = {"blast"};
     g.lights = {sun};
     g.cameras = {eye};
+    g.forces = {blast};
     return g;
 }
 
@@ -116,9 +120,9 @@ void testSceneOpacity() {
 void testSceneFormatOnlyGrows() {
     std::string error;
     // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
-    // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores
+    // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores; 8: the force block
     for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
-                             "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene"}) {
+                             "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene", "scene-format-8.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();
@@ -199,6 +203,30 @@ void testSceneGraphRoundTrip() {
           "the controller is not restored");
     CHECK(back.lights.size() == 1 && back.lights[0].shadows && back.cameras.size() == 1 && back.cameras[0].active,
           "the light or the camera is not restored");
+    CHECK(back.forces.size() == 1 && back.forces[0].shape == ForceShape::Radial && back.forces[0].mode == ForceMode::Impulse &&
+          back.forces[0].strength == 10 && back.forces[0].radius == 3 && back.forces[0].falloff == ForceFalloff::Linear &&
+          back.forces[0].start == 2.5_r && back.forces[0].tag == "crate" && back.forces[0].tags == std::vector<std::string>{"blast"},
+          "the force is not restored");
+}
+
+// A force the core could not act on never loads: every refusal names its line.
+void testSceneForceFile() {
+    const std::string head = "force \"F\"\n  object id 4\n  effect ";
+    const char* bad[] = {"shape radial mode impulse strength 1\n", "strength nan\n", "shape sphere\n", "strength 1 strength 2\n",
+                         "tag \"a b\"\n", "strength 1e30\n", "radius 1e9\n", "start 1e9\n", "start -1\n", "falloff steep\n", "weight 1\n"};
+    for (const char* line : bad) {
+        SceneGraph g;
+        std::string error;
+        CHECK(!g.load(head + line + "end\n", error) && error.compare(0, 8, "line 3: ") == 0, "a force with '%s' is read: %s", line, error.c_str());
+    }
+    SceneGraph g, back;
+    std::string error;
+    CHECK(g.load(head + "radius 2 shape radial mode constant strength -4 tag 7\nend\n", error) && g.forces[0].tag == "7", "a force: %s", error.c_str());
+    const std::string text = g.save();
+    CHECK(text.find("tag \"7\"") != std::string::npos && text.find("falloff") == std::string::npos && text.find("start") == std::string::npos &&
+          back.load(text, error) && back.save() == text, "a numeric tag, or the unset words, are not written as the format says:\n%s", text.c_str());
+    CHECK(!back.load("force \"F\"\n  object id 4\n  kind point\nend\n", error), "a line that is no effect line is read in a force");
+    CHECK(SceneGraph().save().find("force") == std::string::npos, "a scene without forces wrote a force block");
 }
 
 void testScenePhysicsLine() {

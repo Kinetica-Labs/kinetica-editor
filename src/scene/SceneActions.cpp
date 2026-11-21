@@ -63,6 +63,12 @@ const char* shapeTitle(ShapeKind k) {
     return names[std::clamp(int(k), 0, 5)];
 }
 
+const char* forceTitle(ForceShape shape, ForceMode mode) {
+    static const char* names[] = {KE_UI_LABEL("Kinetica", "Толчок"), KE_UI_LABEL("Kinetica", "Тяга"), KE_UI_LABEL("Kinetica", "Взрыв"),
+                                  KE_UI_LABEL("Kinetica", "Притяжение")};
+    return names[int(shape) * 2 + int(mode)];
+}
+
 const char* lightTitle(LightKind k) {
     static const char* names[] = {KE_UI_LABEL("Kinetica", "Солнце"), KE_UI_LABEL("Kinetica", "Лампа"), KE_UI_LABEL("Kinetica", "Прожектор")};
     return names[std::clamp(int(k), 0, 2)];
@@ -82,7 +88,7 @@ std::vector<uint32_t> childrenOf(const SceneGraph& g, uint32_t id) {
         for (const auto& o : objects)
             if (o.parent == id) kids.push_back(o.id);
     };
-    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras);
+    add(g.entities), add(g.groups), add(g.arrays), add(g.lights), add(g.cameras), add(g.forces);
     return kids;
 }
 
@@ -120,7 +126,7 @@ AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(con
     AABB box;
     for (const Entity& w : worldEntities(g))
         if (w.visible && isInside(g, ownerOf(g, w.id), id)) box.expand(entityBox ? entityBox(w) : entityBounds(g, w));
-    auto mark = [&](const SceneObject& o) { // a light or a camera: about the size of its wireframe
+    auto mark = [&](const SceneObject& o) { // a light, a camera or a force: about the size of its wireframe
         Vector3 p;
         Quaternion q;
         worldPose(g, o, p, q);
@@ -128,6 +134,7 @@ AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(con
     };
     for (const Light& l : g.lights) mark(l);
     for (const Camera& c : g.cameras) mark(c);
+    for (const Force& f : g.forces) mark(f);
     return box;
 }
 
@@ -194,6 +201,21 @@ uint32_t placeLight(SceneGraph& g, LightKind kind, const Vector3& position, cons
         l.rotationDeg = eulerDegrees(Quaternion::fromTwoVectors(Vector3(0.0_r, -1.0_r, 0.0_r), to / far));
     if (kind != LightKind::Sun) l.range = std::max(l.range, 1.5_r * far);
     return id;
+}
+
+uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3& at) {
+    Force f;
+    f.id = nextId(g);
+    f.shape = shape;
+    f.mode = mode;
+    const auto same = std::count_if(g.forces.begin(), g.forces.end(), [&](const Force& o) { return o.shape == shape && o.mode == mode; });
+    f.name = std::string(forceTitle(shape, mode)) + " " + std::to_string(same + 1);
+    f.color = Vector3(0.45_r, 0.85_r, 0.55_r);
+    f.position = at;
+    if (shape == ForceShape::Radial) f.radius = mode == ForceMode::Impulse ? 3.0_r : 5.0_r, f.falloff = ForceFalloff::Linear;
+    f.strength = shape == ForceShape::Directional ? (mode == ForceMode::Impulse ? 5.0_r : 10.0_r) : (mode == ForceMode::Impulse ? 10.0_r : -10.0_r);
+    g.forces.push_back(f);
+    return f.id;
 }
 
 uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre) {
@@ -281,6 +303,7 @@ void showAll(SceneGraph& g) {
     for (ArrayObject& o : g.arrays) o.visible = true;
     for (Light& o : g.lights) o.visible = true;
     for (Camera& o : g.cameras) o.visible = true;
+    for (Force& o : g.forces) o.visible = true;
 }
 
 namespace {

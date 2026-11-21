@@ -77,6 +77,7 @@ uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent)
     }
     if (const ArrayObject* a = byId(g.arrays, id)) return copyPlain(g, g.arrays, ArrayObject(*a), parent); // the copy shares the template
     if (const Light* l = byId(g.lights, id)) return copyPlain(g, g.lights, Light(*l), parent);
+    if (const Force* f = byId(g.forces, id)) return copyPlain(g, g.forces, Force(*f), parent);
     if (const Camera* cam = byId(g.cameras, id)) {
         const uint32_t copy = copyPlain(g, g.cameras, Camera(*cam), parent);
         byId(g.cameras, copy)->active = false; // one active camera: the original stays it
@@ -99,7 +100,7 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids) {
     collect(g.entities), collect(g.groups);
     for (const ArrayObject& a : g.arrays)
         if (gone(a.id) || dead.count(a.templateId)) dead.insert(a.id);
-    collect(g.lights), collect(g.cameras);
+    collect(g.lights), collect(g.cameras), collect(g.forces);
     for (const Entity& e : g.entities) // a camera's own target goes with it
         if (e.targetOf && dead.count(e.targetOf)) dead.insert(e.id);
     for (Entity& e : g.entities)
@@ -118,7 +119,7 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids) {
     // controller whose goal went stays, driving nothing).
     std::set<uint32_t> named(ids.begin(), ids.end());
     eraseDead(g.batteries, named), eraseDead(g.drivers, named), eraseDead(g.controllers, named);
-    eraseDead(g.entities, dead), eraseDead(g.groups, dead), eraseDead(g.arrays, dead), eraseDead(g.lights, dead), eraseDead(g.cameras, dead);
+    eraseDead(g.entities, dead), eraseDead(g.groups, dead), eraseDead(g.arrays, dead), eraseDead(g.lights, dead), eraseDead(g.cameras, dead), eraseDead(g.forces, dead);
     eraseDead(g.wheels, dead);
     eraseDead(g.sequences, named); // a sequence named; an object gone leaves its track lost (skipped)
 }

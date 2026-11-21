@@ -26,6 +26,7 @@ void setRole(Entity& e, Role r, bool on); // the component alone, nothing else c
 // The names new objects get, in Russian as the scene file keeps them: "Куб", "Солнце".
 const char* shapeTitle(ShapeKind k);
 const char* lightTitle(LightKind k);
+const char* forceTitle(ForceShape shape, ForceMode mode); // «Толчок», «Взрыв», «Тяга», «Притяжение»
 
 // The hierarchy: the object, its parent, its parent's parent... (a cycle ends it); whether `id` is
 // `ancestor` or inside it; the objects whose parent it is; of `ids`, those not inside another of them
@@ -37,7 +38,7 @@ std::vector<uint32_t> topmost(const SceneGraph& g, const std::vector<uint32_t>& 
 uint32_t masterOf(const SceneGraph& g, uint32_t entity);
 // The object an array's copy is drawn for: its array (an ordinary id is its own; 0: no such array).
 uint32_t ownerOf(const SceneGraph& g, uint32_t drawnId);
-// The world box of what the object shows (its shapes, an array's copies; a light or a camera: 0.3 m
+// The world box of what the object shows (its shapes, an array's copies; a light, a camera or a force: 0.3 m
 // around it). Invalid when it shows nothing. entityBox: a shape's box as a viewer knows it (a model's
 // mesh it has loaded); empty, the core's own estimate.
 AABB objectBounds(const SceneGraph& g, uint32_t id, const std::function<AABB(const Entity&)>& entityBox = {});
@@ -47,6 +48,7 @@ AABB sceneBounds(const SceneGraph& g); // the visible shapes one can edit (not a
 uint32_t addShape(SceneGraph& g, ShapeKind shape);  // "Куб 2": 0.8 m over a free spot of the floor
 uint32_t addLight(SceneGraph& g, LightKind kind, const Vector3& at); // the sun high at a slant over `at`
 uint32_t placeLight(SceneGraph& g, LightKind kind, const Vector3& position, const Vector3& target); // at `position`, shining at `target`
+uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3& at); // the kind's defaults, standing at `at`
 uint32_t addCamera(SceneGraph& g, const Vector3& eye, const Vector3& centre); // at `eye`, looking at `centre`
 // A camera made a target camera (SceneGraph.h): it looks at object `target` always, or (0) at `point`, or (neither) at
 // the point it looks at now; its stored turn follows, so set free again it keeps looking there. False: no such camera,
