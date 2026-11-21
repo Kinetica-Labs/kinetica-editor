@@ -75,3 +75,7 @@ perf.data*
 # Claude Code: a person's own settings and notes
 .claude/settings.local.json
 CLAUDE.local.md
+
+# The guide's pictures: the editor photographs itself (tools/ui_guide_shots.py). They live in the guide's own
+# repository, kinetica-docs, where tools/build_site.py puts them - 11 MB that would grow with every retake.
+/docs/images/ui/
