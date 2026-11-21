@@ -70,6 +70,8 @@ static QString windowStyle() {
            "QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 4px; color: #8fc1ff; }"
            "QDockWidget::title { background: #2c3038; padding: 5px; font-weight: 600; }"
            "QToolBar { spacing: 6px; padding: 4px; border: none; }"
+           "QToolBar::separator:horizontal { width: 1px; margin: 12px 6px; background: #474d59; }" // a thin line between groups of buttons
+           "QToolBar::separator:vertical { height: 1px; margin: 6px 8px; background: #474d59; }"
            "QToolButton { padding: 4px 8px; border-radius: 4px; }"
            "QToolButton:hover { background: #3a404b; }"
            "QToolButton:checked { background: #2d5c99; }"

@@ -370,6 +370,25 @@ void PluginHost::notice(const QString& plugin, const QString& text) {
     notice_->setVisible(!text.isEmpty());
 }
 
+// The line on the tool shelf between the gizmo's own tools and the plugins' under them: there while a plugin's tool is.
+static void lineShelf(QWidget* window) {
+    auto* shelf = window->findChild<QToolBar*>("toolShelf");
+    if (!shelf) return;
+    QAction *line = nullptr, *first = nullptr;
+    for (QAction* a : shelf->actions()) {
+        if (a->objectName() == "pluginToolsLine") line = a;
+        else if (!first && a->objectName().startsWith("plugin:")) first = a;
+    }
+    if (first && !line) {
+        line = new QAction(shelf);
+        line->setSeparator(true);
+        line->setObjectName("pluginToolsLine");
+        shelf->insertAction(first, line);
+    } else if (!first) {
+        delete line;
+    }
+}
+
 void PluginHost::unregister(Plugin& p) {
     ops_->run("view_draw", {{"clear", true}, {"key", p.name + "/"}}, [](const QJsonObject&) {}, "ui"); // its pictures with it
     builder_->setPluginComponents(p.name, {}); // its components' cards say the plugin is not running; their words stay
@@ -384,6 +403,7 @@ void PluginHost::unregister(Plugin& p) {
         delete c.action;
     }
     p.commands.clear();
+    lineShelf(window_);
     delete p.menu;
     p.menu = nullptr;
 }
@@ -715,6 +735,7 @@ void PluginHost::addOps() {
                 if (auto* shelf = window_->findChild<QToolBar*>("toolShelf")) shelf->addAction(cmd.action);
             }
             cmd.action->setObjectName("plugin:" + cmd.op);
+            if (cmd.tool) lineShelf(window_);
             cmd.action->setToolTip(cmd.help.isEmpty() ? cmd.op : cmd.help);
             if (!cmd.key.isEmpty()) { // a key the window or another plugin has already: left off, said (no two actions on one key)
                 QString owner;

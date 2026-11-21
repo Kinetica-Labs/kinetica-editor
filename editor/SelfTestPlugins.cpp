@@ -286,7 +286,10 @@ def mark(scene, dt, sensors):
     QAction* tool = nullptr;
     waitUntil([&] { return (tool = w.findChild<QAction*>("plugin:marks_flag")) != nullptr; }, 10000);
     auto* shelf = w.findChild<QToolBar*>("toolShelf");
-    const bool onShelf = tool && shelf && shelf->actions().contains(tool) && !tool->icon().isNull();
+    const QList<QAction*> shelved = shelf ? shelf->actions() : QList<QAction*>();
+    const qsizetype line = std::find_if(shelved.begin(), shelved.end(), [](QAction* a) { return a->objectName() == "pluginToolsLine"; }) - shelved.begin();
+    const bool onShelf = tool && shelved.contains(tool) && !tool->icon().isNull() && line + 1 < shelved.size() && shelved[line]->isSeparator() &&
+                         shelved[line + 1]->objectName().startsWith("plugin:") && shelved.indexOf(tool) > line; // a line parts them from the gizmo's tools
     b.newScene();
     const uint32_t cube = uint32_t(ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}, {"size", QJsonArray{1.0, 1.0, 1.0}}, {"role", "collider"}}).value("id").toInt());
     b.select(0);
@@ -319,7 +322,7 @@ def mark(scene, dt, sensors):
     std::printf("  the tool: on the shelf %s, taken %s; a click on the cube's top -> «%s» at %.3f %.3f %.3f (%zu undo step); drawn %s; "
                 "Esc leaves it %s\n", onShelf ? "yes" : "no", taken ? "yes" : "no", sphere ? sphere->name.c_str() : "-", double(at.x),
                 double(at.y), double(at.z), b.undoTaken() - steps, drawn ? "yes" : "no", left ? "yes" : "no");
-    c.check(onShelf && taken && clicked && drawn && left, "a plugin's tool: an orange button on the shelf, a click gives it the point, "
+    c.check(onShelf && taken && clicked && drawn && left, "a plugin's tool: an orange button on the shelf under a line, a click gives it the point, "
                                                           "the face's normal and the object - one undo step; its picture stays; Esc leaves it");
     waitUntil([&] { return host->ticking(); }, 5000);
     QJsonObject stepped;

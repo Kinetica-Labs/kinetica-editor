@@ -61,6 +61,7 @@ void MainWindow::buildMainToolbar() {
     create.push_back(modelAct);
     addShapeButton(tb, create);
     addLightButtons(tb);
+    tb->addSeparator(); // what is made, then what links and measures it
     tb->addAction(magnet_->action()); // a link on a face, with a joint (MagnetController)
     if (auto* b = qobject_cast<QToolButton*>(tb->widgetForAction(magnet_->action()))) {
         b->setPopupMode(QToolButton::MenuButtonPopup);
