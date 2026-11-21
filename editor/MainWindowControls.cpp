@@ -75,7 +75,7 @@ void MainWindow::buildEditMenu() {
     esc->setToolTip(uiText("Kinetica", "Идёт симуляция — стоп и сцена как до ▶; в правке — снять выделение"));
     connect(esc, &QAction::triggered, this, [this] {
         if (view_->followedBody()) view_->followBody(0);
-        else if (builder_->lookingThrough()) builder_->lookThrough(0); // first out of the camera, as Blender's Esc
+        else if (builder_->lookingThrough()) builder_->lookThrough(0); // first out of the camera
         else if (!builder_->editing()) builder_->stop();
         else if (builder_->colliderEditing()) builder_->setColliderEdit(false); // out of the collider first, the body still selected
         else builder_->select(0);
@@ -129,7 +129,7 @@ void MainWindow::buildViewKeys(QMenu* menu) {
     const struct { const char* text; int key; int ball; } axisViews[] = {
         {uiText("Kinetica", "Сверху"), Qt::Key_7, 2}, {uiText("Kinetica", "Снизу"), Qt::Key_7, 3}, {uiText("Kinetica", "Спереди"), Qt::Key_1, 4}, {uiText("Kinetica", "Сзади"), Qt::Key_1, 5}, {uiText("Kinetica", "Справа"), Qt::Key_3, 0}, {uiText("Kinetica", "Слева"), Qt::Key_3, 1}};
     for (int i = 0; i < 6; ++i) {
-        const int ctrl = (i % 2) ? int(Qt::ControlModifier) : 0; // the opposite side: Ctrl, as in Blender
+        const int ctrl = (i % 2) ? int(Qt::ControlModifier) : 0; // the opposite side: Ctrl
         QAction* a = views->addAction(axisViews[i].text);
         a->setShortcut(QKeySequence(int(Qt::KeypadModifier) | ctrl | axisViews[i].key));
         const int ball = axisViews[i].ball;
@@ -147,8 +147,8 @@ void MainWindow::buildViewKeys(QMenu* menu) {
 void MainWindow::buildControlsMenu() {
     QMenu* menu = menuBar()->findChild<QMenu*>("viewMenu")->addMenu(uiText("Kinetica", "Управление"));
     schemeGroup_ = new QActionGroup(this);
-    const ControlScheme schemes[] = {ControlScheme::Simple, ControlScheme::Blender, ControlScheme::MayaUnity};
-    const char* tips[] = {uiText("Kinetica", "ЛКМ — выбор, ПКМ — осмотр, СКМ — панорама, колесо — зум к курсору; Alt+кнопки как в Maya"),
+    const ControlScheme schemes[] = {ControlScheme::Simple, ControlScheme::Keys, ControlScheme::AltFly};
+    const char* tips[] = {uiText("Kinetica", "ЛКМ — выбор, ПКМ — осмотр, СКМ — панорама, колесо — зум к курсору; Alt+кнопки мыши — вращать, панорама, зум"),
                           uiText("Kinetica", "СКМ — вращать, Shift+СКМ — панорама, Ctrl+СКМ — зум; G / R / S, X — удалить, Shift+D — копия"),
                           uiText("Kinetica", "Alt+ЛКМ — вращать, Alt+СКМ — панорама, Alt+ПКМ — зум; ПКМ + WASD — полёт")};
     for (int i = 0; i < 3; ++i) {
@@ -164,16 +164,16 @@ void MainWindow::buildControlsMenu() {
     applyControlScheme(savedControlScheme());
 }
 
-// The scheme's keys: "Как в Blender" has G / R / S transforms (so R is not the scale tool), X
+// The scheme's keys: the G / R / S scheme has G / R / S transforms (so R is not the scale tool), X
 // deletes and Shift+D duplicates; the others keep Q / W / E / R and Ctrl+D.
 void MainWindow::applyControlScheme(ControlScheme s) {
     view_->setControlScheme(s);
     saveControlScheme(s);
-    const bool blender = blenderKeys(s);
-    if (auto* scale = findChild<QAction*>("toolScale")) scale->setShortcut(blender ? QKeySequence() : QKeySequence(Qt::Key_R));
-    deleteAct_->setShortcuts(blender ? QList<QKeySequence>{Qt::Key_X, Qt::Key_Delete, Qt::Key_Backspace}
+    const bool letters = letterKeys(s);
+    if (auto* scale = findChild<QAction*>("toolScale")) scale->setShortcut(letters ? QKeySequence() : QKeySequence(Qt::Key_R));
+    deleteAct_->setShortcuts(letters ? QList<QKeySequence>{Qt::Key_X, Qt::Key_Delete, Qt::Key_Backspace}
                                      : QList<QKeySequence>{Qt::Key_Delete, Qt::Key_Backspace});
-    duplicateAct_->setShortcuts(blender ? QList<QKeySequence>{QKeySequence("Shift+D"), QKeySequence("Ctrl+D")}
+    duplicateAct_->setShortcuts(letters ? QList<QKeySequence>{QKeySequence("Shift+D"), QKeySequence("Ctrl+D")}
                                         : QList<QKeySequence>{QKeySequence("Ctrl+D")});
     for (QAction* a : schemeGroup_->actions()) a->setChecked(a->text() == controlSchemeName(s));
     appendShortcutTips();

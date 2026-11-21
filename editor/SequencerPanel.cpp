@@ -57,7 +57,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
                                  "остановить, бегунок остаётся, где остановили"), "sequencerPlay", true);
     loop_ = button(uiText("Kinetica", "↻ Петля"), uiText("Kinetica", "После последнего ключа — сначала"), "sequencerLoop", true);
     key_ = button(uiText("Kinetica", "◆ Ключ"), uiText("Kinetica", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)"), "sequencerKey");
-    autoKey_ = button(uiText("Kinetica", "◈ Автоключ"), uiText("Kinetica", "Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам (как Auto Key в 3ds Max и автоключ в Blender). Выключен - ключ ставит только «◆ Ключ»"), "sequencerAutoKey", true);
+    autoKey_ = button(uiText("Kinetica", "◈ Автоключ"), uiText("Kinetica", "Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам. Выключен - ключ ставит только «◆ Ключ»"), "sequencerAutoKey", true);
     connect(autoKey_, &QToolButton::toggled, this, [this](bool on) { builder_->watchHands(on); autoKey_->setStyleSheet(on ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString()); });
     connect(builder_, &SceneBuilder::handPlaced, this, [this](const std::vector<uint32_t>& ids) {
         if (!autoKey_->isChecked() || !builder_->editing()) return;

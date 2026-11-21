@@ -27,7 +27,7 @@ enum class ShapeKind { Box, Sphere, Cylinder, Cone, Plane, Mesh };
 
 // A plugin's component on an object of any kind - a shape, a joint, a light (docs/contracts/editor-plugin.md): its
 // type, "<plugin>.<name>", and its values as the scene file has them - a key and one word each (a number, a vector
-// "x,y,z", a word). Kept word for word whether or not the plugin is there (Unity's Missing Script): a scene opens and
+// "x,y,z", a word). Kept word for word whether or not the plugin is there: a scene opens and
 // saves the same without it.
 struct PluginComponent {
     std::string type;
@@ -35,7 +35,7 @@ struct PluginComponent {
 };
 
 // What a body collides with - its own component on the entity, apart from what the entity looks
-// like (Unity's Collider next to its MeshRenderer, Unreal's simple collision): a horse model may
+// like: a horse model may
 // collide as a capsule. The body is always DRAWN with its geometry; the collider is only for
 // contacts (the editor shows it as a thin wireframe). A collider alone makes a STATIC obstacle (a
 // wall, a floor); with the rigid role it is the collider of a moving body; a rigid role without
@@ -123,8 +123,8 @@ struct Light : SceneObject {
 
 // A camera of the scene: a viewpoint the viewer can look through, take screenshots and recordings
 // from. Looks along the object's -z axis turned by its rotation.
-// A camera is free - it looks where its turn points - or a target camera (3ds Max's Target camera, Maya's camera and
-// aim): it always looks at its target, an object (its origin, wherever the running world takes it), its up the world's;
+// A camera is free - it looks where its turn points - or a target camera (a camera and its aim point):
+// it always looks at its target, an object (its origin, wherever the running world takes it), its up the world's;
 // its own turn is not used. Moved, it keeps looking at the target; the target moved, it turns after it. A target that
 // is no other object is the camera's own (Entity::targetOf): a small see-through cube the gizmo moves, a handle like
 // an IK goal; it goes with its camera, or when the camera is set free.
@@ -137,8 +137,7 @@ struct Camera : SceneObject {
     uint32_t target = 0;        // a target camera's object (0, or gone: it looks 2 m ahead)
 };
 
-// An array: one object standing for many copies of a template entity laid out in a pattern, as the
-// Array modifier of Blender or copy-to-points of Houdini. The simulation expands it into one set of
+// An array: one object standing for many copies of a template entity laid out in a pattern. The simulation expands it into one set of
 // meta-objects per copy; the editor changes the count or the spacing with one number. The copies
 // are placed relative to the array's own pose; the template itself is not simulated.
 enum class ArrayPattern { Line, Grid, Circle };
@@ -159,7 +158,7 @@ struct ArrayObject : SceneObject {
 // collision, no part in the simulation.
 struct Entity : SceneObject {
     // An instance shares the geometry and the roles of its master (the entity with this id): change
-    // the density, the collider or the shape of one and all change (as 3ds Max's Instance). Only the
+    // the density, the collider or the shape of one and all change. Only the
     // SceneObject part (name, pose, visibility...) stays its own. 0: an ordinary, independent entity.
     // resolveInstance() gives the effective entity.
     uint32_t instanceOf = 0;
@@ -171,7 +170,7 @@ struct Entity : SceneObject {
     std::string meshFile;       // ShapeKind::Mesh: the OBJ/STL file as written in the scene file
     Real opacity = 1;           // 1: solid; below: see-through - glass, a screen, a guard. Its look only: physics does not know
     uint32_t goalOf = 0;        // an inverse kinematics goal: this effector's frame is driven to this entity's (Kinematics.h)
-    uint32_t targetOf = 0;      // a target camera's own target (3ds Max's Camera.Target): this camera looks at it
+    uint32_t targetOf = 0;      // a target camera's own target: this camera looks at it
     // A goal's trajectory (Kinematics.h, pathPoint): from the goal's own place through these points, world metres,
     // walked at `pathSpeed` along its length while the scene plays - from the start, or from when the path was
     // set - then held at the last point (or back to the start and round again: `pathLoop`). Its turn stays its own.
@@ -197,7 +196,7 @@ struct JointFreedom {
 };
 
 // A joint of the scene: entity `a` held to entity `b` (0: the world) - the generic six-freedom joint
-// (JointModel.h). As in USD Physics and a CAD program's mate connectors, it is a frame
+// (JointModel.h). It is a frame
 // on each link: where it sits and how it is turned, in that link's own frame (b = 0: the world's).
 // The six freedoms are frame a's travel along frame b's x, y, z and its turns about them; each is
 // locked, limited or free and may be driven. A hinge is the joint with the turn about x free, a
@@ -253,14 +252,12 @@ struct DriverObject {
     bool brake = false;                 // at duty 0: shorted (brake), not open (coast)
 };
 
-// A controller of the scene (src/sim): an operator's panel as an abstract thing, the way Unity's Input
-// System and Unreal's Enhanced Input split one - named actions, each with a value (a button, an axis, a 2-D vector)
+// A controller of the scene (src/sim): an operator's panel as an abstract thing - named actions, each with a value (a button, an axis, a 2-D vector)
 // and one thing of the scene it drives at a speed, and bindings saying which controls of which device give the value.
-// Which device feeds it is up to the bindings: the keyboard, a game controller, the mouse - several at once, as
-// Unity's control schemes - or none, a script or a trained policy setting the values itself. The bindings are the
+// Which device feeds it is up to the bindings: the keyboard, a game controller, the mouse - several at once - or none, a script or a trained policy setting the values itself. The bindings are the
 // client's to read (the editor turns its keys and pad into values); the core takes only the values
 // (the operation controller_input), so a demonstration records actions and a policy
-// plays them back through the same panel - robosuite's, Isaac Lab's and LeRobot's teleoperation, as one object.
+// plays them back through the same panel, as one object.
 //
 // What an action drives (`drive`), at a value of 1 (an axis's or a button's first component, a vector's two):
 //   plane - an IK goal across the floor, value (x, y) along the world's +x and -z (a client turns its view's
@@ -296,14 +293,12 @@ struct ControllerObject {
     std::vector<ControllerAction> actions;
 };
 
-// A sensor of the scene (src/devices): an object with no geometry riding on its parent - as a sensor
-// in Isaac Sim, Gazebo or Unreal is a child of the link it is mounted on - reading what a
+// A sensor of the scene (src/devices): an object with no geometry riding on the link it is mounted on, a child of it - reading what a
 // microcontroller would. Its pose relative to the parent is where it is mounted, its x axis what it
 // measures along (an encoder's shaft). The parent is an entity or a joint:
-//   - on a joint, it reads the joint's freedom `dof` - the joint's own coordinate (MuJoCo's jointpos);
+//   - on a joint, it reads the joint's freedom `dof` - the joint's own coordinate;
 //   - on an entity, it reads coordinate `dof` of its frame on the parent against the same frame
-//     fixed to `against` (0: the world) where the two were when it began to read (MuJoCo's frame
-//     sensors with a reference frame): a measuring wheel on the floor, a turntable, a tilt against
+//     fixed to `against` (0: the world) where the two were when it began to read: a measuring wheel on the floor, a turntable, a tilt against
 //     the world - no joint needed.
 // Both go through frameCoordinates (JointModel.h), so an encoder on a joint starting at zero and one
 // on the joint's two links counts the same. A parent removed takes its sensors with it; `against`
@@ -322,7 +317,7 @@ struct ControllerObject {
 // copied from (data/sensors/<kind>.csv). The numbers are the sensor's own: a scene reads the same with
 // no table at hand, and a number typed over the model's makes the unit what was typed.
 //
-// The force sensors read what crosses a boundary - MuJoCo's touch, force, torque and actuatorfrc sensors.
+// The force sensors read what crosses a boundary: touch, force, torque and actuator effort.
 // A touch pad lies on a face of an entity (its x out of the face, as a sonar's beam) and reads the
 // normal force of the contacts through that face - the points whose outward normal lies within 45
 // degrees of its x: a fingertip's pad, a bumper, a load cell under a foot, a limit switch by a threshold.
@@ -357,8 +352,7 @@ struct SensorObject : SceneObject {
     bool projector = true;              // ... its pattern of dots on
 };
 
-// A wheel as a point of its body - the fast model of a wheel module (Assembly.h), as Unity's
-// WheelCollider, Unreal's Chaos wheels, PhysX Vehicles and Bullet's raycast vehicle make it: no body of
+// A wheel as a point of its body - the fast model of a wheel module (Assembly.h): no body of
 // its own, a ray from where its suspension is mounted down to the ground. Its pose on the parent (the
 // chassis, an entity) is that mount: its -y the suspension's line, its x the way it rolls, its z the
 // axle. The suspension is a spring and a damper along the line, `rest` long fully extended; the wheel
@@ -384,17 +378,17 @@ struct WorldSettings {
     PhysicsSettings physics;
 };
 
-// A sequence - the Sequencer's, a simple Unreal Level Sequence (scene/Animation.h): an object of the scene that holds an
+// A sequence - the Sequencer's (scene/Animation.h): an object of the scene that holds an
 // animation of others, never written into them. Its tracks bind objects by id (a group, a robot's root, a body, a camera,
 // a light), each a list of keys - the object's pose on its parent at a time. Between two keys the place goes in a line
 // and the turn the shortest way (slerp); before the first and after the last the pose holds, or the sequence loops over
 // its length; between two keys that both carry a velocity (a recorded run's) the place follows the cubic with those
 // velocities at its ends (Hermite: a fall's parabola, a slide's braking, exactly). A scene holds as many as it likes -
 // scenarios, recorded runs. The active one is the Sequencer's (shown, scrubbed, keyed); ▶ plays it only when it is set
-// to play (Unreal's Auto Play): its bodies are then kinematic ones led along their tracks, pushing what they meet. A
+// to play: its bodies are then kinematic ones led along their tracks, pushing what they meet. A
 // take of a run comes not playing - the next ▶ is physics again -; set to play, it replays the run as an animation. An
-// object deleted leaves its track lost, skipped (Unreal's broken binding).
-// How a key goes on to the next one (Unreal's and After Effects' key interpolation): in a line; smoothly - the cubic
+// object deleted leaves its track lost, skipped.
+// How a key goes on to the next one (key interpolation): in a line; smoothly - the cubic
 // (Hermite) through the keys with the key's velocity at it, a recorded key's own or, set by hand, the slope from the
 // key before to the key after (a first and a last key: none, the motion starts and stops softly); or held, a step.
 enum class AnimInterp : uint8_t { Linear, Smooth, Step };

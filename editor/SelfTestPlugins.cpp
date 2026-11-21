@@ -176,7 +176,7 @@ def stop(scene):
     QDir(folder + "/ticker").removeRecursively();
 }
 
-// A plugin's component as a built-in one (Cinema 4D's orange handles): it comes in «+ Добавить компонент», is added with its
+// A plugin's component as a built-in one: it comes in «+ Добавить компонент», is added with its
 // defaults in one undo step, draws its card from the plugin's fields and shows its handled fields as orange points on the
 // shape; the radius point dragged by the mouse to 2 m sets the value - one edit, one journal line; the plugin gone, the
 // card says so and the scene keeps the component's words to the bit.
@@ -635,7 +635,7 @@ void testScan(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, cons
     QDir(folder + "/late").removeRecursively();
 }
 
-// A plugin's gizmos, as Cinema 4D's handles and tools: a component's angle is an orange point on a circle around the shape
+// A plugin's gizmos: a component's angle is an orange point on a circle around the shape
 // (a dial), its size three points on the shape's faces (a box) - each dragged sets its field, one undo step; a tool whose
 // command takes `to` is dragged from a point to a point and gets both.
 void testGizmos(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, EditorOps* ops, PluginHost* host, const QString& folder) {

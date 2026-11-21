@@ -1,12 +1,11 @@
 // The play mode made unmistakable, and two safety nets (see MainWindow.h):
 //   - the view gets an amber frame; mode and pose saving sit below it (SimulationBar);
-//   - K keeps what the simulation did (SceneBuilder::keepSimulationPoses, Unreal's "Keep Simulation
-//     Changes");
+//   - K keeps what the simulation did (SceneBuilder::keepSimulationPoses);
 //   - Ctrl+K finds any command by name (CommandSearch);
 //   - the scene's panel takes the keys while it plays (ControllerKeys: W A S D, R F, Z X, Space; T gives them back),
 //     its words on the simulation bar;
 //   - ● Запись beside ▶ (Ctrl+R): play and record the physics (sim_record) - again, or ■ Стоп, and the take is a new
-//     sequence on the Sequencer's tab (Unreal's Take Recorder: one button, the run kept as an animation);
+//     sequence on the Sequencer's tab (one button, the run kept as an animation);
 //   - a white window: if the GPU's first frames come back all one colour, the editor offers to start
 //     again with the software renderer, and remembers the choice (Вид → Рендер на процессоре).
 #include "MainWindow.h"

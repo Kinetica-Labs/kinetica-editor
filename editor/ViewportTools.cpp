@@ -202,8 +202,8 @@ void EditTool::startFloorDrag(Viewport& v, QMouseEvent* e) {
     moveGizmo(v, e);
 }
 
-// The left button went 4 px from where it was pressed: on an object a floor slide - with the move tool on as with Shift, as
-// Blender's move tool takes an object by its body (a newcomer dragged the IK goal by its body and nothing moved) - from
+// The left button went 4 px from where it was pressed: on an object a floor slide - with the move tool on as with Shift, so
+// the tool takes an object by its body (a newcomer dragged the IK goal by its body and nothing moved) - from
 // empty space the selection box.
 void EditTool::startLeftDrag(Viewport& v, QMouseEvent* e) {
     clickPending_ = false;
@@ -226,7 +226,7 @@ bool EditTool::moveGizmo(Viewport& v, QMouseEvent* e) {
         pending_ = GizmoHandle::None;
         floorDrag_ = false;
         virtualMouse_ = lastMouse_ = press;
-        cloning_ = cloneShiftHeld_ = pressShift_ && v.editMode() && !v.colliderMode(); // Shift: a clone, as in 3ds Max (not of a goal, not of a collider)
+        cloning_ = cloneShiftHeld_ = pressShift_ && v.editMode() && !v.colliderMode(); // Shift: a clone (not of a goal, not of a collider)
         emit v.gizmoStarted();
         if (cloning_) emit v.cloneDragStarted();
     }
@@ -293,7 +293,7 @@ void EditTool::release(Viewport& v, QMouseEvent* e) {
     }
     if (e->button() != Qt::LeftButton) return;
     if (pending_ != GizmoHandle::None) { // pressed and released on a handle without moving: nothing - a handle never changes
-        pending_ = GizmoHandle::None;    // the selection (Cinema 4D's rule: the cursor on a freedom takes that freedom, no
+        pending_ = GizmoHandle::None;    // the selection (the cursor on a freedom takes that freedom, no
         return;                          // accidental click; it walked the ray on to what stood behind the gizmo)
     }
     if (v.gizmo().dragging() && !v.gizmo().modal()) {

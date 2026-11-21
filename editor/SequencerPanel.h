@@ -1,5 +1,5 @@
 #pragma once
-// The Sequencer - a tab of the bottom panel, a simple Unreal Sequencer over the scene's sequences (scene/Animation.h).
+// The Sequencer - a tab of the bottom panel, a simple sequencer over the scene's sequences (scene/Animation.h).
 // The bar: which sequence is open, whether ▶ plays it (its bodies led as an animation), ⇤ to its start, ▶ a preview,
 // the loop, ◆ a key of the selected objects where they stand (I), ◈ Auto Key (a hand's move or turn of an object keys it at
 // the playhead by itself, in the same undo step), ⏺ a take of the physics (sim_record), 〰 the curves,
@@ -49,7 +49,7 @@ public:
 
 protected:
     // Space over the Sequencer plays its sequence and stops it where it is, as a video editor's timeline does; over the 3D
-    // view it is «Пуск» still - the keys go to what the mouse is over (DaVinci's viewers). Nothing to play: «Пуск» too.
+    // view it is «Пуск» still - the keys go to what the mouse is over. Nothing to play: «Пуск» too.
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:

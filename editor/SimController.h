@@ -36,7 +36,7 @@ public:
     // then `after` on the simulation's thread with how many were (fewer: `cancelled` said stop between two).
     void stepFrames(int n, std::function<bool()> cancelled, std::function<void(ke::Simulation&, int)> after);
     void setRealtimeLimit(bool on) { realtime_ = on; }
-    // Lockstep with the controllers of the window (plugins' on_tick, as Webots' controllers): after each stepped frame
+    // Lockstep with the controllers of the window (plugins' on_tick): after each stepped frame
     // `onFrame` runs on the simulation's thread - it reads what the controllers get and hands it to them - and the next
     // frame waits for release(), at most `patienceMs`, running the commands posted meanwhile (the controllers' answers
     // and their questions: an API call they make while answering). Empty: no lockstep. late(): frames that went on

@@ -81,7 +81,7 @@ void SceneBuilder::selectAll() { setSelection(topLevelObjects(), selectedId_); }
 
 // The box: every visible, unlocked thing whose outline on screen (the corners of its bounds,
 // projected) touches the rectangle selects its topmost group (or its array). Shift adds to the
-// selection, Ctrl takes away (Blender's rule).
+// selection, Ctrl takes away.
 void SceneBuilder::selectInRect(const QRectF& rect, const GizmoView& view, bool add, bool remove) {
     std::vector<uint32_t> ids = add || remove ? selection_ : std::vector<uint32_t>{};
     for (const Entity& w : worldEntities(graph_)) {

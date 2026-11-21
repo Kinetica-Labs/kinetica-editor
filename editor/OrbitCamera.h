@@ -1,7 +1,7 @@
 #pragma once
 // The camera: an eye looking at a target point from yaw / pitch at a distance, and the screen-to-world
 // ray under a pixel. Besides the plain orbit around its target it turns around any point (the one
-// under the cursor, as Blender's "orbit around selection" and Maya's tumble on a point: that point
+// under the cursor: that point
 // stays where it is on screen), zooms towards the point under the cursor, flies (the eye and the
 // target move together) and looks along an axis (the navigation cube's views).
 

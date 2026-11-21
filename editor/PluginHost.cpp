@@ -186,8 +186,8 @@ PluginHost::Plugin* PluginHost::authorised(const QJsonObject& a, QJsonObject& re
     return p;
 }
 
-// The folders plugins are looked for in, in this order: KE_PLUGINS; then, in a person's window, the editor's own (URDF,
-// as Blender's add-ons), the added ones (a plugins' repository, kinetica-plugins: Плагины → Добавить папку…), the user's.
+// The folders plugins are looked for in, in this order: KE_PLUGINS; then, in a person's window, the editor's own (URDF),
+// the added ones (a plugins' repository, kinetica-plugins: Плагины → Добавить папку…), the user's.
 QStringList PluginHost::lookedThrough() const {
     QStringList out;
     if (const QString given = qEnvironmentVariable("KE_PLUGINS"); !given.isEmpty()) out << given;

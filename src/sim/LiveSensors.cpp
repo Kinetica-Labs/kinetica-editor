@@ -84,8 +84,7 @@ private:
     bool had_ = false;
 };
 
-// A sonar's echo (Kuc and Siegel, IEEE PAMI 9, 1987; Leonard and Durrant-Whyte, IEEE Trans. Robotics and Automation 7,
-// 1991): sound reflects specularly off a surface smooth at its wavelength (8.6 mm at 40 kHz), so a surface sends an
+// A sonar's echo: sound reflects specularly off a surface smooth at its wavelength (8.6 mm at 40 kHz), so a surface sends an
 // echo back only where its normal lies inside the beam, and the echo comes from the foot of the perpendicular. For a
 // hit at distance t along a ray d with the normal n the range is the distance to the hit's tangent plane, t (-d . n),
 // when the angle between the beam's axis and -n is at most the beam's half angle - exact for a plane, the local plane
@@ -141,7 +140,7 @@ private:
     Unwrap unwrap_;
 };
 
-// A frame against another with no joint between (MuJoCo's frame sensors with a reference frame): the sensor's frame on
+// A frame against another with no joint between (a frame sensor with a reference frame): the sensor's frame on
 // its body against `against` (a body, or the world) fixed where the two were when it began to read - a measuring
 // wheel, a turntable, a tilt.
 class FrameProbe : public SensorProbe {

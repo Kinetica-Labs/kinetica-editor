@@ -1,5 +1,5 @@
 #pragma once
-// Assembling a mechanism out of shapes, as the assembly of a CAD program does it: a shape put flat
+// Assembling a mechanism out of shapes, by assembly: a shape put flat
 // against a face of another - the editor's "magnet": the six faces of a box are the six directions
 // a link can grow in - and a joint between the two at that face (a hinge, a slider, a ball, a weld).
 // These are plain edits of a SceneGraph, no physics involved: the editor's buttons and an agent that
@@ -148,7 +148,7 @@ bool presetFromWord(const std::string& word, LinkPreset& p);
 // How a preset is put: `axis` (0, 1, 2 as snapAxis; -1: the preset's own) turns a copied link's joint -
 // the hinge of Hinge and Elbow, the slide of Shock (a wheel always turns about the normal); `flip`
 // reverses the joint's axis; `mirror` puts the same link mirrored on the other side of the target too -
-// across its middle plane parallel to the face - driven the mirrored way (Kerbal's symmetry: two legs,
+// across its middle plane parallel to the face - driven the mirrored way (two legs,
 // two wheels, two arms in one click). A car is mirrored already.
 struct PresetOptions {
     int axis = -1;
@@ -158,10 +158,9 @@ struct PresetOptions {
 std::vector<Attached> applyPreset(SceneGraph& g, uint32_t target, const FaceSnap& at, LinkPreset p, const PresetOptions& o = {});
 // The place mirrored across the target's middle plane parallel to the face (the opposite face of a box).
 FaceSnap mirroredPlace(const SceneGraph& g, uint32_t target, const FaceSnap& at);
-// Modules (AssemblyPresets.cpp): a working unit put on a body in one call - as a Prefab in Unity, a part in
-// Kerbal, a component in Fusion - made of the same links, joints, sensors and electrics as by hand, so its
+// Modules (AssemblyPresets.cpp): a working unit put on a body in one call, made of the same links, joints, sensors and electrics as by hand, so its
 // physics is full. A module is placed by meaning: at a side of the body in the body's own frame - forward
-// +x, up +y, left -z (ROS's x forward, y left, z up, turned to y up) - and its parts are named by that
+// +x, up +y, left -z - and its parts are named by that
 // side ("Колесо спереди слева"), so a scene reads as what it is.
 enum class Side { FrontLeft, FrontRight, RearLeft, RearRight, Left, Right };
 constexpr int kSides = 6;

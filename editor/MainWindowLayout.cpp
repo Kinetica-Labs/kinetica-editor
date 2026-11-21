@@ -1,9 +1,9 @@
-// The window's layout, as VS Code lays out its own (see MainWindow.h): three buttons at the right end
-// of the menu line - where VS Code has them, in its title bar, and where they take no room from the
+// The window's layout (see MainWindow.h): three buttons at the right end
+// of the menu line - where they take no room from the
 // top bar - close and open the left, the bottom and the right dock area together with whatever
-// was open in them (Ctrl+B, Ctrl+J, Ctrl+Alt+B, the keys of VS Code), and a fourth opens the layout
+// was open in them (Ctrl+B, Ctrl+J, Ctrl+Alt+B), and a fourth opens the layout
 // menu - the three areas, every panel on its own, the status line, the tool shelf and "only the 3D
-// view" (F11, the editor's Zen mode). An area opened with nothing remembered shows its main panel:
+// view" (F11). An area opened with nothing remembered shows its main panel:
 // the Laboratory on the left, the graphs at the bottom, the inspector on the right. The buttons follow
 // the panels however they open and close (their ✕, F8, F9).
 #include "MainWindow.h"
@@ -60,7 +60,7 @@ void MainWindow::addLayoutButtons() {
         viewMenu->addAction(act);
         *a.act = act;
     }
-    // The bottom panel under the inspector too, the window's whole width - Blender's timeline (the Sequencer's ⇔).
+    // The bottom panel under the inspector too, the window's whole width (the Sequencer's ⇔).
     bottomWideAct_ = new QAction(uiText("Kinetica", "Нижняя панель во всю ширину"), this);
     bottomWideAct_->setObjectName("actionBottomWide");
     bottomWideAct_->setCheckable(true);
@@ -73,9 +73,9 @@ void MainWindow::addLayoutButtons() {
     bottomWideAct_->setChecked(QSettings().value("layout/bottomWide", false).toBool());
     viewMenu->addAction(bottomWideAct_);
     if (sequencer_) sequencer_->addBarAction(bottomWideAct_, "⇔"); // the Sequencer is built before
-    // Small and flat, as in VS Code: the filled area of the icon tells open from closed, so a checked
+    // Small and flat: the filled area of the icon tells open from closed, so a checked
     // button gets no highlight of its own, and the menu button no arrow.
-    // Small and flat, as in VS Code: the filled area of the icon tells open from closed, so a checked
+    // Small and flat: the filled area of the icon tells open from closed, so a checked
     // button gets no highlight of its own, and the menu button no arrow.
     auto* corner = new QWidget;
     corner->setObjectName("layoutButtons");
@@ -149,7 +149,7 @@ void MainWindow::buildLayoutMenu(QMenu* menu) {
     onlyViewAct_ = menu->addAction(uiText("Kinetica", "Только 3D-вид"));
     onlyViewAct_->setObjectName("actionOnlyViewport");
     onlyViewAct_->setCheckable(true);
-    onlyViewAct_->setShortcut(QKeySequence("F11")); // VS Code's Zen mode is Ctrl+K Z, but Ctrl+K finds commands here
+    onlyViewAct_->setShortcut(QKeySequence("F11")); // Ctrl+K finds commands here
     onlyViewAct_->setToolTip(uiText("Kinetica", "Убрать все панели, полку инструментов и строку состояния (F11); ещё раз — вернуть"));
     addAction(onlyViewAct_); // the key works while the menu is closed
     connect(onlyViewAct_, &QAction::toggled, this, &MainWindow::setOnlyViewport);

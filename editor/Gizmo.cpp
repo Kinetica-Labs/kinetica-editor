@@ -145,7 +145,7 @@ Vector3 Gizmo::facingSign(const GizmoView& v) const {
                    dot(axis(2), toEye) >= 0 ? 1.0f : -1.0f);
 }
 
-// The square across axis k sits in the quadrant of its plane that faces the camera (as in Blender).
+// The square across axis k sits in the quadrant of its plane that faces the camera.
 void Gizmo::planeSquare(const GizmoView& v, int k, Vector3 c[4]) const {
     const float L = armLength(v), s0 = 0.22f * L, s1 = 0.42f * L;
     const Vector3 sign = facingSign(v);

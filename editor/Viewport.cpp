@@ -210,7 +210,7 @@ bool Viewport::pickBody(const Ray& ray, int& body, Vector3& hit) const {
 // ---------------------------------------------------------------------------
 // Outlines
 // ---------------------------------------------------------------------------
-// The silhouette outlines, as in Blender or Maya: the outlined objects are drawn flat into a mask
+// The silhouette outlines: the outlined objects are drawn flat into a mask
 // (selected in red, hovered in green, role-less in blue), then a full-screen pass lights the pixels
 // just outside each mask - 2 px of orange around the selection, a faint white line around the object
 // under the mouse, a fainter one around geometry that has no role yet. Drawn over everything.
@@ -320,7 +320,7 @@ void Viewport::drawGizmo(const QMatrix4x4& vp) {
 // shape being drawn.
 void Viewport::drawEditLabel(QPainter& p) {
     QString text = createMode_ ? createTool_.sizeText(createWhat_) : gizmo_.dragging() ? QString::fromStdString(gizmo_.dragLabel()) : QString();
-    if (editTool_.draggingHandle()) { // a point's value as it goes, by the cursor (Cinema 4D's HUD)
+    if (editTool_.draggingHandle()) { // a point's value as it goes, by the cursor
         const ShapeHandle& h = editTool_.draggedHandle();
         const Vector3 at = editTool_.draggedTo();
         const QString name = h.plugin ? h.label : QString(h.what);
@@ -808,7 +808,7 @@ void Viewport::setColliderGuides(std::vector<float> lines) {
     update();
 }
 
-// The collider wireframes (Houdini's collision guide) where they are in front of the geometry, and
+// The collider wireframes where they are in front of the geometry, and
 // faintly where the geometry hides them, so a barrel around a sphere reads whole. Pale green: a
 // body that moves; grey: a fixed obstacle; dim green: a body the engine put to sleep.
 void Viewport::drawColliderGuides(const QMatrix4x4& vp) {

@@ -208,8 +208,7 @@ public:
     void setSceneMarkers(std::vector<SceneMarker> markers) { markers_ = std::move(markers); update(); }
     const std::vector<SceneMarker>& sceneMarkers() const { return markers_; }
     // Looking through a camera of the scene: the view is that camera - its eye, its turn (roll too)
-    // and its lens. Moving the view then moves the camera (lookThroughMoved), as Blender's "lock
-    // camera to view". Off: the editor's own view comes back as it was.
+    // and its lens. Moving the view then moves the camera (lookThroughMoved). Off: the editor's own view comes back as it was.
     void setLookThrough(bool on, const ke::Vector3& eye, const ke::Vector3& forward, const ke::Vector3& up, float fovDeg,
                         float nearClip, float farClip);
     bool lookingThrough() const { return lookThrough_; }
@@ -493,7 +492,7 @@ private:
     QElapsedTimer frameClock_;                  // since the last painted frame
     std::array<float, 120> frameMs_{};          // the last 120 frames' intervals, a ring
     size_t frameAt_ = 0, frameCount_ = 0;
-    bool showHud_ = false; // F3: off at first, as Unity's Stats and Godot's monitors - a corner of numbers was noise to a newcomer
+    bool showHud_ = false; // F3: off at first - a corner of numbers was noise to a newcomer
     double realtime_ = 0, sceneAtSecond_ = -1;  // the scene's time when the last second began
     class QOpenGLTimeMonitor* gpuClock_[2] = {}; // two frames' marks in turn: one read while the other records
     bool gpuPending_[2] = {};

@@ -11,8 +11,7 @@
 //     not a measurement of a unit;
 //   - every axis saturates at its range (the reading is held there and `saturated` says so).
 // Not modelled: quantisation, temperature drift, cross-talk between axes, the transducer's own bandwidth and any
-// transport delay past the sample hold. A controller cancels the offset and a slow drift as UR's zero_ftsensor()
-// does: it takes a reading at rest as its zero before it relies on a change of force.
+// transport delay past the sample hold. A controller cancels the offset and a slow drift: it takes a reading at rest as its zero before it relies on a change of force.
 #include "devices/Signal.h"
 
 namespace ke {

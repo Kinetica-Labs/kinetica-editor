@@ -58,7 +58,7 @@ bool setWorldField(SceneGraph& g, const std::string& line, const std::string& ke
                    std::string& error);
 
 // One core edit as data - what a journal holds and replays, and what an editor's console shows for a
-// change made by hand (as Maya's script editor echoes a setAttr for each edit).
+// change made by hand (one line per edit).
 struct GraphEdit {
     enum class Kind { Put, Set, Remove, World };
     Kind kind = Kind::Put;

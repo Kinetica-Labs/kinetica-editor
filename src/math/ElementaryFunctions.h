@@ -4,8 +4,7 @@
 //
 // The C++ standard does not say how exact std::sin must be, so MinGW, glibc, MSVC and Apple's libm
 // round its last bit differently, and a pile of boxes amplifies one bit into a different pile
-// after a few seconds (E. Catto, "Determinism", box2d.org, 2024; Box2D v3 has its own b2Atan2 and
-// b2ComputeCosSin for the same reason). These are computed in ElementaryFunctions.cpp only from
+// after a few seconds. These are computed in ElementaryFunctions.cpp only from
 // + - * / and sqrt, which IEEE 754 rounds the same way everywhere, plus the exact floor, frexp and
 // ldexp: Cody-Waite argument reduction and Taylor series, accurate to about one unit in the last
 // place in double. The float overloads round the double result once. The core calls these, never

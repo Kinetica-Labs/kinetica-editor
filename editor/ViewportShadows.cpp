@@ -11,7 +11,7 @@
 // filtering; Reeves, Salesin & Cook 1987).
 //
 // Why a budget: a sun or a spotlight redraws every body once more, a lamp six times more, every
-// frame. So lamps and spotlights start without shadows (as in Blender, Unity and Unreal), and past
+// frame. So lamps and spotlights start without shadows, and past
 // kMaxShadowLights the suns keep theirs first, then the lamps and spotlights that look brightest from
 // the eye; the others are named in the status bar (the shadowsLeftOut signal).
 // What casts: every opaque body of the frame, from its mesh.

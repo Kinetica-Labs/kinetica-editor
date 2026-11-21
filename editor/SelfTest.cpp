@@ -185,7 +185,7 @@ void testScaleDrag(Checker& c) {
     g.end();
 }
 
-// Blender's keys: G, then X, then "0.5": exactly half a metre along X; Shift+R, Z, "90": a quarter turn.
+// Keyboard transforms: G, then X, then "0.5": exactly half a metre along X; Shift+R, Z, "90": a quarter turn.
 void testKeyboardTransform(Checker& c) {
     GizmoView v = testView();
     Gizmo g;
@@ -315,7 +315,7 @@ void testCyclePicking(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
 
 // A joint's drive changed while the scene plays: the servo of a hinge gets a new target and the arm turns
 // to it in the running world - nothing is built again, the post's body keeps its index; Stop brings the
-// target back as it was authored, as in Unity. A change of what the world is built of (the post's size)
+// target back as it was authored. A change of what the world is built of (the post's size)
 // cannot be taken in place: the scene stops with the edit kept.
 void testLiveEdit(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.newScene();
@@ -366,7 +366,7 @@ void testLiveEdit(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     double authored = 1e9;
     for (const JointObject& j : b.graph().joints)
         if (j.id == joint) authored = double(j.dof[DofRx].drive.target);
-    c.check(b.editing() && authored == 0.0, "stop: the target is back as authored (edits during play are not kept), as in Unity");
+    c.check(b.editing() && authored == 0.0, "stop: the target is back as authored (edits during play are not kept)");
     b.play();
     waitFrames(v, 10, 15000);
     b.editEntity(post, [](Entity& e) { e.size.y = 1.2f; });

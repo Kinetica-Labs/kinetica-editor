@@ -40,8 +40,8 @@ void MainWindow::startPlugins() {
     if (plugins_) plugins_->start(false);
 }
 
-// The plugins' hooks follow the run, over their own wire (RunHooks.h): ▶ from the edit - «play» to each, and the lockstep
-// of Webots' controllers: every stepped frame's sensors, as the robot reads them (no truth), to their on_tick, its
+// The plugins' hooks follow the run, over their own wire (RunHooks.h): ▶ from the edit - «play» to each, and the lockstep:
+// every stepped frame's sensors, as the robot reads them (no truth), to their on_tick, its
 // commands into the running world before the next frame; Stop - «stop», no lockstep. A pause steps nothing, so ticks
 // nothing. A frame goes from the simulation's thread to the wire's and its answer straight back: this window's thread
 // is not in the loop, so a paint that waits for the screen holds no tick.

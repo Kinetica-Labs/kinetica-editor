@@ -222,7 +222,7 @@ void Viewport::mouseDoubleClickEvent(QMouseEvent* e) {
     emit frameSelectedRequested();
 }
 
-// The keys go to the view the mouse is over, as Blender's go to the editor under the cursor: the flight's and the
+// The keys go to the view the mouse is over: the flight's and the
 // transforms' keys work without a click into the view first.
 void Viewport::enterEvent(QEnterEvent* e) {
     if (window()->isActiveWindow() && !QApplication::activePopupWidget()) setFocus(Qt::MouseFocusReason);
@@ -260,7 +260,7 @@ void Viewport::keyPressEvent(QKeyEvent* e) {
     if (gizmo_.dragging()) return dragKey(e), updateHint(); // a handle drag: Esc cancels, X Y Z lock an axis
     if (flyKey(e, true)) return;
     const Qt::KeyboardModifiers mods = e->modifiers() & (Qt::ShiftModifier | Qt::ControlModifier | Qt::AltModifier);
-    if (editMode_ && blenderKeys(scheme_) && mods == Qt::NoModifier) { // Blender: G move, R turn, S scale
+    if (editMode_ && letterKeys(scheme_) && mods == Qt::NoModifier) { // G move, R turn, S scale
         if (e->key() == Qt::Key_G) return startModal(GizmoMode::Translate);
         if (e->key() == Qt::Key_R) return startModal(GizmoMode::Rotate);
         if (e->key() == Qt::Key_S) return startModal(GizmoMode::Scale);
@@ -278,7 +278,7 @@ void Viewport::focusOutEvent(QFocusEvent* e) {
 }
 
 // During a handle drag: Esc puts the object back; X / Y / Z switch the drag to that axis, Shift+X /
-// Y / Z to the plane across it (Blender's axis locking).
+// Y / Z to the plane across it (axis locking).
 void Viewport::dragKey(QKeyEvent* e) {
     const int k = e->key();
     if (k == Qt::Key_Escape) return cancelGizmoDrag();

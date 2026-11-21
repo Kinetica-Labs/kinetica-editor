@@ -143,7 +143,7 @@ void MainWindow::buildActions() {
 
 // Пуск, Пауза, Стоп (and Шаг in the menu): shared toolbar and menu actions.
 void MainWindow::buildRunActions() {
-    // Edit -> play -> stop, as in a game engine: the builder's scene is only simulated while it plays.
+    // Edit -> play -> stop: the builder's scene is only simulated while it plays.
     playAct_ = new QAction(controlIcon(ControlIcon::Play, 48), uiText("Kinetica", "Пуск"), this);
     playAct_->setShortcut(Qt::Key_Space);
     playAct_->setToolTip(uiText("Kinetica", "Пуск (пробел): физика оживает — сцена строится из того, что нарисовано"));
@@ -240,7 +240,7 @@ void MainWindow::buildLayoutActions() {
     graphsAct_ = new QAction(uiText("Kinetica", "Графики"), this);
     graphsAct_->setObjectName("actionGraphs");
     graphsAct_->setCheckable(true);
-    graphsAct_->setShortcut(QKeySequence("F9")); // Ctrl+G is Group, as in Maya
+    graphsAct_->setShortcut(QKeySequence("F9")); // Ctrl+G is Group
     graphsAct_->setToolTip(uiText("Kinetica", "Графики внизу (F9): любая величина сцены во времени"));
     connect(graphsAct_, &QAction::toggled, this, &MainWindow::setGraphsVisible);
     collidersAct_ = new QAction(roleIcon(RoleIcon::Collider, 20), uiText("Kinetica", "Коллайдеры всех тел"), this);
@@ -297,7 +297,7 @@ void MainWindow::onModeChanged() {
     updateSimulationBar();
 }
 
-// The right click of the edit mode, as the quad menu of 3ds Max: an object under the cursor that is
+// The right click of the edit mode, a quad menu: an object under the cursor that is
 // not selected is selected first (the same click rules), then the menu opens at the cursor.
 void MainWindow::showEditContextMenu(const QPointF& pos) {
     const uint32_t under = view_->pickEntity(view_->camera().screenRay(pos, view_->size()));
@@ -358,7 +358,7 @@ void MainWindow::setTool(GizmoMode m) {
     view_->update();
 }
 
-// The tool shelf at the left edge of the 3D view, as in Blender: select, move, rotate, scale, and
+// The tool shelf at the left edge of the 3D view: select, move, rotate, scale, and
 // whether the gizmo's axes are the world's or the object's own.
 void MainWindow::buildToolShelf() {
     auto* tb = new QToolBar(uiText("Kinetica", "Инструменты"), this);
@@ -403,7 +403,7 @@ void MainWindow::buildToolShelf() {
 // ---------------------------------------------------------------------------
 // Scene builder ("Конструктор"): shapes with roles, saved as *.kscene
 // ---------------------------------------------------------------------------
-// One panel on the right with tabs, like Unity's Hierarchy and Inspector: "Сцена" (the list of objects),
+// One panel on the right with tabs: "Сцена" (the list of objects),
 // "Объект" (the selected object: its card, its geometry, its components) and "Мир" (gravity, the
 // solver); plugins add their panels as further tabs. Selecting an object turns to "Объект".
 QScrollArea* MainWindow::scrolled(QWidget* content) {

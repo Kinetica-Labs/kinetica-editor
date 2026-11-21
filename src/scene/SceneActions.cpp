@@ -1,7 +1,7 @@
 // The hierarchy an action works on, the boxes it places things by, new objects (a shape, a light, a
 // camera), showing everything and the roles (see SceneActions.h). The rules are an editor's: a new
-// shape appears in the air over a free spot so ▶ drops it; a rigid body gets its collider (Unity's
-// "Add Component" adding a Rigidbody's collider) and nothing else that could surprise.
+// shape appears in the air over a free spot so ▶ drops it; a rigid body gets its collider
+// and nothing else that could surprise.
 #include "scene/SceneActions.h"
 #include "core/UiLabel.h"
 
@@ -265,7 +265,7 @@ bool freeCamera(SceneGraph& g, uint32_t camera) {
     c->kind = CameraKind::Free;
     c->target = 0;
     setWorldPose(g, *c, eye, lookTurn(eye, eye + forward));
-    std::vector<uint32_t> own; // its own target goes with it (3ds Max: a Target camera made Free loses its target)
+    std::vector<uint32_t> own; // its own target goes with it (a target camera made free loses its target)
     for (const Entity& e : g.entities)
         if (e.targetOf == camera) own.push_back(e.id);
     deleteObjects(g, own);
@@ -285,7 +285,7 @@ void showAll(SceneGraph& g) {
 
 namespace {
 
-// A collider pairs with a rigid body or stands alone (a fixed obstacle), as in Unity: a rigid body gets one.
+// A collider pairs with a rigid body or stands alone (a fixed obstacle): a rigid body gets one.
 // What was added besides, in words.
 std::string keepComponentsConsistent(Entity& e, Role role) {
     if (role != Role::Rigid || e.collider.enabled) return {};

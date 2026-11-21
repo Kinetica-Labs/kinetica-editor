@@ -1,4 +1,4 @@
-// sim_record - the Sequencer's take (Unreal's Take Recorder) as an operation of the API (EditorOps.h). On: the scene
+// sim_record - the Sequencer's take as an operation of the API (EditorOps.h). On: the scene
 // plays and the simulation's thread records every free body a frame (RobotWorld::startRecording). Off - or ■ Stop
 // pressed while it records -: the scene stops and the take comes in as a new active sequence «Запись N», through
 // scene_put - its block, keys and all, is the journal's line and one undo step, so a journal replays it without the run.

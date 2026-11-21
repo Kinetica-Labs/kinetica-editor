@@ -391,7 +391,7 @@ void SceneBuilder::step() {
     ctrl_->requestStep();
 }
 
-// Stop: the simulation goes; the graph comes back as it was before Play, as in Unity (unless an
+// Stop: the simulation goes; the graph comes back as it was before Play (unless an
 // edit the running scene could not take is being kept). The history loses the steps made while
 // playing.
 void SceneBuilder::returnToEdit(bool keepEdits) {
@@ -407,7 +407,7 @@ void SceneBuilder::returnToEdit(bool keepEdits) {
         refreshList();
         fillInspector();
         updateHistoryActions();
-        if (edited) emit statusMessage(uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются — как в Unity)"));
+        if (edited) emit statusMessage(uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются)"));
     } else {
         doc_.endPlay(true);
     }

@@ -1,7 +1,6 @@
 #pragma once
 // The core's one source of pseudo-random numbers, the same sequence on every compiler, standard
-// library and CPU: a 32-bit linear congruential generator (Press et al., "Numerical Recipes in C",
-// 2nd ed., 1992, 7.1, "ranqd1"; multiplier 1664525, increment 1013904223) and a float built from its
+// library and CPU: a 32-bit linear congruential generator (multiplier 1664525, increment 1013904223) and a float built from its
 // top 24 bits. std::uniform_real_distribution is not used: the standard fixes mt19937's bits but
 // not the distribution's algorithm, so libstdc++, MSVC and libc++ give different numbers.
 //
@@ -37,7 +36,7 @@ public:
         return {x, y, z};
     }
 
-    // A standard normal number, by Box and Muller (Ann. Math. Statist. 29, 1958): sqrt(-2 ln u1)
+    // A standard normal number, by the Box-Muller transform: sqrt(-2 ln u1)
     // cos(2 pi u2) with u1 in (0, 1] and u2 in [0, 1) of 24 bits each (tails to 5.8 sigma), in double
     // through ke::log and ke::cos - the same bits everywhere. Two draws a call; the second of the pair
     // is not kept.

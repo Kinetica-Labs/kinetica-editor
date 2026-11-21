@@ -397,8 +397,7 @@ void SceneBuilder::buildMaterialCards(QVBoxLayout* col) {
         .vector(uiText("Kinetica", "Вращение, рад/с"), -200, 200, 0.5, 2, r->angularVelocity);
 }
 
-// What the body collides with, apart from what it looks like (Houdini's collision guide, Unity's Collider beside its
-// MeshRenderer): Авто - the geometry itself - or a kind fitted to the geometry or sized by hand. Choosing it never
+// What the body collides with, apart from what it looks like: Авто - the geometry itself - or a kind fitted to the geometry or sized by hand. Choosing it never
 // changes the geometry; what the physics engine gets of it is ke::colliderShapes (sim/RobotWorld.h).
 void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
     ColliderRole* c = &shapeDraft_.collider;
@@ -436,7 +435,7 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
         .toggle(uiText("Kinetica", "зона: ничего не толкает, замечает, что внутри"), c->trigger).name("colliderTrigger")
         .tip(uiText("Kinetica", "Зона пропускает тела сквозь себя и сообщает, кто в ней стоит: корзина, куда должна попасть деталь, "
                                 "область ограждения. Кто внутри — в ответе sim_state (triggers) и в Python: zone.inside."));
-    // The collider in the view (Unity's «Edit Collider»): the gizmo and the points hold it, the model stays.
+    // The collider in the view: the gizmo and the points hold it, the model stays.
     colliderEditButton_ = new QPushButton(uiText("Kinetica", "Править коллайдер в виде"));
     colliderEditButton_->setObjectName("colliderEdit");
     colliderEditButton_->setCheckable(true);

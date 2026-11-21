@@ -1,5 +1,5 @@
-// "Сохранить из симуляции" (K), as Unreal's "Keep Simulation Changes" (see SceneBuilder.h). Play
-// and Stop work as in Unity: whatever the simulation did is gone after Stop. K keeps it: the live
+// "Сохранить из симуляции" (K) (see SceneBuilder.h). Play
+// and Stop: whatever the simulation did is gone after Stop. K keeps it: the live
 // poses of the selected objects (of all, when nothing is selected) become their poses in the scene
 // that Stop brings back. After Stop, one Ctrl+Z puts them back where they were before K.
 //

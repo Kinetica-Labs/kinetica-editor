@@ -153,7 +153,7 @@ void SceneBuilder::buildLightCards(QVBoxLayout* col) {
         .number(uiText("Kinetica", "Мягкий край, °"), 0, 90, 1, 1, l->softnessDeg).shown(spot)
         .toggle(uiText("Kinetica", "Отбрасывает тени"), l->shadows).name("lightShadows")
         .tip(uiText("Kinetica", "Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр (у лампы — шесть), поэтому у "
-             "ламп и прожекторов она сначала выключена, как в Blender и Unity. Тени рисуются не больше чем от 4 источников сразу"));
+             "ламп и прожекторов она сначала выключена. Тени рисуются не больше чем от 4 источников сразу"));
     lightCard_->body()->addWidget(lightFields_);
     connect(lightCard_, &ComponentCard::removeClicked, this, &SceneBuilder::removeSelected);
     col->addWidget(lightCard_);
@@ -162,7 +162,7 @@ void SceneBuilder::buildLightCards(QVBoxLayout* col) {
     cameraCard_->setObjectName("cameraCard");
     Camera* c = &cameraDraft_;
     cameraFields_ = new FieldForm([this](bool click) { commitSelected(cameraFields_, cameraDraft_, [this](uint32_t id) { return cameraById(id); }, click); });
-    // Free or target (3ds Max's Free and Target cameras), and what it looks at: its own target (a cube the gizmo moves) or
+    // Free or target, and what it looks at: its own target (a cube the gizmo moves) or
     // another object. Not the draft's to edit: a target is an object of its own, made or removed - camera_aim does it.
     cameraAimFields_ = new FieldForm([this](bool) { aimSelectedCameras(); });
     cameraAimFields_->tiles({{sceneIcon(SceneIcon::Camera, 26), uiText("Kinetica", "Свободная"), uiText("Kinetica", "Смотрит туда, куда повёрнута: поворот — гизмо или вид через неё")},

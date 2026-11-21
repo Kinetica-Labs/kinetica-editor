@@ -266,13 +266,13 @@
     </message>
     <message>
         <location filename="../editor/ControlScheme.cpp" line="41"/>
-        <source>Как в Blender</source>
-        <translation>Blender Style</translation>
+        <source>СКМ и клавиши G/R/S</source>
+        <translation>MMB and G/R/S keys</translation>
     </message>
     <message>
         <location filename="../editor/ControlScheme.cpp" line="42"/>
-        <source>Как в Maya/Unity</source>
-        <translation>Maya / Unity Style</translation>
+        <source>Alt и полёт на ПКМ</source>
+        <translation>Alt and RMB fly</translation>
     </message>
     <message>
         <location filename="../editor/ControlScheme.cpp" line="49"/>
@@ -1452,8 +1452,8 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowControls.cpp" line="151"/>
-        <source>ЛКМ — выбор, ПКМ — осмотр, СКМ — панорама, колесо — зум к курсору; Alt+кнопки как в Maya</source>
-        <translation>LMB: select · RMB: orbit · MMB: pan · wheel: zoom toward the cursor. Alt+mouse uses Maya controls.</translation>
+        <source>ЛКМ — выбор, ПКМ — осмотр, СКМ — панорама, колесо — зум к курсору; Alt+кнопки мыши — вращать, панорама, зум</source>
+        <translation>LMB: select · RMB: orbit · MMB: pan · wheel: zoom toward the cursor. Alt+mouse buttons: orbit, pan, zoom.</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowControls.cpp" line="152"/>
@@ -3003,8 +3003,8 @@ Channel %5 — right-click to plot</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilder.cpp" line="470"/>
-        <source>Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются — как в Unity)</source>
-        <translation>Stop: the scene is back to what it was before ← (modifications during the game are not saved – as in Unity)</translation>
+        <source>Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются)</source>
+        <translation>Stop: the scene is back to what it was before ← (modifications during the game are not saved)</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilder.cpp" line="493"/>
@@ -4031,8 +4031,8 @@ motor strength %1 N</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderLights.cpp" line="155"/>
-        <source>Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр (у лампы — шесть), поэтому у ламп и прожекторов она сначала выключена, как в Blender и Unity. Тени рисуются не больше чем от 4 источников сразу</source>
-        <translation>Bodies cast a shadow from this light. Each shadow is an extra render pass every frame (a lamp has six), so for lamps and floodlights it is first turned off, as in Blender and Unity. Shadows are drawn from no more than 4 sources at once</translation>
+        <source>Тела отбрасывают тень от этого света. Каждая тень — лишний проход рендера каждый кадр (у лампы — шесть), поэтому у ламп и прожекторов она сначала выключена. Тени рисуются не больше чем от 4 источников сразу</source>
+        <translation>Bodies cast a shadow from this light. Each shadow is an extra render pass every frame (a lamp has six), so for lamps and floodlights it is first turned off. Shadows are drawn from no more than 4 sources at once</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderLights.cpp" line="168"/>
@@ -5233,8 +5233,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="59"/>
-        <source>Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам (как Auto Key в 3ds Max и автоключ в Blender). Выключен - ключ ставит только «◆ Ключ»</source>
-        <translation>While on: when an object is moved or turned, its key is put at the playhead by itself (like Auto Key in 3ds Max and auto keying in Blender). Off - only "◆ Key" puts a key</translation>
+        <source>Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам. Выключен - ключ ставит только «◆ Ключ»</source>
+        <translation>While on: when an object is moved or turned, its key is put at the playhead by itself. Off - only "◆ Key" puts a key</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="58"/>

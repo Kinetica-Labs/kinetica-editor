@@ -116,7 +116,7 @@ Vector3 SceneBuilder::worldPositionOf(uint32_t id) const {
 }
 
 // The first click on a grouped thing selects its topmost group; the next click on it, the group one
-// level down, and so on to the thing itself (Unity's and Blender's rule). An array is one thing.
+// level down, and so on to the thing itself. An array is one thing.
 uint32_t SceneBuilder::clickTarget(uint32_t drawnId) const {
     const std::vector<uint32_t> chain = chainOf(ownerOf(drawnId));
     if (chain.empty()) return 0;

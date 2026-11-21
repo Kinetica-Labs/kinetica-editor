@@ -1,5 +1,5 @@
 #pragma once
-// A script: a Python file that builds or changes the scene and ends - an example as code, the way Blender runs a .py.
+// A script: a Python file that builds or changes the scene and ends - an example as code.
 // It is a client of the same API as the console and the plugins (import kinetica as ke; scene = ke.connect()), started
 // by the operation script_run {file}: every edit it makes is one step of Ctrl+Z, its print() comes to the API console,
 // and a script that falls takes back what it had built and says its file and line. A plugin stays and gives the editor

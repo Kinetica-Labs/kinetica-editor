@@ -334,7 +334,7 @@ SceneOp driveSceneOp() {
                    "voltage?: number (V), resistance?: number (ohm), constant?: number (N m/A), on?: bool}", {}, driveOp};
 }
 
-// assembly_grip: a gripper closed or opened, as Robotiq's grippers are driven - a target and a force limit: closing,
+// assembly_grip: a gripper closed or opened - a target and a force limit: closing,
 // every finger slides toward its far end with its drive capped at `force`, so it stops on what it meets and presses
 // with that force (a jelly is not crushed, a cube held by mu N); opening, back to its near end with the open force;
 // travel: to that far from open, a step at a time (the window's wheel: an analog trigger, as a VR controller's).
@@ -370,7 +370,7 @@ bool gripOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
 }
 
 SceneOp gripSceneOp() {
-    return {"assembly_grip", "A gripper closed (close: true, the default) or opened, as a Robotiq gripper is driven: each finger - a "
+    return {"assembly_grip", "A gripper closed (close: true, the default) or opened: each finger - a "
                    "slider on the effector of the IK goal given (or of the effector itself) - slides to its far end with its drive capped "
                    "at force N (default 2), so it stops on what it meets and presses with that force; opening, back to its near end with "
                    "open_force (default 40); travel: to that many metres from open, capped at force (a wheel's step). All the fingers in "

@@ -418,7 +418,7 @@ std::vector<SceneOp> actionSceneOps() {
         {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre); kind target: a target camera that always "
                              "looks there - at object `at` (wherever it goes) or the point", "{eye?: [x,y,z], target?: [x,y,z], kind?: 'free'|'target', at?: int}",
          {}, addCameraOp},
-        {"camera_aim", "A target camera (3ds Max's Target camera): it always looks at object `at` (wherever the running world takes it) or "
+        {"camera_aim", "A target camera: it always looks at object `at` (wherever the running world takes it) or "
                        "at `point`, or (neither) at where it looks now; free: true - a free camera again, looking where it looked",
          "{camera: int, at?: int, point?: [x,y,z], free?: bool}", {}, aimCameraOp},
         treeOp("scene_delete", "Objects deleted as Del does: with everything under them, the joints and sensors they hold (scene_remove: one object, its children kept)"),

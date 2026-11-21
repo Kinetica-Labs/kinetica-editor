@@ -118,7 +118,7 @@ private:
     // A beginner sees the builder and the 3D view; "Графики" brings the readings and plots at the bottom.
     void buildLayoutActions();
     void setGraphsVisible(bool on);
-    // The layout buttons at the right end of the menu line, as in VS Code's title bar
+    // The layout buttons at the right end of the menu line
     // (MainWindowLayout.cpp): the left, bottom and right dock areas close and open with what was
     // open in them; a menu lists every panel, the status line, the tool shelf and "only the 3D view".
     void addLayoutButtons();

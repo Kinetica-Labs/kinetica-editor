@@ -64,7 +64,7 @@ private:
     bool open_ = false;
 };
 
-// A component of an object as a card, as in Unity's inspector: a header with the component's icon
+// A component of an object as a card: a header with the component's icon
 // and title that folds the card open and shut, and an ✕ that removes the component. Opens when
 // added, so the numbers of what was just added are in view.
 class ComponentCard : public QFrame {

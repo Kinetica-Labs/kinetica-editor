@@ -231,7 +231,7 @@ void testSphereCapsule(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v,
     pump(200);
 }
 
-// The collider mode with a hand (Unity's «Edit Collider», Godot's points): a cube, Твёрдое, a fitted box collider,
+// The collider mode with a hand (one draggable point per face): a cube, Твёрдое, a fitted box collider,
 // «Править коллайдер в виде» - six points, one per face. The mouse drags the +X face's point 0.1 m out: the collider is
 // 0.1 m longer along x and its centre 0.05 m along (the -X face stays), the cube itself stays where it stood, one undo
 // step; undone, the collider is fitted again. Esc leaves the mode with the cube still selected. A sphere's card asks one

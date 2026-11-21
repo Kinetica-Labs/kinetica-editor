@@ -1,6 +1,5 @@
 #pragma once
-// The gizmo: the handles on the selected object that move, turn and scale it with the mouse, as in
-// Blender, Maya or 3ds Max. W shows three arrows (X red, Y green, Z blue) with three small squares for
+// The gizmo: the handles on the selected object that move, turn and scale it with the mouse. W shows three arrows (X red, Y green, Z blue) with three small squares for
 // moving in a plane (in the quadrant facing the camera) and a white circle in the centre for moving in
 // the view plane; E shows three rings (their far halves dimmed) and a white outer ring facing the
 // camera; R shows three shafts ending in cubes and a centre square for scaling evenly. The handle
@@ -28,7 +27,7 @@
 //             centre square scales evenly as the mouse goes right / up.
 // Ctrl snaps: 0.1 m, 15 degrees, 10 %. (Shift for fine moves is applied by the viewport to the mouse.)
 //
-// Keyboard transforms, as in Blender: G (move), Shift+R (turn), Shift+S (scale) start a transform
+// Keyboard transforms: G (move), Shift+R (turn), Shift+S (scale) start a transform
 // that follows the mouse without grabbing a handle; X / Y / Z then limit it to an axis (the world
 // axis, pressed again the object's own axis, a third time free again); typing a number sets the
 // exact amount (metres, degrees, a factor); Enter or a click confirms, Esc or the right button
@@ -105,7 +104,7 @@ public:
     bool settle(GizmoPose& pose);
     void end();
     // During a handle drag: X / Y / Z switch it to that axis, Shift+X / Y / Z to the plane across it
-    // (moving only), as if that handle had been grabbed at the press (Blender's axis locking).
+    // (moving only), as if that handle had been grabbed at the press (axis locking).
     void switchHandle(GizmoHandle h, const GizmoView& v);
     bool dragging() const { return active_ != GizmoHandle::None; }
     float dragAngleDeg() const { return angleDeg_; } // the turn so far

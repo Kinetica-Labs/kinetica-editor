@@ -192,7 +192,7 @@ now. Four buttons in the top right corner hide and show the panels; `F11` leaves
 | Wheel | zoom |
 | `F` | frame the selection; `Home` - the whole scene |
 
-The habits of other programs are in Settings → Controls: Simple, Blender Style, Maya / Unity Style.
+The mouse layout is chosen in Settings → Controls.
 
 <a id="build"></a>
 

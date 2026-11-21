@@ -83,7 +83,7 @@ struct JointDesc {
     bool collide = false;         // the two bodies collide with each other
 };
 
-// The mouse's hand (Box2D's mouse joint): a soft spring of `hertz` and `dampingRatio` from `point` (world, on
+// The mouse's hand: a soft spring of `hertz` and `dampingRatio` from `point` (world, on
 // dynamic body `body`) to a target that starts there, solved together with the contacts, pulling with at most
 // `maxForce` N; the body's turn is braked with at most `maxTorque` N m. It is a joint: moveHand leads its
 // target, removeJoint lets go, reaction() is its pull on the body.

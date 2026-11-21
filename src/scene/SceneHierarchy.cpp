@@ -1,6 +1,6 @@
 // Many objects at once, as data: the hierarchy (an object's pose relative to its parent group),
-// instances (entities sharing the geometry and roles of a master, 3ds Max's Instance), and arrays
-// (one object standing for a pattern of copies, Blender's Array modifier / Houdini's copy-to-points).
+// instances (entities sharing the geometry and roles of a master), and arrays
+// (one object standing for a pattern of copies).
 // Everything here only reads the SceneGraph and computes poses; the running world (src/sim) turns the
 // result into bodies, and an editor draws it the same way while the scene is being edited.
 #include "scene/SceneGraph.h"

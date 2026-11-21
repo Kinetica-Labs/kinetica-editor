@@ -381,7 +381,7 @@ void testSceneOpsRegistry() {
           "scene_add_light with position and target shines there; scene_add_camera with eye and target looks there");
 }
 
-// A target camera (3ds Max's Target camera) always looks at its target. Aimed at a cube, it looks at the cube; the cube
+// A target camera always looks at its target. Aimed at a cube, it looks at the cube; the cube
 // moved, it turns after it; the camera moved, it still looks at it. Set free, it keeps looking where it looked. Its
 // target comes back from the file to the bit, a free camera's file has no target line. scene_add_camera makes one aimed
 // at an object; camera_aim refuses a camera or an object that is not there.

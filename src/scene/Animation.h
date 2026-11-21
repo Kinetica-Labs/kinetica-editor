@@ -1,5 +1,5 @@
 #pragma once
-// The Sequencer's work on a sequence (SceneGraph.h, SequenceObject - a simple Unreal Level Sequence): a bound object's
+// The Sequencer's work on a sequence (SceneGraph.h, SequenceObject): a bound object's
 // pose at a time, a sequence played onto the scene at its playhead, keys made from where objects stand and removed. The
 // sequence holds the animation; the objects it binds never do. The running world (src/sim) and the editor sample it alike.
 #include "scene/SceneGraph.h"

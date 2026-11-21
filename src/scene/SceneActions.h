@@ -1,8 +1,8 @@
 #pragma once
 // An editor's actions as edits of the scene graph - the core every client of the API calls: the
 // editor's buttons and its operations (EditorOps), a script over the API, an agent over MCP. Add a shape, a light, a camera; delete, duplicate, group, ungroup, make an array,
-// show everything; give or take a role; move, turn and scale objects (what a gizmo drag does). As
-// Blender's operators sit in its kernel and the window only calls them, the same call here makes the
+// show everything; give or take a role; move, turn and scale objects (what a gizmo drag does). The
+// logic sits in this core and the window only calls it, so the same call makes the
 // same scene to the bit whoever calls it.
 //
 // The objects are always named by id: which ones are selected is the client's business. New ids come

@@ -4,8 +4,8 @@
 //
 // Why here, on the view itself: the first user to add cameras could not find how to look through
 // one - the button sat deep in the inspector, the menu under "Вид → Камеры". A choice about the
-// picture belongs on the picture, where the eyes already are: Blender, Unreal and Unity all put
-// their camera / viewpoint switch in the corner of the viewport.
+// picture belongs on the picture, where the eyes already are: the camera / viewpoint switch sits in
+// the corner of the viewport.
 //
 // What it shows: "Вид редактора" first (the editor's own free camera), then every camera of the
 // scene by name. It follows the scene by itself: a camera added, renamed or removed, or the view

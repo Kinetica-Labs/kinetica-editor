@@ -1,7 +1,7 @@
 // Plugins' components in the scene builder (SceneBuilder.h; the core: SceneGraph.h PluginComponent, component_set): the
 // types the running plugins declare, a card for each on the selected shape - its fields drawn from the plugin's schema,
 // an edit one component_set, one undo step and one Python line -, «Плагины» in «+ Добавить компонент», and the fields that
-// have a handle as Cinema 4D's orange points on the shape: a radius, a length, a point, dragged where they are seen.
+// have a handle, an orange point on the shape: a radius, a length, a point, dragged where they are seen.
 #include "SceneBuilder.h"
 #include "UiLanguage.h"
 
@@ -121,7 +121,7 @@ void SceneBuilder::addPluginComponentsTo(QMenu* menu, const Entity& e) {
 }
 
 // A card for each component of the shape: the plugin's fields as the inspector draws any; a component whose plugin is not
-// running keeps its words and says so (Unity's Missing Script).
+// running keeps its words and says so.
 void SceneBuilder::fillPluginCards() {
     while (QLayoutItem* it = pluginCards_->takeAt(0)) {
         if (QWidget* w = it->widget()) w->hide(), w->deleteLater();

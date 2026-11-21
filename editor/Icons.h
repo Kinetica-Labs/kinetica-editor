@@ -10,7 +10,7 @@
 #include <QString>
 
 // The components as the editor shows them, in the order of ke::Role: the rigid body and its collider
-// (what it collides with - a component of its own, as in Unity: alone it is a fixed obstacle, with
+// (what it collides with - a component of its own: alone it is a fixed obstacle, with
 // Rigid a moving body).
 enum class RoleIcon { Rigid, Collider, Count };
 
@@ -42,7 +42,7 @@ QIcon sceneIcon(SceneIcon kind, int size = 28);
 enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Battery, Driver, Joint, Controller, Sensor, Count }; // ke::SensorKind first
 QIcon deviceIcon(DeviceIcon kind, int size = 28);
 
-// The layout buttons of the window, as in VS Code's title bar: the left side bar, the layout menu,
+// The layout buttons of the window: the left side bar, the layout menu,
 // the bottom panel, the right side bar. The area is filled while it is open (the icon's On state).
 // The magnet's elements (ke::kMagnetPresets): a turn, a travel, a wheel, a weld, a ball.
 enum class LinkIcon { Rotary, Linear, Wheel, Weld, Ball, Count };

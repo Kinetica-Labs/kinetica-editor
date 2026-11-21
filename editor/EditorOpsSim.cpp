@@ -1,6 +1,6 @@
 // Time and the view in the API (EditorOps.h): play, pause, stop, N frames stepped, the live state and the world's
 // own operations (src/sim/WorldOps.h) put on the simulation's thread; a screenshot, framing, an agent's note in the
-// console, and every button of the window by its text (FreeCAD's runCommand: what the UI can do, a script can).
+// console, and every button of the window by its text (what the UI can do, a script can).
 #include "EditorOps.h"
 #include "EditorRuntime.h"
 #include "SceneBuilder.h"

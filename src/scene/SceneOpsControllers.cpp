@@ -1,6 +1,5 @@
 // The operations of controllers (SceneGraph.h's ControllerObject): controller_add puts a ready panel for an arm's
-// IK goal - the scheme robot teleoperation records demonstrations with (robosuite's and Isaac Lab's keyboard, MoveIt
-// Servo's and Isaac Lab's gamepad): move across the floor (W S A D, the left stick), lift (R F, the right stick up and
+// IK goal - a scheme to record teleoperated demonstrations with (keyboard and gamepad): move across the floor (W S A D, the left stick), lift (R F, the right stick up and
 // down), turn about the vertical (Z X, the right stick sideways), grip (Space or the left mouse button, the right
 // trigger - how far it is pulled). Its actions and bindings are then the scene's data, changed as any object's
 // (scene_get / scene_put). controller_input sets the actions' values on a running scene (src/sim).

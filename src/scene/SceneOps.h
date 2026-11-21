@@ -2,8 +2,7 @@
 // The operations of the API's core: every change of a scene graph and every question about it that a
 // client may ask, with its name, a line of help, its arguments and its answer as JSON-shaped values
 // (core/Value.h). The editor registers each of them as its own operation (undo, journal, console),
-// and serves them to scripts and agents over its API - so one name means one thing everywhere, as
-// Blender's operators do for its window and its scripts. What only a client has stays with the client: time (play, step), the undo history, files,
+// and serves them to scripts and agents over its API - so one name means one thing everywhere. What only a client has stays with the client: time (play, step), the undo history, files,
 // and the window's own state (the selection, the gizmo, the view).
 //
 // An operation that acts on objects takes them as `ids`: the core never knows a selection, and a

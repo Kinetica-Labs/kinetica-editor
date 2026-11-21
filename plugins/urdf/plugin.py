@@ -1,4 +1,4 @@
-"""URDF: a robot from its description (ROS) - the links as shapes, the joints as motors that hold the pose they are made
+"""URDF: a robot from its description - the links as shapes, the joints as motors that hold the pose they are made
 in, with their limits. It comes with the editor (plugins/urdf): «Файл → Импорт…», or a .urdf dropped on the view; an
 agent calls ``ed.urdf_load(path=...)``. All of it is one undo step.
 

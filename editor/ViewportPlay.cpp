@@ -1,8 +1,8 @@
 // What the viewport draws on top of its picture while it is used, and where it looks (see Viewport.h):
 //   - the play mode's frame: an amber border round the view while the scene plays, so nobody edits
 //     a running scene thinking it is the one that will be kept;
-//   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around, as
-//     Maya and Blender show it - the turn is no longer a mystery when the point is far away;
+//   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around -
+//     the turn is no longer a mystery when the point is far away;
 //   - following a body: the camera keeps its own orbit about a moving body of the frame.
 #include "Viewport.h"
 

@@ -32,10 +32,10 @@ public:
 // The camera: what a drag does is decided at the press from the button, the keys held and the
 // scheme - orbit around the point under the cursor (it stays where it is on screen), pan, zoom, or
 // look around in place. While the right button is held and W A S D fly the camera, a drag looks
-// around instead of orbiting (Unity, Unreal).
+// around instead of orbiting.
 // A plugin's tool (PluginHost: @command(tool=True)): a left click - not a drag - is where it acts; the point, the
 // surface's normal and the object under the mouse go to its command (Viewport::clickTool). A tool whose command takes
-// `to` is a drag, as a tool of Cinema 4D: from the press to the release, a line between them meanwhile
+// `to` is a drag: from the press to the release, a line between them meanwhile
 // (Viewport::dragTool); its click is a drag of no length.
 class PluginTool : public ViewportTool {
 public:
@@ -170,7 +170,7 @@ struct CreateWhat {
     bool target = false; // a camera that always looks at its target: the object (or point) its third click aims at
 };
 
-// Making things one after another with the mouse (edit mode), step by step as 3ds Max's Create panel,
+// Making things one after another with the mouse (edit mode), step by step,
 // each step named in the view's hint («Куб · шаг 2/3 ●●○ · противоположный угол»):
 //   a box, a plane: a corner, the opposite corner, (the box) its height;
 //   a cylinder, a cone: the centre, the radius, the height; a sphere: the centre, the radius;

@@ -2,9 +2,7 @@
 // Inverse kinematics on a scene's joints (Kinematics.cpp): the coordinates of a chain - the joints from the
 // first body that hangs on nothing (or on a fixed one) down to an end effector - that put the effector's frame
 // at a target point with a target turn (a quaternion, as a basis of three axes R in SO(3)). A numerical solve,
-// as in KDL, Pinocchio and game engines: damped least squares on the exact geometric Jacobian (Buss 2004,
-// "Introduction to inverse kinematics with Jacobian transpose, pseudoinverse and damped least squares
-// methods"), the error the travel to the point and the turn's logarithm log(R_target R_effector^T); the
+// damped least squares on the exact geometric Jacobian, the error the travel to the point and the turn's logarithm log(R_target R_effector^T); the
 // joints' limits held by forward kinematics (poseJoint). A target out of reach gives the nearest pose and
 // says so. Deterministic: the same scene and target, the same coordinates to the bit.
 #include "scene/SceneGraph.h"

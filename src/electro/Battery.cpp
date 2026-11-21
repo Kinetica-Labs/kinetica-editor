@@ -11,7 +11,7 @@
 namespace ke {
 
 // A typical NMC lithium-ion cell's open-circuit voltage at rest (manufacturers' discharge curves at
-// C/20, e.g. Panasonic NCR18650; Plett 2015, ch. 2): flat in the middle, steep at both ends.
+// C/20, e.g. Panasonic NCR18650): flat in the middle, steep at both ends.
 BatterySpec BatterySpec::liIon18650() {
     BatterySpec s;
     s.ocv = {{0.00_r, 3.00_r}, {0.05_r, 3.45_r}, {0.10_r, 3.55_r}, {0.20_r, 3.63_r}, {0.30_r, 3.68_r}, {0.40_r, 3.72_r},

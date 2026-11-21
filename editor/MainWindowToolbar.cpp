@@ -3,8 +3,8 @@
 // buttons Примеры, Лаборатория, Графики. A shape of «Фигура ▾» is drawn
 // with the mouse in the view (CreateTool, ViewportTools.h) and made by one call of scene_add.
 //
-// A narrow window never cuts a word ("Кол...еры"): the bar gives up room step by step instead, as
-// the ribbons of Office and 3ds Max do - first the captioned buttons sit closer together, then the
+// A narrow window never cuts a word ("Кол...еры"): the bar gives up room step by step instead:
+// first the captioned buttons sit closer together, then the
 // create buttons drop their captions (the icon and the tooltip stay), then run / step / undo do too,
 // then the icons get smaller. fitMainToolbar() picks the first step at which everything fits, on
 // every resize of the window.
@@ -107,7 +107,7 @@ void MainWindow::addCompactButtons(QToolBar* tb) {
     }
 }
 
-// "Фигура ▾": the primitives in one list, as Blender's Add menu and 3ds Max's Create panel group their shapes - the
+// "Фигура ▾": the primitives in one list - the
 // cube, sphere, cylinder, cone, plane, then a model from a file - so the bar keeps room for the sensors.
 void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shapes) {
     auto* button = new QToolButton;
@@ -130,7 +130,7 @@ void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shape
 }
 
 // The primitives of «Фигура ▾»: each starts making its shape with the mouse in the view, step by step and
-// one after another, as 3ds Max's Create panel does. The builder's own create actions still add a shape at
+// one after another. The builder's own create actions still add a shape at
 // once over a free spot, as scene_add with no place does for a script or an agent.
 std::vector<QAction*> MainWindow::shapeCreateActions() {
     const char* tips[] = {uiText("Kinetica", "Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)"),
@@ -219,7 +219,7 @@ void MainWindow::addLightButtons(QToolBar* tb) {
     lights->setMenu(menu);
     tb->addWidget(lights);
     createButtons_.push_back(lights);
-    // Two kinds, as in 3ds Max and Maya: a free camera looks where it is turned; a target camera always looks at its
+    // Two kinds: a free camera looks where it is turned; a target camera always looks at its
     // target - the object its third click aims at (a robot's gripper: the camera follows it in play), or a point.
     auto* cameras = new QToolButton;
     cameras->setObjectName("camerasButton");
@@ -244,7 +244,7 @@ void MainWindow::addLightButtons(QToolBar* tb) {
 }
 
 // "Датчик ▾": a sensor has no shape of its own - it is put on the selected shape (a face toward the view) or on the
-// joint the shape hangs on, as a property, the way MuJoCo, Gazebo and NX MCD attach theirs.
+// joint the shape hangs on, as a property.
 void MainWindow::addSensorButton(QToolBar* tb) {
     auto* sensors = new QToolButton;
     sensors->setObjectName("sensorsButton");

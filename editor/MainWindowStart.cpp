@@ -180,7 +180,7 @@ void MainWindow::startBuilder(bool interactive) {
     if (interactive) QTimer::singleShot(2500, this, [this] { checkBlankView(); }); // a white window: offer the CPU
     if (interactive) startJournal();
     // No question before the first frame: the simple mouse scheme is the default, and the choice
-    // (Blender, Maya/Unity) is one line in the last hint and in Вид → Управление.
+    // (the other two schemes) is one line in the last hint and in Вид → Управление.
 }
 
 // The first minutes with the UR5e: the bubble leads through «Запись», the arm by its keys and ■, the playhead, and

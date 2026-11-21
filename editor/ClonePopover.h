@@ -1,5 +1,5 @@
 #pragma once
-// The small window at the cursor after a Shift + gizmo drag (3ds Max's Clone Options, smaller):
+// The small window at the cursor after a Shift + gizmo drag (a small clone-options window):
 // "Клонировать", how many copies (1 to 1000), of what kind - ● Копия ○ Экземпляр ○ Массив - and
 // OK / Отмена. Enter is OK, Esc is Отмена, and a click past it counts as Отмена too. It is a popup:
 // while it is open nothing else in the window takes the mouse.

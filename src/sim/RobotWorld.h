@@ -37,7 +37,7 @@ public:
     // The bodies and joints in `physics`; what could not be built is said in notes().
     void build(PhysicsWorld& physics);
     // One step of dt in `substeps` substeps: before each, the drives' forces on the links.
-    // A take - the Sequencer's record of a run (Unreal's Take Recorder): from now, every dynamic body's pose on its
+    // A take - the Sequencer's record of a run: from now, every dynamic body's pose on its
     // parent a frame - a robot's links that its joints and IK move as well as a thrown box; not the bodies the playing
     // sequence leads; taken, a sequence of it - each body a track, its
     // samples thinned to the keys that give the motion back within 0.5 mm and 0.2 degrees, the first at 0 s - and the
@@ -128,7 +128,7 @@ public:
     // again, the command forgotten. False and why: no such joint or driver, no such word, no drive for it.
     bool command(PhysicsWorld& physics, uint32_t id, const std::string& what, Real value, std::string& error);
     // A force and a torque on a body over the next frame (N, N m; world), at its centre of mass, at every substep, then
-    // forgotten - how a plugin extends the physics (wind, a magnet, a thruster: Unity's AddForce in FixedUpdate). Given again it
+    // forgotten - how a plugin extends the physics (wind, a magnet, a thruster). Given again it
     // adds up within the frame. False and why: the entity has no moving body.
     bool push(const PhysicsWorld& physics, uint32_t entity, const Vector3& force, const Vector3& torque, std::string& error);
 

@@ -233,7 +233,7 @@ void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
 }
 
 // The Sequencer, a tab of the bottom panel beside the plots and the console, and the one in front from the start - a
-// timeline under the view is what Blender, Cinema 4D and Unreal open with; the API console is a tab behind it. It
+// timeline under the view; the API console is a tab behind it. It
 // follows every change of the scene (an edit, an undo, a call of the API) and the mode; I keys the selection anywhere in
 // the window (a text field keeps it).
 void MainWindow::buildSequencerDock() {

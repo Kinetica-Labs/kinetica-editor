@@ -69,7 +69,6 @@ vec3 surfaceAlbedo(vec3 color, vec3 pattern) {
     return uTextureKind == 0 ? color : uTextureKind == 1 || uTextureKind == 2 ? pattern : color * pattern;
 }
 // Surface gradient: solve grad(h).dPdx = dhdx and grad(h).dPdy = dhdy.
-// Mikkelsen, Bump Mapping Unparametrized Surfaces on the GPU (2010).
 float materialHeight(vec3 pattern) {
     if (uHeightMapEnabled != 0) {
         vec3 n = pow(abs(vMaterialNormal), vec3(8.0));
@@ -120,10 +119,8 @@ float linearDepth(float d, vec2 lens) {
 }
 
 // How much of a sun or a spotlight reaches this point: its depth map holds, in every direction from
-// the light, the depth of the nearest surface (Williams 1978, "Casting curved shadows on curved
-// surfaces"); the point is lit where it is not deeper. The fraction of the 3 x 3 texels around it
-// that it is in front of softens the edge a texel wide (percentage-closer filtering, Reeves, Salesin
-// & Cook 1987). The bias keeps a lit face from shadowing itself: a little depth for a sun, a few
+// the light, the depth of the nearest surface; the point is lit where it is not deeper. The fraction of the 3 x 3 texels around it
+// that it is in front of softens the edge a texel wide (percentage-closer filtering). The bias keeps a lit face from shadowing itself: a little depth for a sun, a few
 // centimetres (growing with distance) for a spotlight.
 float litByMap(sampler2D map, int s) {
     vec4 h = uShadowFromView[s] * vec4(vPosV, 1.0);
@@ -143,7 +140,7 @@ float litByMap(sampler2D map, int s) {
 }
 
 // How much of a lamp reaches this point: the lamp's cube map holds, in every direction, the distance
-// to the nearest surface (omnidirectional shadow maps: Gerasimov, "GPU Gems" ch. 12, 2004); the point
+// to the nearest surface (an omnidirectional shadow map); the point
 // is lit where it is not farther. Five samples around the direction soften the edge.
 float litByCube(samplerCube cube, int s) {
     vec3 w = (uViewToWorld * vec4(vPosV, 1.0)).xyz - uShadowLamp[s];

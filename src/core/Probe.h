@@ -1,15 +1,14 @@
 #pragma once
 // The probe: one place every part of the engine reports to, and the viewer, the plots, the tests
-// and the CSV take from by name - as Bullet's btIDebugDraw and profiler, Box2D's b2Profile and
-// b2Counters, PhysX's Visual Debugger. Global on purpose: a solver deep inside a substep, a scene
+// and the CSV take from by name. Global on purpose: a solver deep inside a substep, a scene
 // and the application all reach it with one line, and the reader asks for any channel by name
 // without anybody having wired it up in advance.
 //
 //   Probe::set("physics/contacts", n);            a value: the latest number of the channel
 //   Probe::set("physics/contacts", n);            a value: the frame's last
 //   { Probe::Timer t("physics/engine ms"); ... }  a timer: milliseconds summed over the frame
-//   if (Probe::layerOn(DrawLayer::ContactNormals))  debug drawing by LAYER (as PhysX's
-//       Probe::arrow(DrawLayer::ContactNormals, p, n, colour);   visualization parameters)
+//   if (Probe::layerOn(DrawLayer::ContactNormals))  debug drawing by LAYER
+//       Probe::arrow(DrawLayer::ContactNormals, p, n, colour);
 //
 // Rules: report per frame or per substep, not per pixel (the map is behind a mutex); the
 // names are "part/quantity" in ASCII so the channels sort into groups. Test the layer BEFORE a
@@ -27,8 +26,7 @@
 
 namespace ke {
 
-// What the research view can show, one bit each (the editor's panel toggles them). The analogues:
-// PhysX PxVisualizationParameter, Bullet btIDebugDraw::DebugDrawModes, Box2D b2Draw flags.
+// What the research view can show, one bit each (the editor's panel toggles them).
 enum class DrawLayer : uint32_t {
     Misc,               // drawings without a layer (the old line/arrow/point/box calls)
     ContactPoints,      // contact points

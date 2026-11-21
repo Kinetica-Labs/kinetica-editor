@@ -1,4 +1,4 @@
-// Shift + gizmo = clone, as in 3ds Max (see SceneBuilder.h). Shift held when a
+// Shift + gizmo = clone (see SceneBuilder.h). Shift held when a
 // gizmo drag starts: the selected objects stay, a copy of each follows the gizmo. When the button is
 // released the popover asks how many copies and of what kind; the copies then repeat the drag's step
 // from the original: copy k is moved and turned k times as the dragged copy was (a move d: d, 2d,

@@ -44,7 +44,7 @@ _busy = threading.Lock()  # the author's code runs one piece at a time: a comman
 
 class field:
     """A command's argument or a component's value as the editor shows it: its default, unit, range, the words of its label,
-    its choices - and, on a component, its handle in the view (Cinema 4D's orange point on the shape): "radius" (along the
+    its choices - and, on a component, its handle in the view (a point drawn on the shape): "radius" (along the
     shape's x), "length" (along `axis`, "y" if none), "point" (a place in the shape's frame; a 3-number default), "dial"
     (an angle about `axis`: a point on a circle around the shape - in degrees when the unit is "°", else radians) or
     "box" (a size, 3 numbers: a point on each of the faces +x, +y, +z).
@@ -97,7 +97,7 @@ def command(label=None, key=None, tool=False, opens=None):
         def plant(scene, point, normal, object, height=field(2.0, unit="м")):
             scene.add("cylinder", position=point, size=(0.2, height, 0.2))
 
-    A tool that also takes ``to`` is dragged, as a tool of Cinema 4D: pressed at ``point``, let go at ``to`` (and
+    A tool that also takes ``to`` is dragged: pressed at ``point``, let go at ``to`` (and
     ``to_object`` under it), a line with its length drawn between them meanwhile; a click is a drag of no length::
 
         @command(label="Стена", tool=True)

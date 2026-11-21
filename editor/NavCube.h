@@ -1,6 +1,5 @@
 #pragma once
-// The navigation cube in the top-right corner of the 3D view, a hybrid of Blender's navigation gizmo
-// and Unity's orientation cube: a small shaded cube turned as the scene is, with six balls around it
+// The navigation cube in the top-right corner of the 3D view, a small shaded cube turned as the scene is, with six balls around it
 // on the axes (X red, Y green, Z blue; the positive ones filled and lettered, the negative ones
 // hollow). A click on a ball looks along that axis at the scene (the ball of +Y: from the top); a
 // drag anywhere on it orbits the view. No keyboard and no numpad needed.

@@ -1,6 +1,5 @@
 #pragma once
-// The scene builder ("Конструктор"): a scene made without code, in two modes, as in Unity, Unreal or
-// Blender.
+// The scene builder ("Конструктор"): a scene made without code, in two modes: edit and play.
 //   ПРАВКА (edit, the default) - a plain 3D editor. The big buttons create GEOMETRY ONLY: a shape
 //     with no role that stands where it was put; nothing moves, nothing falls, nothing is simulated.
 //     Objects are selected with the mouse (again on the same spot: the one behind), moved, turned
@@ -8,7 +7,7 @@
 //     joints, drives, sensors. In edit mode a component only marks the object.
 //   ▶ ПУСК (play) - the robot's world is built from the graph once and runs; ⏸ pauses it; ■ СТОП
 //     throws it away and shows the scene exactly as it was before Play (the arm back in its pose,
-//     the cube back in place). As in Unity, edits made while playing are not kept after Stop.
+//     the cube back in place). Edits made while playing are not kept after Stop.
 //
 // The scene has three layers: SOURCES (geometry: never destroyed by physics), OBJECTS (a source with
 // a pose and roles - what the gizmo and the inspector edit) and META-OBJECTS (the bodies and joints
@@ -20,15 +19,15 @@
 // scene built again: then the builder stops with the edit kept and says why. On pause the gizmo works
 // on the object where it is now.
 //
-// The builder owns an ke::SceneGraph (saved as *.kscene) and shows two tabs, as Unity's hierarchy
-// and inspector: "Сцена" (what is there, the eye and the lock of each thing, and the world) and
+// The builder owns an ke::SceneGraph (saved as *.kscene) and shows two tabs, a hierarchy
+// and an inspector: "Сцена" (what is there, the eye and the lock of each thing, and the world) and
 // "Объект" (the selected thing, top to bottom: a quick palette of components, the "Объект" card
 // every thing has - name, visibility, lock, colour, position, rotation, size -, the "Геометрия" card
 // - what it looks like, which physics never changes -, then only the COMPONENTS it has, each a card
 // with an ✕, and "+ Добавить компонент"). The collider is a component of its own: alone it makes a
-// fixed obstacle, with "Твёрдое тело" a moving body; adding "Твёрдое тело" adds a collider "Авто",
-// as Unity's primitives come with theirs. The collider is drawn as a thin green wireframe over the
-// geometry (Houdini's collision guide): always for the selected object, for all with "Коллайдеры".
+// fixed obstacle, with "Твёрдое тело" a moving body; adding "Твёрдое тело" adds a collider "Авто"
+// of its own. The collider is drawn as a thin green wireframe over the
+// geometry: always for the selected object, for all with "Коллайдеры".
 //
 // Many objects at once: the selection may hold several objects, and a thing in
 // the scene is an ke::SceneObject - a shape (Entity), a group (Ctrl+G: its members move with it) or
@@ -41,7 +40,7 @@
 // toolbar's "Свет ▾" (Солнце, Лампа, Прожектор) and "Камера" make them, the viewport draws them as
 // wireframes (SceneMarkers.h) that the mouse picks and the gizmo moves and turns (a scale does
 // nothing to them), the "Свет" and "Камера" cards edit them, and "Смотреть через камеру" makes the
-// view that camera: moving the view then moves the camera (Blender's "lock camera to view").
+// view that camera: moving the view then moves the camera.
 #include "ColliderGuides.h"
 #include "EditView.h"
 #include "Gizmo.h"
@@ -112,7 +111,7 @@ public:
     QAction* undoAction() const { return undoAct_; }
     QAction* redoAction() const { return redoAct_; }
 
-    // The window's actions as code (SceneBuilderCode.cpp), as Blender's Info shows the operator a button
+    // The window's actions as code (SceneBuilderCode.cpp), as the call a button
     // ran: an action as the one call of the object model that does it (scene.add("box"), a gizmo drag as
     // .move(...)), a click's selection and the tool shelf as editor.select(...) / editor.gizmo.tool, an
     // edit of a field a moment after it as the core edits it was (ke::diffEdits) - executable, replayed
@@ -143,7 +142,7 @@ public:
     void watchHands(bool on) { handWatched_ = on; } // handPlaced is worked out only while someone asks for it
     ke::LiveEdit::Reload lastReload() const { return lastReload_; }
     bool gizmoAllowed() const { return doc_.mode != Mode::Playing; } // edit mode, or paused
-    // IK goals alone are selected: handles, as MuJoCo's mocap bodies - the simulation never moves them, so their
+    // IK goals alone are selected: handles - the simulation never moves them, so their
     // gizmo works while the scene plays too, and the arm follows by its motors (followGoals).
     bool goalSelected() const;
     bool gizmoOnSelection() const { return gizmoAllowed() || goalSelected(); }
@@ -155,7 +154,7 @@ public:
     void pause();
     void stop();
     void step();
-    // K in play or on pause (SceneBuilderKeep.cpp, Unreal's "Keep Simulation Changes"): the live poses
+    // K in play or on pause (SceneBuilderKeep.cpp): the live poses
     // of the selected objects (all, if none is selected) stay after Stop; one undo step after Stop.
     void keepSimulationPoses();
 
@@ -173,7 +172,7 @@ public:
     const ke::ControllerObject* controllerById(uint32_t id) const;
     void onGizmoFinished();
     void onGizmoCancelled();
-    // The collider mode (Unity's «Edit Collider», Godot's shape handles; SceneBuilderColliders.cpp): the gizmo and the points
+    // The collider mode (SceneBuilderColliders.cpp): the gizmo and the points
     // in the view hold the selected shape's collider, not the shape - its place, turn and size by its kind's own numbers,
     // each drag one undo step and one scene_collider line. Off: Esc, another selection, Пуск. A hull follows the geometry:
     // no mode, a word why.

@@ -1,7 +1,7 @@
 #pragma once
 // The editor's API: the operator registry. Every change of the scene and every action is an
-// operation with a name, a line of help, its arguments and its result as JSON - as Blender's
-// operators and FreeCAD's commands: a button, the magnet's click, a Python script and an agent
+// operation with a name, a line of help, its arguments and its result as JSON:
+// a button, the magnet's click, a Python script and an agent
 // over the network (EditorServer) call the same operations, so whatever one can do the others can.
 //
 // The core is small and every edit in it has an inverse (ke::SceneEdits): get, put, set, remove a
@@ -11,8 +11,7 @@
 // and the resource lease of an agent's session (EditorOpsRuntime.cpp). An answer is
 // {"ok": true, ...} or {"ok": false, "error": "..."}; an operation that waits for the simulation
 // answers when the simulation thread is done. Every call that changes something, from the window or
-// from outside, is written to an append-only journal (JSON lines, as Blender's Info and Maya's script
-// editor echo each action): a session can be read back, replayed, and an agent sees what a hand did.
+// from outside, is written to an append-only journal (JSON lines, one per action): a session can be read back, replayed, and an agent sees what a hand did.
 #include "core/RuntimePolicy.h"
 #include "core/Value.h"
 #include "math/Quaternion.h"

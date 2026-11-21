@@ -1,4 +1,4 @@
-"""Kinetica from Python as objects - the way Blender's ``bpy.data`` and Unity's GameObjects read::
+"""Kinetica from Python as objects - a scene, its objects and their parts read as attributes::
 
     import kinetica as ke
 

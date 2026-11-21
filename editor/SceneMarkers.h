@@ -1,6 +1,6 @@
 #pragma once
 // Lights and cameras in the 3D view. They have no geometry, so the editor draws each as a small
-// wireframe (the way Blender and Maya do) and the mouse picks it by a ball around that wireframe:
+// wireframe and the mouse picks it by a ball around that wireframe:
 //   Солнце    - a disc across its direction and an arrow along it (sunlight is parallel: where the
 //               sun stands does not matter, only where it points);
 //   Лампа     - a bulb of three rings; when selected, a faint circle as wide as its range;
@@ -26,7 +26,7 @@ struct SceneMarker {
     float range = 5, coneDeg = 40, softnessDeg = 10, fovDeg = 50;
     float reach = 0; // one being placed: its cone, frame or arrow drawn this far, to where it looks (0: the marker's size)
     bool selected = false;
-    bool aimed = false;  // a target camera: a faint line to its target (3ds Max's line of sight)
+    bool aimed = false;  // a target camera: a faint line to its target
     ke::Vector3 aim{0.0f};
 };
 

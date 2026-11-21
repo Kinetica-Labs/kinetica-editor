@@ -282,7 +282,7 @@ private:
     }
 };
 
-// The keys stay where they were when a button, a check box or a list of the window is clicked, as Blender's do: Qt gives
+// The keys stay where they were when a button, a check box or a list of the window is clicked: Qt gives
 // such a widget the keyboard on a click, and then Space pressed the button just clicked instead of «Пуск», letters
 // leafed through the list «Привод» - the editor's keys seemed dead (a person's report). Tab still reaches them; a dialog's
 // own buttons keep theirs (Enter, Space on the focused one).

@@ -1,6 +1,6 @@
 #pragma once
 // A joint of a robot as data: six freedoms between two links, each locked, limited or free, and what
-// drives it (USD Physics' D6, PhysX's D6, Unity's ConfigurableJoint). Each link carries a frame - an
+// drives it. Each link carries a frame - an
 // origin and a turn in the link's own frame (the world's for no link) - and the six freedoms are
 // frame a's motion relative to frame b: travel along b's x, y, z and turns about them. A hinge is the
 // joint with only the turn about x free, a slider with only the travel along x, a ball with the three
@@ -10,7 +10,7 @@
 // Coordinates: travel d_k = (pA - pB) . e_k with e_k b's axes in the world; the turn of frame a
 // relative to frame b, q = QB^-1 QA, split into a twist about x, 2 atan2(q_x, q_w), and the swing
 // that remains, whose y and z angles are 2 atan2(s_y, s_w) and 2 atan2(s_z, s_w) (the swing-twist
-// split of PhysX's D6).
+// split).
 //
 // A drive: a spring-damper k (x_t - x) + c (v_t - v) up to maxForce - a large stiffness is a servo,
 // neither stiffness nor damping a velocity motor. An electric DC motor instead: the Lorentz force on

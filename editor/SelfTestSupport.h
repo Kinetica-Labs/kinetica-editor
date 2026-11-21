@@ -166,7 +166,7 @@ inline bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapsho
 int runComponentTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // The keys and the mouse of the edit mode (SelfTestControls.cpp).
 int runControlTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
-// Shapes drawn with the mouse, as in 3ds Max: footprint, height, click (SelfTestCreate.cpp).
+// Shapes drawn with the mouse: footprint, height, click (SelfTestCreate.cpp).
 int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Many objects at once: Shift-clone, instances, arrays, groups, multi-edit (SelfTestMany.cpp).
 int runManyTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
@@ -178,7 +178,7 @@ int runScriptTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
 // The play-mode pass: the top bar's widths, the same look in play, the banner, K, Ctrl+K, the
 // orbit pivot, the blank-window check (SelfTestPlay.cpp).
 int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
-// The layout buttons of the top bar, as in VS Code (SelfTestLayout.cpp).
+// The layout buttons of the top bar (SelfTestLayout.cpp).
 int runLayoutTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 // Shadows by the checkbox: a spotlight's and a lamp's shadow on the floor, on and off, the budget,
 // the checkbox through undo and a saved file (SelfTestShadows.cpp).
