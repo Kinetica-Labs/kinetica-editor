@@ -141,7 +141,7 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
                              if (d->shape == ForceShape::Radial && d->radius < 0.01f) d->radius = 3.0f; // a radial force needs a reach
                          }).name("forceShape")
         .tip(uiText("Kinetica", "Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная)"));
-    forceFields_->choice(uiText("Kinetica", "Режим"), QStringList{uiText("Kinetica", "Разовый импульс"), uiText("Kinetica", "Постоянная сила")},
+    forceFields_->choice(uiText("Kinetica", "Режим"), QStringList{uiText("Kinetica", "Импульс"), uiText("Kinetica", "Постоянная")},
                          [d] { return double(int(d->mode)); }, [d](double v) { d->mode = ForceMode(int(v)); }).name("forceMode")
         .tip(uiText("Kinetica", "Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время"));
     forceFields_->number(uiText("Kinetica", "Импульс, Н·с"), -double(kForceMaxStrength), double(kForceMaxStrength), 1, 2, d->strength)

@@ -2328,26 +2328,6 @@ The picture is being prepared…</translation>
         <translation>Force: a push or a blast all at once, a thrust or a pull all the time. It acts on bodies while the world runs</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="287"/>
-        <source>Толчок — разовый импульс телу</source>
-        <translation>Push - one impulse to a body</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="288"/>
-        <source>Взрыв — разовый импульс от точки, в радиусе</source>
-        <translation>Blast - one impulse away from a point, within a radius</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="289"/>
-        <source>Тяга — постоянная сила на теле</source>
-        <translation>Thrust - a constant force on a body</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="290"/>
-        <source>Притяжение — постоянная сила к точке, в радиусе</source>
-        <translation>Pull - a constant force toward a point, within a radius</translation>
-    </message>
-    <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
         <source>Толчок: импульс, Н·с — срабатывает один раз. С выбранным телом прикладывается к нему: стрелка из его центра масс</source>
         <translation>Push: an impulse, N s - it fires once. With a body selected it is applied to that body: an arrow from its centre of mass</translation>
@@ -2368,21 +2348,25 @@ The picture is being prepared…</translation>
         <translation>Pull: a force, N - all the time, toward its point, on the bodies inside its sphere</translation>
     </message>
     <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="287"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Толчок</source>
         <translation>Push</translation>
     </message>
     <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="288"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Взрыв</source>
         <translation>Blast</translation>
     </message>
     <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="289"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Тяга</source>
         <translation>Thrust</translation>
     </message>
     <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="290"/>
         <location filename="../src/scene/SceneActions.cpp" line="68"/>
         <source>Притяжение</source>
         <translation>Pull</translation>
@@ -6656,6 +6640,16 @@ Sample </translation>
         <translation>A directional force pushes along its own +Y axis, a radial one away from its point (toward it when the strength is negative)</translation>
     </message>
     <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="144"/>
+        <source>Импульс</source>
+        <translation>Impulse</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="144"/>
+        <source>Постоянная</source>
+        <translation>Constant</translation>
+    </message>
+    <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="146"/>
         <source>Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время</source>
         <translation>An impulse fires once, at its set time or by the button; a constant force acts all the time</translation>
@@ -6674,16 +6668,6 @@ Sample </translation>
         <location filename="../editor/SceneBuilderForces.cpp" line="47"/>
         <source>У этой фигуры нет подвижного тела: сила подействует, когда фигура получит роль «Твёрдое тело»</source>
         <translation>This shape is no moving body: the force will act once the shape is given the Rigid body role</translation>
-    </message>
-    <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="144"/>
-        <source>Разовый импульс</source>
-        <translation>One impulse</translation>
-    </message>
-    <message>
-        <location filename="../editor/SceneBuilderForces.cpp" line="144"/>
-        <source>Постоянная сила</source>
-        <translation>Constant force</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="147"/>
