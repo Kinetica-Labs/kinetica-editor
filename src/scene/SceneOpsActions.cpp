@@ -362,7 +362,7 @@ std::vector<SceneOp> actionSceneOps() {
         {"camera_aim", "A target camera (3ds Max's Target camera): it always looks at object `at` (wherever the running world takes it) or "
                        "at `point`, or (neither) at where it looks now; free: true - a free camera again, looking where it looked",
          "{camera: int, at?: int, point?: [x,y,z], free?: bool}", {}, aimCameraOp},
-        treeOp("scene_delete", "Objects deleted as Del does: with everything under them, the joints and sensors they hold"),
+        treeOp("scene_delete", "Objects deleted as Del does: with everything under them, the joints and sensors they hold (scene_remove: one object, its children kept)"),
         treeOp("scene_duplicate", "Copies a little above the originals (Ctrl+D); the copies are the answer"),
         treeOp("scene_group", "A group at the centre of the objects, their poses kept in the world (Ctrl+G)"),
         treeOp("scene_ungroup", "The groups dissolved, their members kept where they stand (Ctrl+Shift+G)"),

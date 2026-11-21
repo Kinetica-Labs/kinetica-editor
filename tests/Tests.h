@@ -98,3 +98,4 @@ void testGoalPathStart();
 void testGoalPathTurnLength();
 void testSmoothPath();
 void testAssemblyDrive();
+void testAssemblyAttachOp();

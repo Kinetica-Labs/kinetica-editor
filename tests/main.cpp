@@ -87,6 +87,7 @@ int main() {
     run("assembly: a way re-planned on the walk starts where the goal is, not at the last path's end", testGoalPathStart);
     run("assembly: a turn on the spot walked as length takes its time and is kept in the file", testGoalPathTurnLength);
     run("assembly: a camera's flight - a spline through the points at constant speed, the turns by SQUAD", testSmoothPath);
+    run("assembly: assembly_attach by name - a link on a face, its joint at the face's centre", testAssemblyAttachOp);
     run("assembly: a joint's drive by its fields - a servo's target changed keeps its stiffness, a line with a key twice refused", testAssemblyDrive);
     std::printf(g_failures ? "\n%d FAILURE(S)\n" : "\nALL PASSED\n", g_failures);
     return g_failures;

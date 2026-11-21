@@ -280,6 +280,51 @@ void testDescribeScene() {
 // stiffness (fields merge); a velocity motor and a DC motor by their kinds, a DC motor without its constant
 // refused. The trap an agent fell into - scene_set writing "target" over the stiffness's place, a line with
 // "target" twice - is refused now instead of read with the stiffness lost. The scene in words says "серво".
+// assembly_attach by name - what the MCP server's instructions tell an agent to build with: the new link stands
+// against the face, the joint at the face's centre is of the kind asked for, and the answer says which way it turns.
+void testAssemblyAttachOp() {
+    SceneGraph g;
+    std::string error;
+    const auto list = [](Real x, Real y, Real z) {
+        Value v = Value::list();
+        return v.push(double(x)), v.push(double(y)), v.push(double(z)), v;
+    };
+    Value add = Value::map(), base = Value::map();
+    add.set("shape", "box"), add.set("role", "rigid"), add.set("fixed", true), add.set("size", list(0.5_r, 0.5_r, 0.5_r)), add.set("position", list(0, 0.25_r, 0));
+    findSceneOp("scene_add")->edit(g, add, base, error);
+    const int target = base["id"].integer();
+    const SceneOp* attach = findSceneOp("assembly_attach");
+    Value args = Value::map(), made = Value::map();
+    args.set("target", target), args.set("face", "+y"), args.set("joint", "hinge"), args.set("axis", 0), args.set("size", list(0.2_r, 0.6_r, 0.2_r)), args.set("name", "Плечо");
+    CHECK(attach->edit(g, args, made, error), "assembly_attach: %s", error.c_str());
+    const Entity* link = static_cast<const Entity*>(findObject(g, uint32_t(made["id"].integer())));
+    const JointObject* joint = findJoint(g, uint32_t(made["joint"].integer()));
+    CHECK(link && joint && made["entity"].integer() == made["id"].integer(), "the answer names the new link and its joint");
+    if (!link || !joint) return;
+    Vector3 at, axis;
+    jointWorldFrame(g, *joint, at, axis);
+    const std::vector<Value>& said = made["axis"].items();
+    std::printf("  attached «%s» at y %.3f, the joint at (%.3f, %.3f, %.3f) about (%.2f, %.2f, %.2f)\n", link->name.c_str(), double(link->position.y),
+                double(at.x), double(at.y), double(at.z), double(axis.x), double(axis.y), double(axis.z));
+    CHECK(link->name == "Плечо" && std::abs(link->position.y - 0.8_r) < 1e-5_r && link->rigid.enabled && !link->rigid.fixed,
+          "the link is named, a free body, and stands on the face: its centre half its height above it");
+    CHECK(joint->a == link->id && joint->b == uint32_t(target) && length(at - Vector3(0, 0.5_r, 0)) < 1e-5_r, "the joint holds the link to the target at the face's centre");
+    CHECK(said.size() == 3 && std::abs(length(axis) - 1) < 1e-5_r && std::abs(axis.y) < 1e-5_r && std::abs(Real(said[0].number()) - axis.x) < 1e-6_r &&
+          std::abs(Real(said[2].number()) - axis.z) < 1e-6_r, "the answer's axis is the hinge's in the world - across the face");
+    CHECK(getObject(g, joint->id).find("free rx") != std::string::npos, "a hinge: one free turn");
+    Value weld = Value::map(), welded = Value::map();
+    weld.set("target", target), weld.set("face", "+x"), weld.set("joint", "weld");
+    CHECK(attach->edit(g, weld, welded, error) && getObject(g, uint32_t(welded["joint"].integer())).find("free") == std::string::npos,
+          "joint weld: no freedom left");
+    const size_t entities = g.entities.size(), joints = g.joints.size();
+    Value wrong = Value::map(), none = Value::map();
+    wrong.set("target", target), wrong.set("face", "up");
+    const bool face = attach->edit(g, wrong, none, error);
+    wrong.set("face", "+z"), wrong.set("joint", "spring");
+    CHECK(!face && !attach->edit(g, wrong, none, error) && g.entities.size() == entities && g.joints.size() == joints,
+          "a face or a joint kind that is not one is refused, nothing added");
+}
+
 void testAssemblyDrive() {
     SceneGraph g;
     Entity base, arm;

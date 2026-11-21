@@ -149,7 +149,7 @@ std::vector<SceneOp> coreSceneOps() {
         const uint32_t id = setField(g, uint32_t(a["id"].integer()), a["line"].text(""), a["key"].text(""), values, e);
         return r.set("id", id), id != 0;
     }));
-    ops.push_back(edit("scene_remove", "An object out, with its joints; its children keep their place in the world", "{id: int}",
+    ops.push_back(edit("scene_remove", "One object out, with its joints; its children keep their place in the world (scene_delete: with everything under it)", "{id: int}",
                        [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         return removeObject(g, uint32_t(a["id"].integer())) || (e = "no object " + std::to_string(a["id"].integer()), false);
     }));
