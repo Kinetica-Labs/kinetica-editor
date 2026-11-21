@@ -191,8 +191,6 @@ int runBumpTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 int runWorldTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 // The core's JSON text against Qt's, byte for byte and tree for tree (SelfTestHosts.cpp).
 int runWireParityTests();
-// The core's check of an operation's arguments against the Qt copy's, over the live registry (SelfTestHosts.cpp); temporary.
-int runSchemaParityTests(EditorOps&);
 
 // The IK goal dragged by its gizmo while the scene plays (SelfTestGoal.cpp).
 int runGoalTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);

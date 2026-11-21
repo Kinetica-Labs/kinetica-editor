@@ -13,11 +13,9 @@
 //
 // What the line does not say is not guessed: such a field has no type, only its words as its description. Every field the
 // line names is a property, and only those: a call with another is refused, naming the fields (argsProblem) - a typo said,
-// not silently ignored. This is a port of the window's first copy (editor/ArgsSchema.cpp, Qt) rule for rule, odd ones
-// included; the self-test group schema-parity ran the two side by side and tests/data/args-refusals.json holds the
-// texts the Qt one gave. The window still calls that Qt copy; the next commit switches it and deletes it.
-// Known differences from it, none in a real line: a type word spelled with U+212A (Kelvin sign) is no unit here (ASCII
-// lower-casing); keys are ordered by UTF-8 bytes, Qt's by UTF-16 units (differs for astral vs U+E000..U+FFFF keys).
+// not silently ignored. The window calls these two for every operation (EditorOps). The refusal texts of the window's
+// first, Qt copy (since deleted) are frozen in tests/data/args-refusals.json: an oracle that can no longer be recorded
+// again, checked by tests/ArgsSchemaTests.cpp.
 #include "core/Value.h"
 
 #include <string>

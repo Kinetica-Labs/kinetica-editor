@@ -1,7 +1,7 @@
 // The check of an operation's arguments (scene/ArgsSchema.h) without Qt: the schema of every operation's line of help
-// against tests/data/ops-list.json, the refusal texts the window's first (Qt) copy gave against
-// tests/data/args-refusals.json, and the grammar written out as small cases. The fixtures are what the self-test group
-// schema-parity found while both copies ran side by side; this file keeps them honest where Qt is not around.
+// against tests/data/ops-list.json, the refusal texts against tests/data/args-refusals.json, and the grammar written out
+// as small cases. args-refusals.json is what the window's first (Qt) copy of the check answered, now deleted: a frozen
+// oracle that cannot be recorded again.
 #include "TestRunner.h"
 
 #include "core/Json.h"
@@ -38,7 +38,7 @@ void testArgsSchemaOfEveryOperation() {
     }
 }
 
-void testArgsRefusalsAsQtGaveThem() {
+void testArgsRefusalsFrozenFixture() {
     const Value rows = fixture("args-refusals.json");
     CHECK(rows.items().size() > 500, "the recorded refusals are there (%zu)", rows.items().size());
     for (const Value& row : rows.items()) {

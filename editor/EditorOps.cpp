@@ -4,11 +4,11 @@
 // from the core (EditorOpsCore.cpp).
 #include "EditorOps.h"
 
-#include "ArgsSchema.h"
 #include "EditorRuntime.h"
 
 #include "SceneBuilder.h"
 #include "core/Format.h"
+#include "scene/ArgsSchema.h"
 #include "scene/Assembly.h"
 #include "scene/SceneEdits.h"
 #include "scene/SceneOps.h"
@@ -51,7 +51,7 @@ QJsonObject EditorOps::ok(QJsonObject fields) {
 QJsonObject EditorOps::error(const QString& why) { return QJsonObject{{"ok", false}, {"error", why}}; }
 
 void EditorOps::add(const QString& name, const QString& help, const QString& args, Handler run) {
-    ops_[name] = Op{help, args, std::move(run), argsSchema(args)}; // the line a person reads is the schema a model's client builds from
+    ops_[name] = Op{help, args, std::move(run), ke::argsSchema(args.toStdString())}; // the line a person reads is the schema a model's client builds from
 }
 
 void EditorOps::addSync(const QString& name, const QString& help, const QString& args, std::function<QJsonObject(const QJsonObject&)> run) {
@@ -60,7 +60,7 @@ void EditorOps::addSync(const QString& name, const QString& help, const QString&
 
 void EditorOps::addPluginOp(const QString& name, const QString& help, const QString& args, Handler run, const QJsonObject& schema) {
     add(name, help, args, std::move(run));
-    ops_[name].schema = schema;
+    ops_[name].schema = coreValue(schema);
     pluginOps_.insert(name);
 }
 
@@ -77,7 +77,7 @@ void EditorOps::removePluginOp(const QString& name) {
 void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& reply, const QString& source) {
     auto it = ops_.find(name);
     if (it == ops_.end()) return reply(error(unknown(name)));
-    if (const QString why = argsProblem(args, it->second.schema); !why.isEmpty()) return reply(error(why)); // refused, not guessed
+    if (const std::string why = ke::argsProblem(coreValue(args), it->second.schema); !why.empty()) return reply(error(QString::fromStdString(why))); // refused, not guessed
     // An edit's changes are its own line: the window does not say them again. A hand's input (ui_pointer,
     // ui_key, ui_trigger) is no edit: what the window does with it is said by the window, as for a hand.
     // A query changes nothing: it leaves the window's lines alone (a drag in progress stays one line).
@@ -118,7 +118,7 @@ QJsonArray EditorOps::list(const QStringList& families) const {
         if (wiring(name)) continue; // a plugin process's own, not an operation anyone calls
         if (!families.isEmpty() && !families.contains(name.section('_', 0, 0))) continue;
         QJsonObject entry{{"name", name}, {"help", op.help}, {"args", op.args}, {"kind", kind(name)}};
-        entry.insert("schema", op.schema); // JSON Schema: a plugin's fields, or the core's line of arguments read (ArgsSchema.h)
+        entry.insert("schema", coreJson(op.schema)); // JSON Schema: a plugin's fields, or the core's line of arguments read (scene/ArgsSchema.h)
         out.append(entry);
     }
     return out;

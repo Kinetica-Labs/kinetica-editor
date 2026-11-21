@@ -13,7 +13,7 @@ void testJsonReader();
 void testJsonErrors();
 // ArgsSchemaTests.cpp
 void testArgsSchemaOfEveryOperation();
-void testArgsRefusalsAsQtGaveThem();
+void testArgsRefusalsFrozenFixture();
 void testArgsGrammarCases();
 void testArgsNumbersWithoutTheLocale();
 // CoreTests.cpp

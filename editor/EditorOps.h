@@ -14,6 +14,7 @@
 // from outside, is written to an append-only journal (JSON lines, as Blender's Info and Maya's script
 // editor echo each action): a session can be read back, replayed, and an agent sees what a hand did.
 #include "core/RuntimePolicy.h"
+#include "core/Value.h"
 #include "math/Quaternion.h"
 #include <QJsonArray>
 #include <QJsonObject>
@@ -29,7 +30,7 @@
 
 class QWidget;
 class SceneBuilder;
-namespace ke { struct SceneGraph; struct SceneOp; class Value; class Simulation; }
+namespace ke { struct SceneGraph; struct SceneOp; class Simulation; }
 
 // The controllers' side of a running world (EditorOpsSim.cpp), on the simulation's thread: what every sensor reads as the
 // robot reads it - no truth -, and commands into the world, not the scene ({id: {target | velocity | duty: value}};
@@ -44,7 +45,7 @@ class EditorRuntime;
 
 QJsonObject coreAnswerJson(const ke::Value& answer); // a core answer as the API's: its keys and ok true (EditorOpsCore.cpp)
 ke::Value coreValue(const QJsonValue& v);            // a JSON value as the core's arguments take it
-QJsonValue coreJson(const ke::Value& v);             // a core value as the API's JSON (the self-test group wire-parity)
+QJsonValue coreJson(const ke::Value& v);             // a core value as the API's JSON (ops_list's schema, the self-test group wire-parity)
 
 class EditorOps : public QObject {
 public:
@@ -114,7 +115,7 @@ public:
     static QJsonObject error(const QString& why);
 
 private:
-    struct Op { QString help, args; Handler run; QJsonObject schema; };
+    struct Op { QString help, args; Handler run; ke::Value schema; };
     // An edit of the graph: its answer, {"ok": false} to undo it (and the whole batch it is in).
     using GraphEdit = std::function<QJsonObject(ke::SceneGraph&, const QJsonObject& args)>;
     void add(const QString& name, const QString& help, const QString& args, Handler run);

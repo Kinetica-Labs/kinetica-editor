@@ -1,8 +1,6 @@
 // An operation's line of arguments read as JSON Schema, and a call checked against it (ArgsSchema.h: the grammar).
-// One cursor over the line instead of regular expressions: the same rules as the window's copy, no std::regex,
-// nothing that depends on a locale. Text is bytes: every character the grammar looks at is ASCII.
-// trim() is QString::trimmed: every space QChar::isSpace knows. The regular expressions it stood beside took only
-// ASCII whitespace for \s, and so do the scanners here. The registry's lines hold the space and nothing else.
+// One cursor over the line instead of regular expressions: no std::regex, nothing that depends on a locale.
+// Text is bytes: every character the grammar looks at is ASCII, whitespace included.
 #include "scene/ArgsSchema.h"
 
 #include "core/Format.h"
@@ -47,28 +45,10 @@ struct Scan {
     }
 };
 
-// The width of the space (QChar::isSpace) that begins at s[i], 0 if none.
-size_t spaceWidth(const std::string& s, size_t i) {
-    const auto at = [&](size_t k) { return i + k < s.size() ? uint8_t(s[i + k]) : 0; };
-    if (isSpace(s[i])) return 1;
-    switch (at(0)) {
-    case 0xC2: return at(1) == 0x85 || at(1) == 0xA0 ? 2 : 0;
-    case 0xE1: return at(1) == 0x9A && at(2) == 0x80 ? 3 : 0;
-    case 0xE2: return at(1) == 0x80 ? ((at(2) >= 0x80 && at(2) <= 0x8A) || at(2) == 0xA8 || at(2) == 0xA9 || at(2) == 0xAF ? 3 : 0) : at(1) == 0x81 && at(2) == 0x9F ? 3 : 0;
-    case 0xE3: return at(1) == 0x80 && at(2) == 0x80 ? 3 : 0;
-    default: return 0;
-    }
-}
-
 std::string trim(const std::string& s) {
     size_t from = 0, to = s.size();
-    while (from < to && spaceWidth(s, from)) from += spaceWidth(s, from);
-    while (to > from) {
-        size_t j = to - 1;
-        while (j > from && (uint8_t(s[j]) & 0xC0) == 0x80) --j;
-        if (spaceWidth(s, j) != to - j) break;
-        to = j;
-    }
+    while (from < to && isSpace(s[from])) ++from;
+    while (to > from && isSpace(s[to - 1])) --to;
     return s.substr(from, to - from);
 }
 

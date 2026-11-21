@@ -12,7 +12,7 @@ int main() {
     run("json: the reader - the whole-number rule, sorted members, the last duplicate, depth 200", testJsonReader);
     run("json: errors name what and the byte", testJsonErrors);
     run("args: the schema of every operation's line of help equals the recorded one", testArgsSchemaOfEveryOperation);
-    run("args: the refusals equal the texts the window's Qt copy gave", testArgsRefusalsAsQtGaveThem);
+    run("args: the refusals equal the frozen fixture", testArgsRefusalsFrozenFixture);
     run("args: the grammar, one case per rule", testArgsGrammarCases);
     run("args: numbers in a refusal are %g whatever the locale", testArgsNumbersWithoutTheLocale);
     run("probe: channels, counters, timers, debug drawing", testProbe);
