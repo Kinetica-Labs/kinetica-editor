@@ -13,9 +13,9 @@ namespace fs = std::filesystem;
 
 namespace {
 
-const char* usage = "usage: kinetica-core [--data-dir DIR]   JSON lines on stdin, answers on stdout\n"
+const char* usage = "использование: kinetica-core [--data-dir DIR]   строки JSON на stdin, ответы на stdout\n"
                     "       kinetica-core --version | --help\n"
-                    "DIR holds sensors/ (a DIR without it is an error); without --data-dir the program looks beside itself, then in the source tree\n";
+                    "в DIR лежит sensors/ (без него ошибка); без --data-dir программа ищет рядом с собой, затем в дереве исходников\n";
 
 bool hasSensors(const fs::path& dir) {
     std::error_code ec;

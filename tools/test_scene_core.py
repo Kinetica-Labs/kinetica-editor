@@ -1,6 +1,7 @@
 """``ke.Scene()`` against the real program build/kinetica-core, with no window: the hello's height, the errors a
 script meets where they happen, a world restarted by an edit, relative paths, the child's life and death, and that
 nothing but answers ever goes to the program's stdout."""
+import gc
 import json
 import os
 import shutil
@@ -203,6 +204,26 @@ class SceneCore(unittest.TestCase):
         out = subprocess.run([find_core(), "--data-dir", "/nonexistent"], input="", capture_output=True, text=True, timeout=30)
         self.assertEqual(out.returncode, 2)
         self.assertIn("kinetica-core: нет каталога sensors", out.stderr)
+
+    def test_one_step_call_is_cut_at_6000_frames(self):
+        with ke.Scene() as scene:
+            falling(scene)
+            self.assertEqual(scene.step(7000)["completed_frames"], 6000)
+
+    def test_a_pendulum_swings_through_the_pipe(self):
+        with ke.Scene() as scene:
+            bob = scene.add("sphere", position=(1, 2, 0), role="rigid")
+            scene.ed.assembly_joint(a=bob.id, b=0, type="hinge", anchor=[0, 2, 0], axis=[0, 0, 1])
+            scene.run(0.5)
+            self.assertLess(height(scene, bob), 1.95)
+
+    def test_a_dropped_scene_ends_its_child(self):
+        scene = ke.Scene()
+        proc = scene._client._proc
+        scene.step()
+        del scene
+        gc.collect()
+        self.assertEqual(proc.wait(5), 0)
 
     def test_the_hello_runs(self):
         out = subprocess.run([sys.executable, os.path.join(ROOT, "examples", "python", "01_hello.py")], cwd=ROOT,

@@ -36,6 +36,11 @@ def find_core(executable=None):
     return found
 
 
+def _drain(stream, tail):
+    for line in stream:
+        tail.append(line.decode("utf-8", "replace").rstrip())
+
+
 class Core:
     def __init__(self, executable=None):
         self._proc = subprocess.Popen([find_core(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -45,12 +50,8 @@ class Core:
         self._next = 0
         self._owed = 0
         self._closed = False
-        self._drainer = threading.Thread(target=self._drain, name="kinetica-core-stderr", daemon=True)
+        self._drainer = threading.Thread(target=_drain, args=(self._proc.stderr, self._tail), name="kinetica-core-stderr", daemon=True)
         self._drainer.start()
-
-    def _drain(self):
-        for line in self._proc.stderr:
-            self._tail.append(line.decode("utf-8", "replace").rstrip())
 
     def _gone(self):
         code = self._proc.wait()
@@ -84,6 +85,10 @@ class Core:
         if not reply:
             raise self._gone()
         return json.loads(reply)
+
+    def __del__(self):
+        if hasattr(self, "_drainer"):
+            self.close()
 
     def close(self):
         with self._lock:

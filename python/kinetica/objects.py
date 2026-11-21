@@ -223,7 +223,8 @@ class Body(SceneObject):
 
     def attach(self, preset, face="+x", **options):
         """A ready link on a face (``"motor_wheel"``, ``"hinge"``, ``"shock"``, ``"car"``...): its links. The preset builds
-        its own link bodies (the returned links); a body you added is not joined by it."""
+        its own link bodies (the returned links); a body you added is not joined by it. A "hinge" turns about the face's
+        normal; a pendulum on a chosen axis is ``scene.ed.assembly_joint(a=, b=0, type="hinge", anchor=, axis=)``."""
         args = "".join(f", {k}={v!r}" for k, v in options.items())
         answer = self.scene._call("assembly_preset", f"{self.ref}.attach({_q(preset)}, face={_q(face)}{args})",
                                   target=self.id, preset=preset, face=face, **options)

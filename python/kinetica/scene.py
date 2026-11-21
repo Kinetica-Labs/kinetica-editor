@@ -337,11 +337,12 @@ class Scene:
         self._call("sim_stop", "scene.stop()")
 
     def step(self, frames=1):
-        """`frames` frames of 1/60 s, then paused; the state after them."""
+        """`frames` frames of 1/60 s, then paused; the state after them. One call takes at most 6000 frames (100 s):
+        more is cut to 6000 and the answer's completed_frames says how many ran."""
         return self._call("sim_step", f"scene.step({frames})", frames=frames)
 
     def run(self, seconds):
-        """`seconds` of simulation (whole frames), then paused; the state after them."""
+        """`seconds` of simulation (whole frames, at least one, at most 100 s per call), then paused; the state after them."""
         frames = max(1, round(seconds * 60))
         return self._call("sim_step", f"scene.run({seconds})", frames=frames)
 
