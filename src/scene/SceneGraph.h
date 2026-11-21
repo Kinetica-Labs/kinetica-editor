@@ -534,8 +534,8 @@ Vector3 lightDirection(const SceneGraph& g, const Light& l);
 Vector3 forceAxis(const Quaternion& q);
 // The shape a directional force is applied to: its parent, when that is a shape. The force then acts on that body
 // alone, at its own point - off the centre of mass it turns the body - whatever its radius and tag say; while the
-// shape is no moving body (no rigid role, or fixed: forceIdle) it acts on nothing. Null: a field, acting on the bodies
-// in its reach at their centres.
+// shape is no moving body (no rigid role, fixed or led: forceIdle) it acts on nothing. Null: a field, acting on the
+// bodies in its reach at their centres.
 const Entity* forceBody(const SceneGraph& g, const Force& f);
 bool forceIdle(const SceneGraph& g, const Force& f); // a shape's own force that has nothing to push yet
 // The strength one metre of a directional force's arrow stands for. A body's own force is drawn by what it does to

@@ -325,16 +325,20 @@ void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     c.check(std::fabs(radius - 2.5f) < 0.05f && forceOf(b, field)->radius == 1.5f, ("the point on its reach, dragged out, is the radius; Ctrl+Z takes it back: " + std::to_string(radius)).c_str());
 }
 
-// A push made on a shape that is no body yet is still that shape's own - no field's sphere around it - but it pushes
-// nothing: its arrow is pale and its card says why. The rigid role given, it is a force like any other.
+// A push made on a shape that has no physics is still that shape's own - no field's sphere around it - but it pushes
+// nothing: its arrow is pale, the status line and its card say why in a few words. The rigid role given, it is a
+// force like any other; the body fixed, it is idle again.
 void testIdle(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.newScene();
     const uint32_t cube = made(b, b.createActions()[0]);
     b.editEntity(cube, [](Entity& e) { e.rigid.enabled = false; });
+    QString said;
+    const auto hears = QObject::connect(&b, &SceneBuilder::statusMessage, &b, [&said](const QString& text) { said = text; });
     b.select(cube);
     pump(60);
     addAction(w, 0)->trigger();
     pump(100);
+    QObject::disconnect(hears);
     const uint32_t push = b.selectedId();
     const Force* f = forceOf(b, push);
     if (!f) return void(c.check(false, "a push made with a plain shape selected is selected"));
@@ -344,15 +348,21 @@ void testIdle(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
         return nullptr;
     };
     auto* owner = w.findChild<QLabel*>("forceOwner");
+    const QString none = uiText("Kinetica", "нет физики");
     const bool own = f->parent == cube && forceBody(b.graph(), *f) && forceIdle(b.graph(), *f);
     const bool pale = mark() && mark()->idle && mark()->range == 0 && v->shapeHandles().size() == 1;
-    const bool said = owner && owner->isVisibleTo(b.inspectorPanel()) && owner->text().contains(uiText("Kinetica", "нет физики"));
-    c.check(own && pale && said, "a push on a shape with no physics is the shape's own: no sphere, a pale arrow, and its card says the shape has no physics");
+    const bool told = owner && owner->isVisibleTo(b.inspectorPanel()) && owner->text().contains(none) && owner->text().size() < 40 && said.contains(none);
+    c.check(own && pale && told, ("a push on a shape with no physics is the shape's own: no sphere, a pale arrow; the status line and a short line of its card say so: " +
+                                  (owner ? owner->text().toStdString() : std::string())).c_str());
     b.editEntity(cube, [](Entity& e) { e.rigid.enabled = e.collider.enabled = true; });
     b.select(0), b.select(push);
     pump(100);
-    c.check(!forceIdle(b.graph(), *forceOf(b, push)) && mark() && !mark()->idle && owner && !owner->text().contains(uiText("Kinetica", "нет физики")),
-            "the rigid role given, the force is live: its arrow in full colour, its card names the body");
+    const bool live = !forceIdle(b.graph(), *forceOf(b, push)) && mark() && !mark()->idle && owner && !owner->text().contains(none);
+    b.editEntity(cube, [](Entity& e) { e.rigid.fixed = true; });
+    b.select(0), b.select(push);
+    pump(100);
+    c.check(live && forceIdle(b.graph(), *forceOf(b, push)) && mark() && mark()->idle && owner && !owner->text().contains(none),
+            "the rigid role given, the force is live and its card names the body; the body fixed, it is idle again");
 }
 
 int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {

@@ -27,11 +27,11 @@ Force* SceneBuilder::forceById(uint32_t id) {
 }
 
 void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
-    flushCode();
     // With a shape selected a directional force is that shape's own: its child, at its centre of mass, acting on it
-    // alone. A radial one is a field: it stands at the shape's side (at its centre it has no direction to push in).
+    // alone (on nothing while the shape has no physics: forceIdle). A radial one is a field: it stands at the shape's side (at its centre it has no direction to push in).
     const Entity* body = shape == ForceShape::Directional && selection_.size() == 1 ? findEntity(graph_, selectedId_) : nullptr;
     if (body && isHandle(*body)) body = nullptr;
+    flushCode();
     Vector3 at = spawnTarget();
     if (const AABB box = !body && findObject(graph_, selectedId_) ? boundsOf(selectedId_) : AABB(); box.valid())
         at = box.center() + Vector3(-0.5f * (box.hi.x - box.lo.x) - 0.5f, 0, 0);
@@ -44,7 +44,7 @@ void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
     }));
     const QString shapeWord = kForceShapeNames[int(shape)], modeWord = kForceModeNames[int(mode)];
     if (bodyId && forceIdle(graph_, *forceById(selectedId_)))
-        emit statusMessage(uiText("Kinetica", "У этой фигуры нет подвижного тела: сила подействует, когда фигура получит роль «Твёрдое тело»"));
+        emit statusMessage(uiText("Kinetica", "У фигуры нет физики: сила подействует, когда дадите ей роль «Твёрдое тело»"));
     if (bodyId)
         return codeAction("scene_add_force", QString("scene.add_force(\"%1\", \"%2\", body=scene.objects[%3])").arg(shapeWord, modeWord).arg(bodyId),
                           {{"shape", shapeWord}, {"mode", modeWord}, {"body", int(bodyId)}}, false);
@@ -199,8 +199,11 @@ void SceneBuilder::fillForceCard(const SceneObject& o) {
     const bool idle = forceIdle(graph_, *f);
     forceOwner_->setVisible(f->shape == ForceShape::Directional);
     forceOwner_->setStyleSheet(idle ? "color: #e2b448;" : "");
-    forceOwner_->setText(!body ? QString(uiText("Kinetica", "Поле: действует на тела в своём радиусе (сфера). Чтобы приложить к одному телу, выберите его и создайте силу"))
-                         : !body->rigid.enabled ? QString(uiText("Kinetica", "⚠ У «%1» нет физики: сила ничего не толкает. Дайте фигуре роль «Твёрдое тело»")).arg(name)
-                         : idle ? QString(uiText("Kinetica", "⚠ «%1» закреплён или ведомый: сила его не сдвинет")).arg(name)
-                         : QString(uiText("Kinetica", "Приложена к телу «%1» в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина")).arg(name));
+    forceOwner_->setText(!body ? QString(uiText("Kinetica", "Поле: тела в радиусе"))
+                         : !resolveInstance(graph_, *body).rigid.enabled ? QString(uiText("Kinetica", "⚠ У «%1» нет физики")).arg(name)
+                         : idle ? QString(uiText("Kinetica", "⚠ «%1» закреплён")).arg(name)
+                         : QString(uiText("Kinetica", "Тело: %1")).arg(name));
+    forceOwner_->setToolTip(!body ? QString(uiText("Kinetica", "Поле действует на тела внутри своей сферы. Чтобы приложить силу к одному телу, выберите его и создайте силу"))
+                            : idle ? QString(uiText("Kinetica", "Сила ничего не толкает, пока у фигуры нет роли «Твёрдое тело» или тело закреплено"))
+                            : QString(uiText("Kinetica", "Сила приложена к этому телу в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина")));
 }

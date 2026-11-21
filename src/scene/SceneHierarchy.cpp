@@ -283,7 +283,7 @@ const Entity* forceBody(const SceneGraph& g, const Force& f) {
 
 bool forceIdle(const SceneGraph& g, const Force& f) {
     const Entity* body = forceBody(g, f);
-    return body && (!body->rigid.enabled || body->rigid.fixed || body->rigid.kinematic);
+    return body && !resolveInstance(g, *body).rigid.dynamic();
 }
 
 Real forceUnitPerMetre(const SceneGraph& g, const Force& f) {

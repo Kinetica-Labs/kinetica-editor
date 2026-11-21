@@ -2329,23 +2329,23 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
-        <source>Толчок: импульс, Н·с — срабатывает один раз. С выбранным телом прикладывается к нему: стрелка из его центра масс</source>
-        <translation>Push: an impulse, N s - it fires once. With a body selected it is applied to that body: an arrow from its centre of mass</translation>
+        <source>Разовый импульс выбранному телу, Н·с</source>
+        <translation>One impulse to the selected body, N s</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
+        <source>Разовый импульс от точки телам в радиусе, Н·с</source>
+        <translation>One impulse from a point to the bodies in the radius, N s</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
-        <source>Взрыв: импульс, Н·с — один раз, от своей точки во все стороны, телам внутри сферы</source>
-        <translation>Blast: an impulse, N s - once, away from its point in every direction, to the bodies inside its sphere</translation>
+        <source>Постоянная сила на выбранном теле, Н</source>
+        <translation>A constant force on the selected body, N</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="293"/>
-        <source>Тяга: сила, Н — действует всё время игры. С выбранным телом прикладывается к нему и едет с ним</source>
-        <translation>Thrust: a force, N - it acts all the time the scene plays. With a body selected it is applied to that body and rides on it</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="294"/>
-        <source>Притяжение: сила, Н — всё время, к своей точке, на тела внутри сферы</source>
-        <translation>Pull: a force, N - all the time, toward its point, on the bodies inside its sphere</translation>
+        <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
+        <source>Постоянная сила к точке на тела в радиусе, Н</source>
+        <translation>A constant force toward a point on the bodies in the radius, N</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="287"/>
@@ -6666,8 +6666,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="47"/>
-        <source>У этой фигуры нет подвижного тела: сила подействует, когда фигура получит роль «Твёрдое тело»</source>
-        <translation>This shape is no moving body: the force will act once the shape is given the Rigid body role</translation>
+        <source>У фигуры нет физики: сила подействует, когда дадите ей роль «Твёрдое тело»</source>
+        <translation>The shape has no physics: the force will act once you give it the Rigid Body role</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="147"/>
@@ -6737,23 +6737,38 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="202"/>
-        <source>Поле: действует на тела в своём радиусе (сфера). Чтобы приложить к одному телу, выберите его и создайте силу</source>
-        <translation>A field: it acts on the bodies within its radius (the sphere). To apply a force to one body, select the body and make the force</translation>
+        <source>Поле: тела в радиусе</source>
+        <translation>Field: bodies in the radius</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="203"/>
-        <source>⚠ У «%1» нет физики: сила ничего не толкает. Дайте фигуре роль «Твёрдое тело»</source>
-        <translation>⚠ “%1” has no physics: the force pushes nothing. Give the shape the Rigid body role</translation>
+        <source>⚠ У «%1» нет физики</source>
+        <translation>⚠ “%1” has no physics</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="204"/>
-        <source>⚠ «%1» закреплён или ведомый: сила его не сдвинет</source>
-        <translation>⚠ “%1” is fixed or led: the force will not move it</translation>
+        <source>⚠ «%1» закреплён</source>
+        <translation>⚠ “%1” is fixed</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="205"/>
-        <source>Приложена к телу «%1» в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина</source>
-        <translation>Applied to the body “%1” at its own point: off the centre of mass it turns the body. The arrow&apos;s end is its direction and strength</translation>
+        <source>Тело: %1</source>
+        <translation>Body: %1</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="206"/>
+        <source>Поле действует на тела внутри своей сферы. Чтобы приложить силу к одному телу, выберите его и создайте силу</source>
+        <translation>A field acts on the bodies inside its sphere. To apply a force to one body, select the body and make the force</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="207"/>
+        <source>Сила ничего не толкает, пока у фигуры нет роли «Твёрдое тело» или тело закреплено</source>
+        <translation>The force pushes nothing while the shape has no Rigid Body role or the body is fixed</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="208"/>
+        <source>Сила приложена к этому телу в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина</source>
+        <translation>The force is applied to this body at its own point: off the centre of mass it turns the body. The arrow&apos;s end is its direction and strength</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilder.cpp" line="123"/>
@@ -6786,8 +6801,7 @@ Sample </translation>
         <translation>A joint&apos;s kind, links, frames and limits change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SelfTestForces.cpp" line="349"/>
-        <location filename="../editor/SelfTestForces.cpp" line="354"/>
+        <location filename="../editor/SelfTestForces.cpp" line="351"/>
         <source>нет физики</source>
         <translation>no physics</translation>
     </message>

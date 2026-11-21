@@ -288,10 +288,8 @@ void MainWindow::addForceButton(QToolBar* tb) {
         {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв")},
         {"addForceThrust", ke::ForceShape::Directional, ke::ForceMode::Constant, uiText("Kinetica", "Тяга")},
         {"addForcePull", ke::ForceShape::Radial, ke::ForceMode::Constant, uiText("Kinetica", "Притяжение")}};
-    const char* tips[] = {uiText("Kinetica", "Толчок: импульс, Н·с — срабатывает один раз. С выбранным телом прикладывается к нему: стрелка из его центра масс"),
-                          uiText("Kinetica", "Взрыв: импульс, Н·с — один раз, от своей точки во все стороны, телам внутри сферы"),
-                          uiText("Kinetica", "Тяга: сила, Н — действует всё время игры. С выбранным телом прикладывается к нему и едет с ним"),
-                          uiText("Kinetica", "Притяжение: сила, Н — всё время, к своей точке, на тела внутри сферы")};
+    const char* tips[] = {uiText("Kinetica", "Разовый импульс выбранному телу, Н·с"), uiText("Kinetica", "Разовый импульс от точки телам в радиусе, Н·с"),
+                          uiText("Kinetica", "Постоянная сила на выбранном теле, Н"), uiText("Kinetica", "Постоянная сила к точке на тела в радиусе, Н")};
     for (int k = 0; k < 4; ++k) {
         auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape), 48), kinds[k].text);
         a->setObjectName(kinds[k].name);
