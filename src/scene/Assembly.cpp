@@ -322,10 +322,17 @@ std::vector<JointVis> jointVisuals(const SceneGraph& g) {
     std::vector<JointVis> out;
     for (const JointObject& j : g.joints) {
         JointVis v;
+        v.id = j.id, v.a = j.a, v.b = j.b;
         v.type = jointKind(j);
         v.axis = Vector3(0.0_r);
         Quaternion fa, fb;
         jointWorldFrames(g, j, v.anchorA, fa, v.anchorB, fb);
+        v.bodyA = v.anchorA, v.bodyB = v.anchorB; // a body that is not there: the tie has no length
+        Quaternion turned;
+        if (const Entity* a = findEntity(g, j.a)) worldPose(g, *a, v.bodyA, turned);
+        const Entity* b = findEntity(g, j.b);
+        if (b) worldPose(g, *b, v.bodyB, turned);
+        v.grounded = !b;
         const int k = std::max(mainFreedom(j), 0);
         Vector3 e(0.0_r);
         e[k % 3] = 1;

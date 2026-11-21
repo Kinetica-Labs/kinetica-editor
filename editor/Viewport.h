@@ -228,6 +228,10 @@ public:
     void cancelModal();
     void cancelGizmoDrag(); // Esc or the right button during a handle drag: the object goes back
 
+    // A joint's tie as the last paint drew it (ViewportJoints.cpp): its pin and where it takes its two bodies, on the
+    // screen; a joint to the world has its second end at the pin.
+    struct JointTie { uint32_t id; QPointF pin, a, b; bool grounded; };
+    const std::vector<JointTie>& jointTies() const { return jointTies_; }
     // Lights and cameras drawn as wireframes (SceneMarkers.h), from the scene builder.
     void setSceneMarkers(std::vector<SceneMarker> markers) { markers_ = std::move(markers); update(); }
     const std::vector<SceneMarker>& sceneMarkers() const { return markers_; }
@@ -448,9 +452,11 @@ private:
     void drawOverlayLines(const QMatrix4x4& vp);
     void drawOverlayMarks(QPainter& p);
     void drawOverlayFills(QPainter& p); // ViewportFills.cpp
+    void drawJointTies(QPainter& p);    // ViewportJoints.cpp: each joint's tie from its two bodies to its pin
     bool objectPose(uint32_t id, ke::Vector3& position, ke::Quaternion& rotation) const;
     struct FillDrawn { QString key; uint32_t object; QPolygonF box; ke::Vector3 anchor; };
     std::vector<FillDrawn> fillsDrawn_; // by the last paint, in the order drawn
+    std::vector<JointTie> jointTies_;   // by the last paint
     std::function<bool(uint32_t, ke::Vector3&, ke::Quaternion&)> objectPose_;
     QString draggedImage_;                  // an image file being dragged over the view
     QString draggedFile_;                   // ... or a file the window opens

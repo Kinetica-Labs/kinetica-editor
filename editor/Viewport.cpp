@@ -696,6 +696,7 @@ void Viewport::drawOverlay() {
     f.setPointSizeF(10.5);
     f.setBold(true);
     p.setFont(f);
+    drawJointTies(p);
     drawOverlayFills(p); // under the view's own words
     p.setPen(QColor(235, 238, 245));
     p.drawText(14, 24, QString::fromStdString(snap_->sceneName));

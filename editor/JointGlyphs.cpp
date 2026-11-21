@@ -200,7 +200,10 @@ QJsonObject jointVisJson(const ke::JointVis& v, const char* kindWord) {
 }
 
 ke::JointVis jointVisFromJson(const QJsonObject& j) {
-    ke::JointVis v{typeOf(j.value("kind").toString()), vec3(j.value("anchor")), vec3(j.value("anchor")), vec3(j.value("axis"))};
+    ke::JointVis v; // a ghost of a joint not made yet: no id, and no tie - its bodies' places are its anchor
+    v.type = typeOf(j.value("kind").toString());
+    v.anchorA = v.anchorB = v.bodyA = v.bodyB = vec3(j.value("anchor"));
+    v.axis = vec3(j.value("axis"));
     v.reference = vec3(j.value("reference"));
     v.size = float(j.value("size").toDouble());
     v.limited = j.value("limited").toBool(), v.lower = float(j.value("lower").toDouble()), v.upper = float(j.value("upper").toDouble());

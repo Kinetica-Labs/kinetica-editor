@@ -459,6 +459,47 @@ void testJointCard(Checker& c, SceneBuilder& b) {
 // The card «Датчик»: an encoder put on the UR5e's shoulder (on its joint: nothing to pick it «относительно») shows
 // its lines, its axis and its count-zero reference, its resolution from its lines; an IMU on a cube its datasheet's
 // noise and the seed of it. Each edit is the sensor's line in the scene; a tick undone comes back.
+// A joint is drawn as the tie it is: from each of its two bodies a line to its pin at the joint's place; one that holds
+// its body to the world has the ground under its pin and no second line; while the scene plays the tie goes with the
+// body and the pin of a joint to the world stays.
+void testJointTies(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    if (!ops) return c.check(false, "the window has its operations");
+    b.stop();
+    b.newScene();
+    const auto add = [&](const char* shape, double x, double y) {
+        return ops->runNow("scene_add", {{"shape", shape}, {"position", QJsonArray{x, y, 0.0}}, {"size", QJsonArray{0.2, 0.2, 0.2}}, {"role", "rigid"}}).value("id").toInt();
+    };
+    const int lower = add("box", -0.6, 0.11), upper = add("box", -0.1, 0.5), weight = add("sphere", 1.5, 0.9);
+    const uint32_t hinge = uint32_t(ops->runNow("assembly_joint", {{"a", upper}, {"b", lower}, {"type", "hinge"}, {"anchor", QJsonArray{-0.35, 0.3, 0.0}},
+                                                                    {"axis", QJsonArray{0, 0, 1}}}).value("id").toInt());
+    const uint32_t hung = uint32_t(ops->runNow("assembly_joint", {{"a", weight}, {"b", 0}, {"type", "hinge"}, {"anchor", QJsonArray{1.0, 1.5, 0.0}},
+                                                                   {"axis", QJsonArray{0, 0, 1}}}).value("id").toInt());
+    v->setFocusBox(AABB(Vector3(-1.5f, -0.2f, -1.5f), Vector3(2.2f, 2.0f, 1.5f)));
+    v->frameScene();
+    b.select(0);
+    pump(200);
+    const auto tieOf = [&](uint32_t id) {
+        for (const Viewport::JointTie& t : v->jointTies())
+            if (t.id == id) return t;
+        return Viewport::JointTie{0, {}, {}, {}, false};
+    };
+    const auto near = [](const QPointF& a, const QPointF& b) { return std::hypot(a.x() - b.x(), a.y() - b.y()) < 1.5; };
+    const Viewport::JointTie two = tieOf(hinge), one = tieOf(hung);
+    const bool both = hinge && two.id == hinge && !two.grounded && near(two.pin, v->pixelOf(Vector3(-0.35f, 0.3f, 0))) &&
+                      near(two.a, v->pixelOf(Vector3(-0.1f, 0.5f, 0))) && near(two.b, v->pixelOf(Vector3(-0.6f, 0.11f, 0)));
+    const bool ground = hung && one.id == hung && one.grounded && near(one.pin, v->pixelOf(Vector3(1.0f, 1.5f, 0))) && near(one.a, v->pixelOf(Vector3(1.5f, 0.9f, 0)));
+    c.check(v->jointTies().size() == 2 && both && ground, "a joint is drawn as a tie: a line from each of its two bodies to its pin; one to the world has the ground at its pin");
+    b.play();
+    const bool swung = waitUntil([&] { return tieOf(hung).id == hung && std::hypot(tieOf(hung).a.x() - one.a.x(), tieOf(hung).a.y() - one.a.y()) > 25; }, 6000);
+    const Viewport::JointTie later = tieOf(hung);
+    std::printf("  the hung weight's tie in play: its body's end went %.0f px, its pin %.1f px\n", std::hypot(later.a.x() - one.a.x(), later.a.y() - one.a.y()),
+                std::hypot(later.pin.x() - one.pin.x(), later.pin.y() - one.pin.y()));
+    c.check(swung && near(later.pin, one.pin), "while the scene plays a tie goes with its body, and the pin of a joint to the world stays");
+    b.stop();
+    pump(150);
+}
+
 void testSensorCard(Checker& c, SceneBuilder& b) {
     QWidget* panel = b.inspectorPanel();
     const auto field = [panel](const char* name) { return panel->findChild<QWidget*>(name); };
@@ -604,6 +645,7 @@ int runComponentTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
     testJointCard(c, b);
     testSensorCard(c, b);
     testPowerCards(c, w, b);
+    testJointTies(c, w, b, v); // a scene of its own: after the cards, which read the arm's
     if (!shotsDir.isEmpty()) cubeCapsuleShot(w, b, shotsDir);
     return c.failures;
 }
