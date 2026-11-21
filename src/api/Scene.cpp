@@ -275,6 +275,7 @@ LiveEdit::Reload Scene::takeInWorld() {
     if (RobotWorld* robot = sim_->robot(); robot && reload == LiveEdit::Reload::None) {
         if (le.duties) robot->setDuties(g.drivers);
         if (le.lights) robot->setLightsAndCameras(g.lights, g.cameras);
+        if (le.forces) robot->setForces(g.forces);
         if (le.goals) { // the handles: IK goals and cameras' targets
             std::vector<Entity> goals;
             for (const Entity& e : g.entities)

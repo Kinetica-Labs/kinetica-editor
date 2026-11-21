@@ -47,6 +47,7 @@ int main() {
     run("devices: a sensor's datasheet from its model's table row, kept in the scene file, set by the API", testSensorDatasheet);
     run("physics: a falling ball's speed is g t, its height on the parabola within the integrator's error", testPhysicsFreeFall);
     run("physics: a torque spins a box at tau t / I - computed from its volume, and given", testPhysicsTorque);
+    run("physics: an impulse is momentum at once and wakes a body, a force acts over one step and adds up", testPhysicsImpulseAndForce);
     run("physics: a pendulum's period is the compound pendulum's", testPhysicsPendulum);
     run("physics: a hinge's limit and motor act the way our coordinate counts", testPhysicsHingeConventions);
     run("physics: a ray meets the nearest body, or the one past an ignored body", testPhysicsRays);
@@ -61,6 +62,7 @@ int main() {
     run("physics: two worlds built alike stay equal to the bit", testPhysicsRepeatable);
     run("physics: the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit", testPhysicsThreadsDeterministic);
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
+    run("world: a force acts on rigid bodies by the formulas, once or all the time, and takes live edits", testSimForces);
     run("world: the frame is the live scene flattened - a body, a child without one, a goal moved while it runs", testSimFrameFollowsTheLiveScene);
     run("world: a body fallen out of the world leaves the engine; the frame's contacts only when they are read", testSimLostBodiesLeaveTheWorld);
     run("world: bodies alone are one step of the engine a frame, a servo's world a step a substep", testSimBodiesAloneAreOneEngineStep);
@@ -128,6 +130,7 @@ int main() {
     run("world ops: sim_step's frames as the window's Qt conversions read them", testWorldOpsFramesArg);
     run("world ops: robot_command - a servo, a force, bad entries in the order of their keys, keys read as toUInt reads them", testWorldOpsRobotCommand);
     run("world ops: sim_impulse - the order of its checks, v = J / m, a static body refused", testWorldOpsImpulse);
+    run("world ops: force_fire - the order of its checks, a constant force refused, |v| = J / m", testWorldOpsForceFire);
     run("world ops: sensor_read and controller_input", testWorldOpsSensorsAndControllers);
     run("world ops: sim_measure against the engine's own channels", testWorldOpsMeasure);
     run("world ops: the live state against the Simulation, the flags of a static, a kinematic and a sleeping body", testWorldOpsLiveState);

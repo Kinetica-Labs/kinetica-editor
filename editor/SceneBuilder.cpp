@@ -90,6 +90,12 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
             if (s.robot()) s.robot()->setLightsAndCameras(lights, cameras);
         }, "lights");
     }
+    if (le.forces) {
+        const std::vector<Force> forces = graph_.forces;
+        ctrl_->post([forces](Simulation& s) {
+            if (s.robot()) s.robot()->setForces(forces);
+        }, "forces");
+    }
     if (le.goals) { // made, moved or removed: the running world's marks and goal channels follow
         std::vector<Entity> goals; // the handles: IK goals and cameras' targets
         for (const Entity& e : graph_.entities)

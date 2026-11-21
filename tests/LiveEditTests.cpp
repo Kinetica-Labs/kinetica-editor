@@ -18,6 +18,7 @@ SceneGraph base() {
     g.drivers.resize(1);
     g.joints.resize(1);
     g.lights.resize(1);
+    g.forces.resize(1);
     g.cameras.resize(1);
     return g;
 }
@@ -29,8 +30,8 @@ LiveEdit after(const std::function<void(SceneGraph&)>& change) {
     return liveEdit(running, edited);
 }
 
-bool only(const LiveEdit& le, bool duties, bool lights, bool goals, bool joints) {
-    return le.reload == Reload::None && le.duties == duties && le.lights == lights && le.goals == goals && le.joints == joints;
+bool only(const LiveEdit& le, bool duties, bool lights, bool goals, bool joints, bool forces = false) {
+    return le.reload == Reload::None && le.duties == duties && le.lights == lights && le.goals == goals && le.joints == joints && le.forces == forces;
 }
 
 } // namespace
@@ -52,6 +53,8 @@ void testLiveEditClassifier() {
     CHECK(only(after([](SceneGraph& g) { g.entities.push_back(Entity()); g.entities.back().id = 3; g.entities.back().goalOf = 2; }), false, false, true, false),
           "a goal handle made is taken, no body");
     CHECK(after([](SceneGraph& g) { g.entities[1].goalOf = 2; }).reload == Reload::Bodies, "a body turned into a handle is a body gone");
+    CHECK(only(after([](SceneGraph& g) { g.forces[0].strength = 9; }), false, false, false, false, true), "a force is taken, no reload");
+    CHECK(after([](SceneGraph& g) { g.entities[0].position.y = 3; g.forces[0].strength = 9; }).reload == Reload::Bodies, "a body change beside a force still reloads");
     CHECK(only(after([](SceneGraph& g) { g.joints[0].name = "other"; }), false, false, false, true), "a joint is handed to the world");
     CHECK(only(after([](SceneGraph& g) { g.drivers[0].duty = 1; g.lights[0].range = 9; g.joints[0].name = "x"; }), true, true, false, true),
           "flags come together");

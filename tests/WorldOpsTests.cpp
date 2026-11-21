@@ -97,13 +97,14 @@ void testWorldOpsNeedAWorld() {
         {"sensor_read", "{}", "the scene is not running: ▶ or sim_step first - sensors read a running world"},
         {"robot_command", "{\"commands\":{\"1\":{\"force\":[0,1,0]}}}", "the scene is not running: ▶ or sim_step first - commands drive a running world"},
         {"sim_impulse", "{\"body\":1,\"impulse\":[0,1,0]}", "the scene is not running: play or step it first"},
+        {"force_fire", "{\"id\":1}", "the scene is not running: play or step it first"},
         {"sim_measure", "{\"scene\":true}", "the scene is not running: play or step it first"},
     };
     for (const auto& c : cases) {
         const Result r = call(nullptr, c.op, c.args);
         CHECK(!r.ok && r.error == c.text, "%s with no world says '%s'", c.op, r.error.c_str());
     }
-    CHECK(worldOps().size() == 5, "five world operations, not %zu", worldOps().size());
+    CHECK(worldOps().size() == 6, "six world operations, not %zu", worldOps().size());
     Simulation empty;
     CHECK(call(&empty, "controller_input", "{\"values\":{\"jog\":1}}", 8).error == "the scene is not built", "a world that holds no scene");
 }
@@ -210,6 +211,30 @@ void testWorldOpsImpulse() {
     CHECK(call(&s, "sim_impulse", "{\"body\":1,\"impulse\":[0,1,0]}").error == "body must be dynamic (a fixed one does not move)", "a static body is refused");
     CHECK(call(&s, "sim_impulse", "{\"body\":5,\"impulse\":[0,1,0]}").error == "body must be dynamic (a fixed one does not move)", "a kinematic one too");
     CHECK(call(&s, "sim_impulse", "{\"body\":99,\"impulse\":[0,1,0]}").error == "body entity has no live rigid body", "a body that is not there");
+}
+
+// The order of the checks: the world, an unknown field, the id, then what the world refuses. The answer is acceptance only.
+void testWorldOpsForceFire() {
+    SceneGraph g = smallWorld();
+    Force push, constant;
+    push.id = 20, push.position = {6, 0.1_r, 0}, push.strength = 2;
+    constant = push;
+    constant.id = 21, constant.mode = ForceMode::Constant, constant.start = 0;
+    push.start = 3600;
+    g.forces = {push, constant};
+    Simulation s;
+    startWorld(s, g);
+    CHECK(call(&s, "force_fire", "{\"zeta\":1,\"_a\":2,\"id\":0}").error == "unknown force_fire field: _a", "an unknown field comes first");
+    for (const char* wrong : {"{\"id\":0}", "{\"id\":1.5}", "{\"id\":\"20\"}", "{}"})
+        CHECK(call(&s, "force_fire", wrong).error == "id is a positive scene object id", "%s", wrong);
+    CHECK(call(&s, "force_fire", "{\"id\":99}").error == "no force with id 99 in the scene", "no such force");
+    CHECK(call(&s, "force_fire", "{\"id\":21}").error == "a constant force acts on its own: only an impulse is fired", "a constant force is refused");
+    const Real mass = s.physics()->state(s.robot()->bodyOf(6)).mass;
+    const Result taken = call(&s, "force_fire", "{\"id\":20}");
+    CHECK(taken.ok && taken.answer["accepted"].truth() && taken.answer["id"].number() == 20 && !taken.answer.has("body") && !taken.answer.has("velocity"),
+          "an impulse is accepted, the answer has no body data");
+    const Vector3 v = velocityOf(s, 6);
+    CHECK(std::fabs(length(v) - 2 / mass) < 1e-4_r * (2 / mass), "|v| = J / m: %f, not %f", double(length(v)), double(2 / mass));
 }
 
 void testWorldOpsSensorsAndControllers() {

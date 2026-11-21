@@ -54,6 +54,7 @@ void testSonarNoise();
 // PhysicsTests.cpp
 void testPhysicsFreeFall();
 void testPhysicsTorque();
+void testPhysicsImpulseAndForce();
 void testPhysicsPendulum();
 void testPhysicsHingeConventions();
 void testPhysicsRays();
@@ -69,6 +70,7 @@ void testPhysicsRepeatable();
 void testPhysicsThreadsDeterministic();
 // SimTests.cpp
 void testSimBoxRestsOnFloor();
+void testSimForces();
 void testSimFrameFollowsTheLiveScene();
 void testSimLostBodiesLeaveTheWorld();
 void testSimBodiesAloneAreOneEngineStep();
@@ -142,6 +144,7 @@ void testWorldOpsNeedAWorld();
 void testWorldOpsFramesArg();
 void testWorldOpsRobotCommand();
 void testWorldOpsImpulse();
+void testWorldOpsForceFire();
 void testWorldOpsSensorsAndControllers();
 void testWorldOpsMeasure();
 void testWorldOpsLiveState();

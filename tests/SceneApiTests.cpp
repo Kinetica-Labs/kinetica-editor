@@ -249,6 +249,15 @@ void testSceneApiBuiltWorld() {
     CHECK(undone["ok"].truth() && undone["play_stopped"].truth() && undone["reload"].text() == "bodies", "an undo while built says it the same way");
     CHECK(call(scene, "sim_state")["mode"].text() == "edit", "and the world is dropped");
 
+    const Value force = call(scene, "scene_add_force", R"({"shape": "directional", "mode": "constant", "at": [0, 3, 0]})");
+    call(scene, "sim_step", R"({"frames": 2})");
+    const Value stronger = call(scene, "scene_set", ("{\"id\": " + std::to_string(force["id"].integer()) + ", \"line\": \"effect\", \"key\": \"strength\", \"values\": [20]}").c_str());
+    CHECK(stronger["ok"].truth() && !stronger.has("play_stopped") && scene.simulation() && scene.mode() == PlayMode::Paused &&
+              scene.simulation()->robot()->graph().forces.front().strength == 20,
+          "a force's strength is taken by the running world, not rebuilt");
+    CHECK(call(scene, "force_fire", ("{\"id\": " + std::to_string(force["id"].integer()) + "}").c_str())["error"].text().find("constant") != std::string::npos,
+          "force_fire of a constant force is refused");
+
     call(scene, "sim_step", R"({"frames": 0})");
     CHECK(scene.simulation() && call(scene, "scene_new")["ok"].truth() && scene.mode() == PlayMode::Edit && scene.graph().entities.size() == 1,
           "a new scene stops a built world");

@@ -272,6 +272,20 @@ bool impulse(Simulation* world, uint32_t, const Value& a, Value& answer, std::st
     return true;
 }
 
+// The order of the checks: the world, an unknown field, the id, then what fireForce refuses.
+bool forceFire(Simulation* world, uint32_t, const Value& a, Value& answer, std::string& error) {
+    if (!world) return fail(error, "the scene is not running: play or step it first");
+    for (const std::string& key : qtKeys(a))
+        if (key != "id") return fail(error, "unknown force_fire field: " + key);
+    const double id = a["id"].number(-1);
+    if (a["id"].type() != Value::Type::Number || !std::isfinite(id) || id < 1 || id > double(UINT32_MAX) || id != std::floor(id))
+        return fail(error, "id is a positive scene object id");
+    if (!world->robot()) return fail(error, "the scene is not built");
+    if (!world->robot()->fireForce(*world->physics(), uint32_t(id), error)) return false;
+    answer.set("accepted", true), answer.set("id", uint32_t(id));
+    return true;
+}
+
 std::vector<WorldOp> makeOps() {
     return {
         {"controller_input",
@@ -296,6 +310,9 @@ std::vector<WorldOp> makeOps() {
          "Missing or fixed bodies and malformed or nonfinite commands are refused. Returns only acceptance, not the body's pose "
          "or velocity: this is external actuation, not a sensor observation.",
          "{body: positive scene entity id, impulse: [x,y,z] N s, point?: [x,y,z] world metres}", "window", impulse},
+        {"force_fire",
+         "Fires an impulse force now in the running world, as the «Сработать» button does; a constant force acts on its own",
+         "{id: int}", "window", forceFire},
         {"sim_measure",
          "The plots' channels measured now (the physics engine's truth, for checks): scene - energy of motion, rotation and "
          "height, momentum, angular momentum, the deepest contact; objects - each body by entity id: mass, centre, height, "

@@ -1,6 +1,6 @@
 #pragma once
-// What the operations of a running world answer, in the core without Qt: the five operations that read or push the
-// world (sim_measure, sensor_read, robot_command, controller_input, sim_impulse), the live state sim_state and sim_step
+// What the operations of a running world answer, in the core without Qt: the operations that read or push the
+// world (sim_measure, sensor_read, robot_command, controller_input, sim_impulse, force_fire), the live state sim_state and sim_step
 // answer, the frames sim_step takes, and the commands a plugin's tick gives back. Functions over ke::Simulation that take
 // and return ke::Value; the editor's window (editor/EditorOpsSim.cpp) calls them on the simulation's thread and adds what
 // needs its own thread, mode and clock. The answers are the privileged loop's truth of the engine (the observability

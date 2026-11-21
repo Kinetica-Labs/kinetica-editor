@@ -102,6 +102,15 @@ public:
         graph_.lights = live_.lights = lights;
         graph_.cameras = live_.cameras = cameras;
     }
+    // The scene's forces (SceneGraph::forces) edited while the world runs: the physics keeps nothing of them but which
+    // impulses have fired. A force added now whose moment has already passed does not fire by itself (fireForce does);
+    // an edit of a fired impulse does not fire it again; an unfired one moved to a moment already passed fires at the
+    // next substep.
+    void setForces(const std::vector<Force>& forces);
+    // An impulse force now, between steps, as the button does; its timed firing is then cancelled. False and why: no
+    // such force, or it is constant (it acts on its own).
+    bool fireForce(PhysicsWorld& physics, uint32_t id, std::string& error);
+    int64_t clockNs() const { return clockNs_; } // the world's integer clock: what a force's start is compared with
     // The IK goals (Entity::goalOf) as they are now: made, moved or removed while the world runs. A goal is
     // intent, not matter - no body of the engine: the frame draws it as a mark, the goal channels read it.
     void setGoals(const std::vector<Entity>& goals);
@@ -212,6 +221,9 @@ private:
     void buildJoint(PhysicsWorld& physics, const JointObject& j);
     void drive(PhysicsWorld& physics, const LiveJoint& j, Real h) const; // h: the substep
     void readPoses(const PhysicsWorld& physics);
+    void actForce(PhysicsWorld& physics, const Force& f); // the force on every body in its reach: one impulse, or one substep's share of a constant one
+    bool fired(uint32_t id) const { return std::binary_search(firedIds_.begin(), firedIds_.end(), id); }
+    void markFired(uint32_t id);
     void dropLost(PhysicsWorld& physics);
     void leadGoals(PhysicsWorld& physics, Real dt);
     static std::unordered_set<uint32_t> animatedEntities(const SceneGraph& g);
@@ -236,6 +248,8 @@ private:
     std::vector<Entity> flat_;                       // worldEntities(graph_): world poses, instances, array copies
     std::unordered_map<uint32_t, int> bodyOfEntity_; // entity id -> body
     std::vector<uint32_t> entityOfBody_;             // body -> entity id (0: none)
+    std::vector<int> flatOfBody_;                    // body -> its place in flat_ (-1: none): the tags a force filters by
+    std::vector<uint32_t> firedIds_;                 // the impulse forces that have fired, sorted
     std::vector<LiveJoint> joints_;
     std::vector<std::unique_ptr<LiveSensor>> sensors_;
     SceneGraph posed_;                                 // the graph at the clip's time (Animation.h)

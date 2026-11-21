@@ -23,6 +23,8 @@ namespace ke {
 
 namespace {
 
+int64_t forceDueNs(const Force& f) { return std::llround(double(f.start) * 1e9); }
+
 Quaternion eulerTurn(const Vector3& degrees) {
     SceneObject o;
     o.rotationDeg = degrees;
@@ -145,6 +147,8 @@ void RobotWorld::build(PhysicsWorld& physics) {
     slab.halfExtents = Vector3(0.5_r * (box.hi.x - box.lo.x) + 50, 0.5_r, 0.5_r * (box.hi.z - box.lo.z) + 50);
     std::string error;
     entityOfBody_.assign(1, 0);
+    flatOfBody_.assign(1, -1);
+    firedIds_.clear();
     physics.addBody(floor, {slab}, error); // body 0: the floor, no entity
     flat_ = worldEntities(graph_);
     robotOf_ = robotGroups(graph_);
@@ -205,6 +209,8 @@ void RobotWorld::build(PhysicsWorld& physics) {
         else if (d.type != BodyDesc::Type::Static && !isArrayCopyId(e.id)) free_.push_back(e.id); // a take records it: a robot's link, a body led by its own velocity
         if (entityOfBody_.size() <= size_t(b)) entityOfBody_.resize(size_t(b) + 1, 0);
         entityOfBody_[size_t(b)] = e.id;
+        if (flatOfBody_.size() <= size_t(b)) flatOfBody_.resize(size_t(b) + 1, -1);
+        flatOfBody_[size_t(b)] = int(&e - flat_.data());
     }
     for (const JointObject& j : graph_.joints) buildJoint(physics, j);
     buildPower();
@@ -544,6 +550,10 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
                 physics.applyForce(body, ft.first, physics.state(body).centre);
                 physics.applyTorque(body, ft.second);
             }
+            for (const Force& f : graph_.forces) {
+                if (f.mode == ForceMode::Constant) actForce(physics, f);
+                else if (!fired(f.id) && clockNs_ >= forceDueNs(f)) actForce(physics, f), markFired(f.id);
+            }
             if (!animated_.empty()) leadAnimation(physics, Real(double(clockNs_) * 1e-9) + dt / Real(n), dt / Real(n)); // the clock moves on per substep
         }
         {
@@ -559,6 +569,61 @@ void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     readPoses(physics);
     if (--framesToLostCheck_ < 0) framesToLostCheck_ = 29, dropLost(physics); // after the poses: the scene keeps where it was last
     if (recording_) sampleTake(physics);
+}
+
+void RobotWorld::markFired(uint32_t id) {
+    firedIds_.insert(std::lower_bound(firedIds_.begin(), firedIds_.end(), id), id);
+}
+
+// The force on each rigid body of its reach, at the centre of mass (no torque): strength times the falloff's weight
+// along the axis, or away from the force's origin. The poses are the end of the last frame's.
+void RobotWorld::actForce(PhysicsWorld& physics, const Force& f) {
+    if (!effectivelyVisible(live_, f)) return;
+    Vector3 p;
+    Quaternion q;
+    worldPose(live_, f, p, q);
+    const Vector3 axis = forceAxis(q);
+    for (size_t b = 1; b < entityOfBody_.size(); ++b) {
+        if (entityOfBody_[b] == 0 || !physics.alive(int(b))) continue;
+        const BodyState s = physics.state(int(b));
+        if (s.mass <= 0) continue;
+        if (!f.tag.empty()) {
+            const std::vector<std::string>& tags = flat_[size_t(flatOfBody_[b])].tags;
+            if (std::find(tags.begin(), tags.end(), f.tag) == tags.end()) continue;
+        }
+        const Vector3 away = s.centre - p;
+        const Real d = length(away);
+        if (f.radius > 0 && d > f.radius) continue;
+        if (f.shape == ForceShape::Radial && d < 1e-6_r) continue;
+        const Real m = std::max(d, 1_r);
+        const Real w = f.falloff == ForceFalloff::Linear && f.radius > 0 ? 1_r - d / f.radius
+                     : f.falloff == ForceFalloff::InverseSquare ? 1_r / (m * m) : 1_r;
+        const Vector3 push = (f.shape == ForceShape::Radial ? away / d : axis) * (f.strength * w);
+        if (f.mode == ForceMode::Constant) physics.applyForce(int(b), push, s.centre);
+        else physics.applyImpulse(int(b), push, s.centre);
+    }
+}
+
+bool RobotWorld::fireForce(PhysicsWorld& physics, uint32_t id, std::string& error) {
+    const auto f = std::find_if(graph_.forces.begin(), graph_.forces.end(), [id](const Force& x) { return x.id == id; });
+    if (f == graph_.forces.end()) return error = "no force with id " + std::to_string(id) + " in the scene", false;
+    if (f->mode == ForceMode::Constant) return error = "a constant force acts on its own: only an impulse is fired", false;
+    actForce(physics, *f);
+    if (!fired(id)) markFired(id);
+    return true;
+}
+
+void RobotWorld::setForces(const std::vector<Force>& forces) {
+    const std::vector<Force> old = std::move(graph_.forces);
+    std::vector<uint32_t> kept;
+    for (const Force& f : forces) {
+        if (f.mode != ForceMode::Impulse) continue;
+        const bool isNew = std::none_of(old.begin(), old.end(), [&f](const Force& o) { return o.id == f.id; });
+        if (isNew ? clockNs_ >= forceDueNs(f) : fired(f.id)) kept.push_back(f.id); // a new one already due does not fire by itself
+    }
+    std::sort(kept.begin(), kept.end());
+    firedIds_ = std::move(kept);
+    graph_.forces = live_.forces = forces;
 }
 
 int RobotWorld::engineSteps(int substeps) const {

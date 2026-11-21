@@ -48,6 +48,7 @@ LiveEdit liveEdit(const SceneGraph& running, const SceneGraph& edited) {
     r.lights = differ(running, edited, &SceneGraph::lights) || differ(running, edited, &SceneGraph::cameras);
     r.goals = entitiesText(running, true) != entitiesText(edited, true);
     r.joints = differ(running, edited, &SceneGraph::joints);
+    r.forces = differ(running, edited, &SceneGraph::forces);
     return r;
 }
 
