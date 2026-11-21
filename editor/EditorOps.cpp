@@ -10,12 +10,10 @@
 #include "core/Format.h"
 #include "scene/ArgsSchema.h"
 #include "scene/Assembly.h"
-#include "scene/SceneEdits.h"
 #include "scene/SceneOps.h"
 
 #include <QFileInfo>
 #include <QJsonArray>
-#include <QRegularExpression>
 
 #include <algorithm>
 
@@ -153,19 +151,7 @@ void EditorOps::addSceneOps() {
     const auto stepped = [this](bool undo) {
         const SceneGraph before = builder_->graph();
         const bool done = undo ? builder_->undoStep() : builder_->redoStep();
-        QJsonArray changed;
-        bool world = false;
-        static const QRegularExpression idOf(R"(\bid (\d+))");
-        for (const ke::GraphEdit& e : diffEdits(before, builder_->graph())) {
-            if (e.kind == ke::GraphEdit::Kind::World) { world = true; continue; }
-            const auto m = idOf.match(QString::fromStdString(e.text));
-            const qint64 id = e.kind == ke::GraphEdit::Kind::Put && m.hasMatch() ? m.captured(1).toLongLong() : qint64(e.id);
-            if (!changed.contains(id)) changed.append(id);
-        }
-        for (const auto* pair : {&before.joints, &builder_->graph().joints}) // a joint gone with its link: said too
-            for (const ke::JointObject& j : *pair)
-                if (!ke::findJoint(before, j.id) != !ke::findJoint(builder_->graph(), j.id) && !changed.contains(qint64(j.id))) changed.append(qint64(j.id));
-        return ok({{undo ? "undone" : "redone", done}, {"changed", changed}, {"world", world}, {"undo_steps", qint64(builder_->undoSteps())}});
+        return coreAnswerJson(ke::historyAnswer(before, builder_->graph(), undo, done, builder_->undoSteps()));
     };
     addSync("edit_undo", "Undo the last step. Answers what it changed: the objects' ids, whether the world did; undone false: nothing "
             "left to undo", "{}", [stepped](const QJsonObject&) { return stepped(true); });

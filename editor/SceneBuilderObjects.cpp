@@ -220,7 +220,7 @@ void SceneBuilder::explodeArray(uint32_t id) {
             made.push_back(t.id);
             continue;
         }
-        c.id = newId();
+        c.id = doc_.newId();
         c.name = name + " " + std::to_string(n + 1);
         graph_.entities.push_back(c);
         made.push_back(c.id);

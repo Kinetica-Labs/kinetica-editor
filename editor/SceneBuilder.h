@@ -47,6 +47,7 @@
 #include "Gizmo.h"
 #include "Icons.h"
 #include "SceneMarkers.h"
+#include "scene/Document.h"
 #include "scene/Kinematics.h"
 #include "SimController.h"
 #include "scene/SceneGraph.h"
@@ -129,7 +130,7 @@ public:
     // The scene as a snapshot of the journal (EditorJournal.cpp): the scene file, its folder, the next id the builder gives out - all a replay needs to give the same ids; and back, as one
     // undo step (a restore can be undone).
     QString snapshotText() const;
-    uint32_t nextIdToGive() const { return nextId_; }
+    uint32_t nextIdToGive() const { return doc_.nextIdToGive(); }
     bool restoreSnapshot(const QString& text, const QString& baseDirectory, uint32_t nextId, QString& error);
     QJsonObject restartSnapshot();
     bool restoreRestartSnapshot(const QJsonObject& snapshot, QString& error);
@@ -304,12 +305,12 @@ public:
     // Edit mode: the simulation built from the graph and left on pause, not one frame stepped (the
     // API steps exact frame counts from there). False when it cannot be built.
     bool loadPaused();
-    bool undoStep() { return !undo_.empty() && (undo(), true); }
-    bool redoStep() { return !redo_.empty() && (redo(), true); }
-    size_t undoSteps() const { return undo_.size(); } // what Ctrl+Z can still take back
+    bool undoStep() { return doc_.history.steps() && (undo(), true); }
+    bool redoStep() { return doc_.history.canRedo() && (redo(), true); }
+    size_t undoSteps() const { return doc_.history.steps(); } // what Ctrl+Z can still take back
     // The steps taken so far, the forgotten oldest among them: what an action added is a difference of two of these.
     // (undoSteps() stands still once the history is full - "one step more" was never seen after a hundred edits.)
-    size_t undoTaken() const { return undo_.size() + undoForgotten_; }
+    size_t undoTaken() const { return doc_.history.steps() + doc_.history.forgotten(); }
 
 signals:
     void statusMessage(const QString& text);               // "Коллайдер добавлен: без него тело провалится"
@@ -465,7 +466,8 @@ private:
     void remember(bool mergeWithLast = false);
     void undo();
     void redo();
-    void restore(ke::SceneGraph g);
+    ke::Document::Remember rememberer() { return [this] { remember(); return rememberedNow_; }; } // the window's decision, for the document
+    void restore(); // the window after the graph was replaced by a step of history
     void updateHistoryActions();
 
     // What the viewport shows
@@ -506,9 +508,9 @@ private:
     // session gave out before (an undo may bring that object back).
     template <class F>
     auto coreEdit(F&& action) {
-        graph_.idFloor = nextId_;
+        graph_.idFloor = doc_.nextIdToGive();
         auto result = action(graph_);
-        nextId_ = std::max(nextId_, ke::nextId(graph_));
+        doc_.setNextId(std::max(doc_.nextIdToGive(), ke::nextId(graph_)));
         return result;
     }
     // A Shift + gizmo drag's copies (SceneBuilderClone.cpp): copy k of an original, moved and turned
@@ -521,12 +523,11 @@ private:
     };
     uint32_t placeClone(uint32_t original, const CloneStep& step, int k, bool instance);
     uint32_t cloneAsArray(uint32_t original, const CloneStep& step, int copies);
-    uint32_t newId();
     void pruneSelection(); // drops what is no longer in the graph
-    void adoptIds(); // give ids to entities that came without one (old files); nextId_ past all
 
     SimController* ctrl_;
-    ke::SceneGraph graph_;
+    ke::Document doc_;             // the graph, its history and the ids: declared before graph_
+    ke::SceneGraph& graph_ = doc_.graph;
     ke::SceneGraph playBackup_;    // the graph as it was when Play was pressed: Stop brings it back
     ke::SceneGraph simGraph_;      // what the simulation was last given (edits during play are diffed with it)
     bool hasPlayBackup_ = false;
@@ -546,16 +547,12 @@ private:
     std::map<uint32_t, std::pair<ke::Vector3, ke::Quaternion>> goalLive_; // the goals on paths, where the scene has walked them
     Mode mode_ = Mode::Edit;
     EditView editView_;
-    uint32_t nextId_ = 1;          // ids are never reused within a session
     uint32_t selectedId_ = 0;      // 0: nothing selected
     uint32_t hoverId_ = 0;         // the object under the mouse (edit mode)
     QString fileName_;
     bool filling_ = false;         // widgets are being filled from the graph: not an edit
     std::vector<uint32_t> bodyEntity_; // drawn body -> id of its entity (edit view, or the simulation)
 
-    struct HistoryEntry { ke::SceneGraph graph; };
-    std::vector<HistoryEntry> undo_, redo_;
-    size_t undoForgotten_ = 0; // the oldest steps dropped from a full history (undoTaken)
     QElapsedTimer lastRemember_;
     std::optional<ke::SceneGraph> previewFrom_; // the graph before a Sequencer preview
     int undoGroup_ = 0;          // open groups (beginUndoGroup)

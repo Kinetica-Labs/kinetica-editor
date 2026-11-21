@@ -31,7 +31,6 @@
 #include <cmath>
 #include <cstdio>
 #include <memory>
-#include <set>
 
 using namespace ke;
 
@@ -331,55 +330,45 @@ void SceneBuilder::beginUndoGroup() {
 
 bool SceneBuilder::endUndoGroup(bool keep) {
     undoGroup_ = std::max(0, undoGroup_ - 1);
-    if (keep || undoGroup_ > 0 || !undoGroupTaken_ || undo_.empty()) return false;
-    SceneGraph before = std::move(undo_.back().graph); // the scene before the group's first edit
-    undo_.pop_back();
+    if (keep || undoGroup_ > 0 || !undoGroupTaken_ || !doc_.history.steps()) return false;
+    graph_ = doc_.history.pop(); // the scene before the group's first edit
     undoGroupTaken_ = false;
-    restore(std::move(before));
+    restore();
     return true;
 }
 
 void SceneBuilder::remember(bool mergeWithLast) {
     rememberedNow_ = false;
     if (undoGroup_ > 0 && undoGroupTaken_) return; // a group's later edits: inside its one step
-    const bool join = mergeWithLast && typing_ && lastRemember_.elapsed() < 700 && !undo_.empty();
+    const bool join = mergeWithLast && typing_ && lastRemember_.elapsed() < 700 && doc_.history.steps();
     lastRemember_.restart();
     typing_ = mergeWithLast;
     if (join) return;
     if (undoGroup_ > 0) undoGroupTaken_ = true;
     rememberedNow_ = true;
-    undo_.push_back({graph_});
-    if (undo_.size() > 100) undo_.erase(undo_.begin()), ++undoForgotten_;
-    redo_.clear();
+    doc_.history.push(graph_);
     updateHistoryActions();
 }
 
 void SceneBuilder::undo() {
-    if (undo_.empty()) return;
+    if (!doc_.history.steps()) return;
     flushCode();
     typing_ = false;
-    redo_.push_back({graph_});
-    HistoryEntry entry = std::move(undo_.back());
-    SceneGraph g = std::move(entry.graph);
-    undo_.pop_back();
-    restore(std::move(g));
+    doc_.undo();
+    restore();
     codeAction("edit_undo", "scene.undo()", {}, false); // the scene it brought back is the action, not an edit
 }
 
 void SceneBuilder::redo() {
-    if (redo_.empty()) return;
+    if (!doc_.history.canRedo()) return;
     flushCode();
     typing_ = false;
-    undo_.push_back({graph_});
-    HistoryEntry entry = std::move(redo_.back());
-    SceneGraph g = std::move(entry.graph);
-    redo_.pop_back();
-    restore(std::move(g));
+    doc_.redo();
+    restore();
     codeAction("edit_redo", "scene.redo()", {}, false); // the scene it brought back is the action, not an edit
 }
 
-void SceneBuilder::restore(SceneGraph g) {
-    graph_ = std::move(g);
+void SceneBuilder::restore() {
     pruneSelection();
     lastRemember_.restart();
     fillWorld();
@@ -391,8 +380,8 @@ void SceneBuilder::restore(SceneGraph g) {
 }
 
 void SceneBuilder::updateHistoryActions() {
-    undoAct_->setEnabled(!undo_.empty());
-    redoAct_->setEnabled(!redo_.empty());
+    undoAct_->setEnabled(doc_.history.steps());
+    redoAct_->setEnabled(doc_.history.canRedo());
 }
 
 // ---------------------------------------------------------------------------
@@ -459,9 +448,8 @@ void SceneBuilder::returnToEdit(bool keepEdits) {
     if (restore) {
         const bool edited = playBackup_.save() != graph_.save();
         graph_ = playBackup_;
-        undo_.resize(std::min(undo_.size(), undoAtPlay_));
-        if (hasKeptBefore_) undo_.push_back({keptBefore_}); // K: one Ctrl+Z puts the objects back
-        redo_.clear();
+        doc_.history.cut(undoAtPlay_);
+        if (hasKeptBefore_) doc_.history.push(keptBefore_); // K: one Ctrl+Z puts the objects back
         pruneSelection();
         fillWorld();
         refreshList();
@@ -479,7 +467,7 @@ void SceneBuilder::returnToEdit(bool keepEdits) {
 bool SceneBuilder::loadIntoSimulation() {
     playBackup_ = simGraph_ = graph_;
     hasPlayBackup_ = true;
-    undoAtPlay_ = undo_.size();
+    undoAtPlay_ = doc_.history.steps();
     ctrl_->setSceneName(displayName());
     const SceneGraph g = graph_;
     ctrl_->post([g](Simulation& s) { ke::startWorld(s, g); }, "load");
@@ -676,21 +664,10 @@ void SceneBuilder::selectBody(int body) {
 void SceneBuilder::newScene() {
     flushCode();
     if (!editing()) returnToEdit(false);
-    if (!graph_.entities.empty() || !graph_.groups.empty() || !graph_.arrays.empty() || !graph_.lights.empty() || !graph_.cameras.empty()) remember();
-    graph_ = SceneGraph();
+    doc_.newScene(rememberer());
     selection_.clear();
     fileName_.clear();
     throughId_ = 0;
-    Entity floor;
-    floor.id = newId();
-    floor.name = "Пол";
-    floor.shape = ShapeKind::Plane;
-    floor.size = Vector3(graph_.world.size.x, 0.02f, graph_.world.size.z);
-    floor.position = Vector3(0.0f, 0.01f, 0.0f);
-    floor.color = Vector3(0.52f, 0.55f, 0.60f);
-    floor.collider.enabled = true; // a collider alone: a fixed obstacle, as Unity's static colliders
-    floor.locked = true;           // clicks on the floor select nothing; it is still in the list
-    graph_.entities.push_back(floor);
     selectedId_ = 0;
     fillWorld();
     refreshList();
@@ -715,10 +692,8 @@ bool SceneBuilder::openFile(const QString& path, QString& error) {
     }
     if (!editing()) returnToEdit(false);
     flushCode();
-    remember();
-    graph_ = std::move(g);
-    graph_.baseDirectory = QFileInfo(path).absolutePath().toStdString(); // model files next to the scene
-    adoptIds();
+    g.baseDirectory = QFileInfo(path).absolutePath().toStdString(); // model files next to the scene
+    doc_.load(std::move(g), rememberer());
     fileName_ = QFileInfo(path).fileName();
     throughId_ = 0;
     selection_.clear();
@@ -741,7 +716,7 @@ QJsonObject SceneBuilder::restartSnapshot() {
     QJsonArray selection;
     for (const uint32_t id : orderedSelection()) selection.append(double(id));
     return {{"scene", snapshotText()}, {"base", QString::fromStdString(graph_.baseDirectory)},
-            {"file", fileName_}, {"next_id", double(nextId_)}, {"selection", selection}};
+            {"file", fileName_}, {"next_id", double(doc_.nextIdToGive())}, {"selection", selection}};
 }
 
 bool SceneBuilder::restoreRestartSnapshot(const QJsonObject& snapshot, QString& error) {
@@ -767,10 +742,9 @@ bool SceneBuilder::restoreSnapshot(const QString& text, const QString& baseDirec
     if (!g.load(text.toStdString(), err)) return error = QString::fromStdString(err), false;
     if (!editing()) returnToEdit(false);
     flushCode();
-    remember();
-    graph_ = std::move(g);
-    graph_.baseDirectory = baseDirectory.toStdString();
-    nextId_ = std::max(nextId, ke::nextId(graph_));
+    g.baseDirectory = baseDirectory.toStdString();
+    doc_.setNextId(nextId);
+    doc_.load(std::move(g), rememberer());
     selection_.clear();
     selectedId_ = 0;
     fillWorld();
@@ -808,21 +782,9 @@ Entity* SceneBuilder::selectedEntity() {
     return i >= 0 ? &graph_.entities[size_t(i)] : nullptr;
 }
 
-uint32_t SceneBuilder::newId() { return nextId_++; }
-
 // After an undo or a Stop: what is gone from the graph is gone from the selection too.
 void SceneBuilder::pruneSelection() {
     selection_.erase(std::remove_if(selection_.begin(), selection_.end(), [this](uint32_t id) { return !findObject(graph_, id) && !isDevice(id); }),
                      selection_.end());
     if (!isSelected(selectedId_)) selectedId_ = selection_.empty() ? 0 : selection_.back();
-}
-
-// Files written by hand or by an older editor may have no ids, or the same id twice.
-void SceneBuilder::adoptIds() {
-    nextId_ = std::max(nextId_, nextId(graph_)); // groups and arrays too
-    std::set<uint32_t> seen;
-    for (Entity& e : graph_.entities) {
-        if (e.id == 0 || seen.count(e.id)) e.id = newId();
-        seen.insert(e.id);
-    }
 }

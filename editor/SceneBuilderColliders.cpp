@@ -214,7 +214,7 @@ void SceneBuilder::finishColliderDrag(bool cancelled) {
                                          !same(e->collider.rotationDeg, colliderStart_.rotationDeg) || e->collider.kind != colliderStart_.kind);
     if (cancelled || !changed) { // put back, and no undo step for nothing
         graph_ = colliderGraph_;
-        if (!undo_.empty()) undo_.pop_back();
+        doc_.history.pop();
         updateHistoryActions();
     }
     refreshColliderGuides();

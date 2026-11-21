@@ -286,7 +286,7 @@ void SceneBuilder::onGizmoCancelled() {
     graph_ = gizmoGraph_;
     gizmoEntity_ = 0;
     gizmoStarts_.clear();
-    if (!undo_.empty()) undo_.pop_back(); // nothing happened: no undo step either
+    doc_.history.pop(); // nothing happened: no undo step either
     updateHistoryActions();
     if (cloneDrag_) { // the moving copies go; the originals are the selection again
         cloneDrag_ = false;

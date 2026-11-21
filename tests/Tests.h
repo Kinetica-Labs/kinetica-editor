@@ -16,6 +16,13 @@ void testArgsSchemaOfEveryOperation();
 void testArgsRefusalsFrozenFixture();
 void testArgsGrammarCases();
 void testArgsNumbersWithoutTheLocale();
+// DocumentTests.cpp
+void testHistoryLimitAndEdges();
+void testDocumentTransact();
+void testDocumentIds();
+void testDocumentLoadAndNewScene();
+void testFloorSceneIsTheWindowsFloor();
+void testHistoryAnswers();
 // CoreTests.cpp
 void testProbe();
 void testUnitsAndFields();

@@ -15,6 +15,12 @@ int main() {
     run("args: the refusals equal the frozen fixture", testArgsRefusalsFrozenFixture);
     run("args: the grammar, one case per rule", testArgsGrammarCases);
     run("args: numbers in a refusal are %g whatever the locale", testArgsNumbersWithoutTheLocale);
+    run("document: the history keeps 100 steps, forgets and counts the oldest, and has its edges", testHistoryLimitAndEdges);
+    run("document: a failed change restores the graph to the bit, a good one is a step", testDocumentTransact);
+    run("document: an id is never given twice - not after a new scene, a load or an undo", testDocumentIds);
+    run("document: a load and a new scene are one step each", testDocumentLoadAndNewScene);
+    run("document: the floor is the text the window gave", testFloorSceneIsTheWindowsFloor);
+    run("document: the answer of an undo against the recorded ones", testHistoryAnswers);
     run("probe: channels, counters, timers, debug drawing", testProbe);
     run("core: units as data (UCUM) and fields as data - their schema, their check, a key's suffix against its unit", testUnitsAndFields);
     run("runtime: bounded pipeline admission", testRuntimePolicyBounds);

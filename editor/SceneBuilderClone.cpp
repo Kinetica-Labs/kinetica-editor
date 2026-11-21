@@ -71,7 +71,7 @@ uint32_t SceneBuilder::placeClone(uint32_t original, const CloneStep& step, int 
 uint32_t SceneBuilder::cloneAsArray(uint32_t original, const CloneStep& step, int copies) {
     Entity& t = *entityById(original);
     ArrayObject a;
-    a.id = newId();
+    a.id = doc_.newId();
     a.templateId = original;
     a.name = "Массив: " + t.name;
     a.parent = t.parent;
@@ -121,7 +121,7 @@ void SceneBuilder::cancelClone() {
     if (!clonePending_) return;
     clonePending_ = false;
     graph_ = gizmoGraph_;
-    if (!undo_.empty()) undo_.pop_back();
+    doc_.history.pop();
     updateHistoryActions();
     std::vector<uint32_t> originals;
     for (const auto& [original, preview] : cloneOf_) originals.push_back(original);

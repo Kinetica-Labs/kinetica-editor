@@ -7,17 +7,11 @@
 using namespace ke;
 
 bool SceneBuilder::transact(const std::function<bool(SceneGraph&, std::string&)>& change, std::string& error) {
-    SceneGraph before = graph_;
-    remember();
-    graph_.idFloor = nextId_; // the core's new ids never take one this session gave out before
-    if (!change(graph_, error)) {
-        graph_ = std::move(before);
-        if (rememberedNow_ && !undo_.empty()) undo_.pop_back(); // only the step this edit made
+    if (!doc_.transact(change, error, rememberer())) {
         if (rememberedNow_ && undoGroup_ > 0) undoGroupTaken_ = false; // a group's first edit failed: the next one takes the step
         updateHistoryActions();
         return false;
     }
-    adoptIds();
     pruneSelection();
     refreshList();
     fillInspector();
