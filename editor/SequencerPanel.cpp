@@ -77,6 +77,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     filter_->setFixedWidth(140);
     bar->addWidget(filter_);
     note_ = new QLabel(this);
+    note_->setObjectName("sequencerNote");
     note_->setStyleSheet("color: #ff6a5a;");
     bar->addWidget(note_, 1);
     time_ = new QLabel(this);
@@ -180,8 +181,10 @@ void SequencerPanel::seek(double time) {
 }
 
 void SequencerPanel::scrub(double time) {
-    if (!builder_->editing() || !ke::activeSequence(builder_->graph())) return; // a run is not gone back over: nothing of it is kept
-    if (!scrubbing_) builder_->beginSequencePreview(), scrubbing_ = true;
+    if (!builder_->editing()) // a run is not gone back over: nothing of it is kept - said, a silent ruler was taken for broken
+        return note_->setText(uiText("Kinetica", "Прогон не запоминается, назад не перемотать: бегунок ходит после ■ Стоп"));
+    if (!ke::activeSequence(builder_->graph())) return;
+    if (!scrubbing_) builder_->beginSequencePreview(), scrubbing_ = true, note_->clear();
     scrubTime_ = time;
     builder_->previewSequence(time); // the view redrawn: sync follows (MainWindow, editSnapshot)
 }

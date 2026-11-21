@@ -24,6 +24,7 @@
 #include <QElapsedTimer>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QToolButton>
 
 #include <cmath>
@@ -210,6 +211,12 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     const double stood = worldTime();
     std::printf("  «До» 0.5 s and ▶: the run %s at %.3f s\n", paused ? "paused" : "DID NOT PAUSE", stood);
     c.check(set && paused && stood > 0.49 && stood < 0.52, "▶ runs to the play range's end and stays paused on that frame");
+    const auto x = [&](double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width(), panel->atLeast()).x(t); };
+    mouse(timeline, QEvent::MouseButtonPress, QPointF(x(0.2), 8)), mouse(timeline, QEvent::MouseButtonRelease, QPointF(x(0.2), 8));
+    pump(60);
+    auto* note = panel->findChild<QLabel*>("sequencerNote");
+    c.check(b.mode() == SceneBuilder::Mode::Paused && worldTime() == stood && note && note->text().contains("Стоп"),
+            "a press on the ruler in a run moves nothing back and says why: the run is not kept");
     stop->trigger();
     pump(300);
 
@@ -232,7 +239,6 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     std::printf("  «Петля» and ▶ for 1.3 s: %s, the world's time %.3f s\n", goes ? "still playing" : "NOT PLAYING", at);
     c.check(goes && at < 0.52, "with «Петля» the run starts over at the play range's end");
 
-    const auto x = [&](double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width(), panel->atLeast()).x(t); };
     const QPointF from(x(0.5) - 4, 8), to(x(1.5), 8); // by its flag, left of the line
     mouse(timeline, QEvent::MouseButtonPress, from), mouse(timeline, QEvent::MouseMove, to), mouse(timeline, QEvent::MouseButtonRelease, to);
     pump(60);
