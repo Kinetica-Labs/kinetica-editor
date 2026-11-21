@@ -9,7 +9,9 @@
 #include "core/Json.h"
 #include "scene/SceneOps.h"
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <functional>
@@ -70,6 +72,28 @@ Value stoppedInPlace(const Value& answer) {
 }
 
 // The keys of a map named in `keys` hold "<masked>": the operating system's words, which no host says alike.
+// Two answers of a built world, recorded on one machine and computed on another: the same shape, words and whole
+// numbers, and every measured number within a part in a thousand (and 1e-4 near zero). The engine's last bits depend on
+// the compiler and its mathematics library (seen: the eighth digit of an angle between GCC 11 with glibc 2.35 and GCC 15 on Ubuntu 26.04) - one
+// machine's own repeatability is the physics tests' matter (PhysicsTests.cpp), not this recording's.
+bool closeAnswers(const Value& a, const Value& b) {
+    if (a.type() != b.type()) return false;
+    switch (a.type()) {
+    case Value::Type::Number: {
+        const double x = a.number(), y = b.number();
+        return x == y || std::fabs(x - y) <= 1e-4 + 1e-3 * std::max(std::fabs(x), std::fabs(y));
+    }
+    case Value::Type::List:
+    case Value::Type::Map: {
+        if (a.size() != b.size() || a.keys() != b.keys()) return false;
+        for (size_t i = 0; i < a.items().size(); ++i)
+            if (!closeAnswers(a.items()[i], b.items()[i])) return false;
+        return true;
+    }
+    default: return toJson(a) == toJson(b);
+    }
+}
+
 Value maskKeys(const Value& v, const Value& keys) {
     Value out = Value::map();
     for (const std::string& k : v.keys()) {
@@ -158,7 +182,8 @@ void testSceneApiTranscript() {
             want = stoppedInPlace(want);
         }
         ++compared;
-        CHECK(plain(want) == plain(mine), "line %d (%s)\n    request: %s\n    window:  %s\n    host:    %s", n, row["note"].text().c_str(),
+        const bool measured = scene.simulation() != nullptr; // the engine's numbers: equal to the last bit only on the machine that recorded them
+        CHECK(plain(want) == plain(mine) || (measured && closeAnswers(parseJson(plain(want)), parseJson(plain(mine)))), "line %d (%s)\n    request: %s\n    window:  %s\n    host:    %s", n, row["note"].text().c_str(),
               toJson(request).c_str(), plain(want).c_str(), plain(mine).c_str());
     }
     std::printf("  transcript: %d answers compared, %d run with the answer left to the window (a selection, a view, a clock, the list of its own "
