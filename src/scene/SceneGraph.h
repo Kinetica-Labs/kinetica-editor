@@ -532,6 +532,17 @@ uint32_t nextId(const SceneGraph& g);
 Vector3 lightDirection(const SceneGraph& g, const Light& l);
 // The direction of a directional force: the +y axis turned by the object's world rotation.
 Vector3 forceAxis(const Quaternion& q);
+// The body a directional force is applied to: its parent, when that is a rigid shape. The force then acts on that body
+// alone, at its own point - off the centre of mass it turns the body - whatever its radius and tag say. Null: a field,
+// acting on the bodies in its reach at their centres.
+const Entity* forceBody(const SceneGraph& g, const Force& f);
+// The strength one metre of a directional force's arrow stands for. A body's own force is drawn by what it does to
+// that body: a metre is 3 m/s of the velocity an impulse gives it, or 10 m/s^2 of a constant force's acceleration (an
+// arrow up longer than a metre lifts the body). A field's: 10 N s or N.
+Real forceUnitPerMetre(const SceneGraph& g, const Force& f);
+// The force made that body's own: its child, standing at the body's centre of mass, upright in the world, a metre of
+// arrow long (a constant one 1.2 m: straight up it lifts the body).
+void applyForceTo(SceneGraph& g, Force& f, const Entity& body);
 void cameraFrame(const SceneGraph& g, const Camera& c, Vector3& eye, Vector3& forward, Vector3& up);
 // A handle: an IK goal or a camera's own target - intent, not matter: no body, no roles, drawn see-through, moved by
 // the gizmo while the world runs, never seen by a robot's sensors.

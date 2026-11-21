@@ -102,6 +102,18 @@ bool addForceOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     if (there) at = given;
     const uint32_t id = addForce(g, ForceShape(shape), ForceMode(mode), at);
     Force& made = g.forces.back();
+    if (a.has("body")) { // that body's own force: its child at its centre of mass (or at `at`), sized by its mass
+        const Entity* body = findEntity(g, uint32_t(a["body"].integer()));
+        if (!body || ForceShape(shape) != ForceShape::Directional)
+            return g.forces.pop_back(), e = "body is the id of a shape, and only a directional force is applied to one body", false;
+        applyForceTo(g, made, *body);
+        if (there) {
+            Vector3 p;
+            Quaternion q;
+            worldPose(g, made, p, q);
+            setWorldPose(g, made, given, q);
+        }
+    }
     if (a.has("strength")) made.strength = Real(a["strength"].number(0));
     if (a.has("radius")) made.radius = Real(a["radius"].number(0));
     if (const char* fault = forceFault(made)) return g.forces.pop_back(), e = fault, false;
@@ -432,8 +444,8 @@ std::vector<SceneOp> actionSceneOps() {
                             "with `position` it stands there shining at `target` (else at `at`)",
          "{kind: sun|point|spot, at?: [x,y,z], position?: [x,y,z], target?: [x,y,z]}", {}, addLightOp},
         {"scene_add_force", "A force as the menu adds it: a push along its own +Y axis or a radial burst or pull, once (impulse) or all the time "
-                            "(constant); strength: N s for an impulse, N for a constant; radius: the bodies whose centres are within it (a new directional one: 1.5 m; 0: every body); a new one stands at 'at' or in the scene centre",
-         "{shape: 'directional'|'radial', mode: 'impulse'|'constant', at?: [x,y,z], strength?: number, radius?: m}", {}, addForceOp},
+                            "(constant); strength: N s for an impulse, N for a constant; radius: the bodies whose centres are within it (a new directional one: 1.5 m; 0: every body); a new one stands at 'at' or in the scene centre. body: a directional force made that shape's own - its child at its centre of mass (or at 'at'), acting on it alone at the force's own point, so off the centre it turns the body; its strength, unless given, is sized by the body's mass (an impulse: 3 m/s of velocity; a constant one: 12 m/s^2)",
+         "{shape: 'directional'|'radial', mode: 'impulse'|'constant', at?: [x,y,z], strength?: number, radius?: m, body?: int}", {}, addForceOp},
         {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre); kind target: a target camera that always "
                              "looks there - at object `at` (wherever it goes) or the point", "{eye?: [x,y,z], target?: [x,y,z], kind?: 'free'|'target', at?: int}",
          {}, addCameraOp},

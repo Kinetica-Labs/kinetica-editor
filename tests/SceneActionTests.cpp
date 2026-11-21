@@ -619,7 +619,7 @@ void testSceneForces() {
         add(k.shape, k.mode);
         const Force& f = g.forces.back();
         CHECK(f.shape == k.s && f.mode == k.m && f.strength == k.strength && f.radius == k.radius && f.falloff == k.falloff && f.start == 0 &&
-                  f.tag.empty() && f.name == k.name && f.color.y == 0.85_r,
+                  f.tag.empty() && f.name == k.name && f.color.z == 0.94_r,
               "scene_add_force %s %s: the table's defaults and its name (%s)", k.shape, k.mode, f.name.c_str());
     }
     add("directional", "impulse");

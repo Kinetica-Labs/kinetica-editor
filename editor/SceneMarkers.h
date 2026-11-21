@@ -36,7 +36,8 @@ struct SceneMarker {
 };
 
 // A force's marker, not yet posed: its kind by its shape, `range` its radius, `reach` +1 or -1 by its strength's sign.
-SceneMarker forceMarker(const ke::Force& f);
+SceneMarker forceMarker(const ke::SceneGraph& g, const ke::Force& f);
+float forceArrow(const ke::SceneGraph& g, const ke::Force& f); // the signed length of a directional force's arrow, m (never under 0.15)
 // The graph's visible lights, cameras and forces as markers, posed in the world.
 std::vector<SceneMarker> markersOf(const ke::SceneGraph& g);
 // The marker's wireframe: solid lines, and the faint ones (a range, a soft edge) apart. `aspect` is

@@ -120,6 +120,8 @@ Vector3 SceneBuilder::worldPositionOf(uint32_t id) const {
 // The first click on a grouped thing selects its topmost group; the next click on it, the group one
 // level down, and so on to the thing itself. An array is one thing.
 uint32_t SceneBuilder::clickTarget(uint32_t drawnId) const {
+    for (const Force& f : graph_.forces) // a body's own force is taken by its own arrow: it is not a member of the body, as a group's part is
+        if (f.id == drawnId && forceBody(graph_, f)) return drawnId;
     const std::vector<uint32_t> chain = chainOf(ownerOf(drawnId));
     if (chain.empty()) return 0;
     for (size_t k = 1; k < chain.size(); ++k)

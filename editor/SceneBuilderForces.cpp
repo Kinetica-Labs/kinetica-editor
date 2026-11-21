@@ -10,6 +10,8 @@
 #include "scene/SceneActions.h"
 
 #include <QBoxLayout>
+#include <QLabel>
+#include <QLocale>
 #include <QPushButton>
 
 #include <set>
@@ -26,21 +28,31 @@ Force* SceneBuilder::forceById(uint32_t id) {
 
 void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
     flushCode();
-    // Beside what is selected, not inside it (there its ring is hidden and a radial force has no direction to push
-    // in): a directional force over its top, pushing up; a radial one at its side, pushing it away.
+    // With a shape selected a directional force is that shape's own: its child, at its centre of mass, acting on it
+    // alone. A radial one is a field: it stands at the shape's side (at its centre it has no direction to push in).
+    const Entity* body = shape == ForceShape::Directional && selection_.size() == 1 ? findEntity(graph_, selectedId_) : nullptr;
+    if (body && isHandle(*body)) body = nullptr;
     Vector3 at = spawnTarget();
-    if (const AABB box = findObject(graph_, selectedId_) ? boundsOf(selectedId_) : AABB(); box.valid())
-        at = box.center() + (shape == ForceShape::Radial ? Vector3(-0.5f * (box.hi.x - box.lo.x) - 0.5f, 0, 0) : Vector3(0, 0.5f * (box.hi.y - box.lo.y) + 0.3f, 0));
+    if (const AABB box = !body && findObject(graph_, selectedId_) ? boundsOf(selectedId_) : AABB(); box.valid())
+        at = box.center() + Vector3(-0.5f * (box.hi.x - box.lo.x) - 0.5f, 0, 0);
+    const uint32_t bodyId = body ? body->id : 0;
     remember();
-    addObjectDone(coreEdit([&](SceneGraph& g) { return ke::addForce(g, shape, mode, at); }));
+    addObjectDone(coreEdit([&](SceneGraph& g) {
+        const uint32_t id = ke::addForce(g, shape, mode, at);
+        if (const Entity* on = findEntity(g, bodyId)) applyForceTo(g, g.forces.back(), *on);
+        return id;
+    }));
     const QString shapeWord = kForceShapeNames[int(shape)], modeWord = kForceModeNames[int(mode)];
+    if (bodyId)
+        return codeAction("scene_add_force", QString("scene.add_force(\"%1\", \"%2\", body=scene.objects[%3])").arg(shapeWord, modeWord).arg(bodyId),
+                          {{"shape", shapeWord}, {"mode", modeWord}, {"body", int(bodyId)}}, false);
     codeAction("scene_add_force", QString("scene.add_force(\"%1\", \"%2\")").arg(shapeWord, modeWord),
                {{"shape", shapeWord}, {"mode", modeWord}, {"at", QJsonArray{double(at.x), double(at.y), double(at.z)}}}, false);
 }
 
-// The orange points of the one selected force, in edit: the end of a directional force's arrow - dragged, the force
-// turns to push there - and a point on its reach, dragged along the force's own x: the radius. A radial force has the
-// second alone.
+// The orange points of the one selected force, in edit. The end of a directional force's arrow is its whole vector:
+// dragged, the force turns to push there and is as strong as the arrow is long (forceUnitPerMetre). A field has one
+// more on its reach, dragged along the force's own x: the radius.
 std::vector<ShapeHandle> SceneBuilder::forceHandles() {
     std::vector<ShapeHandle> out;
     const Force* f = editing() && selection_.size() == 1 ? forceById(selectedId_) : nullptr;
@@ -52,11 +64,11 @@ std::vector<ShapeHandle> SceneBuilder::forceHandles() {
     h.plugin = true;
     if (f->shape == ForceShape::Directional) {
         h.free = true, h.axis = Vector3(1, 0, 0), h.reach = 0;
-        h.centre = p + forceAxis(q) * (f->strength < 0 ? -1.0f : 1.0f);
-        h.label = uiText("Kinetica", "Направление");
+        h.centre = p + forceAxis(q) * forceArrow(graph_, *f);
+        h.label = uiText("Kinetica", "Вектор силы");
         out.push_back(h);
     }
-    if (f->radius > 0) {
+    if (f->radius > 0 && !forceBody(graph_, *f)) {
         h.free = false, h.centre = p, h.axis = q.rotate(Vector3(1, 0, 0)), h.reach = float(f->radius);
         h.label = uiText("Kinetica", "Радиус");
         out.push_back(h);
@@ -87,16 +99,20 @@ void SceneBuilder::onForceHandle(int index, Vector3 point, int phase) {
     Vector3 p;
     Quaternion q;
     worldPose(componentGraph_, *start, p, q);
-    const bool aim = start->shape == ForceShape::Directional && index == 0;
+    const bool vector = start->shape == ForceShape::Directional && index == 0;
     const auto drag = [&](Force& f) {
-        if (!aim) {
+        if (!vector) {
             f.radius = std::clamp(dot(point - p, q.rotate(Vector3(1, 0, 0))), 0.05f, float(kForceMaxRadius));
             return;
         }
         const Vector3 to = point - p;
-        if (dot(to, to) < 1e-6f) return; // dropped on the force itself: no direction
+        const float metres = length(to);
+        if (metres < 1e-3f) return; // dropped on the force's own point: no direction
         const Vector3 from = forceAxis(q) * (start->strength < 0 ? -1.0f : 1.0f);
         setWorldPose(graph_, f, p, Quaternion::fromTwoVectors(from, to) * q);
+        f.strength = std::min(float(kForceMaxStrength), metres * float(forceUnitPerMetre(componentGraph_, *start))) * (start->strength < 0 ? -1.0f : 1.0f);
+        emit statusMessage(QString("%1: %2 %3").arg(QString::fromStdString(f.name), QLocale().toString(std::fabs(double(f.strength)), 'f', 2),
+                                                 f.mode == ForceMode::Impulse ? uiText("Kinetica", "Н·с") : uiText("Kinetica", "Н")));
     };
     if (phase == 1) { // live: the mark follows the mouse; the undo step and the journal's line at the release
         drag(*forceById(selectedId_));
@@ -128,10 +144,11 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
         .tip(uiText("Kinetica", "Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время"));
     forceFields_->number(uiText("Kinetica", "Сила, Н·с"), -double(kForceMaxStrength), double(kForceMaxStrength), 1, 2, d->strength)
         .label([d] { return QString(d->mode == ForceMode::Impulse ? uiText("Kinetica", "Сила, Н·с") : uiText("Kinetica", "Сила, Н")); }).name("forceStrength");
-    forceFields_->number(uiText("Kinetica", "Радиус, м"), 0, double(kForceMaxRadius), 0.5, 2, d->radius).name("forceRadius")
-        .tip(uiText("Kinetica", "0 у направленной — без предела"));
+    const auto field = [this, d] { return !forceBody(graph_, *d); }; // a field's own: a body's own force has no reach, falloff or tag
+    forceFields_->number(uiText("Kinetica", "Радиус, м"), 0, double(kForceMaxRadius), 0.5, 2, d->radius).shown(field).name("forceRadius")
+        .tip(uiText("Kinetica", "Сила действует на тела, чьи центры внутри радиуса; 0 у направленной — на все тела"));
     forceFields_->choice(uiText("Kinetica", "Спад"), QStringList{uiText("Kinetica", "Нет"), uiText("Kinetica", "Линейный"), uiText("Kinetica", "Обратный квадрат")},
-                         [d] { return double(int(d->falloff)); }, [d](double v) { d->falloff = ForceFalloff(int(v)); }).name("forceFalloff");
+                         [d] { return double(int(d->falloff)); }, [d](double v) { d->falloff = ForceFalloff(int(v)); }).shown(field).name("forceFalloff");
     forceFields_->number(uiText("Kinetica", "Момент, с"), 0, double(kForceMaxStart), 0.1, 2, d->start).shown(impulse).name("forceStart")
         .tip(uiText("Kinetica", "Время мира от пуска, когда импульс срабатывает сам"));
     forceFields_->choice(uiText("Kinetica", "Действует на"), [this] {
@@ -142,8 +159,12 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
     }, [this] {
         const auto at = std::find(forceTags_.begin(), forceTags_.end(), forceDraft_.tag);
         return double(at == forceTags_.end() ? 0 : at - forceTags_.begin());
-    }, [this](double i) { forceDraft_.tag = forceTags_[size_t(i)]; }).name("forceTag")
+    }, [this](double i) { forceDraft_.tag = forceTags_[size_t(i)]; }).shown(field).name("forceTag")
         .tip(uiText("Kinetica", "Только тела с этой меткой (метки — в блоке «Объект»); пусто — все тела"));
+    forceOwner_ = new QLabel;
+    forceOwner_->setObjectName("forceOwner");
+    forceOwner_->setWordWrap(true);
+    forceCard_->body()->addWidget(forceOwner_);
     forceCard_->body()->addWidget(forceFields_);
     forceFire_ = new QPushButton(uiText("Kinetica", "Сработать"));
     forceFire_->setObjectName("forceFire");
@@ -171,4 +192,9 @@ void SceneBuilder::fillForceCard(const SceneObject& o) {
     fillSelected(forceFields_, forceDraft_, [this](uint32_t id) { return forceById(id); });
     forceFire_->setVisible(f->mode == ForceMode::Impulse);
     forceFire_->setEnabled(!editing());
+    const Entity* body = forceBody(graph_, *f);
+    forceOwner_->setVisible(f->shape == ForceShape::Directional);
+    forceOwner_->setText(body ? QString(uiText("Kinetica", "Приложена к телу «%1» в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина"))
+                                    .arg(QString::fromStdString(body->name))
+                              : QString(uiText("Kinetica", "Поле: толкает тела в своём радиусе. Чтобы приложить к одному телу, выберите его и создайте силу")));
 }

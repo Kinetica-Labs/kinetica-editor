@@ -71,6 +71,7 @@ void testPhysicsThreadsDeterministic();
 // SimTests.cpp
 void testSimBoxRestsOnFloor();
 void testSimForces();
+void testSimForceOnBody();
 void testSimFrameFollowsTheLiveScene();
 void testSimLostBodiesLeaveTheWorld();
 void testSimBodiesAloneAreOneEngineStep();

@@ -72,6 +72,7 @@ struct Frame {
         Quaternion rotation; // its world turn: a target camera's already looks at its target
     };
     std::vector<CameraPose> cameras;
+    std::vector<CameraPose> forces; // the same for the forces: a body's own force rides on it
 
     // A gripper on an IK goal's effector as the gripper itself reports it (Robotiq's gOBJ: from its fingers' own
     // travel, not from the physics' contacts): open, closing, holding - its fingers stopped short of closed, so

@@ -1616,3 +1616,63 @@ void testSimForces() {
         CHECK(near(momentumOf(late, 1), up * 5), "an unfired impulse moved to a passed moment fires at the next step");
     }
 }
+
+// A body's own force: a directional force that is the child of a rigid box acts on that box alone, at the force's own
+// point. Through the centre of mass it gives the momentum and no spin; 0.1 m off it, the same momentum and the spin
+// r x J / I. A neighbour 0.3 m away - inside any reach - is not touched. A metre of its arrow is 3 m/s of the body's
+// velocity (an impulse) or 10 m/s^2 (a constant one), and applyForceTo makes a new force a metre long, upright.
+void testSimForceOnBody() {
+    SceneGraph g = calm();
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 2, 0}, false));
+    g.entities.push_back(solid(2, "Сосед", Vector3(0.2_r), {0.3_r, 2, 0}, false));
+    Force own = forceOf(3, Vector3(0.0_r), ForceShape::Directional, ForceMode::Impulse, 4, 1.5_r); // at the box's centre, in its frame
+    own.parent = 1;
+    g.forces.push_back(own);
+    const auto after = [&](BodyState& box, Vector3& neighbour, size_t& listed) {
+        Simulation s;
+        s.load(g);
+        s.stepFrame();
+        box = s.physics()->state(s.robot()->bodyOf(1));
+        neighbour = momentumOf(s, 2);
+        Frame frame;
+        s.fill(frame);
+        listed = frame.forces.size() == 1 && frame.forces[0].id == 3 ? 1 : 0;
+    };
+    BodyState box;
+    Vector3 neighbour;
+    size_t listed = 0;
+    after(box, neighbour, listed);
+    CHECK(near(box.velocity * box.mass, Vector3(0, 4, 0)) && length(box.angularVelocity) < 1e-4_r, "at the centre of mass: 4 N s of momentum and no spin");
+    CHECK(length(neighbour) < 1e-6_r, "the neighbour inside its radius is not touched: the force is the box's own");
+    CHECK(listed == 1, "the frame lists the force that rides on a moving body");
+
+    g.forces[0].position = Vector3(0.1_r, 0, 0);
+    after(box, neighbour, listed);
+    const Real inertia = box.mass * (0.04_r + 0.04_r) / 12, spin = 0.4_r / inertia; // a 0.2 m cube about z; r x J = (0.1, 0, 0) x (0, 4, 0) = 0.4 z
+    std::printf("  a push of 4 N s on a %.1f kg box 0.1 m off its centre: momentum y %.4f, spin z %.3f rad/s (r x J / I = %.3f)\n", double(box.mass),
+                double(box.velocity.y * box.mass), double(box.angularVelocity.z), double(spin));
+    CHECK(near(box.velocity * box.mass, Vector3(0, 4, 0)) && std::fabs(box.angularVelocity.z - spin) < 0.01_r * spin && length(neighbour) < 1e-6_r,
+          "0.1 m off the centre: the same momentum, and the spin r x J / I");
+
+    g.forces[0].position = Vector3(0.0_r), g.forces[0].mode = ForceMode::Constant, g.forces[0].strength = 8;
+    Simulation thrust;
+    thrust.load(g);
+    for (int k = 0; k < 60; ++k) thrust.stepFrame();
+    CHECK(near(momentumOf(thrust, 1), Vector3(0, 8, 0), 1e-3_r) && length(momentumOf(thrust, 2)) < 1e-6_r, "a constant 8 N on its own body for a second: 8 N s, the neighbour none");
+
+    const Real mass = bodyMass(g.entities[0]);
+    CHECK(forceBody(g, g.forces[0]) == &g.entities[0] && forceUnitPerMetre(g, g.forces[0]) == mass * 10, "a metre of a constant force's arrow on its body: 10 m/s^2 of it");
+    g.forces[0].mode = ForceMode::Impulse;
+    CHECK(forceUnitPerMetre(g, g.forces[0]) == mass * 3, "of an impulse's: 3 m/s");
+    g.forces[0].shape = ForceShape::Radial;
+    CHECK(!forceBody(g, g.forces[0]) && forceUnitPerMetre(g, g.forces[0]) == 10, "a radial force is a field whatever its parent is");
+    g.entities[0].rotationDeg = Vector3(0, 0, 40), g.entities[0].rigid.centerGiven = true, g.entities[0].rigid.centerOfMass = Vector3(0, 0.05_r, 0);
+    Force made = forceOf(4, Vector3(5, 5, 5), ForceShape::Directional, ForceMode::Constant, 1);
+    applyForceTo(g, made, g.entities[0]);
+    Vector3 p, centre;
+    Quaternion q, bodyTurn;
+    worldPose(g, g.entities[0], centre, bodyTurn);
+    worldPose(g, made, p, q);
+    CHECK(made.parent == 1 && near(p, centre + bodyTurn.rotate(Vector3(0, 0.05_r, 0))) && near(forceAxis(q), Vector3(0, 1, 0)) && near(Vector3(made.strength, 0, 0), Vector3(mass * 12, 0, 0)),
+          "applyForceTo: the body's child at its centre of mass, upright in the world though the body is tilted, 1.2 m of arrow (12 m/s^2)");
+}

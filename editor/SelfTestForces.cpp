@@ -231,12 +231,14 @@ void testFirePlayStop(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
 
 } // namespace
 
-// What the hand does to a force in the view: a new one stands beside the selected cube, a click on its arrow away
-// from its ring takes it, the orange point at the arrow's end turns it and the one on its reach sizes it.
+// What the hand does to a force in the view. A push made with a rigid cube selected is that cube's own: its child at
+// the cube's centre, a metre of arrow, sized by the cube's mass. A click on its arrow away from its ring takes it. The
+// orange point at the arrow's end is its whole vector: dragged, the force turns to push there and is as strong as the
+// arrow is long. A blast made the same way stands at the cube's side; a field's second point is its radius.
 void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.newScene();
     const uint32_t cube = made(b, b.createActions()[0]);
-    b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.0f, 0.5f, 0.0f), e.size = Vector3(1.0f); });
+    b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.0f, 0.5f, 0.0f), e.size = Vector3(1.0f), e.rigid.enabled = e.collider.enabled = true; });
     const auto over = [&](int kind) { // the menu's item pressed with the cube selected
         b.select(cube);
         pump(60);
@@ -246,16 +248,25 @@ void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     };
     const uint32_t push = over(0), blast = over(1);
     if (!forceOf(b, push) || !forceOf(b, blast)) return void(c.check(false, "a force made with a cube selected is selected itself"));
-    const Vector3 above = forceOf(b, push)->position, beside = forceOf(b, blast)->position;
-    c.check(std::fabs(above.x) < 1e-4f && std::fabs(above.y - 1.3f) < 1e-3f && std::fabs(beside.x + 1.0f) < 1e-3f && std::fabs(beside.y - 0.5f) < 1e-3f,
-            "a new force stands beside the selected cube: a push 0.3 m over its top, a blast 0.5 m off its side");
+    const float mass = float(bodyMass(*findEntity(b.graph(), cube)));
+    Vector3 p;
+    Quaternion q;
+    worldPose(b.graph(), *forceOf(b, push), p, q);
+    const Vector3 beside = forceOf(b, blast)->position;
+    std::printf("  with a %.0f kg cube selected: the push its child %s, at (%.2f %.2f %.2f), %.0f N s, an arrow of %.2f m; the blast at (%.2f %.2f %.2f)\n", double(mass),
+                forceOf(b, push)->parent == cube ? "yes" : "no", double(p.x), double(p.y), double(p.z), double(forceOf(b, push)->strength),
+                double(forceArrow(b.graph(), *forceOf(b, push))), double(beside.x), double(beside.y), double(beside.z));
+    c.check(forceOf(b, push)->parent == cube && forceBody(b.graph(), *forceOf(b, push)) && length(p - Vector3(0, 0.5f, 0)) < 1e-4f &&
+                std::fabs(forceOf(b, push)->strength - 3 * mass) < 1e-2f && std::fabs(forceArrow(b.graph(), *forceOf(b, push)) - 1.0f) < 1e-4f,
+            "a push made with a rigid cube selected is the cube's own: its child at its centre, a metre of arrow - 3 m/s of the cube");
+    c.check(forceOf(b, blast)->parent == 0 && std::fabs(beside.x + 1.0f) < 1e-3f && std::fabs(beside.y - 0.5f) < 1e-3f, "a blast is a field: it stands 0.5 m off the cube's side");
 
     v->setFocusBox(AABB(Vector3(-3, -1, -3), Vector3(3, 3, 3)));
     v->frameScene();
     b.select(0);
     pump(100);
     trigger(w, "toolSelect");
-    const QPointF shaft = toPoint(v->gizmoView().project(above + Vector3(0, 0.6f, 0))); // on the arrow, far from the ring it stands on
+    const QPointF shaft = toPoint(v->gizmoView().project(Vector3(0, 1.3f, 0))); // on the arrow, over the cube's top, far from its ring
     sendMouse(v, QEvent::MouseButtonPress, shaft, Qt::LeftButton, Qt::LeftButton);
     sendMouse(v, QEvent::MouseButtonRelease, shaft, Qt::LeftButton, Qt::NoButton);
     pump(80);
@@ -265,10 +276,9 @@ void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.select(push);
     pump(100);
     std::vector<ShapeHandle> points = v->shapeHandles();
-    const bool two = points.size() == 2 && points[0].free && !points[1].free && std::fabs(points[1].reach - 1.5f) < 1e-4f;
-    c.check(two, "a selected directional force shows two orange points: the end of its arrow and its reach");
-    if (!two) return;
-    const size_t steps = b.undoTaken();
+    const bool one = points.size() == 1 && points[0].free && length(points[0].centre - Vector3(0, 1.5f, 0)) < 1e-3f;
+    c.check(one, "a body's own force shows one orange point, at the end of its arrow");
+    if (!one) return;
     const auto dragTo = [&](const Vector3& from, const Vector3& to) {
         const QPointF a = v->pixelOf(from), z = v->pixelOf(to);
         sendMouse(v, QEvent::MouseMove, a, Qt::NoButton, Qt::NoButton);
@@ -277,24 +287,33 @@ void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
         sendMouse(v, QEvent::MouseButtonRelease, z, Qt::LeftButton, Qt::NoButton);
         pump(100);
     };
-    // The arrow's end is dragged in the plane facing the eye: the force then points from its place at where the point was let go.
+    // The point is dragged in the plane facing the eye: the force then points from its place at where it was let go.
+    const size_t steps = b.undoTaken();
     const Vector3 aimed = points[0].centre + Vector3(1.2f, -0.7f, 0);
     const Vector3 target = v->handlePoint(points[0], v->pixelOf(aimed)); // where the mouse takes the point, in that plane
     dragTo(points[0].centre, aimed);
-    Vector3 p;
-    Quaternion q;
-    worldPose(b.graph(), *forceOf(b, push), p, q);
-    const Vector3 wanted = normalize(target - p), got = forceAxis(q);
-    const bool turned = dot(wanted, got) > 0.995f && length(p - above) < 1e-5f && b.undoTaken() == steps + 1;
-    std::printf("  the arrow's end dragged: the force's axis %.3f of the way to the point, its place kept %s, undo steps +%zu\n", double(dot(wanted, got)),
-                length(p - above) < 1e-5f ? "yes" : "no", b.undoTaken() - steps);
-    c.check(turned, "the orange point at the arrow's end, dragged, turns the force to push there: one undo step, its place kept");
-    points = v->shapeHandles();
-    if (points.size() == 2) dragTo(points[1].centre + points[1].axis * points[1].reach, points[1].centre + points[1].axis * 2.5f);
-    const float radius = forceOf(b, push)->radius;
+    Vector3 now;
+    worldPose(b.graph(), *forceOf(b, push), now, q);
+    const float along = dot(normalize(target - p), forceAxis(q)), metres = length(target - p), strength = forceOf(b, push)->strength;
+    std::printf("  the arrow's end dragged %.2f m from the force: its axis %.3f of the way there, %.0f N s (%.0f a metre), its place kept %s, undo steps +%zu\n",
+                double(metres), double(along), double(strength), double(3 * mass), length(now - p) < 1e-5f ? "yes" : "no", b.undoTaken() - steps);
+    c.check(along > 0.995f && std::fabs(strength - metres * 3 * mass) < 0.02f * metres * 3 * mass && length(now - p) < 1e-5f && b.undoTaken() == steps + 1,
+            "the orange point at the arrow's end is the whole vector: dragged, the force turns there and is as strong as the arrow is long - one undo step, its place kept");
     b.undoAction()->trigger();
     pump(80);
-    c.check(std::fabs(radius - 2.5f) < 0.05f && forceOf(b, push)->radius == 1.5f, ("the point on its reach, dragged out, is the radius; Ctrl+Z takes it back: " + std::to_string(radius)).c_str());
+    c.check(std::fabs(forceOf(b, push)->strength - 3 * mass) < 1e-2f, "Ctrl+Z takes the drag back");
+
+    // A field (a push made with nothing selected): the vector's point and one more, its radius.
+    const uint32_t field = made(b, addAction(w, 0));
+    points = v->shapeHandles();
+    const bool two = forceOf(b, field) && !forceBody(b.graph(), *forceOf(b, field)) && points.size() == 2 && points[0].free && !points[1].free && std::fabs(points[1].reach - 1.5f) < 1e-4f;
+    c.check(two, "a field shows two orange points: its vector and its reach");
+    if (!two) return;
+    dragTo(points[1].centre + points[1].axis * points[1].reach, points[1].centre + points[1].axis * 2.5f);
+    const float radius = forceOf(b, field)->radius;
+    b.undoAction()->trigger();
+    pump(80);
+    c.check(std::fabs(radius - 2.5f) < 0.05f && forceOf(b, field)->radius == 1.5f, ("the point on its reach, dragged out, is the radius; Ctrl+Z takes it back: " + std::to_string(radius)).c_str());
 }
 
 int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {

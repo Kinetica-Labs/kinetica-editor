@@ -276,6 +276,25 @@ uint32_t nextId(const SceneGraph& g) {
 
 Vector3 forceAxis(const Quaternion& q) { return normalize(q.rotate(Vector3(0, 1, 0))); }
 
+const Entity* forceBody(const SceneGraph& g, const Force& f) {
+    const Entity* e = f.shape == ForceShape::Directional && f.parent ? findEntity(g, f.parent) : nullptr;
+    return e && e->rigid.enabled ? e : nullptr;
+}
+
+Real forceUnitPerMetre(const SceneGraph& g, const Force& f) {
+    const Entity* body = forceBody(g, f);
+    return body ? bodyMass(resolveInstance(g, *body)) * (f.mode == ForceMode::Impulse ? 3_r : 10_r) : 10_r;
+}
+
+void applyForceTo(SceneGraph& g, Force& f, const Entity& body) {
+    Vector3 p;
+    Quaternion q;
+    worldPose(g, body, p, q);
+    f.parent = body.id;
+    setWorldPose(g, f, p + q.rotate(body.rigid.centerGiven ? body.rigid.centerOfMass : Vector3(0.0_r)), Quaternion());
+    if (forceBody(g, f)) f.strength = forceUnitPerMetre(g, f) * (f.mode == ForceMode::Impulse ? 1_r : 1.2_r);
+}
+
 Vector3 lightDirection(const SceneGraph& g, const Light& l) {
     Vector3 position;
     Quaternion rotation;

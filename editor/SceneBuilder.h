@@ -492,7 +492,7 @@ private:
     // The collider wireframes: from the graph in edit mode, at the bodies' poses while the scene plays.
     void refreshColliderGuides();
     void playColliderGuides(const ke::Frame& s);
-    const ke::Frame::CameraPose* liveCamera(uint32_t id) const;
+    const ke::Frame::CameraPose* liveCamera(uint32_t id) const; // a camera's or a force's
     // The collider of an entity as the running world will build it (ke::colliderShapes), kept until its
     // geometry or collider changes; `key` gets what it depends on (the guides' cache key).
     const std::vector<ke::ShapeDesc>& colliderOf(const ke::Entity& e, std::string* key = nullptr);
@@ -681,12 +681,13 @@ private:
     class FieldForm *lightFields_ = nullptr, *cameraFields_ = nullptr, *cameraAimFields_ = nullptr;
     std::pair<double, double> cameraAim_{0, 0}; // the card's kind (0 free, 1 target) and target (0: its own cube)
     std::unordered_map<uint32_t, ke::Vector3> liveObjectPositions_; // in play, for a target camera looked through: its target's pose
-    std::vector<ke::Frame::CameraPose> liveCameras_;                // in play: where the world has the cameras it moves (Frame::cameras)
+    std::vector<ke::Frame::CameraPose> liveCameras_, liveForces_;   // in play: where the world has the cameras and forces it moves (Frame)
     ke::Light lightDraft_;
     // The "Сила" card over every selected force: its fields, the draft they edit, the tags «Действует на» lists
     ComponentCard* forceCard_ = nullptr;
     class FieldForm* forceFields_ = nullptr;
     QPushButton* forceFire_ = nullptr;
+    QLabel* forceOwner_ = nullptr; // whose a directional force is: a body's own, or a field
     ke::Force forceDraft_;
     std::vector<std::string> forceTags_;
     ke::Camera cameraDraft_;

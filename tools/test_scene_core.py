@@ -259,6 +259,21 @@ class SceneCore(unittest.TestCase):
             push.shape = "radial"
             self.assertEqual(push.shape, "radial")
 
+    def test_a_force_of_its_own_body(self):
+        # body=: the force is that body's own - a metre of arrow is 3 m/s of it; a neighbour half a metre away feels nothing
+        with ke.Scene() as scene:
+            scene.world.gravity = (0, 0, 0)
+            box = scene.add("box", position=(0, 2, 0), role="rigid")
+            near = scene.add("box", position=(0.5, 2, 0), role="rigid")
+            scene.add_force(body=box)
+            scene.step(2)
+            moving = scene.measure(objects=[box, near])
+            self.assertAlmostEqual(moving[f"{box.id}/velocity y"], 3, delta=1e-2)
+            self.assertAlmostEqual(moving[f"{near.id}/velocity y"], 0, delta=1e-6)
+            with self.assertRaises(OperationError) as caught:
+                scene.add_force("radial", "impulse", body=box)
+            self.assertIn("directional", str(caught.exception))
+
     def test_fire_sends_its_id_alone(self):
         # force_fire refuses every key but id, and a window's client adds the console line as one more key
         with ke.Scene() as scene:

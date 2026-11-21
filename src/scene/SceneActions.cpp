@@ -210,7 +210,7 @@ uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3
     f.mode = mode;
     const auto same = std::count_if(g.forces.begin(), g.forces.end(), [&](const Force& o) { return o.shape == shape && o.mode == mode; });
     f.name = std::string(forceTitle(shape, mode)) + " " + std::to_string(same + 1);
-    f.color = Vector3(0.45_r, 0.85_r, 0.55_r);
+    f.color = Vector3(0.59_r, 0.41_r, 0.94_r); // its mark's and its icon's violet
     f.position = at;
     if (shape == ForceShape::Radial) f.radius = mode == ForceMode::Impulse ? 3.0_r : 5.0_r, f.falloff = ForceFalloff::Linear;
     else f.radius = 1.5_r; // it pushes what stands near it: placed at a body, it is that body's push (radius 0: every body)

@@ -288,8 +288,8 @@ object.
 
 ### Forces
 
-Force puts a force object - a push, a blast, a thrust or a pull. It acts on the centre of mass of rigid bodies while the
-world runs and does not spin them. The gizmo moves and turns it like any object; a selected force has orange points: at the end of its arrow - drag it and the force turns to push there; on its sphere - the radius. A click anywhere on the arrow selects the force. A new force stands beside the selected object: a directional one above it, a radial one at its side. In Edit it does nothing.
+Force puts a force object - a push, a blast, a thrust or a pull. **A force applied to a body:** select a body and make a Push or a Thrust - the force is attached to it, the start of its arrow stands at the body's centre of mass, it acts on that body alone and rides on it. Drag the orange point at the end of the arrow - it is the whole vector: where it points the force pushes, and the arrow's length is its strength (a metre is 3 m/s of the body's velocity for a push and 10 m/s² of acceleration for a thrust; a thrust up longer than a metre lifts the body). The gizmo moves the start of the arrow: off the centre of mass the force turns the body. **A field:** a force made with no body selected, and every Blast and Pull, act on the centre of mass of the rigid bodies in their radius while the
+world runs and do not spin them. The gizmo moves and turns a force like any object; a field has a second orange point on its sphere - the radius. A click anywhere on the arrow selects the force. A Blast made with a body selected stands at its side. In Edit a force does nothing.
 
 | Kind | Shape | Mode | Default strength |
 |---|---|---|---|

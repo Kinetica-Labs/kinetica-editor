@@ -120,6 +120,13 @@ void RobotWorld::describeCameras(Frame& out) const {
         if (c.kind == CameraKind::Target) pose.rotation = lookTurn(pose.position, cameraTarget(live_, c));
         out.cameras.push_back(pose);
     }
+    for (const Force& f : live_.forces) {
+        if (!led(f.id)) continue;
+        Frame::CameraPose pose;
+        pose.id = f.id;
+        worldPose(live_, f, pose.position, pose.rotation);
+        out.forces.push_back(pose);
+    }
 }
 
 // The scene starts as its active sequence has it at 0 s: an animated body begins where its track does, not with a jump.
@@ -575,10 +582,22 @@ void RobotWorld::markFired(uint32_t id) {
     firedIds_.insert(std::lower_bound(firedIds_.begin(), firedIds_.end(), id), id);
 }
 
-// The force on each rigid body of its reach, at the centre of mass (no torque): strength times the falloff's weight
-// along the axis, or away from the force's origin. The poses are the end of the last frame's.
+// A body's own force (forceBody: a directional force whose parent is a rigid shape) acts on that body alone, at the
+// force's own point as the body stands now - off the centre of mass it turns the body. A field: the force on each
+// rigid body of its reach, at the centre of mass (no torque): strength times the falloff's weight along the axis, or
+// away from the force's origin; its poses are the end of the last frame's.
 void RobotWorld::actForce(PhysicsWorld& physics, const Force& f) {
     if (!effectivelyVisible(live_, f)) return;
+    if (forceBody(live_, f)) {
+        const int own = bodyOf(f.parent);
+        if (own < 0 || !physics.alive(own)) return;
+        const BodyState s = physics.state(own);
+        if (s.mass <= 0) return; // fixed or led: nothing pushes it
+        const Vector3 at = s.position + s.rotation.rotate(f.position), push = forceAxis(s.rotation * objectRotation(f)) * f.strength;
+        if (f.mode == ForceMode::Constant) physics.applyForce(own, push, at);
+        else physics.applyImpulse(own, push, at);
+        return;
+    }
     Vector3 p;
     Quaternion q;
     worldPose(live_, f, p, q);

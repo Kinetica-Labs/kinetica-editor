@@ -107,12 +107,12 @@ void reachRings(const SceneMarker& m, std::vector<float>& faint) {
     circle(faint, m.position, y, z, m.range, 72);
 }
 
-// A directional force: one arrow a metre long along the object's own axis (against it when the strength is negative),
-// standing on a small ring.
+// A directional force: one arrow along the object's own axis (against it when the strength is negative), as long as
+// the force is strong (forceArrow), standing on a small ring - the point it is applied at.
 void pushLines(const SceneMarker& m, std::vector<float>& solid, std::vector<float>& faint) {
     const Vector3 x = m.rotation.rotate(Vector3(1, 0, 0)), y = forceAxis(m.rotation), z = m.rotation.rotate(Vector3(0, 0, 1));
     circle(solid, m.position, x, z, 0.07f, 16);
-    arrow(solid, m.position, m.position + y * (m.reach < 0 ? -1.0f : 1.0f), 0.22f);
+    arrow(solid, m.position, m.position + y * m.reach, std::min(0.22f, 0.45f * std::fabs(m.reach)));
     reachRings(m, faint);
 }
 
@@ -164,7 +164,7 @@ static bool nearSegment(const Ray& ray, const Vector3& a, const Vector3& b, floa
 bool markerHit(const SceneMarker& m, const Ray& ray, float& t) {
     Vector3 centre = m.position;
     // A directional force: its whole arrow, not only the ring it stands on - the ring may be inside a body.
-    if (m.kind == SceneMarker::Push && nearSegment(ray, m.position, m.position + forceAxis(m.rotation) * (m.reach < 0 ? -1.0f : 1.0f), 0.1f, t)) return true;
+    if (m.kind == SceneMarker::Push && nearSegment(ray, m.position, m.position + forceAxis(m.rotation) * m.reach, 0.1f, t)) return true;
     float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push ? 0.2f : m.kind == SceneMarker::Burst ? 0.34f : 0.16f;
     if (m.kind == SceneMarker::Camera) centre = m.position + m.rotation.rotate(Vector3(0, 0, -1)) * (0.5f * kCameraDepth), radius = 0.24f;
     const Vector3 oc = ray.origin - centre;
@@ -174,11 +174,17 @@ bool markerHit(const SceneMarker& m, const Ray& ray, float& t) {
     return t >= 0;
 }
 
-SceneMarker forceMarker(const Force& f) {
+float forceArrow(const SceneGraph& g, const Force& f) {
+    const float length = std::max(0.15f, std::fabs(float(f.strength / forceUnitPerMetre(g, f))));
+    return f.strength < 0 ? -length : length;
+}
+
+// A directional force: its arrow's signed length in reach; a body's own force has no reach of a field to draw.
+SceneMarker forceMarker(const SceneGraph& g, const Force& f) {
     SceneMarker m;
     m.kind = f.shape == ForceShape::Radial ? SceneMarker::Burst : SceneMarker::Push;
-    m.range = float(f.radius);
-    m.reach = f.strength < 0 ? -1.0f : 1.0f;
+    m.range = forceBody(g, f) ? 0.0f : float(f.radius);
+    m.reach = f.shape == ForceShape::Radial ? (f.strength < 0 ? -1.0f : 1.0f) : forceArrow(g, f);
     return m;
 }
 
@@ -205,6 +211,6 @@ std::vector<SceneMarker> markersOf(const SceneGraph& g) {
         if (c.kind == CameraKind::Target && !out.empty() && out.back().id == c.id)
             out.back().aimed = true, out.back().aim = cameraTarget(g, c), out.back().rotation = lookTurn(out.back().position, out.back().aim);
     }
-    for (const Force& f : g.forces) add(f, forceMarker(f));
+    for (const Force& f : g.forces) add(f, forceMarker(g, f));
     return out;
 }

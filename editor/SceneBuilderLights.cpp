@@ -257,7 +257,11 @@ void SceneBuilder::refreshMarkers() {
         m.softnessDeg = l.softnessDeg;
         add(l, m);
     }
-    for (const Force& f : graph_.forces) add(f, forceMarker(f));
+    for (const Force& f : graph_.forces) {
+        add(f, forceMarker(graph_, f));
+        if (const Frame::CameraPose* live = liveCamera(f.id); live && !out.empty() && out.back().id == f.id)
+            out.back().position = live->position, out.back().rotation = live->rotation;
+    }
     for (const Camera& c : graph_.cameras) {
         SceneMarker m;
         m.kind = SceneMarker::Camera;
@@ -273,19 +277,21 @@ void SceneBuilder::refreshMarkers() {
 
 std::vector<PickHit> SceneBuilder::pickMarkers(const Ray& ray) const {
     std::vector<PickHit> hits;
-    auto test = [&](const SceneObject& o, SceneMarker::Kind kind, float fovDeg) {
+    auto test = [&](const SceneObject& o, SceneMarker m) {
         if (o.locked || o.id == throughId_ || !effectivelyVisible(graph_, o)) return;
-        SceneMarker m;
-        m.kind = kind;
-        m.fovDeg = fovDeg;
         worldPose(graph_, o, m.position, m.rotation);
         if (const Camera* c = findCamera(graph_, o.id); c && c->kind == CameraKind::Target) m.rotation = lookTurn(m.position, cameraTarget(graph_, *c));
         float t;
         if (markerHit(m, ray, t)) hits.push_back({o.id, t, ray.at(t), o.name});
     };
-    for (const Light& l : graph_.lights) test(l, SceneMarker::Kind(int(l.kind)), 0);
-    for (const Force& f : graph_.forces) test(f, forceMarker(f).kind, 0);
-    for (const Camera& c : graph_.cameras) test(c, SceneMarker::Camera, c.fovDeg);
+    const auto marker = [](SceneMarker::Kind kind, float fovDeg) {
+        SceneMarker m;
+        m.kind = kind, m.fovDeg = fovDeg;
+        return m;
+    };
+    for (const Light& l : graph_.lights) test(l, marker(SceneMarker::Kind(int(l.kind)), 0));
+    for (const Force& f : graph_.forces) test(f, forceMarker(graph_, f)); // its arrow as long as it is drawn
+    for (const Camera& c : graph_.cameras) test(c, marker(SceneMarker::Camera, c.fovDeg));
     for (const SensorVis& v : sensorVisuals(graph_)) {
         const SceneObject* o = findObject(graph_, v.id);
         float t;
@@ -329,11 +335,12 @@ void SceneBuilder::lookThrough(uint32_t cameraId) {
     emit statusMessage(cameraId ? uiText("Kinetica", "Вид через камеру: движение вида двигает камеру. Esc — назад к виду редактора") : uiText("Kinetica", "Вид редактора"));
 }
 
-// In play, a camera the running world moves: where the last frame has it.
+// In play, a camera or a force the running world moves: where the last frame has it.
 const Frame::CameraPose* SceneBuilder::liveCamera(uint32_t id) const {
     if (editing()) return nullptr;
-    for (const Frame::CameraPose& c : liveCameras_)
-        if (c.id == id) return &c;
+    for (const std::vector<Frame::CameraPose>* list : {&liveCameras_, &liveForces_})
+        for (const Frame::CameraPose& c : *list)
+            if (c.id == id) return &c;
     return nullptr;
 }
 

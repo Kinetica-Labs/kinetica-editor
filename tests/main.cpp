@@ -63,6 +63,7 @@ int main() {
     run("physics: the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit", testPhysicsThreadsDeterministic);
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("world: a force acts on rigid bodies by the formulas, once or all the time, and takes live edits", testSimForces);
+    run("world: a body's own force acts on it alone at its own point - momentum, and spin off the centre", testSimForceOnBody);
     run("world: the frame is the live scene flattened - a body, a child without one, a goal moved while it runs", testSimFrameFollowsTheLiveScene);
     run("world: a body fallen out of the world leaves the engine; the frame's contacts only when they are read", testSimLostBodiesLeaveTheWorld);
     run("world: bodies alone are one step of the engine a frame, a servo's world a step a substep", testSimBodiesAloneAreOneEngineStep);

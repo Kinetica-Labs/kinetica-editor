@@ -551,8 +551,10 @@ void SceneBuilder::onSimulationSnapshot(const Frame& s) {
         return a.id == b.id && a.position.x == b.position.x && a.position.y == b.position.y && a.position.z == b.position.z &&
                a.rotation.w == b.rotation.w && a.rotation.x == b.rotation.x && a.rotation.y == b.rotation.y && a.rotation.z == b.rotation.z;
     };
-    const bool moved = !std::equal(s.cameras.begin(), s.cameras.end(), liveCameras_.begin(), liveCameras_.end(), same);
+    const bool moved = !std::equal(s.cameras.begin(), s.cameras.end(), liveCameras_.begin(), liveCameras_.end(), same) ||
+                       !std::equal(s.forces.begin(), s.forces.end(), liveForces_.begin(), liveForces_.end(), same);
     liveCameras_ = s.cameras;
+    liveForces_ = s.forces;
     if (moved) refreshLightsAndCameras(); // its keys, the body that carries it: the view through it and its mark follow
     else if (aimed) emitCameraView();
     std::vector<uint32_t> bodyEntity(s.bodies.size());

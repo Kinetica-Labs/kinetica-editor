@@ -258,11 +258,16 @@ class Scene:
         shown = "".join(f", {k}={_t(v)}" for k, v in args.items())
         return self.objects[self._call("scene_add_light", f"scene.add_light({_q(kind)}{shown})", kind=kind, **args)["id"]]
 
-    def add_force(self, shape="directional", mode="impulse", at=None, strength=None, radius=None):
+    def add_force(self, shape="directional", mode="impulse", at=None, strength=None, radius=None, body=None):
         """A force as the menu adds it, with its kind's own strength and radius unless given: it stands at `at`, else
-        at the scene's centre. A directional one pushes along its +Y, a radial one outward from its place."""
+        at the scene's centre. A directional one pushes along its +Y, a radial one outward from its place. `body`: a
+        directional force made that body's own - at its centre of mass (or at `at`), acting on it alone at its own
+        point, its strength sized by the body's mass."""
         args = {k: v for k, v in (("strength", strength), ("radius", radius)) if v is not None}
         shown = "".join(f", {k}={v!r}" for k, v in args.items())
+        if body is not None:
+            args["body"] = body.id
+            shown += f", body={body.ref}"
         if at is not None:
             args["at"] = list(at)
             shown += f", at={_t(at)}"
