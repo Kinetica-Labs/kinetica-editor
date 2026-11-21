@@ -304,6 +304,42 @@ void testSimGivenMass() {
           !back.load(head + "mass -2\nend\n", error), "an inertia no body can have, and a mass below zero, are refused");
 }
 
+// A body's own share of gravity and its own damping, apart from the world's: with gravity_scale 0 it floats, with 0.5
+// it falls half as far; with a damping of its own it loses the speed the world's would leave it. The file keeps the
+// words for the bodies that have them only.
+void testSimBodyOwnGravityAndDamping() {
+    SceneGraph g;
+    g.world.physics.linearDamping = 0;
+    Entity plain = solid(1, "Обычное", Vector3(0.2_r), {0, 5, 0}, false);
+    Entity half = solid(2, "Вполовину", Vector3(0.2_r), {1, 5, 0}, false);
+    half.rigid.gravityScale = 0.5_r;
+    Entity floats = solid(3, "Парит", Vector3(0.2_r), {2, 5, 0}, false);
+    floats.rigid.gravityScale = 0;
+    Entity glider = solid(4, "Скользит", Vector3(0.2_r), {3, 5, 0}, false);
+    glider.rigid.gravityScale = 0, glider.rigid.velocity = {0, 0, 2};
+    Entity slowed = solid(5, "Вязнет", Vector3(0.2_r), {4, 5, 0}, false);
+    slowed.rigid.gravityScale = 0, slowed.rigid.velocity = {0, 0, 2}, slowed.rigid.linearDamping = 2;
+    for (const Entity& e : {plain, half, floats, glider, slowed}) g.entities.push_back(e);
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 30; ++k) s.stepFrame(); // half a second: g t^2 / 2 = 1.226 m
+    const auto at = [&s](uint32_t id) { return s.physics()->state(s.robot()->bodyOf(id)); };
+    const Real fell = 5 - at(1).position.y, halved = 5 - at(2).position.y;
+    std::printf("  in 0.5 s: fell %.3f m, with gravity_scale 0.5 %.3f m, with 0 %.4f m; at 2 m/s the free one went %.3f m, the damped one %.3f m (speed %.3f)\n",
+                double(fell), double(halved), double(5 - at(3).position.y), double(at(4).position.z), double(at(5).position.z), double(at(5).velocity.z));
+    CHECK(std::fabs(fell - 1.226_r) < 0.06_r && std::fabs(halved / fell - 0.5_r) < 0.02_r && std::fabs(5 - at(3).position.y) < 1e-4_r,
+          "gravity_scale 0.5 halves the fall, 0 stops it");
+    CHECK(std::fabs(at(4).position.z - 1) < 0.02_r && at(5).position.z < 0.7_r && at(5).velocity.z < 0.9_r && at(5).velocity.z > 0.5_r,
+          "a damping of its own slows the body: 2 m/s after 0.5 s at 2 1/s is about 0.74 m/s");
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    CHECK(back.load(text, error) && back.save() == text && back.entities[1].rigid.gravityScale == 0.5_r && back.entities[4].rigid.linearDamping == 2 &&
+          back.entities[0].rigid.linearDamping < 0, "gravity_scale and the damping come back from the file: %s", error.c_str());
+    CHECK(text.find("gravity_scale 0.5") != std::string::npos && text.find("linear_damping 2") != std::string::npos &&
+          SceneGraph().save().find("gravity_scale") == std::string::npos, "the words are written for the bodies that have them only");
+}
+
 void testSimServoHoldsAndDroops() {
     JointDrive d;
     d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;

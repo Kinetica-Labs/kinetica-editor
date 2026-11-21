@@ -101,6 +101,7 @@ public:
         d.angularVelocity = b3v(body.angularVelocity);
         d.linearDamping = float(body.linearDamping);
         d.angularDamping = float(body.angularDamping);
+        d.gravityScale = float(body.gravityScale);
         d.userData = handle(index);
         const b3BodyId id = b3CreateBody(world_, &d);
         for (const ShapeDesc& s : shapes)

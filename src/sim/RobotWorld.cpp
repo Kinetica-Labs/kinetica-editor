@@ -150,7 +150,9 @@ void RobotWorld::build(PhysicsWorld& physics) {
             d.inertia.m[0][0] = i.x, d.inertia.m[1][1] = i.y, d.inertia.m[2][2] = i.z;
             d.inertia.m[0][1] = d.inertia.m[1][0] = p.x, d.inertia.m[0][2] = d.inertia.m[2][0] = p.y, d.inertia.m[1][2] = d.inertia.m[2][1] = p.z;
         }
-        d.linearDamping = p.linearDamping, d.angularDamping = p.angularDamping;
+        d.linearDamping = e.rigid.linearDamping >= 0 ? e.rigid.linearDamping : p.linearDamping;
+        d.angularDamping = e.rigid.angularDamping >= 0 ? e.rigid.angularDamping : p.angularDamping;
+        d.gravityScale = e.rigid.gravityScale;
         if (const auto g = groups.find(e.id); g != groups.end()) d.group = g->second;
         const std::shared_ptr<const TriMesh> mesh = meshOf(e);
         const int b = physics.addBody(d, colliderShapes(e, *mesh), error);

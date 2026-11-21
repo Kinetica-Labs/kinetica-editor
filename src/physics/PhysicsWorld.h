@@ -48,6 +48,7 @@ struct BodyDesc {
     Vector3 centre{0.0_r};                            // the centre of mass, the body's frame
     Matrix3x3 inertia = Matrix3x3::identity();        // about the centre of mass, the body's axes, kg m^2
     Real linearDamping = 0, angularDamping = 0;       // 1/s
+    Real gravityScale = 1;                            // how much of the world's gravity takes it: 0 - it floats
     int group = 0;                                    // > 0: the bodies of one group never touch each other (one robot's links)
 };
 

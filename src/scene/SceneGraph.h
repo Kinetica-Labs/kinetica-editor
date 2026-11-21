@@ -67,6 +67,10 @@ struct RigidRole {
     bool inertiaGiven = false;  // the inertia tensor given, about the centre of mass in the body's axes, kg m^2:
     Vector3 inertiaDiagonal{0.0_r}; //   ixx iyy izz
     Vector3 inertiaProducts{0.0_r}; //   ixy ixz iyz
+    // This body's own, apart from the world's:
+    Real gravityScale = 1;      // how much of the world's gravity takes it: 0 - it floats (a balloon, a body held by thrust in a test)
+    Real linearDamping = -1;    // 1/s; below 0: the world's (physics linear_damping)
+    Real angularDamping = -1;   // 1/s; below 0: the world's (physics angular_damping)
     Real friction = 0.5_r;      // kinetic friction coefficient
     Real restitution = 0.2_r;   // bounciness, 0..1
     bool fixed = false;         // static: does not move (a wall, a table)

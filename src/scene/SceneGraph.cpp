@@ -333,6 +333,9 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
         if (e.rigid.mass > 0) o << " mass " << num(e.rigid.mass);
         if (e.rigid.centerGiven) o << " center_of_mass " << vec(e.rigid.centerOfMass);
         if (e.rigid.inertiaGiven) o << " inertia " << vec(e.rigid.inertiaDiagonal) << " " << vec(e.rigid.inertiaProducts);
+        if (e.rigid.gravityScale != 1) o << " gravity_scale " << num(e.rigid.gravityScale);
+        if (e.rigid.linearDamping >= 0) o << " linear_damping " << num(e.rigid.linearDamping);
+        if (e.rigid.angularDamping >= 0) o << " angular_damping " << num(e.rigid.angularDamping);
         o << "\n";
     }
     if (e.collider.enabled) saveCollider(o, e.collider);
@@ -583,6 +586,9 @@ static bool readRoleKey(const std::string& role, const std::string& k, LineReade
              : k == "mass" ? r.number(e.rigid.mass) && std::isfinite(e.rigid.mass) && e.rigid.mass >= 0
              : k == "center_of_mass" ? (e.rigid.centerGiven = r.vector(e.rigid.centerOfMass))
              : k == "inertia" ? (e.rigid.inertiaGiven = r.vector(e.rigid.inertiaDiagonal) && r.vector(e.rigid.inertiaProducts) && inertiaOk(e.rigid))
+             : k == "gravity_scale" ? r.number(e.rigid.gravityScale) && std::isfinite(e.rigid.gravityScale) && std::fabs(e.rigid.gravityScale) <= 100
+             : k == "linear_damping" ? r.number(e.rigid.linearDamping) && std::isfinite(e.rigid.linearDamping) && e.rigid.linearDamping >= 0 && e.rigid.linearDamping <= 100
+             : k == "angular_damping" ? r.number(e.rigid.angularDamping) && std::isfinite(e.rigid.angularDamping) && e.rigid.angularDamping >= 0 && e.rigid.angularDamping <= 100
              : false;
     }
     if (role == "collider") {

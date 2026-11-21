@@ -130,6 +130,15 @@ class Body(SceneObject):
     center_of_mass = property(lambda self: self._get("rigid", "center_of_mass", 3),
                               lambda self, v: self._set("rigid", "center_of_mass", [float(x) for x in v], f"{self.ref}.center_of_mass = {tuple(v)}"),
                               doc="Its centre of mass given, in its own frame, m (None: the shape's own)")
+    gravity_scale = property(lambda self: (lambda v: 1.0 if v is None else v)(self._get("rigid", "gravity_scale")),
+                             lambda self, v: self._set("rigid", "gravity_scale", float(v), f"{self.ref}.gravity_scale = {float(v)}"),
+                             doc="How much of the world's gravity takes it: 1 - as everything, 0 - it floats")
+    linear_damping = property(lambda self: self._get("rigid", "linear_damping"),
+                              lambda self, v: self._set("rigid", "linear_damping", float(v), f"{self.ref}.linear_damping = {float(v)}"),
+                              doc="Its own damping of motion, 1/s (None: the world's)")
+    angular_damping = property(lambda self: self._get("rigid", "angular_damping"),
+                               lambda self, v: self._set("rigid", "angular_damping", float(v), f"{self.ref}.angular_damping = {float(v)}"),
+                               doc="Its own damping of spin, 1/s (None: the world's)")
     kinematic = property(lambda self: self._get("rigid", "kinematic") == 1,
                          lambda self, v: self._set("rigid", "kinematic", int(bool(v)), f"{self.ref}.kinematic = {bool(v)}"),
                          doc="It moves as its velocity and spin say and pushes what it meets; nothing pushes it")

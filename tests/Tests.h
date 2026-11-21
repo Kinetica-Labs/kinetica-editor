@@ -47,6 +47,7 @@ void testSimBodiesAloneAreOneEngineStep();
 void testSimServoHoldsAndDroops();
 void testSimKinematicBodyLeads();
 void testSimGivenMass();
+void testSimBodyOwnGravityAndDamping();
 void testSimDcMotorSpinsUp();
 void testSimBatteryDrivesMotor();
 void testSimActuatorHolds();
