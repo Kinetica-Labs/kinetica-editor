@@ -655,6 +655,7 @@ private:
     QLabel* modelFile_ = nullptr;
     TexturePanel* texture_ = nullptr;
     Vec3Row* size_ = nullptr;
+    class QDoubleSpinBox* opacity_ = nullptr; // how solid the shape looks, 1 .. 0.05
     ComponentCard* cards_[int(RoleIcon::Count)] = {};
     QWidget* sizeRow_ = nullptr;     // the size: a shape's only
     QWidget* shapePart_ = nullptr;   // "Геометрия", the components and "+ Добавить компонент"

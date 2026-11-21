@@ -238,6 +238,12 @@ void SceneBuilder::buildObjectCard(QVBoxLayout* col) {
     f->setContentsMargins(0, 0, 0, 0);
     f->setSpacing(6);
     size_ = vectorField(f, uiText("Kinetica", "Размер, м"), 0.005, 20, 0.05, 3); // millimetres, as the place
+    opacity_ = new QDoubleSpinBox;
+    opacity_->setObjectName("shapeOpacity");
+    opacity_->setRange(0.05, 1), opacity_->setSingleStep(0.05), opacity_->setDecimals(2), opacity_->setKeyboardTracking(false);
+    opacity_->setToolTip(uiText("Kinetica", "1 — сплошное; меньше — просвечивает: стекло, экран, ограждение. Только вид: физика этого не знает."));
+    connect(opacity_, qOverload<double>(&QDoubleSpinBox::valueChanged), this, &SceneBuilder::onDetailsEdited);
+    f->addRow(uiText("Kinetica", "Непрозрачность"), opacity_);
     col->addWidget(sizeRow_);
 }
 
@@ -515,6 +521,7 @@ void SceneBuilder::fillInspector() {
         modelFile_->setText(uiText("Kinetica", "Файл: ") + QFileInfo(QString::fromStdString(shown.meshFile)).fileName());
         texture_->setTexture(shown.texture, QString::fromStdString(graph_.baseDirectory), shown.size);
         size_->setValue(shown.size);
+        opacity_->setValue(shown.opacity);
         fillDetails();
         roleBar_->setRoles(shown);
     }
@@ -564,6 +571,7 @@ void SceneBuilder::fillDetails() {
 void SceneBuilder::readDetails(Entity& e) const {
     e.shape = ShapeKind(shape_->currentIndex());
     e.size = size_->value();
+    e.opacity = ke::Real(opacity_->value());
 }
 
 // The place rows, unless the thing's place is another's: a sensor on a joint stands where the joint is.

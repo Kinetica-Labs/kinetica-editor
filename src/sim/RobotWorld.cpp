@@ -673,7 +673,7 @@ void RobotWorld::findDrawn() const {
                 *file = (std::filesystem::u8path(graph_.baseDirectory) / std::filesystem::u8path(*file)).u8string();
         b.marker = isHandle(source);
         b.robot = robotOf_.count(source.id) > 0;
-        b.opacity = source.goalOf ? 0.1_r : source.targetOf ? 0.35_r : 1;
+        b.opacity = source.goalOf ? 0.1_r : source.targetOf ? 0.35_r : source.opacity;
         b.smooth = source.shape == ShapeKind::Sphere;
         b.pos = source.position, b.rot = entityRotation(source);
         b.movable = false;

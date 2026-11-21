@@ -292,7 +292,7 @@ def first(s):
     s.window("first-4-wall", [(1306, 416, 1362, 479, 1), (1226, 482, 1596, 508, 2), (1226, 510, 1596, 536, 3)])
     s.ed.selection_set(ids=[ball])
     s.ed.gizmo_set(tool="move")
-    s.window("first-5-ball", [RIGID + (1,), PLACE + (2,), (1226, 836, 1596, 862, 3)])
+    s.window("first-5-ball", [RIGID + (1,), PLACE + (2,), (1226, 865, 1596, 891, 3)])
     s.part("first-5-play", TOOLBAR, marks=[(488, 26, 562, 104, 0)])
     s.ed.gizmo_set(tool="select")
     s.ed.selection_set(ids=[])

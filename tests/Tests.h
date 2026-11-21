@@ -66,6 +66,7 @@ void testSimController();
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testSceneFormatOnlyGrows();
+void testSceneOpacity();
 void testScenePhysicsLine();
 void testSceneGraphLocale();
 // AblationTests.cpp

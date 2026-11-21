@@ -308,7 +308,9 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     o << "  shape " << kShapeNames[int(e.shape)];
     if (e.shape == ShapeKind::Mesh) o << " file \"" << e.meshFile << "\"";
     o << " size " << vec(e.size) << " position " << vec(e.position)
-      << " rotation " << vec(e.rotationDeg) << " color " << vec(e.color) << "\n";
+      << " rotation " << vec(e.rotationDeg) << " color " << vec(e.color);
+    if (e.opacity < 1) o << " opacity " << num(e.opacity); // written when set, as the words that came after the first sample
+    o << "\n";
     if (e.goalOf != 0) o << "  goal effector " << e.goalOf << "\n";
     if (e.targetOf != 0) o << "  target camera " << e.targetOf << "\n";
     if (!e.path.empty()) {
@@ -529,7 +531,8 @@ static bool readShape(LineReader& r, Entity& e, const std::string& shapeName, st
         const std::string k = r.key();
         const bool ok = k == "size" ? r.vector(e.size) : k == "position" ? r.vector(e.position)
                       : k == "rotation" ? r.vector(e.rotationDeg) : k == "color" ? r.vector(e.color)
-                      : k == "file" ? r.text(e.meshFile) : false;
+                      : k == "file" ? r.text(e.meshFile)
+                      : k == "opacity" ? r.number(e.opacity) && std::isfinite(e.opacity) && e.opacity >= 0 && e.opacity <= 1 : false;
         if (!ok) return fail(bad, k);
     }
     return true;

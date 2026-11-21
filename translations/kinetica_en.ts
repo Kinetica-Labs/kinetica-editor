@@ -4447,6 +4447,16 @@ or create one from the toolbar.</translation>
         <translation>Mass, kg</translation>
     </message>
     <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="240"/>
+        <source>Непрозрачность</source>
+        <translation>Opacity</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="240"/>
+        <source>1 — сплошное; меньше — просвечивает: стекло, экран, ограждение. Только вид: физика этого не знает.</source>
+        <translation>1: solid; less: see-through - glass, a screen, a guard. Its look only: physics does not know it.</translation>
+    </message>
+    <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
         <source>0 — масса из плотности и объёма формы. Своё число — тело весит столько, какой бы ни была форма.</source>
         <translation>0: the mass comes from the density and the shape's volume. Your own number: the body weighs that much, whatever its shape.</translation>

@@ -92,10 +92,32 @@ SceneGraph robotGraph() {
 // line and key the format had when the promise was made and is never edited: it loads, and every word of it - a
 // key or a value - is still in what is saved (new keys with their defaults may join them). A key under the name it
 // had before the format settled on one style loads too and is saved under the new one.
+// A shape's opacity - how solid it looks, 1 .. 0 - goes to the file only when it is below 1 and comes back; a number
+// outside 0 .. 1 is refused. Physics does not know it: the frame a view draws carries it.
+void testSceneOpacity() {
+    SceneGraph g;
+    Entity glass;
+    glass.id = 2, glass.name = "Стекло", glass.opacity = 0.3_r;
+    Entity wall;
+    wall.id = 3, wall.name = "Стена";
+    g.entities.push_back(glass), g.entities.push_back(wall);
+    const std::string text = g.save();
+    SceneGraph back;
+    std::string error;
+    CHECK(back.load(text, error) && back.save() == text && back.entities[0].opacity == 0.3_r && back.entities[1].opacity == 1,
+          "the opacity comes back from the file: %s", error.c_str());
+    CHECK(text.find("opacity 0.3") != std::string::npos && text.find("opacity 1") == std::string::npos, "the word is written for a see-through shape only");
+    const std::string head = "entity \"X\"\n  object id 9\n  shape box size 1 1 1 ";
+    CHECK(!back.load(head + "opacity 1.5\nend\n", error) && !back.load(head + "opacity -0.1\nend\n", error) && back.load(head + "opacity 0\nend\n", error),
+          "an opacity outside 0 .. 1 is refused");
+}
+
 void testSceneFormatOnlyGrows() {
     std::string error;
-    // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass
-    for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene"}) {
+    // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
+    // 5: a shape's opacity
+    for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
+                             "scene-format-5.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();

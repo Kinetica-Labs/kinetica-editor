@@ -163,6 +163,7 @@ struct Entity : SceneObject {
     // component of size (entityLocalMesh(e).bounds() is its real box).
     Vector3 size{0.2_r};
     std::string meshFile;       // ShapeKind::Mesh: the OBJ/STL file as written in the scene file
+    Real opacity = 1;           // 1: solid; below: see-through - glass, a screen, a guard. Its look only: physics does not know
     uint32_t goalOf = 0;        // an inverse kinematics goal: this effector's frame is driven to this entity's (Kinematics.h)
     uint32_t targetOf = 0;      // a target camera's own target (3ds Max's Camera.Target): this camera looks at it
     // A goal's trajectory (Kinematics.h, pathPoint): from the goal's own place through these points, world metres,

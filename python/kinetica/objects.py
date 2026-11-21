@@ -121,6 +121,9 @@ class Body(SceneObject):
                     lambda self, v: self._set("shape", "size", v, f"{self.ref}.size = {tuple(v)}"))
     fixed = property(lambda self: self._get("rigid", "fixed") == 1,
                      lambda self, v: self._set("rigid", "fixed", int(bool(v)), f"{self.ref}.fixed = {bool(v)}"))
+    opacity = property(lambda self: (lambda v: 1.0 if v is None else v)(self._get("shape", "opacity")),
+                       lambda self, v: self._set("shape", "opacity", float(v), f"{self.ref}.opacity = {float(v)}"),
+                       doc="How solid it looks: 1 - solid, less - see-through (glass). Its look only")
     mass = property(lambda self: self._get("rigid", "mass") or 0.0,
                     lambda self, v: self._set("rigid", "mass", float(v), f"{self.ref}.mass = {float(v)}"),
                     doc="Its mass given, kg (0: the shape's volume times the density)")

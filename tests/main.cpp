@@ -60,6 +60,7 @@ int main() {
     run("sim: the UR5e's panel - move takes the goal and the hand after it, grip closes the fingers", testSimController);
     run("scene graph: a robot's file comes back to the bit", testSceneGraphRoundTrip);
     run("scene format: the sample of every line and key still loads, nothing lost", testSceneFormatOnlyGrows);
+    run("scene format: a shape's opacity is kept when it is see-through", testSceneOpacity);
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);
     run("scene graph: the file does not depend on the locale (decimal comma)", testSceneGraphLocale);

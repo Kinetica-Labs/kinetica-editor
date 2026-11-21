@@ -55,6 +55,7 @@ void takeShape(const Entity& before, const Entity& after, Entity& t) {
     take(before.texture.bumpHeight, after.texture.bumpHeight, t.texture.bumpHeight);
     if (before.texture.heightFile != after.texture.heightFile) t.texture.heightFile = after.texture.heightFile;
     take(before.size, after.size, t.size);
+    take(before.opacity, after.opacity, t.opacity);
 }
 
 // "—" in a number of the three when the selected differ in it.
