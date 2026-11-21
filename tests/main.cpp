@@ -6,6 +6,11 @@ int main() {
     run("math: vectors, matrices, quaternions, N x N solvers", testMath);
     run("math: mesh primitives are closed and have their volumes", testPrimitives);
     run("math: BVH queries against brute force", testBVH);
+    run("json: numbers - the shortest text, the borders where the text turns to an exponent, locale-proof", testJsonNumbers);
+    run("json: text - escapes, UTF-8 repair as QString::fromUtf8 does it, surrogate pairs", testJsonText);
+    run("json: the writer - keys in byte order, whole numbers, null for what is not a number", testJsonWriter);
+    run("json: the reader - the whole-number rule, sorted members, the last duplicate, depth 200", testJsonReader);
+    run("json: errors name what and the byte", testJsonErrors);
     run("probe: channels, counters, timers, debug drawing", testProbe);
     run("core: units as data (UCUM) and fields as data - their schema, their check, a key's suffix against its unit", testUnitsAndFields);
     run("runtime: bounded pipeline admission", testRuntimePolicyBounds);

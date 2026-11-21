@@ -187,6 +187,8 @@ int runShaderTests(Viewport*);
 int runBumpTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
 // The «Мир» tab: the world's settings through the panel, undo and the scene file (SelfTestWorld.cpp).
 int runWorldTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);
+// The core's JSON text against Qt's, byte for byte and tree for tree (SelfTestHosts.cpp).
+int runWireParityTests();
 
 // The IK goal dragged by its gizmo while the scene plays (SelfTestGoal.cpp).
 int runGoalTests(QMainWindow&, SceneBuilder&, Viewport*, const QString&);

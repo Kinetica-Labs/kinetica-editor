@@ -44,6 +44,7 @@ class EditorRuntime;
 
 QJsonObject coreAnswerJson(const ke::Value& answer); // a core answer as the API's: its keys and ok true (EditorOpsCore.cpp)
 ke::Value coreValue(const QJsonValue& v);            // a JSON value as the core's arguments take it
+QJsonValue coreJson(const ke::Value& v);             // a core value as the API's JSON (the self-test group wire-parity)
 
 class EditorOps : public QObject {
 public:

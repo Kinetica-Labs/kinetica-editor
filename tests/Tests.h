@@ -5,6 +5,12 @@
 void testMath();
 void testPrimitives();
 void testBVH();
+// JsonTests.cpp
+void testJsonNumbers();
+void testJsonText();
+void testJsonWriter();
+void testJsonReader();
+void testJsonErrors();
 // CoreTests.cpp
 void testProbe();
 void testUnitsAndFields();

@@ -72,6 +72,7 @@ QJsonObject answerJson(const Value& answer) {
 
 QJsonObject coreAnswerJson(const Value& answer) { return answerJson(answer); }
 Value coreValue(const QJsonValue& v) { return valueOf(v); }
+QJsonValue coreJson(const Value& v) { return jsonOf(v); }
 
 // What the window adds to a call: its selection as `ids` (the active object last), a light over the
 // selected object, a camera at the view's eye.

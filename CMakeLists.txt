@@ -39,6 +39,7 @@ add_library(kecore STATIC
   src/math/Matrix3x3.h
   src/core/Format.h        src/core/Format.cpp
   src/core/Value.h         src/core/Value.cpp
+  src/core/Json.h          src/core/Json.cpp
   src/core/Units.h         src/core/Units.cpp
   src/core/Field.h         src/core/Field.cpp
   src/core/Probe.h         src/core/Probe.cpp
@@ -173,7 +174,7 @@ if(Qt6_FOUND)
     editor/SelfTestSequencer.cpp editor/SelfTestPlugins.cpp editor/SelfTestScripts.cpp
     editor/SelfTestShadows.cpp editor/SelfTestTextures.cpp editor/SelfTestBump.cpp editor/SelfTestPlay.cpp
     editor/SelfTestLayout.cpp editor/SelfTestLab.cpp editor/SelfTestPlots.cpp editor/SelfTestJournal.cpp
-    editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp
+    editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp editor/SelfTestHosts.cpp
     editor/SelfTestShaders.cpp editor/SelfTestCreate.cpp
   )
   qt_add_translations(kinetica
@@ -220,6 +221,7 @@ if(KE_TESTS)
   add_executable(ke_tests
     tests/main.cpp tests/TestRunner.h tests/Tests.h
     tests/MathTests.cpp
+    tests/JsonTests.cpp
     tests/CoreTests.cpp
     tests/RuntimePolicyTests.cpp
     tests/DeviceTests.cpp
