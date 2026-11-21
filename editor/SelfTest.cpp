@@ -755,6 +755,7 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
     run("journal", [&] { c.failures += runJournalTests(w, *b, v, shotsDir); });
     run("world", [&] { c.failures += runWorldTests(w, *b, v, shotsDir); });
     run("wire-parity", [&] { c.failures += runWireParityTests(); });
+    run("schema-parity", [&] { c.failures += runSchemaParityTests(*dynamic_cast<MainWindow&>(w).operators()); });
     run("window", [&] { c.failures += runPlayTests(w, *b, v, shotsDir); });
     run("layout", [&] { c.failures += runLayoutTests(w, *b, v, shotsDir); });
     run("laboratory", [&] { c.failures += runLabTests(w, *b, v, shotsDir); });

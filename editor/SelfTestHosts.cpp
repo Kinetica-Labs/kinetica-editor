@@ -3,12 +3,18 @@
 // a corpus of values written by both to the same bytes, read by both to the same trees, a list of malformed
 // texts refused by both or listed here as a difference, and a sweep of doubles and of byte strings. It
 // needs no window. tests/JsonTests.cpp pins what it found, so the core holds the borders without Qt.
+// The group schema-parity (temporary, below: it goes with the Qt copy of the args check) runs that copy and the core's
+// side by side over the live registry and a generated corpus, and under KE_RECORD=1 writes tests/data/args-refusals.json.
 #include "SelfTestSupport.h"
 
+#include "ArgsSchema.h"
 #include "EditorOps.h"
+#include "Resources.h"
 #include "core/Format.h"
 #include "core/Json.h"
+#include "scene/ArgsSchema.h"
 
+#include <QFile>
 #include <QJsonArray>
 #include <QJsonDocument>
 
@@ -16,7 +22,10 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include <map>
 #include <random>
+#include <set>
+#include <utility>
 
 using namespace ke;
 using namespace selftest;
@@ -242,5 +251,226 @@ int runWireParityTests() {
         }
     }
     c.check(repaired == 0, "validUtf8 repairs every byte string of up to four bytes over the interesting bytes as QString::fromUtf8 does");
+    return c.failures;
+}
+
+// ---- schema-parity ------------------------------------------------------------------------------------------------
+
+namespace {
+
+QJsonValue sampleFor(const QJsonObject& f) {
+    const QJsonArray words = f.value("enum").toArray();
+    if (!words.isEmpty()) return words.first();
+    const QString type = f.value("type").toString();
+    if (type == "string") return "abc";
+    if (type == "integer") return 1;
+    if (type == "number") return 0.5;
+    if (type == "boolean") return true;
+    if (type == "object") return QJsonObject();
+    if (type != "array") return 1;
+    const QJsonObject item = f.value("items").toObject();
+    QJsonArray a;
+    if (f.contains("minItems")) {
+        for (int k = 0; k < f.value("minItems").toInt(); ++k) a.append(1.5);
+    } else if (item.contains("enum")) {
+        a.append(item.value("enum").toArray().first());
+    } else if (item.value("type") == "integer") {
+        a.append(1);
+    } else if (item.value("type") == "array") {
+        a.append(QJsonArray{1, 2, 3});
+    }
+    return a;
+}
+
+// The kinds of a wrong value to give a field: each is one way the check can say no, or fail to.
+std::vector<std::pair<QString, QJsonValue>> wrongValues(const QJsonObject& f) {
+    std::vector<std::pair<QString, QJsonValue>> w = {
+        {"null", QJsonValue()}, {"true", true}, {"string", "str"}, {"fraction", 2.5}, {"negative", -3}, {"huge", 1e300}, {"whole", 3.0},
+        {"list-empty", QJsonArray()}, {"list-one", QJsonArray{1}}, {"list-five", QJsonArray{1, 2, 3, 4, 5}}, {"list-item-string", QJsonArray{"x"}},
+        {"list-three-one-wrong", QJsonArray{1, "x", 3}}, {"list-null-item", QJsonArray{QJsonValue()}}, {"object", QJsonObject()}, {"empty-string", ""},
+        {"not-in-enum", "no-such-word"}, {"number-in-text", "1"}, {"big-integer", 99}, {"tiny", 1e-7}, {"large", 1234567.0}, {"fraction-list", QJsonArray{0.5}}};
+    for (const QJsonValue& e : f.value("enum").toArray())
+        if (e.isString()) w.push_back({"enum-case", e.toString().toUpper()}), w.push_back({"enum-prefix", e.toString() + "x"});
+    for (const QJsonValue& e : f.value("items").toObject().value("enum").toArray())
+        if (e.isString()) w.push_back({"item-enum-case", QJsonArray{e.toString().toUpper()}});
+    return w;
+}
+
+struct Case {
+    QString kind;
+    QJsonObject args;
+};
+
+std::vector<Case> casesFor(const QJsonObject& schema) {
+    const QJsonObject properties = schema.value("properties").toObject();
+    QJsonObject base, all;
+    std::vector<QString> required;
+    for (const QJsonValue& r : schema.value("required").toArray()) required.push_back(r.toString()), base.insert(r.toString(), sampleFor(properties.value(r.toString()).toObject()));
+    for (auto it = properties.begin(); it != properties.end(); ++it) all.insert(it.key(), sampleFor(it.value().toObject()));
+    std::vector<Case> cases = {{"empty", {}}, {"valid-required", base}, {"valid-all", all}};
+    const auto with = [](QJsonObject o, const QString& key, const QJsonValue& v) { return o.insert(key, v), o; };
+    for (const QString& r : required) {
+        QJsonObject o = base;
+        o.remove(r);
+        cases.push_back({"missing", o});
+    }
+    for (auto it = properties.begin(); it != properties.end(); ++it)
+        for (const auto& [kind, v] : wrongValues(it.value().toObject())) cases.push_back({kind, with(base, it.key(), v)});
+    cases.push_back({"unknown", with(base, "zzz", 1)});
+    cases.push_back({"unknown-underscore", with(base, "_py", 1)});
+    cases.push_back({"unknown-underscore-alone", with({}, "_", "x")});
+    cases.push_back({"unknown-and-missing", with({}, "aaa", 1)});
+    cases.push_back({"unknown-upper", with(base, "Zz", 1)});
+    const QStringList names = properties.keys();
+    if (names.size() >= 2) {
+        const QString a = names.first(), z = names.last();
+        cases.push_back({"two", with(with(base, z, QJsonValue()), a, "zz")});
+        cases.push_back({"two-and-unknown", with(with(with({}, z, 2.5), a, QJsonArray{"q"}), "mmm", 1)});
+        cases.push_back({"two-and-missing", with(with({}, z, true), "_ok", 1)});
+    }
+    return cases;
+}
+
+struct ParityRun {
+    int schemas = 0, texts = 0, differences = 0, printed = 0;
+    std::map<std::pair<std::string, std::string>, std::string> record; // (line, args as text) -> row; a map: the file's order is the key's
+    std::set<std::pair<std::string, std::string>> seen;                // (line, kind of refusal): the record keeps the first of each
+    bool recording = false;
+
+    void differ(const std::string& what, const std::string& line, const std::string& qt, const std::string& core, const std::string& args = {}) {
+        ++differences;
+        if (printed++ < 12) std::printf("      %s: %s %s\n        Qt   %s\n        core %s\n", what.c_str(), escaped(line).c_str(), args.c_str(), escaped(qt).c_str(), escaped(core).c_str());
+    }
+
+    // The kinds of refusal a text holds: one record row for each kind on each line.
+    static std::string kindsOf(const std::string& p) {
+        std::string k;
+        for (const auto& [needle, tag] : std::vector<std::pair<const char*, const char*>>{
+                 {"аргументов нет", "A"}, {"нет поля", "B"}, {"нет обязательного", "C"}, {"числа", "D"}, {"в списке ожидалось", "E"}, {"не из списка", "F"}, {" вне ", "G"},
+                 {"ожидалось целое", "H1"}, {"ожидалось число", "H2"}, {"ожидалось строка", "H3"}, {"ожидалось true/false", "H4"}, {"ожидалось список", "H5"}, {"ожидалось объект", "H6"}})
+            if (p.find(needle) != std::string::npos) k += tag;
+        return k;
+    }
+
+    void schema(const std::string& line, const QJsonObject& qtSchema, const Value& coreSchema) {
+        ++schemas;
+        const std::string qt = QJsonDocument(qtSchema).toJson(QJsonDocument::Compact).toStdString(), core = toJson(coreSchema);
+        if (qt != core) differ("schema", line, qt, core);
+    }
+
+    void call(const std::string& line, const QJsonObject& qtSchema, const Value& coreSchema, const QJsonObject& args) {
+        ++texts;
+        const Value coreArgs = coreValue(args);
+        const std::string qt = ::argsProblem(args, qtSchema).toStdString(), core = ke::argsProblem(coreArgs, coreSchema);
+        const std::string text = toJson(coreArgs);
+        if (qt != core) differ("problem", line, qt, core, text);
+        if (recording && seen.insert({line, kindsOf(qt)}).second) {
+            Value row = Value::map();
+            row.set("line", line), row.set("args", coreArgs), row.set("problem", qt);
+            record[{line, text}] = toJson(row);
+        }
+    }
+
+    void line(const std::string& text, const std::vector<Case>& cases) {
+        const QJsonObject qtSchema = ::argsSchema(QString::fromStdString(text));
+        const Value coreSchema = ke::argsSchema(text);
+        schema(text, qtSchema, coreSchema);
+        for (const Case& c : cases) call(text, qtSchema, coreSchema, c.args);
+    }
+
+    void generated(const std::string& text) {
+        std::vector<Case> cases = casesFor(::argsSchema(QString::fromStdString(text)));
+        for (const char* fixed : {"{}", R"({"a": 1})", R"({"a": "x"})", R"({"a": null})", R"({"a": [1, 2, 3]})", R"({"a": 2.5, "b": "x"})", R"({"b": true, "a": [1]})", R"({"kind": "imu"})", R"({"ids": [1, 2]})"})
+            cases.push_back({"fixed", QJsonDocument::fromJson(fixed).object()});
+        line(text, cases);
+    }
+};
+
+// Lines of the grammar the registry does not use, and the odd ones: spaces of every kind, brackets that do not close, quotes
+// that do not end, a default with a point and nothing after it.
+std::vector<std::string> grammarLines() {
+    std::vector<std::string> l = {
+        "", "{}", "{ }", "a: int", "{a: int}", "{ a : int , b ? : str }", "{a?: m (0.10), b?: s (-5), c?: number (3.), d?: x (1e5)}", "{a: 'x'|'y' (default)}", "{a?: 1|2|3}", "{a: 007|+5|-0}",
+        "{a: id|b}", "{a: int|str}", "{a: number|float}", "{a: m|s}", "{a: 'x'|}", "{a: |x}", "{a: x|y|[x,y,z]}", "{a: [x,y,z], b: [x,y], c: [w,x,y,z], d: [v,w,x,y,z], e: [x]}", "{a: [int]}",
+        "{a: [[3],[3]]}", "{a: [str]}", "{a: ['x'|'y']}", "{a: [1|2]}", "{a: [x,y,z}", "{a: [", "{a: ]x[}", "{a: {x: int}}", "{a: {}}", "{a?|b?}", "{face?|point?+normal?}", "{a: int | b: [int] | c: str}",
+        "{a: int | b?: str}", "{a, b?, c}", "{a?: int} and b?: str", "{a: int}, c?: number (5)", "{a: int} x?: m", "{a: int} | {b: int} | {c: str}", "{a: int} | {a: str}", "{kind: 'a'|'b'} | {kind: 'b'|'c'}",
+        "{kind: 1|2} | {kind: 2|3}", "{ids}", "{ids, ids2: [int]}", "{ids: int}", "{a: 'x'}", "{a: x}", "{a: 'x}", "{a: id}", "{a: the id of x}", "{a: valid idx}", "{a: ID}", "{a: INT}", "{a: Int}", "{a: M}",
+        "{a: m/s}", "{a: N s}", "{a: str (it's)}", "{a: (5)}", "{a: int (-0.5)}", "{a: int ( 7 )}", "{a: int (7.)}", "{a: int (7) x}", "{a: int (1)(2)}", "{a: '+x'..'-z'}", "{a: tx..rz}", "{a: 'tx'..'rz'}",
+        "{a: +x..-z}", "{a: x..z}", "{a: 'a'..'b'..'c'}", "{a: 'A'..'B'}", "{a: 1..3}", "{a: face '+x'..'-z'}", "{A: int}", "{a1: int, _b: int, 1a: int}", "{a-b: int}", "{a: int,, b: int}", "{a: int,}", "{,}", "{a: int}}",
+        "{{a: int}}", "}{a: int}", "{a: int} {b: int}", "{a: int | | b: str}", "{a: int |}", "|", "{a: int}|", "|{a: int}", "{a: \xC3\xA9}", "{a: '\xC3\xA9'|'\xC3\xBC'}", "{\xC3\xA9: int}", "{a:\tint}", "{a: int\n}",
+        "{a:\xC2\xA0int}", "{\xC2\xA0" "a: int}", "{a: int\xC2\xA0}", "{a: \xE2\x80\x83int}", "{a: int\xE3\x80\x80}", "{a: int}\t|\t{b: str}", "{a: int}\xC2\xA0|\xC2\xA0{b: str}", "{a: [\xC2\xA0x,y,z]}", "{a: x\xC2\xA0|\xC2\xA0y}",
+        "{a: int (\xC2\xA0" "7\xC2\xA0)}", "{a: int\r\n, b: str}", "{a: \v int}", "{a: 'x' | 'y' | 'z'}", "{a: 'x' ..'y'}", "{a: 'x'.. 'y'}", "{a?: [int] (0)}", "{a: [x,y,z] (1)}", "{a: m (99999999999999999999)}",
+        "{a: m (" + std::string(400, '9') + ")}", "{a: m (0." + std::string(400, '9') + ")}", "{a: m (1.5)}", "{a: m (-0)}", "{a: m (0.1000000000000000055511151231257827)}", "{a: 1|2147483647|2147483648}", "{a: -2147483648|-2147483649}",
+        "{a: 1|x|3}", "{a: 'x'|2}", "{a: x|x}", "{a: x} | {a: x|y}", "{a: 'plus'}", "{a: 'plus' (1)}", "{a: 'a b'}", "{a: [number|str]}", "{a: [[x,y,z], ...]}", "{a: [x, y, z], ...}", "{a?: int} | {b?: int}",
+        "{a: int | b: int} | {b: int | c: int}", "{a: int} | {b: int, a: int}", "{a?: int, a: str}", "{a: str, a?: int}", "{a: x|y, a: 'z'|'w'}", "{a: 'x'|'y', a: 3}", "{a: 1|2, a: 2|3}", "{ids?: int, ids: [int]}",
+        "{a: int}, b?: str, c?: [x,y,z], d: int", "{a: int} b?: [int], c ?: m", "{a: int} e?:", "{a: int} ?: int", "{a: int} 9a?: int", "{a: int} a9?: int", "{a: int} _?: int", "{a: int} A?: int", "?", "??", "{a?b?: int}",
+        "{a?: int | b?: str}", "{a?|b?: int}", "{a: int | b}", "{a: int | b c}", "{a: int | b:}", "{a: int |b?:int}", "{a: int|b:int}", "{a: int | 1b: int}", "{id: int, ids: [int], idx: int, a_id: int, b-id: int}", "{a: id 5}", "{a: 5 id}", "{a: _id}", "{a: id_}", "{a: ids}"};
+    return l;
+}
+
+} // namespace
+
+int runSchemaParityTests(EditorOps& ops) {
+    Checker c;
+    ParityRun run;
+    run.recording = std::getenv("KE_RECORD") != nullptr && std::string(std::getenv("KE_RECORD")) == "1";
+
+    std::vector<std::string> lines;
+    for (const QJsonValue& o : ops.runNow("ops_list", {}).value("ops").toArray()) {
+        const QJsonObject op = o.toObject();
+        const std::string text = op.value("args").toString().toStdString();
+        const QJsonObject own = op.value("schema").toObject();
+        if (QJsonDocument(own).toJson(QJsonDocument::Compact).toStdString() != toJson(ke::argsSchema(text))) run.differ("ops_list schema", op.value("name").toString().toStdString(), "", text);
+        lines.push_back(text);
+    }
+    const size_t registryLines = lines.size();
+    for (const std::string& t : lines) run.generated(t);
+    c.check(run.differences == 0 && registryLines > 100, "the core's schema of every operation's line of help in the live registry is the Qt copy's text, and the same refusals for the generated calls");
+    std::printf("      %zu operations\n", registryLines);
+
+    const int before = run.differences;
+    for (const std::string& t : grammarLines()) run.generated(t);
+    run.generated("{target: int, kind: 'imu'|'sonar'} | {joint: int, kind: 'wrench'|'effort'}");
+    c.check(run.differences == before, "...and for the grammar's odd lines: spaces of every kind, brackets and quotes that do not close, defaults");
+
+    // A schema the lines never make - bounds, which the check has and the grammar cannot yet write - checked on its own.
+    const QJsonObject bounded{{"properties", QJsonObject{{"x", QJsonObject{{"type", "number"}, {"minimum", 0}, {"maximum", 1e-5}}}, {"n", QJsonObject{{"type", "integer"}, {"minimum", -2.5}}}}}, {"required", QJsonArray{"x"}}};
+    const Value boundedCore = coreValue(bounded);
+    const int beforeBounds = run.differences;
+    const bool recording = std::exchange(run.recording, false); // not a line of the grammar: the test cannot replay it
+    for (const double x : {-1.0, 0.0, 1e-6, 2.0, 1234567.0, 0.000123456789, 1e300, 100000.0, 999999.5})
+        for (const double n : {-3.0, 5.0, 3.5}) run.call("bounded", bounded, boundedCore, QJsonObject{{"x", x}, {"n", n}});
+    run.recording = recording;
+    c.check(run.differences == beforeBounds, "a schema with bounds gives the same «вне» texts, numbers as %g");
+
+    int extra = 0;
+    if (const char* path = std::getenv("KE_SCHEMA_PARITY_EXTRA"); path && *path) {
+        QFile file(path);
+        const bool opened = file.open(QIODevice::ReadOnly);
+        c.check(opened, "KE_SCHEMA_PARITY_EXTRA is readable");
+        const int beforeExtra = run.differences;
+        while (opened && !file.atEnd()) {
+            const QJsonObject row = QJsonDocument::fromJson(file.readLine()).object();
+            if (!row.contains("line")) continue;
+            const std::string text = row.value("line").toString().toStdString();
+            ++extra;
+            if (row.value("generate").toBool()) run.generated(text);
+            else run.line(text, {{"given", row.value("args").toObject()}});
+        }
+        c.check(run.differences == beforeExtra, "the extra lines of KE_SCHEMA_PARITY_EXTRA: the same schema text and the same refusals");
+        std::printf("      %d extra lines\n", extra);
+    }
+    std::printf("      compared: %d schemas, %d refusal texts\n", run.schemas, run.texts);
+    c.check(run.texts >= 2000, "at least 2000 refusal texts compared");
+
+    if (run.recording) {
+        std::string out = "[\n";
+        for (const auto& [key, row] : run.record) out += (out.size() > 2 ? ",\n" : "") + row;
+        out += "\n]\n";
+        QFile file(QStringLiteral(KE_SOURCE_DIR) + "/tests/data/args-refusals.json");
+        const bool written = file.open(QIODevice::WriteOnly | QIODevice::Truncate) && file.write(out.data(), qint64(out.size())) == qint64(out.size());
+        std::printf("      recorded %zu rows, %zu bytes\n", run.record.size(), out.size());
+        c.check(written && out.size() < 400 * 1024, "tests/data/args-refusals.json written, under 400 KB");
+    }
     return c.failures;
 }

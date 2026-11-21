@@ -11,6 +11,11 @@ void testJsonText();
 void testJsonWriter();
 void testJsonReader();
 void testJsonErrors();
+// ArgsSchemaTests.cpp
+void testArgsSchemaOfEveryOperation();
+void testArgsRefusalsAsQtGaveThem();
+void testArgsGrammarCases();
+void testArgsNumbersWithoutTheLocale();
 // CoreTests.cpp
 void testProbe();
 void testUnitsAndFields();

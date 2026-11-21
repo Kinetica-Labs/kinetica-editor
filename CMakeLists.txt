@@ -58,6 +58,7 @@ add_library(kecore STATIC
   src/scene/JointModel.h   src/scene/JointModel.cpp src/scene/Visuals.h
   src/scene/SceneGraph.h   src/scene/SceneGraph.cpp src/scene/SceneHierarchy.cpp src/scene/EntityShapes.cpp
   src/scene/SceneEdits.h   src/scene/SceneEdits.cpp
+  src/scene/ArgsSchema.h   src/scene/ArgsSchema.cpp
   src/scene/SceneActions.h src/scene/SceneActions.cpp src/scene/SceneActionsTree.cpp
   src/scene/Assembly.h     src/scene/Assembly.cpp src/scene/AssemblyPresets.cpp
   src/scene/CameraHousing.h src/scene/CameraHousing.cpp
@@ -221,7 +222,7 @@ if(KE_TESTS)
   add_executable(ke_tests
     tests/main.cpp tests/TestRunner.h tests/Tests.h
     tests/MathTests.cpp
-    tests/JsonTests.cpp
+    tests/JsonTests.cpp tests/ArgsSchemaTests.cpp
     tests/CoreTests.cpp
     tests/RuntimePolicyTests.cpp
     tests/DeviceTests.cpp
