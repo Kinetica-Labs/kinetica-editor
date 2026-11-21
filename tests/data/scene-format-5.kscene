@@ -1,0 +1,7 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Glass"
+  object id 2 visible 1 locked 0
+  shape box size 1.2 0.8 0.05 position 0 0.4 0.6 rotation 0 0 0 color 0.43 0.77 0.38 opacity 0.3
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end

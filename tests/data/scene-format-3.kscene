@@ -1,0 +1,28 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Base"
+  object id 2 visible 1 locked 0
+  shape box size 0.4 0.4 0.4 position 0 0.2 0 rotation 0 0 0 color 0.8 0.8 0.8
+  rigid density 500 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Arm"
+  object id 3 visible 1 locked 0
+  shape box size 0.2 0.4 0.2 position 0 0.6 0 rotation 0 0 0 color 0.8 0.8 0.8
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+light "Lamp"
+  object id 4 visible 1 locked 0
+  pose position 0 1.5 0 rotation 0 0 0 color 1 1 1
+  tags sample
+  component stage.cue level 0.75 colour 1,0.5,0.2 name "warm front"
+  kind point intensity 1 range 5 cone 40 softness 10 shadows 0
+end
+joint "Shoulder"
+  object id 5
+  tags sample
+  component wear.meter cycles 12000 limit 50000
+  link a 3 b 2 anchor_a 0 -0.2 0 frame_a 0 0 0 anchor_b 0 0.2 0 frame_b 0 0 0
+  free rz
+end

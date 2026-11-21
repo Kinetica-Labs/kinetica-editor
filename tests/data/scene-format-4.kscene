@@ -1,0 +1,8 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Link"
+  object id 2 visible 1 locked 0
+  shape box size 0.2 0.4 0.2 position 0 0.6 0 rotation 0 0 0 color 0.8 0.8 0.8
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 spin 0 0 0 mass 3.7 center_of_mass 0 0.12 0.01 inertia 0.03 0.01 0.03 0.001 0 0.002
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
