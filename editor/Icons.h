@@ -37,8 +37,9 @@ QIcon objectIcon(ObjectIcon kind, int size = 28);
 enum class SceneIcon { Sun, Bulb, Spot, Camera, Count };
 QIcon sceneIcon(SceneIcon kind, int size = 28);
 
-// The devices of mechatronics: the sensors (in the order of ke::SensorKind) and the electrics.
-enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Battery, Driver, Joint, Controller, Count }; // ke::SensorKind first
+// The devices of mechatronics: the sensors (in the order of ke::SensorKind), the electrics, and Sensor - any sensor, the
+// toolbar's button that opens their list.
+enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Battery, Driver, Joint, Controller, Sensor, Count }; // ke::SensorKind first
 QIcon deviceIcon(DeviceIcon kind, int size = 28);
 
 // The layout buttons of the window, as in VS Code's title bar: the left side bar, the layout menu,

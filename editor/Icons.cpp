@@ -867,6 +867,38 @@ void drawControllerIcon(QPainter& p) {
     for (int k = 0; k < 4; ++k) p.setBrush(buttons[k]), p.drawEllipse(at[k], 4.5, 4.5);
 }
 
+// Any sensor: a sensor's board - the chip with its legs and the window it senses through. No one device stands for all
+// of them (the sonar's two round eyes on this button read as a face), and no waves: they read as a radio sign.
+void drawSensorIcon(QPainter& p) {
+    shadow(p, 50, 91, 40);
+    const QColor board(38, 128, 96), chip(52, 58, 70), window(90, 175, 255);
+    QLinearGradient g(QPointF(12, 18), QPointF(88, 86));
+    g.setColorAt(0, shade(board, 135));
+    g.setColorAt(1, shade(board, 76));
+    p.setPen(outline(board));
+    p.setBrush(g);
+    p.drawRoundedRect(QRectF(10, 20, 80, 64), 8, 8);
+    p.setPen(QPen(QColor(205, 210, 218), 4, Qt::SolidLine, Qt::RoundCap));
+    for (int k = 0; k < 4; ++k) {
+        p.drawLine(QPointF(34 + 10.5 * k, 28), QPointF(34 + 10.5 * k, 33));
+        p.drawLine(QPointF(34 + 10.5 * k, 71), QPointF(34 + 10.5 * k, 76));
+    }
+    QLinearGradient c(QPointF(26, 33), QPointF(74, 71));
+    c.setColorAt(0, shade(chip, 130));
+    c.setColorAt(1, shade(chip, 85));
+    p.setPen(outline(chip));
+    p.setBrush(c);
+    p.drawRoundedRect(QRectF(26, 33, 48, 38), 5, 5);
+    QRadialGradient glass(QPointF(47, 49), 10);
+    glass.setColorAt(0, shade(window, 160));
+    glass.setColorAt(1, shade(window, 75));
+    p.setPen(Qt::NoPen);
+    p.setBrush(glass);
+    p.drawEllipse(QPointF(50, 52), 8.5, 8.5);
+    p.setBrush(QColor(255, 255, 255, 210));
+    p.drawEllipse(QPointF(47.2, 49.2), 2, 2);
+}
+
 void drawDeviceIcon(QPainter& p, DeviceIcon kind) {
     switch (kind) {
     case DeviceIcon::Encoder: drawEncoderIcon(p); break;
@@ -880,6 +912,7 @@ void drawDeviceIcon(QPainter& p, DeviceIcon kind) {
     case DeviceIcon::Driver: drawDriverIcon(p); break;
     case DeviceIcon::Joint: drawJointIcon(p); break;
     case DeviceIcon::Controller: drawControllerIcon(p); break;
+    case DeviceIcon::Sensor: drawSensorIcon(p); break;
     case DeviceIcon::Count: break;
     }
 }

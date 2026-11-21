@@ -221,7 +221,8 @@ if(Qt6_FOUND)
   # The application's icon is embedded, so a launch from a terminal has it too.
   qt_add_resources(kinetica app_identity PREFIX "/app" BASE resources FILES
     resources/icons/kinetica-16.png resources/icons/kinetica-24.png resources/icons/kinetica-32.png resources/icons/kinetica-48.png
-    resources/icons/kinetica-64.png resources/icons/kinetica-128.png resources/icons/kinetica-256.png)
+    resources/icons/kinetica-64.png resources/icons/kinetica-128.png resources/icons/kinetica-256.png
+    resources/icons/menu-arrow.png resources/icons/menu-arrow@2x.png)
   if(WIN32) # the program's own icon: what Explorer, the taskbar and a shortcut show
     target_sources(kinetica PRIVATE resources/kinetica.rc)
   endif()

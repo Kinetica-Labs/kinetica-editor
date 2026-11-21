@@ -249,7 +249,7 @@ void MainWindow::addSensorButton(QToolBar* tb) {
     auto* sensors = new QToolButton;
     sensors->setObjectName("sensorsButton");
     sensors->setText(uiText("Kinetica", "Датчик ▾"));
-    sensors->setIcon(deviceIcon(DeviceIcon::Sonar, 48));
+    sensors->setIcon(deviceIcon(DeviceIcon::Sensor, 48));
     sensors->setIconSize(tb->iconSize());
     sensors->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     sensors->setToolTip(uiText("Kinetica", "Датчик на выбранное тело или на его сочленение: без своей формы, накидывается как свойство"));
