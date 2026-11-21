@@ -43,7 +43,7 @@ Value stepAnswer(const Simulation& s, int requested, int completed);
 Value sensorReadings(const Simulation& s);
 // The moving bodies as the engine has them (a map by entity id): a physics plugin's input.
 Value bodyStates(const Simulation& s);
-// {id: {target | velocity | duty: number} or {force, torque: [x, y, z]}} into the world; what went wrong, "; "-joined
+// {id: {target | velocity | duty | strength: number} or {force, torque: [x, y, z]}} into the world; what went wrong, "; "-joined
 // in the order of the keys as text (empty: all done).
 std::string applyCommands(Simulation& s, const Value& commands);
 

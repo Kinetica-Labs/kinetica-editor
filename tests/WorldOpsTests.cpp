@@ -139,23 +139,23 @@ void testWorldOpsRobotCommand() {
     CHECK(velocityOf(s, 4).x > before + 0.01_r, "the force moved the body: %f -> %f", before, double(velocityOf(s, 4).x));
 
     CHECK(call(&s, "robot_command", "{\"commands\":{\"9999\":{\"force\":[0,1,0]}}}").error == "entity 9999 has no moving body", "a bad id");
-    CHECK(call(&s, "robot_command", "{\"commands\":{\"2\":{\"wat\":0.5}}}").error == "a command is target, velocity or duty, not wat", "a bad word");
-    CHECK(call(&s, "robot_command", "{\"commands\":{\"2\":{}}}").error == "2: {target | velocity | duty: number} or {force, torque: [x, y, z]}", "an empty entry");
-    CHECK(call(&s, "robot_command", "{\"commands\":{}}").error == "commands: {id: {target | velocity | duty: number}}", "no commands");
-    CHECK(call(&s, "robot_command", "{\"commands\":[1]}").error == "commands: {id: {target | velocity | duty: number}}", "commands that are no object");
+    CHECK(call(&s, "robot_command", "{\"commands\":{\"2\":{\"wat\":0.5}}}").error == "a command is target, velocity, duty or strength, not wat", "a bad word");
+    CHECK(call(&s, "robot_command", "{\"commands\":{\"2\":{}}}").error == "2: {target | velocity | duty | strength: number} or {force, torque: [x, y, z]}", "an empty entry");
+    CHECK(call(&s, "robot_command", "{\"commands\":{}}").error == "commands: {id: {target | velocity | duty | strength: number}}", "no commands");
+    CHECK(call(&s, "robot_command", "{\"commands\":[1]}").error == "commands: {id: {target | velocity | duty | strength: number}}", "commands that are no object");
 
     // The joined text is in the order of the keys as text, whatever order the caller built the Value in.
     Value two = Value::map(), commands = Value::map(), nine = Value::map(), ten = Value::map();
     nine.set("bogus", 1), ten.set("wat", 2);
     commands.set("9", nine), commands.set("10", ten);
     two.set("commands", commands);
-    CHECK(call(&s, "robot_command", two).error == "a command is target, velocity or duty, not wat; a command is target, velocity or duty, not bogus",
+    CHECK(call(&s, "robot_command", two).error == "a command is target, velocity, duty or strength, not wat; a command is target, velocity, duty or strength, not bogus",
           "'10' before '9': %s", call(&s, "robot_command", two).error.c_str());
     Value inner = Value::map();
     inner.set("zz", 1), inner.set("aa", 2);
     Value byWord = Value::map(), byWordCommands = Value::map();
     byWordCommands.set("2", inner), byWord.set("commands", byWordCommands);
-    CHECK(call(&s, "robot_command", byWord).error == "a command is target, velocity or duty, not aa; a command is target, velocity or duty, not zz", "the words of one entry sorted too");
+    CHECK(call(&s, "robot_command", byWord).error == "a command is target, velocity, duty or strength, not aa; a command is target, velocity, duty or strength, not zz", "the words of one entry sorted too");
 
     // An object's key is an id as QString::toUInt reads it: blanks around and a plus sign allowed, anything else is 0.
     for (const char* key : {"4", " 4", "4 ", "+4", "\\t4", "004"}) {
@@ -183,7 +183,7 @@ void testWorldOpsRobotCommand() {
     Value wide = Value::map(), wideCommands = Value::map(), aa = Value::map(), bb = Value::map();
     aa.set("aa", 1), bb.set("bb", 1);
     wideCommands.set("\xEF\xBF\xBF", bb), wideCommands.set("\xF0\x9F\x98\x80", aa), wide.set("commands", wideCommands);
-    CHECK(call(&s, "robot_command", wide).error == "a command is target, velocity or duty, not aa; a command is target, velocity or duty, not bb",
+    CHECK(call(&s, "robot_command", wide).error == "a command is target, velocity, duty or strength, not aa; a command is target, velocity, duty or strength, not bb",
           "a pair of surrogates sorts below U+FFFF: %s", call(&s, "robot_command", wide).error.c_str());
 }
 

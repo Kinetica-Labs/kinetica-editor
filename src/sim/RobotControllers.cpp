@@ -116,7 +116,14 @@ bool RobotWorld::command(PhysicsWorld& physics, uint32_t id, const std::string& 
         const bool driver = std::any_of(live_.drivers.begin(), live_.drivers.end(), [id](const DriverObject& d) { return d.id == id; });
         return driver || (error = "no driver " + std::to_string(id) + " (duty is a driver's)", false);
     }
-    if (what != "target" && what != "velocity") return error = "a command is target, velocity or duty, not " + what, false;
+    if (what == "strength") { // a force's: the throttle of a thruster, set by the robot's own code
+        bool found = false;
+        for (SceneGraph* g : {&graph_, &live_})
+            for (Force& f : g->forces)
+                if (f.id == id) f.strength = std::clamp(value, -kForceMaxStrength, kForceMaxStrength), found = true;
+        return found || (error = "no force " + std::to_string(id) + " (strength is a force's)", false);
+    }
+    if (what != "target" && what != "velocity") return error = "a command is target, velocity, duty or strength, not " + what, false;
     for (LiveJoint& live : joints_) {
         if (live.spec.id != id) continue;
         if (live.dof < 0) return error = "joint " + std::to_string(id) + " has no free motion to command", false;

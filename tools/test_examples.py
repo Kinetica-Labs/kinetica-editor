@@ -66,6 +66,28 @@ class Examples(unittest.TestCase):
         self.assertLess(spread, 0.3)
         self.assertAlmostEqual(numbers[1][-3], 1.45, delta=0.01)  # the sonar's mean; its accuracy is 3 mm
 
+    def test_06_cart(self):
+        _, numbers = said("06_cart.py")
+        first, reading, truth, asked = numbers[0][:4]
+        self.assertAlmostEqual(first, 1.20, delta=0.02)
+        self.assertAlmostEqual(reading, asked, delta=0.08)   # a proportional loop stops a little short
+        self.assertAlmostEqual(reading, truth, delta=0.02)   # the sonar against the scene's own distance
+
+    def test_07_arm(self):
+        lines, numbers = said("07_arm.py")
+        miss, lifted = numbers[0][0], numbers[0][-1]
+        self.assertLess(miss, 5.0)             # mm from its goal
+        self.assertIn("holding", lines[0])     # the fingers stopped on the cube
+        self.assertGreater(lifted, 0.2)        # the cube went up with the hand
+
+    def test_08_drone(self):
+        _, numbers = said("08_drone.py")
+        height, asked, _, knocked, _, level, drift = numbers[0]
+        self.assertAlmostEqual(height, asked, delta=0.05)
+        self.assertGreater(knocked, 3.0)       # the knock did tilt it
+        self.assertLess(level, 0.5)            # and it levelled itself
+        self.assertGreater(drift, 0.5)         # with nothing to measure its place it drifts: the lesson's last line
+
 
 if __name__ == "__main__":
     unittest.main()

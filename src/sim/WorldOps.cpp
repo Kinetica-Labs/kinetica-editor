@@ -229,7 +229,7 @@ bool sensorRead(Simulation* world, uint32_t, const Value& a, Value& answer, std:
 
 bool robotCommand(Simulation* world, uint32_t, const Value& a, Value& answer, std::string& error) {
     if (!world) return fail(error, "the scene is not running: ▶ or sim_step first - commands drive a running world");
-    if (qtKeys(a["commands"]).empty()) return fail(error, "commands: {id: {target | velocity | duty: number}}");
+    if (qtKeys(a["commands"]).empty()) return fail(error, "commands: {id: {target | velocity | duty | strength: number}}");
     error = applyCommands(*world, a["commands"]);
     return error.empty();
 }
@@ -299,7 +299,7 @@ std::vector<WorldOp> makeOps() {
          "{ids?: [int]}", "query", sensorRead},
         {"robot_command",
          "Commands to the running world, not edits of the scene: a joint's target (its servo, rad or m) or velocity (its "
-         "velocity motor), a driver's duty (-1..1), held until commanded again; a body's force and torque ([x, y, z] N, "
+         "velocity motor), a driver's duty (-1..1), a force's strength (a thruster's throttle), held until commanded again; a body's force and torque ([x, y, z] N, "
          "N m, world, at its centre of mass) over the next frame. Stop forgets them (the scene as authored is untouched, "
          "no undo step, no journal line). E.g. {commands: {\"7\": {\"target\": 0.8}, \"23\": {\"force\": [0, 2, 0]}}}",
          "{commands: {}}", "window", robotCommand},
@@ -455,7 +455,7 @@ std::string applyCommands(Simulation& s, const Value& commands) {
     for (const std::string& key : qtKeys(commands)) {
         const Value& what = commands[key];
         const std::vector<std::string> words = qtKeys(what);
-        if (words.empty()) say(key + ": {target | velocity | duty: number} or {force, torque: [x, y, z]}");
+        if (words.empty()) say(key + ": {target | velocity | duty | strength: number} or {force, torque: [x, y, z]}");
         if (what.contains("force") || what.contains("torque")) { // a body pushed over the next frame (a physics plugin's)
             std::string why;
             if (!s.robot()->push(*s.physics(), qtKeyId(key), vector3Of(what["force"]), vector3Of(what["torque"]), why)) say(why);

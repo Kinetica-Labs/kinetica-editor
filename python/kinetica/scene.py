@@ -383,8 +383,8 @@ class Scene:
 
     def command(self, commands):
         """Commands to the running world, not edits of the scene: {joint: {"target": rad or m} or {"velocity": ...},
-        driver: {"duty": -1..1}, body: {"force": [x, y, z], "torque": [x, y, z]}} - a joint's and a driver's held until
-        commanded again, a body's force over the next frame. Stop forgets them."""
+        driver: {"duty": -1..1}, force: {"strength": N}, body: {"force": [x, y, z], "torque": [x, y, z]}} - a joint's, a
+        driver's and a force's held until commanded again, a body's force over the next frame. Stop forgets them."""
         return self._call("robot_command", commands={str(getattr(k, "id", k)): v for k, v in commands.items()})
 
     def push(self, body, impulse, point=None):

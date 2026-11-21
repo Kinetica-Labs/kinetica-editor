@@ -1659,6 +1659,13 @@ void testSimForceOnBody() {
     thrust.load(g);
     for (int k = 0; k < 60; ++k) thrust.stepFrame();
     CHECK(near(momentumOf(thrust, 1), Vector3(0, 8, 0), 1e-3_r) && length(momentumOf(thrust, 2)) < 1e-6_r, "a constant 8 N on its own body for a second: 8 N s, the neighbour none");
+    // The robot's own code sets a thruster's throttle by a command, not by an edit of the scene.
+    std::string why;
+    const Vector3 was = momentumOf(thrust, 1);
+    CHECK(thrust.robot()->command(*thrust.physics(), 3, "strength", 20, why), "a force's strength is commanded: %s", why.c_str());
+    CHECK(!thrust.robot()->command(*thrust.physics(), 99, "strength", 1, why) && why == "no force 99 (strength is a force's)", "no such force: %s", why.c_str());
+    for (int k = 0; k < 60; ++k) thrust.stepFrame();
+    CHECK(near(momentumOf(thrust, 1) - was, Vector3(0, 20, 0), 1e-3_r), "commanded to 20 N, a second gives 20 N s more");
 
     const Real mass = bodyMass(g.entities[0]);
     CHECK(forceBody(g, g.forces[0]) == &g.entities[0] && forceUnitPerMetre(g, g.forces[0]) == mass * 10, "a metre of a constant force's arrow on its body: 10 m/s^2 of it");

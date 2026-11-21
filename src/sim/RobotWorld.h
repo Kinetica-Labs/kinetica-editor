@@ -133,7 +133,7 @@ public:
     bool setControllerInput(uint32_t controller, const std::string& action, const Vector3& value, std::string& error);
     // A controller's command while the world runs (a plugin's tick, robot_command) - not an edit of the scene: a joint's
     // main freedom to a "target" (its servo; rad or m, within its limits) or at a "velocity" (its velocity motor), a
-    // driver's "duty" (-1..1), held until commanded again. The authored scene is untouched: Stop builds the world from it
+    // driver's "duty" (-1..1), a force's "strength" (a thruster's throttle), held until commanded again. The authored scene is untouched: Stop builds the world from it
     // again, the command forgotten. False and why: no such joint or driver, no such word, no drive for it.
     bool command(PhysicsWorld& physics, uint32_t id, const std::string& what, Real value, std::string& error);
     // A force and a torque on a body over the next frame (N, N m; world), at its centre of mass, at every substep, then

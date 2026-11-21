@@ -209,6 +209,20 @@ class Body(SceneObject):
         shown = f"{self.ref}.pose(" + ", ".join(f"{k}={tuple(round(x, 4) for x in v)}" for k, v in args.items()) + ")"
         return self.scene._call("assembly_goal_pose", shown, goal=self.id, **args)
 
+    def grip(self, close=True, force=None):
+        """The fingers of this IK goal's hand closed (or opened): each slides until it meets something and presses with
+        `force` N (2 by default)."""
+        args = {"goal": self.id, "close": bool(close), **({"force": float(force)} if force is not None else {})}
+        shown = ("" if close else "close=False") + (f"{'' if close else ', '}force={force!r}" if force is not None else "")
+        return self.scene._call("assembly_grip", f"{self.ref}.grip({shown})", **args)
+
+    @property
+    def gripped(self):
+        """What this IK goal's hand says of its fingers now: "open", "closing", "holding" (they stopped on something) or
+        "empty" (closed on nothing); None: not running, or no hand."""
+        grip = next((g for g in self.scene._call("sim_state").get("grips", []) if g.get("goal") == self.id), None)
+        return grip.get("state") if grip else None
+
     def reach(self, position, quaternion=None, basis=None, pose=False):
         """Inverse kinematics: this body (an arm's effector) to `position` with a turn - a quaternion (w, x, y, z) or
         a basis, a rotation matrix by rows; none: the point only. The chain's servos get the coordinates as targets
