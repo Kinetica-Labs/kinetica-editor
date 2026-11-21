@@ -221,6 +221,17 @@ class SceneCore(unittest.TestCase):
             scene.run(0.5)
             self.assertLess(height(scene, bob), 1.95)
 
+    def test_a_scene_left_open_ends_with_its_script(self):
+        code = textwrap.dedent(f"""
+            import sys
+            sys.path.insert(0, {os.path.join(ROOT, "python")!r})
+            import kinetica as ke
+            scene = ke.Scene()
+            scene.add("box")
+        """)
+        out = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True, timeout=60)
+        self.assertEqual((out.returncode, out.stderr), (0, ""))
+
     def test_a_dropped_scene_ends_its_child(self):
         scene = ke.Scene()
         proc = scene._client._proc

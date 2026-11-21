@@ -4,14 +4,16 @@ operations as the editor's server. ``Core.call`` has the signature of ``Client.c
 
 The program answers in order, one line per request, so there is no reader thread: a call writes its line and reads
 the next. Its stderr is drained into a short tail that explains a death; the parent's death closes its stdin and
-the program ends by itself.
+the program ends by itself. A scene left open is closed when the interpreter exits, before its threads are frozen.
 """
+import atexit
 import collections
 import json
 import os
 import shutil
 import subprocess
 import threading
+import weakref
 
 from .client import check
 
@@ -41,6 +43,12 @@ def _drain(stream, tail):
         tail.append(line.decode("utf-8", "replace").rstrip())
 
 
+# The scenes not closed yet: closed at exit while the drain threads still run. Closed later - by the collector, once
+# the interpreter has frozen its daemon threads - the stderr a frozen drain holds could not be closed: Python aborted.
+_open = weakref.WeakSet()
+atexit.register(lambda: [core.close() for core in list(_open)])
+
+
 class Core:
     def __init__(self, executable=None):
         self._proc = subprocess.Popen([find_core(executable)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
@@ -52,6 +60,7 @@ class Core:
         self._closed = False
         self._drainer = threading.Thread(target=_drain, args=(self._proc.stderr, self._tail), name="kinetica-core-stderr", daemon=True)
         self._drainer.start()
+        _open.add(self)
 
     def _gone(self):
         code = self._proc.wait()
