@@ -551,3 +551,8 @@ python3 tools/ui_guide_shots.py en magnet    # one language, only the named grou
 
 The script starts the editor without showing a window, does every function by its operation and photographs the
 window with the `view_screenshot` operation. When the window changes, the pictures are retaken by one command.
+
+The film on the repository's first page is shot the same way, a frame at a time: `python3 tools/showcase_film.py --plugins ../kinetica-plugins`
+builds the scene (the arm, the pendulum, the tower, formulas, textures, lights, a keyed camera), steps the simulation a frame and
+saves each - through the scene's camera (`view_through`, `view_screenshot {clean, marks: false}`) and as the editor's window -, then
+cuts the video and the GIF with ffmpeg into `build/showcase/`.
