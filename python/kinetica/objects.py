@@ -572,7 +572,7 @@ class Force(SceneObject):
 
     def fire(self):
         """An impulse force fired now, in the running scene."""
-        self.scene._call("force_fire", f"{self.ref}.fire()", id=self.id)
+        self.scene._call("force_fire", None, id=self.id)  # the world's operation: it takes its id alone, no console line
 
 
 class Group(SceneObject):

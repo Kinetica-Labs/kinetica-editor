@@ -17,8 +17,6 @@ namespace {
 
 const char* kShapes[] = {"box", "sphere", "cylinder", "cone", "plane"};
 const char* kLights[] = {"sun", "point", "spot"};
-const char* kForceShapes[] = {"directional", "radial"};
-const char* kForceModes[] = {"impulse", "constant"};
 
 template <size_t N>
 int wordIndex(const std::string& w, const char* (&words)[N]) {
@@ -95,7 +93,7 @@ bool addLightOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
 }
 
 bool addForceOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
-    const int shape = wordIndex(a["shape"].text(""), kForceShapes), mode = wordIndex(a["mode"].text(""), kForceModes);
+    const int shape = wordIndex(a["shape"].text(""), kForceShapeNames), mode = wordIndex(a["mode"].text(""), kForceModeNames);
     if (shape < 0 || mode < 0) return e = "shape is directional or radial, mode is impulse or constant", false;
     const AABB box = sceneBounds(g);
     Vector3 at = box.valid() ? box.center() : Vector3(0.0_r), given;

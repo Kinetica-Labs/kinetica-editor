@@ -275,7 +275,7 @@ void MainWindow::addForceButton(QToolBar* tb) {
     auto* forces = new QToolButton;
     forces->setObjectName("forcesButton");
     forces->setText(uiText("Kinetica", "Сила ▾"));
-    forces->setIcon(sceneIcon(SceneIcon::ForceArrow, 48));
+    forces->setIcon(sceneIcon(SceneIcon::Force, 48));
     forces->setIconSize(tb->iconSize());
     forces->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
     forces->setToolTip(uiText("Kinetica", "Сила: толчок или взрыв разом, тяга или притяжение всё время. Действует на тела, пока идёт мир"));

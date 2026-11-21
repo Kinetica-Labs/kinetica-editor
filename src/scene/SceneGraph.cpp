@@ -286,8 +286,8 @@ static void saveLight(std::ostringstream& o, const Light& l) {
     o << "end\n";
 }
 
-static const char* kForceShapeNames[] = {"directional", "radial"};
-static const char* kForceModeNames[] = {"impulse", "constant"};
+const char* kForceShapeNames[2] = {"directional", "radial"};
+const char* kForceModeNames[2] = {"impulse", "constant"};
 static const char* kForceFalloffNames[] = {"none", "linear", "inverse_square"};
 
 const char* forceFault(const Force& f) {
@@ -762,7 +762,7 @@ static bool readLightLine(const std::vector<std::string>& w, Light& l, std::stri
 }
 
 template <size_t N>
-static bool oneOf(const std::string& word, const char* const (&names)[N], int& out) {
+static bool oneOf(const std::string& word, const char* (&names)[N], int& out) {
     for (size_t i = 0; i < N; ++i)
         if (word == names[i]) return out = int(i), true;
     return false;

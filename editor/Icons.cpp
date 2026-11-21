@@ -608,39 +608,72 @@ void drawCameraIcon(QPainter& p) {
     p.drawEllipse(QPointF(22, 51), 4, 4);
 }
 
-// A directional force: a fat arrow rising to the upper right.
-void drawForceArrow(QPainter& p) {
-    const QColor c(115, 217, 140);
-    shadow(p, 50, 90, 28);
-    p.setPen(QPen(c, 9, Qt::SolidLine, Qt::RoundCap));
-    p.drawLine(QPointF(22, 78), QPointF(66, 34));
-    const QPointF head[] = {{82, 18}, {52, 26}, {74, 48}};
+// A solid arrow from a to b, lit across its width; `depth`: a darker copy below it, the arrow's thickness.
+void drawSolidArrow(QPainter& p, QPointF a, QPointF b, qreal shaft, qreal headWidth, qreal headLength, const QColor& c, qreal depth) {
+    const QPointF d = b - a;
+    const qreal length = std::hypot(d.x(), d.y());
+    const QPointF u = d / length, n(-u.y(), u.x()), neck = b - u * headLength;
+    QPainterPath path;
+    path.moveTo(a + n * shaft / 2);
+    for (const QPointF& q : {neck + n * shaft / 2, neck + n * headWidth / 2, b, neck - n * headWidth / 2, neck - n * shaft / 2, a - n * shaft / 2}) path.lineTo(q);
+    path.closeSubpath();
     p.setPen(outline(c));
-    p.setBrush(c);
-    p.drawPolygon(head, 3);
+    p.setBrush(shade(c, 60));
+    p.drawPath(path.translated(depth * 0.6, depth));
+    QLinearGradient g(a + n * (length * 0.12), a - n * (length * 0.12));
+    g.setColorAt(0, shade(c, 150));
+    g.setColorAt(0.5, c);
+    g.setColorAt(1, shade(c, 75));
+    p.setBrush(g);
+    p.drawPath(path);
 }
 
-// A radial force: a ball with four arrows pointing out of it.
-void drawForceBall(QPainter& p) {
-    const QColor c(115, 217, 140);
-    shadow(p, 50, 90, 28);
-    p.setBrush(c);
-    for (int k = 0; k < 4; ++k) {
-        p.save();
-        p.translate(50, 48);
-        p.rotate(90.0 * k);
-        p.setPen(QPen(c, 6, Qt::SolidLine, Qt::RoundCap));
-        p.drawLine(QPointF(26, 0), QPointF(36, 0));
-        const QPointF head[] = {{44, 0}, {34, -5}, {34, 5}};
-        p.setPen(outline(c));
-        p.drawPolygon(head, 3);
-        p.restore();
+// A flash: a star of `spikes` points around c, between the radii r0 and r1.
+QPainterPath flash(QPointF c, qreal r0, qreal r1, int spikes, qreal turn) {
+    QPainterPath path;
+    for (int i = 0; i < spikes * 2; ++i) {
+        const qreal a = turn + M_PI * i / spikes, r = i % 2 ? r0 : (i % 4 ? r1 : r1 * 0.86);
+        const QPointF q = c + QPointF(std::cos(a), std::sin(a)) * r;
+        i ? path.lineTo(q) : path.moveTo(q);
     }
-    QRadialGradient g(QPointF(43, 41), 24);
-    g.setColorAt(0, shade(c, 130));
-    g.setColorAt(1, shade(c, 80));
+    path.closeSubpath();
+    return path;
+}
+
+const QColor kForceColour(150, 104, 240), kFlashColour(250, 150, 40);
+
+// «Сила»: a flash and an arrow out of it - a blow and the way it pushes.
+void drawForce(QPainter& p) {
+    shadow(p, 50, 90, 36);
+    p.setPen(outline(kFlashColour));
+    p.setBrush(kFlashColour);
+    p.drawPath(flash({40, 58}, 17, 33, 8, 0.3));
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(252, 210, 70));
+    p.drawPath(flash({40, 58}, 10, 21, 8, 0.7));
+    drawSolidArrow(p, {36, 64}, {90, 14}, 15, 34, 24, kForceColour, 4);
+}
+
+// A directional force: one thick arrow rising to the upper right.
+void drawForceArrow(QPainter& p) {
+    shadow(p, 52, 90, 34);
+    drawSolidArrow(p, {20, 82}, {82, 18}, 20, 42, 30, kForceColour, 5);
+}
+
+// A radial force: a core with four arrows out of it.
+void drawForceBall(QPainter& p) {
+    shadow(p, 50, 91, 34);
+    for (const QPointF& d : {QPointF(0, -1), QPointF(0, 1), QPointF(-1, 0), QPointF(1, 0)}) drawSolidArrow(p, QPointF(50, 50) + d * 14, QPointF(50, 50) + d * 44, 11, 25, 15, kForceColour, 2);
+    QRadialGradient g(QPointF(44, 42), 28, QPointF(41, 40));
+    g.setColorAt(0.0, shade(kFlashColour, 165));
+    g.setColorAt(0.45, kFlashColour);
+    g.setColorAt(1.0, shade(kFlashColour, 45));
+    p.setPen(outline(kFlashColour));
     p.setBrush(g);
-    p.drawEllipse(QPointF(50, 48), 18, 18);
+    p.drawEllipse(QPointF(50, 50), 19, 19);
+    p.setPen(Qt::NoPen);
+    p.setBrush(QColor(255, 255, 255, 150));
+    p.drawEllipse(QPointF(43, 42), 4.2, 2.7);
 }
 
 // An encoder: a code disc with its slots round the rim and the read head over them.
@@ -958,6 +991,7 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
     case SceneIcon::Bulb: drawBulb(p); break;
     case SceneIcon::Spot: drawSpotlight(p); break;
     case SceneIcon::Camera: drawCameraIcon(p); break;
+    case SceneIcon::Force: drawForce(p); break;
     case SceneIcon::ForceArrow: drawForceArrow(p); break;
     case SceneIcon::ForceBall: drawForceBall(p); break;
     case SceneIcon::Count: break;

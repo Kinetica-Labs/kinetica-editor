@@ -82,31 +82,55 @@ void cameraLines(const SceneMarker& m, float aspect, std::vector<float>& solid) 
     segment(solid, top + right * (w * 0.6f), top + up * (h * 0.6f));
 }
 
-// An arrow along +y of the marker's frame, its length signed (against the axis when negative), and where it reaches.
-void pushLines(const SceneMarker& m, std::vector<float>& solid) {
-    const Vector3 x = m.rotation.rotate(Vector3(1, 0, 0)), y = forceAxis(m.rotation), z = m.rotation.rotate(Vector3(0, 0, 1));
-    const float length = m.reach != 0 ? m.reach : 1.0f, sign = length < 0 ? -1.0f : 1.0f;
-    const Vector3 tip = m.position + y * length;
-    segment(solid, m.position, tip);
-    segment(solid, tip, tip - y * (0.12f * sign) + x * 0.06f);
-    segment(solid, tip, tip - y * (0.12f * sign) - x * 0.06f);
-    if (m.range > 0) circle(solid, m.position, x, z, m.range, 48);
+// An arrow from `from` to `tip` with a head that reads from any side: a ring at its base and four edges to the point.
+void arrow(std::vector<float>& out, const Vector3& from, const Vector3& tip, float head) {
+    const Vector3 along = tip - from;
+    const float length = std::sqrt(dot(along, along));
+    if (length < 1e-6f) return;
+    const Vector3 d = along * (1.0f / length);
+    const Vector3 side = std::fabs(d.y) < 0.9f ? Vector3(0, 1, 0) : Vector3(1, 0, 0);
+    const Vector3 u = normalize(cross(d, side)), v = cross(d, u);
+    const Vector3 base = tip - d * head;
+    const float r = head * 0.38f;
+    segment(out, from, base);
+    circle(out, base, u, v, r, 12);
+    for (const Vector3& e : {u, v, u * -1.0f, v * -1.0f}) segment(out, base + e * r, tip);
 }
 
-// Three rings of the force's radius and an arrow on each half axis, just inside the sphere: out of it, or into it.
-void burstLines(const SceneMarker& m, std::vector<float>& solid) {
-    const Vector3 axes[3] = {m.rotation.rotate(Vector3(1, 0, 0)), m.rotation.rotate(Vector3(0, 1, 0)), m.rotation.rotate(Vector3(0, 0, 1))};
-    const float r = m.range, len = std::min(0.25f, r), sign = m.reach < 0 ? -1.0f : 1.0f;
-    for (int k = 0; k < 3; ++k) {
-        circle(solid, m.position, axes[k], axes[(k + 1) % 3], r, 48);
-        for (const float side : {-1.0f, 1.0f}) {
-            const Vector3 a = axes[k] * side, side2 = axes[(k + 1) % 3];
-            const Vector3 in = m.position + a * (r - len), out = m.position + a * r, tip = sign > 0 ? out : in;
-            segment(solid, in, out);
-            segment(solid, tip, tip - a * (0.06f * sign) + side2 * 0.04f);
-            segment(solid, tip, tip - a * (0.06f * sign) - side2 * 0.04f);
-        }
-    }
+// The reach of a force, a sphere as three thin rings: drawn for the selected force only - around every force it would
+// fill the scene with wire.
+void reachRings(const SceneMarker& m, std::vector<float>& faint) {
+    if (!m.selected || m.range <= 0) return;
+    const Vector3 x(1, 0, 0), y(0, 1, 0), z(0, 0, 1);
+    circle(faint, m.position, x, z, m.range, 72);
+    circle(faint, m.position, x, y, m.range, 72);
+    circle(faint, m.position, y, z, m.range, 72);
+}
+
+// A directional force: one arrow a metre long along the object's own axis (against it when the strength is negative),
+// standing on a small ring.
+void pushLines(const SceneMarker& m, std::vector<float>& solid, std::vector<float>& faint) {
+    const Vector3 x = m.rotation.rotate(Vector3(1, 0, 0)), y = forceAxis(m.rotation), z = m.rotation.rotate(Vector3(0, 0, 1));
+    circle(solid, m.position, x, z, 0.07f, 16);
+    arrow(solid, m.position, m.position + y * (m.reach < 0 ? -1.0f : 1.0f), 0.22f);
+    reachRings(m, faint);
+}
+
+// A radial force: six short arrows out of its point (into it when the strength is negative); selected, its sphere too,
+// with the same arrows at the sphere - where the reach ends and which way the bodies there are pushed.
+void burstLines(const SceneMarker& m, std::vector<float>& solid, std::vector<float>& faint) {
+    const Vector3 axes[3] = {Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)};
+    const bool out = m.reach >= 0;
+    const auto rays = [&](float from, float to, float head) {
+        for (const Vector3& axis : axes)
+            for (const float side : {-1.0f, 1.0f}) {
+                const Vector3 a = m.position + axis * (side * from), b = m.position + axis * (side * to);
+                arrow(solid, out ? a : b, out ? b : a, head);
+            }
+    };
+    rays(0.07f, 0.34f, 0.12f);
+    reachRings(m, faint);
+    if (m.selected && m.range > 0.6f) rays(m.range - 0.26f, m.range, 0.12f);
 }
 
 } // namespace
@@ -116,8 +140,8 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
     case SceneMarker::Sun: sunLines(m, solid); break;
     case SceneMarker::Point: pointLines(m, solid, faint); break;
     case SceneMarker::Spot: spotLines(m, solid, faint); break;
-    case SceneMarker::Push: pushLines(m, solid); break;
-    case SceneMarker::Burst: burstLines(m, solid); break;
+    case SceneMarker::Push: pushLines(m, solid, faint); break;
+    case SceneMarker::Burst: burstLines(m, solid, faint); break;
     case SceneMarker::Camera:
         cameraLines(m, aspect, solid);
         if (m.aimed) segment(faint, m.position, m.aim); // the line of sight to its target (the target is an object: drawn itself)
@@ -127,7 +151,7 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
 
 bool markerHit(const SceneMarker& m, const Ray& ray, float& t) {
     Vector3 centre = m.position;
-    float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push || m.kind == SceneMarker::Burst ? 0.2f : 0.16f;
+    float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push ? 0.2f : m.kind == SceneMarker::Burst ? 0.34f : 0.16f;
     if (m.kind == SceneMarker::Camera) centre = m.position + m.rotation.rotate(Vector3(0, 0, -1)) * (0.5f * kCameraDepth), radius = 0.24f;
     const Vector3 oc = ray.origin - centre;
     const float b = dot(oc, ray.dir), c = dot(oc, oc) - radius * radius, disc = b * b - c;

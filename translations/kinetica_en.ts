@@ -6718,5 +6718,35 @@ Sample </translation>
         <source>Импульс срабатывает сейчас, в идущем мире; когда настанет его момент, он второй раз не сработает</source>
         <translation>Fires the impulse now in the running world; when its time comes it does not fire a second time</translation>
     </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="123"/>
+        <source>Тяжесть, размер мира и настройки физики меняют только перезапуском сцены</source>
+        <translation>Gravity, the world&apos;s size and the physics settings change only when the scene is restarted</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="124"/>
+        <source>Группы меняют только перезапуском сцены</source>
+        <translation>Groups change only when the scene is restarted</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="125"/>
+        <source>Массивы меняют только перезапуском сцены</source>
+        <translation>Arrays change only when the scene is restarted</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="126"/>
+        <source>Датчики, колёса, батареи и пульты меняют только перезапуском сцены</source>
+        <translation>Sensors, wheels, batteries and controllers change only when the scene is restarted</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="136"/>
+        <source>Тела и коллайдеры меняют только перезапуском сцены</source>
+        <translation>Bodies and colliders change only when the scene is restarted</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilder.cpp" line="162"/>
+        <source>Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены</source>
+        <translation>A joint&apos;s kind, links, frames and limits change only when the scene is restarted</translation>
+    </message>
 </context>
 </TS>

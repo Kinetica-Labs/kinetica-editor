@@ -29,13 +29,13 @@ void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
     const Vector3 at = spawnTarget();
     remember();
     addObjectDone(coreEdit([&](SceneGraph& g) { return ke::addForce(g, shape, mode, at); }));
-    const QString shapeWord = shape == ForceShape::Radial ? "radial" : "directional", modeWord = mode == ForceMode::Constant ? "constant" : "impulse";
+    const QString shapeWord = kForceShapeNames[int(shape)], modeWord = kForceModeNames[int(mode)];
     codeAction("scene_add_force", QString("scene.add_force(\"%1\", \"%2\")").arg(shapeWord, modeWord),
                {{"shape", shapeWord}, {"mode", modeWord}, {"at", QJsonArray{double(at.x), double(at.y), double(at.z)}}}, false);
 }
 
 void SceneBuilder::buildForceCard(QVBoxLayout* col) {
-    forceCard_ = new ComponentCard(uiText("Kinetica", "Сила"), sceneIcon(SceneIcon::ForceArrow, 22));
+    forceCard_ = new ComponentCard(uiText("Kinetica", "Сила"), sceneIcon(SceneIcon::Force, 22));
     forceCard_->setObjectName("forceCard");
     forceCard_->setToolTip(uiText("Kinetica", "Сила действует на центр масс твёрдых тел, пока мир идёт, и не крутит их. Цвет — в блоке «Объект»"));
     Force* d = &forceDraft_;

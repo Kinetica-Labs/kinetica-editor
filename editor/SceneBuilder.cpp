@@ -120,12 +120,12 @@ void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
 // A change the running simulation cannot take: stop with the edit kept, and say what to do.
 void SceneBuilder::reloadNeeded(LiveEdit::Reload what) {
     static const std::map<LiveEdit::Reload, const char*> why = {
-        {LiveEdit::Reload::World, "Тяжесть, размер мира и настройки физики меняют только перезапуском сцены"},
-        {LiveEdit::Reload::Groups, "Группы меняют только перезапуском сцены"},
-        {LiveEdit::Reload::Arrays, "Массивы меняют только перезапуском сцены"},
-        {LiveEdit::Reload::Devices, "Датчики, колёса, батареи и пульты меняют только перезапуском сцены"},
-        {LiveEdit::Reload::Bodies, "Тела и коллайдеры меняют только перезапуском сцены"},
-        {LiveEdit::Reload::Joints, "Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены"}};
+        {LiveEdit::Reload::World, QT_TRANSLATE_NOOP("Kinetica", "Тяжесть, размер мира и настройки физики меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Groups, QT_TRANSLATE_NOOP("Kinetica", "Группы меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Arrays, QT_TRANSLATE_NOOP("Kinetica", "Массивы меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Devices, QT_TRANSLATE_NOOP("Kinetica", "Датчики, колёса, батареи и пульты меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Bodies, QT_TRANSLATE_NOOP("Kinetica", "Тела и коллайдеры меняют только перезапуском сцены")},
+        {LiveEdit::Reload::Joints, QT_TRANSLATE_NOOP("Kinetica", "Вид, звенья, рамки и пределы сустава меняют только перезапуском сцены")}};
     lastReload_ = what;
     returnToEdit(true);
     showBanner(QString(uiText("Kinetica", why.at(what))) + uiText("Kinetica", ". Правка сохранена."), uiText("Kinetica", "▶ Пуск"), [this] { play(); });

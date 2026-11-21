@@ -35,7 +35,7 @@ enum class ObjectIcon { Group, ArrayLine, ArrayGrid, ArrayCircle, Count };
 QIcon objectIcon(ObjectIcon kind, int size = 28);
 // Lights, a camera and forces of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera, an arrow (a
 // directional force), a ball with arrows (a radial one).
-enum class SceneIcon { Sun, Bulb, Spot, Camera, ForceArrow, ForceBall, Count };
+enum class SceneIcon { Sun, Bulb, Spot, Camera, Force, ForceArrow, ForceBall, Count };
 QIcon sceneIcon(SceneIcon kind, int size = 28);
 
 // The devices of mechatronics: the sensors (in the order of ke::SensorKind), the electrics, and Sensor - any sensor, the

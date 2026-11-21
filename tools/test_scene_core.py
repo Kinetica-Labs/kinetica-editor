@@ -258,6 +258,16 @@ class SceneCore(unittest.TestCase):
             push.shape = "radial"
             self.assertEqual(push.shape, "radial")
 
+    def test_fire_sends_its_id_alone(self):
+        # force_fire refuses every key but id, and a window's client adds the console line as one more key
+        with ke.Scene() as scene:
+            push = scene.add_force()
+            sent, real = [], scene._client.call
+            scene._client.call = lambda op, py=None, **args: sent.append((op, py, args)) or real(op, py, **args)
+            scene.step(1)
+            push.fire()
+        self.assertIn(("force_fire", None, {"id": push.id}), sent)
+
     def test_a_fired_force_gives_a_box_its_velocity(self):
         with ke.Scene() as scene:
             box = scene.add("box", position=(0, 3, 0), role="rigid")

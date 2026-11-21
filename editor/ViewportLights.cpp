@@ -64,7 +64,7 @@ void Viewport::applySceneLights(const QMatrix4x4& view) {
 // ---------------------------------------------------------------------------
 // Lights and cameras as wireframes
 // ---------------------------------------------------------------------------
-// A light in its own colour warmed a little, a camera pale blue-grey, a force green, the selected ones orange; the
+// A light in its own colour warmed a little, a camera pale blue-grey, a force violet (its icon's colour), the selected ones orange; the
 // parts behind the geometry faint, so a lamp inside a box still shows.
 void Viewport::drawSceneMarkers(const QMatrix4x4& vp) {
     if (markers_.empty()) return;
@@ -79,7 +79,7 @@ void Viewport::drawSceneMarkers(const QMatrix4x4& vp) {
         // Below 1.0: the software renderer (llvmpipe) blends a channel of exactly 1.0 at alpha < 1 to 0.
         const Vector3 warm = vmin(m.color * 0.5f + Vector3(1.0f, 0.86f, 0.45f) * 0.5f, Vector3(0.98f));
         const bool force = m.kind == SceneMarker::Push || m.kind == SceneMarker::Burst;
-        QVector4D c = m.kind == SceneMarker::Camera ? QVector4D(0.80f, 0.86f, 0.95f, 0.95f) : force ? QVector4D(0.45f, 0.85f, 0.55f, 0.95f) : QVector4D(warm.x, warm.y, warm.z, 0.95f);
+        QVector4D c = m.kind == SceneMarker::Camera ? QVector4D(0.80f, 0.86f, 0.95f, 0.95f) : force ? QVector4D(0.72f, 0.62f, 0.97f, 0.95f) : QVector4D(warm.x, warm.y, warm.z, 0.95f);
         if (m.selected) c = QVector4D(0.98f, 0.62f, 0.2f, 1.0f);
         QVector4D hidden = c, faint = c;
         hidden.setW(0.3f);

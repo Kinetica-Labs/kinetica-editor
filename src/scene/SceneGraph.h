@@ -127,6 +127,8 @@ struct Light : SceneObject {
 enum class ForceShape { Directional, Radial };
 enum class ForceMode { Impulse, Constant };
 enum class ForceFalloff { None, Linear, InverseSquare };
+extern const char* kForceShapeNames[2]; // the words of the file and the API, by ForceShape
+extern const char* kForceModeNames[2];  // by ForceMode
 // Single source of the bounds; the reader, scene_add_force and the editor's card use these numbers.
 constexpr Real kForceMaxStrength = 100000_r;  // |strength|, N s or N
 constexpr Real kForceMaxRadius = 1000_r;      // m
