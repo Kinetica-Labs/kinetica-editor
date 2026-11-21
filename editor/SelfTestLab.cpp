@@ -44,7 +44,6 @@ size_t primitives(const Viewport* v) {
     return s ? s->probe.lines.size() + s->probe.points.size() : 0;
 }
 
-bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
 
 QPushButton* presetButton(const Lab& lab, const QString& name) {
     for (QPushButton* b : lab.panel->findChildren<QPushButton*>("labPreset"))

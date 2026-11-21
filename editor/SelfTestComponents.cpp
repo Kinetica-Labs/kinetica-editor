@@ -61,14 +61,6 @@ void clickColliderKind(const SceneBuilder& b, ColliderKind kind) {
     if (int(kind) < buttons.size()) buttons[int(kind)]->click();
 }
 
-// The window with an open popup menu drawn where it stands (a popup is a window of its own).
-QImage windowWithMenu(QMainWindow& w, QMenu* menu) {
-    QImage shot = windowShot(w);
-    QPainter p(&shot);
-    p.drawPixmap(w.mapFromGlobal(menu->pos()), menu->grab());
-    return shot;
-}
-
 void testBareObject(Checker& c, QMainWindow& w, SceneBuilder& b, const QString& dir) {
     b.newScene();
     b.createActions()[0]->trigger(); // Куб
@@ -119,7 +111,7 @@ void testAddComponentMenu(Checker& c, QMainWindow& w, SceneBuilder& b, const QSt
     for (QAction* a : menu->actions())
         if (!a->isSeparator()) items << a->text();
     std::printf("  «+ Добавить компонент» offers: %s\n", qPrintable(items.join(", ")));
-    if (!dir.isEmpty()) windowWithMenu(w, menu).save(dir + "/add-component-menu.png");
+    if (!dir.isEmpty()) windowWithPopup(w, menu).save(dir + "/add-component-menu.png");
     QAction* imu = nullptr;
     for (QAction* a : menu->actions())
         if (a->text() == "IMU") imu = a;

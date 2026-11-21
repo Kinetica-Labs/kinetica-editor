@@ -40,7 +40,6 @@ struct Plots {
     QDockWidget* dock = nullptr;
 };
 
-bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
 
 void click(QWidget* w, const QPointF& p) {
     QMouseEvent press(QEvent::MouseButtonPress, p, w->mapToGlobal(p), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);

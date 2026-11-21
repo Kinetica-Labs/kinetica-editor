@@ -69,14 +69,6 @@ bool answer(QMainWindow& w, int copies, int kind) {
     return true;
 }
 
-// The window with a popup drawn where it stands (a popup is a window of its own).
-QImage windowWithPopup(QMainWindow& w, QWidget* popup) {
-    QImage shot = windowShot(w);
-    QPainter p(&shot);
-    p.drawPixmap(w.mapFromGlobal(popup->pos()), popup->grab());
-    return shot;
-}
-
 void testShiftClone(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
     const std::vector<uint32_t> ids = cubes(b, 1);
     b.select(ids[0]);

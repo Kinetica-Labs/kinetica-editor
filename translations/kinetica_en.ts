@@ -4418,11 +4418,6 @@ or create one from the toolbar.</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
-        <source>неподвижное (стена, стол)</source>
-        <translation>Static (wall, table)</translation>
-    </message>
-    <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
         <source>динамическое</source>
         <translation>Dynamic</translation>
     </message>

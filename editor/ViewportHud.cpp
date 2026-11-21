@@ -14,7 +14,6 @@
 #include <QPainterPath>
 
 #include <algorithm>
-#include <numeric>
 
 namespace {
 

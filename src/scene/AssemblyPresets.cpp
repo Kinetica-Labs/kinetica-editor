@@ -3,7 +3,7 @@
 //
 // A wheel is a cylinder whose axis (its own y) is turned onto the face's normal, its radius 1.2 times
 // the face's smaller half extent (a chassis 15 cm high gets wheels of 9 cm), its width half the
-// radius. A motor wheel is driven by an electric DC motor (GenericJoint.h: torque K I, back EMF
+// radius. A motor wheel is driven by an electric DC motor (JointModel.h: torque K I, back EMF
 // K omega): 12 V, the constant K that gives a no-load speed U / K of 4 rad/s, the winding resistance
 // that gives a stall torque K U / R lifting half the target's weight on the wheel's lever, 0.5 m g r.
 //

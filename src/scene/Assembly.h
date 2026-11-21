@@ -53,7 +53,7 @@ int removeJointsOf(SceneGraph& g, uint32_t entity);
 void jointWorldFrames(const SceneGraph& g, const JointObject& j, Vector3& originA, Quaternion& frameA, Vector3& originB, Quaternion& frameB);
 // Frame b's origin and x axis in the world: where the joint is and what it turns about (slides along).
 void jointWorldFrame(const SceneGraph& g, const JointObject& j, Vector3& anchor, Vector3& axis);
-// The six coordinates at the graph's poses (GenericJoint.h: travel, then turns of frame a from b).
+// The six coordinates at the graph's poses (JointModel.h: travel, then turns of frame a from b).
 void jointCoordinates(const SceneGraph& g, const JointObject& j, Real out[6]);
 // The joint's main freedom - the turn about x when free, else the first free one (-1: a weld) - and
 // its coordinate: a hinge's angle [rad], a slider's travel [m].

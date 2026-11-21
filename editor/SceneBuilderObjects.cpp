@@ -15,7 +15,6 @@
 #include <QString>
 
 #include <algorithm>
-#include <set>
 
 using namespace ke;
 

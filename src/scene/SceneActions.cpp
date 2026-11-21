@@ -8,7 +8,6 @@
 #include "math/ElementaryFunctions.h"
 
 #include <algorithm>
-#include <map>
 
 namespace ke {
 

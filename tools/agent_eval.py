@@ -331,7 +331,7 @@ def check_items(run, report, manifest, rows, problems):
                 problems.append(f"{label}: id, did, expected and got are required")
 
 
-def check_report(report, manifest, rows, problems):
+def check_report(report, manifest, problems):
     expected_agent = "ui-human-tester" if manifest["role"] == "ui" else "api-agent-tester"
     if report.get("agent") != expected_agent or report.get("task") != manifest["task"]:
         problems.append("report agent/task does not match manifest")
@@ -373,7 +373,7 @@ def check(run):
         report = read_json(run / "report.json")
         if not isinstance(report, dict):
             raise ValueError("report must be an object")
-        check_report(report, manifest, rows, problems)
+        check_report(report, manifest, problems)
         check_items(run, report, manifest, rows, problems)
     except (OSError, ValueError) as error:
         problems.append(f"report: {error}")

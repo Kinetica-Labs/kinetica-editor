@@ -103,6 +103,13 @@ inline QImage windowShot(QMainWindow& w) {
     return shot;
 }
 
+inline QImage windowWithPopup(QMainWindow& w, QWidget* popup) {
+    QImage shot = windowShot(w);
+    QPainter p(&shot);
+    p.drawPixmap(w.mapFromGlobal(popup->pos()), popup->grab());
+    return shot;
+}
+
 // The id of what the last "create" made (the builder selects it).
 inline uint32_t made(SceneBuilder& b, QAction* action) {
     b.select(0);
@@ -149,6 +156,8 @@ inline bool waitFrames(Viewport* v, uint64_t frames, int timeoutMs) {
     }
     return false;
 }
+
+inline bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
 
 } // namespace selftest
 

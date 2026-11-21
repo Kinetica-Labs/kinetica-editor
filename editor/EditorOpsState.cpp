@@ -10,7 +10,6 @@
 
 #include <QAction>
 #include <QWidget>
-#include <cmath>
 
 using namespace ke;
 
