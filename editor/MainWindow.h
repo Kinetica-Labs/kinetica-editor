@@ -167,7 +167,7 @@ private:
     void appendShortcutTips();
     void connectViewportControls();
 
-    // The Laboratory (MainWindowLab.cpp): a physics debugger in the spirit of PhysX PVD - the probe's
+    // The Laboratory (MainWindowLab.cpp): a physics debugger - the probe's
     // debug layers by group, the card of a clicked contact or body, the timeline of the last frames,
     // the live profiler. Opened by «Лаборатория» on the top bar or F8; a beginner never sees it closed.
     void buildLaboratory();

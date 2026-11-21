@@ -1,6 +1,6 @@
 #pragma once
 // The Laboratory's card: what a click in the 3D view found - a contact point or a body - as a calm
-// list of named numbers, each with its unit, as PhysX PVD's property view shows an object.
+// list of named numbers, each with its unit.
 //
 // Every number answers a right click with «Построить график». When the engine reports that quantity
 // as a channel - the scene's, or this body's own («Куб/height»: the simulation measures a clicked body) - the

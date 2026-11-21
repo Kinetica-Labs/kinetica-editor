@@ -1,6 +1,6 @@
 #pragma once
 // The Laboratory's panel (the «Лаборатория» dock): everything the engine can show about itself, in one
-// calm column, the way PhysX Visual Debugger lays it out.
+// calm column.
 //   1. «Быстрые наборы» - four buttons that switch on a whole set of layers at once.
 //   2. «Что рисовать» - every debug layer (LabLayers.h), grouped: a checkbox, its colours, and a
 //      tooltip saying what it shows and how to read it.

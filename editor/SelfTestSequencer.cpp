@@ -135,7 +135,7 @@ void autoKeyTests(QMainWindow& w, SceneBuilder& b, Checker& c) {
     drag(camera, 4.0f);
     call("sequence_seek", {{"time", 1.0}});
     pump(60);
-    c.check(cam && keys(camera) == 2 && std::fabs(at(camera) - (x0 + 2.4f)) < 1e-3f, "the owner's case: a camera moved at 0 s and at 2 s stands halfway at 1 s after a seek");
+    c.check(cam && keys(camera) == 2 && std::fabs(at(camera) - (x0 + 2.4f)) < 1e-3f, "a camera moved at 0 s and at 2 s stands halfway at 1 s after a seek");
 
     const float standing = at(camera);
     const size_t kept = keys(camera);
