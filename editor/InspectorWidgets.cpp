@@ -8,6 +8,7 @@
 #include <QComboBox>
 #include <QFormLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QPushButton>
 #include <QSlider>
 #include <QSignalBlocker>
@@ -304,6 +305,19 @@ FieldForm& FieldForm::slider(const QString& label, int min, int max, Get get, Se
     return add(label, std::move(r));
 }
 
+FieldForm& FieldForm::text(const QString& label, Text get, std::function<void(const QString&)> set) {
+    auto* line = new QLineEdit;
+    connect(line, &QLineEdit::editingFinished, this, [this, line, set = std::move(set)] {
+        if (filling_ || !line->isModified()) return; // left as it was: no edit
+        line->setModified(false);
+        set(line->text());
+        edited_(true);
+    });
+    Row row{line};
+    row.words = std::move(get);
+    return add(label, std::move(row));
+}
+
 FieldForm& FieldForm::note(Text text) {
     auto* words = new QLabel;
     words->setWordWrap(true);
@@ -366,6 +380,9 @@ void FieldForm::show(Row& r) {
         s->setValue(r.get() * u.scale);
     } else if (auto* v = qobject_cast<Vec3Row*>(r.widget)) {
         v->setValue(r.getVector());
+    } else if (auto* line = qobject_cast<QLineEdit*>(r.widget)) {
+        line->setText(r.words());
+        line->setModified(false);
     } else if (auto* box = qobject_cast<QCheckBox*>(r.widget)) {
         box->setChecked(r.get() != 0);
     } else if (auto* box = qobject_cast<QComboBox*>(r.widget)) {

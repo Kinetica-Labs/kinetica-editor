@@ -179,7 +179,7 @@ if(Qt6_FOUND)
     editor/ProfilerBar.h     editor/ProfilerBar.cpp
     editor/SimController.h   editor/SimController.cpp
     editor/EditView.h        editor/EditView.cpp
-    editor/Viewport.h        editor/Viewport.cpp editor/ViewportInput.cpp editor/ViewportLights.cpp editor/ViewportShadows.cpp
+    editor/Viewport.h        editor/Viewport.cpp editor/ViewportInput.cpp editor/ViewportLights.cpp editor/ViewportFills.cpp editor/ViewportShadows.cpp
     editor/ViewportPlay.cpp  editor/ViewportHud.cpp editor/ViewportLab.cpp editor/ViewportTextures.cpp editor/ViewportTextureDrop.cpp
     editor/ViewportTools.h   editor/ViewportTools.cpp
     editor/OrbitCamera.h     editor/OrbitCamera.cpp

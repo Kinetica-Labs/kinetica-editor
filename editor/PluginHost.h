@@ -91,6 +91,9 @@ private:
         class PluginPanel* panel = nullptr; // its panel (PluginPanel.h), while it runs
         QJsonObject panelValues;            // what its panel held when it stopped: given back when it comes again
         QString hookError;                  // a hook's last error, said once a run
+        bool watches = false;               // it has an @on_change: told when its components in the scene change
+        bool changeOpen = false;            // told, not answered yet
+        QByteArray componentsSeen;          // its components as it was last told of them
     };
     void addOps();
     void scan(const QString& folder);
@@ -108,6 +111,7 @@ private:
     void hookFailed(const QString& plugin, const QString& event, const QString& error);     // its pictures, its error (RunHooks.h)
     void hookShowed(const QString& plugin, const QString& event, double time, const QJsonObject& values); // its panel's values
     Plugin* find(const QString& name);
+    void componentsChanged(); // @on_change: each plugin that asked is told when its components are no longer what it was told of
     Plugin* authorised(const QJsonObject& a, QJsonObject& refusal);
     void notice(const QString& plugin, const QString& text); // a fall on the window's status bar, with «Перезапустить»; empty: gone
 
@@ -124,6 +128,7 @@ private:
     class QLabel* noticeText_ = nullptr;
     QString noticeFor_;
     std::vector<std::unique_ptr<Plugin>> plugins_;
+    class QTimer* changeTimer_ = nullptr; // the scene's edits settle before the plugins are told
     int nextCall_ = 0;
     bool onlyGiven_ = true; // the last start's: plugin_scan looks through the same folders
 };

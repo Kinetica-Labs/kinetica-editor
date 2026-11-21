@@ -158,10 +158,17 @@ void EditorOps::addInputOps() {
                          "path, a force, a sensor's ray, a label), by key: the same key again replaces it, clear takes it off (a key ending "
                          "in / - all under it; none - all). circle {centre: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
                          "about the axis; box {centre: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
-                         "ring and bounds. size: a point's width, px (6) - and a label's letters, pt, when larger than plain ones. Drawn while "
+                         "ring and bounds. size: a point's width, px (6) - and a label's letters, pt, when larger than plain ones. "
+                         "fill: a flat picture, filled - closed outlines, each a row 'M x y L x y C x1 y1 x2 y2 x y Z' in its own units (x right, "
+                         "y up), painted over the scene. space world (the default): on its own plane at `at`, turned by `turn` (Euler degrees), a "
+                         "unit `scale` metres (1); label: on the screen at the world's point `at`, facing the viewer; screen: in the frame at "
+                         "`place`, fractions of the view from its left top - in both a unit is `scale` of the view's height. object: the picture "
+                         "is that object's and goes where it goes - one in the world lies on it (`at` and `turn` in the object's own frame), a label "
+                         "hangs at `at` from the object's place along the world's axes, above a body however it tumbles; a click on it selects the object. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
-            "colour?: [r,g,b], size?: number, clear?: bool}",
+            "colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
+            "object?: int, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -225,8 +232,28 @@ void EditorOps::addInputOps() {
                                         float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
         }
         d.size = float(std::clamp(a.value("size").toDouble(6), 1.0, 64.0));
-        if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty())
-            return error("nothing to draw: line, segments, points, circle, box or text");
+        if (a.contains("fill")) {
+            QStringList rows;
+            for (const QJsonValue& row : a.value("fill").toArray()) rows << row.toString();
+            QString why;
+            if (!(d.fill = Viewport::fillOf(rows, why))) return error(why);
+            const QString space = a.value("space").toString("world");
+            if (space != "world" && space != "label" && space != "screen") return error("space: world, label or screen");
+            d.space = space == "world" ? Viewport::Drawing::Space::World : space == "label" ? Viewport::Drawing::Space::Label : Viewport::Drawing::Space::Screen;
+            d.scale = float(a.value("scale").toDouble(1));
+            if (!(d.scale > 0) || d.scale > 1000) return error("scale: above 0, at most 1000");
+            if (a.contains("turn")) { // as an object's rotation in the scene file
+                ke::SceneObject turned;
+                turned.rotationDeg = point(a.value("turn"));
+                d.turn = ke::objectRotation(turned);
+            }
+            if (const QJsonArray xy = a.value("place").toArray(); a.contains("place") && xy.size() != 2) return error("place: [x, y], fractions of the view from its left top");
+            else if (xy.size() == 2) d.place = QPointF(xy.at(0).toDouble(), xy.at(1).toDouble());
+            d.object = uint32_t(a.value("object").toInt());
+            if (d.object && !findObject(builder_->graph(), d.object)) return error(QString("no object %1").arg(d.object));
+        }
+        if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
+            return error("nothing to draw: line, segments, points, circle, box, text or fill");
         view_->setDrawing(key, std::move(d));
         return ok({{"key", key}, {"drawings", int(view_->drawings())}});
     });

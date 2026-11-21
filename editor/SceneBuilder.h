@@ -163,6 +163,7 @@ public:
     // A hit's id is what a click there selects (clickTarget): the topmost group of the thing first;
     // with that group selected, the next level down, and so on to the thing itself.
     std::vector<PickHit> pickAll(const Ray& ray);
+    bool objectPoseNow(uint32_t id, ke::Vector3& position, ke::Quaternion& rotation) const; // where it is now: for what the view draws on an object (view_draw's fill)
     uint32_t clickTarget(uint32_t drawnId) const;
     bool drawnSelected(uint32_t drawnId) const; // the thing, or a group or array it belongs to, is selected
     void onEntityClicked(uint32_t id);

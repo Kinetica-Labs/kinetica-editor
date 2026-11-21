@@ -139,6 +139,7 @@ class _Draw:
         draw.label("v", (0, 1.2, 0), "3.2 м/с")
         draw.circle("зона", (0, 0, 0), 0.8)                            # about the world's y; axis="x", or a direction
         draw.box("габарит", (0, 0.5, 0), (1, 1, 2))                    # its twelve edges
+        draw.fill("знак", ["M 0 0 L 1 0 L 0.5 1 Z"], object=cube, at=(0, 0.4, 0), space="label", scale=0.05)  # a filled picture
         draw.clear("путь")                                             # draw.clear(): all of this plugin's
 
     A colour is "#rrggbb" or (r, g, b) from 0 to 1; orange if none."""
@@ -163,6 +164,21 @@ class _Draw:
     def box(self, key, centre, size, colour=None):
         """The twelve edges of a box of `size` (x, y, z) around `centre`, along the world's axes."""
         self._send(key, box={"centre": _xyz([centre])[0], "size": _xyz([size])[0]}, colour=colour)
+
+    def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None):
+        """A flat picture, filled, painted over the scene: `outlines` are rows "M x y L x y C x1 y1 x2 y2 x y Z" in the
+        picture's own units, x right and y up. space "world": on its own plane at `at`, turned by `turn` (Euler degrees),
+        a unit `scale` metres; "label": on the screen at the world's point `at`, facing the viewer; "screen": in the frame
+        at `place` = (x, y), fractions of the view - in both a unit is `scale` of the view's height. `object` (an object
+        of the scene or its id): the picture is its own and goes where it goes; a click on it selects the object."""
+        what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale)}
+        if object is not None:
+            what["object"] = int(getattr(object, "id", object))
+        if turn is not None:
+            what["turn"] = _xyz([turn])[0]
+        if place is not None:
+            what["place"] = [float(place[0]), float(place[1])]
+        self._send(key, colour=colour, **what)
 
     def clear(self, key=None):
         self._send(key, clear=True)
@@ -223,6 +239,26 @@ def _instances(cls, scene):
     rows = scene.ed.component_list(type=f"{_link.get('name', '')}.{meta['name']}")["components"]
     defaults = {k: (list(f.default) if isinstance(f.default, (list, tuple)) else f.default) for k, f in meta["fields"].items()}
     return [(row["id"], {**defaults, **row["values"]}) for row in rows]
+
+
+_changes = []  # the functions of @on_change
+
+
+def on_change(fn):
+    """A function called when a component of this plugin is put on an object, changed or taken off - by a hand in its
+    card, a script, an undo, a scene opened - and once when the plugin starts: ``fn(scene)``. Where a plugin keeps what
+    it draws for its components up to date::
+
+        @on_change
+        def redraw(scene):
+            draw.clear()
+            for id, values in Sign.instances(scene):
+                draw.fill(f"sign/{id}", OUTLINE, object=id, at=(0, 0.4, 0), space="label", scale=values["size"])
+
+    It is not an edit: a change it makes to the scene is no part of an undo step, and one to its own components calls
+    it again. Not called while the scene plays: what a run changed is told after Стоп, if it stayed."""
+    _changes.append(fn)
+    return fn
 
 
 def on_play(fn):
@@ -394,10 +430,12 @@ def _serve(file):
     if os.environ.get("KE_RUN_PORT"):  # the hooks answer on their own wire, taken before the editor is told of the plugin
         _run_wire(scene, int(os.environ["KE_RUN_PORT"]), name, token)
     control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands,
-                 components=components, **({"panel": _panel} if _panel else {}))
+                 components=components, **({"panel": _panel} if _panel else {}), **({"events": ["change"]} if _changes else {}))
     while True:
         call = control.call("plugin_wait", name=name, token=token)
         fn = _commands.get(call["command"], {}).get("fn")
+        if call["command"] == "@change":  # the plugin's components in the scene changed: its @on_change functions
+            fn = lambda scene: [change(scene) for change in _changes] and None  # noqa: E731
         try:
             given = call.get("args", {})
             values = {}  # what the call gave, else the field's default - never a `field` itself

@@ -109,6 +109,15 @@ AABB SceneBuilder::boundsOf(uint32_t id) {
     return objectBounds(graph_, id, [this](const Entity& w) { return editView_.worldBounds(graph_, w); });
 }
 
+// Where an object is now: as the scene has it - in play a camera or a force the world moves, where the last frame has it.
+bool SceneBuilder::objectPoseNow(uint32_t id, Vector3& position, Quaternion& rotation) const {
+    const SceneObject* o = findObject(graph_, id);
+    if (!o) return false;
+    worldPose(graph_, *o, position, rotation);
+    if (const Frame::CameraPose* live = liveCamera(id)) position = live->position, rotation = live->rotation;
+    return true;
+}
+
 Vector3 SceneBuilder::worldPositionOf(uint32_t id) const {
     const SceneObject* o = findObject(graph_, id);
     Vector3 p(0.0f);

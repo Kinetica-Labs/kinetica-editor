@@ -30,6 +30,7 @@
 #include "scene/Assembly.h"
 #include <QJsonArray>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMenu>
 #include <QPushButton>
 #include <QTemporaryDir>
@@ -605,6 +606,112 @@ class Watcher:
 // A plugin's folder made while the editor runs is not seen by itself: plugin_scan starts it. With a folder - a plugins'
 // repository - that folder is added to the ones looked through and remembered (the test puts the settings back);
 // a folder there is not is refused. plugin_list says where plugins are looked for.
+// A filled picture (view_draw's fill), a component's typed line and @on_change, as a plugin of signs or of formulas uses
+// them. The picture belongs to its object: painted over it at its place, moved with it, and a click on it takes the
+// object; one lies in the world in the view's perspective, one stands in the frame. A line typed in the component's card
+// is one edit, and the plugin, told that its components changed, draws anew - as it does after an undo and when the
+// component is taken off.
+void testFillAndChange(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/signs");
+    write(folder + "/signs/plugin.py", R"py(from kinetica.plugin import component, draw, field, on_change
+
+drawn = set()
+
+
+@component(label="Знак")
+class Sign:
+    word = field("a", label="Слово")
+    size = field(5.0, unit="%", range=(1.0, 50.0), label="Размер")
+
+
+@on_change
+def redraw(scene):
+    keys = set()
+    for id, values in Sign.instances(scene):
+        key = f"{id}/{values['word']}"
+        draw.fill(key, ["M -1 -0.5 L 1 -0.5 L 1 0.5 L -1 0.5 Z"], object=id, at=(0, 0.5, 0), space="label", scale=values["size"] / 100)
+        keys.add(key)
+    for gone in drawn - keys:
+        draw.clear(gone)
+    drawn.clear()
+    drawn.update(keys)
+)py");
+    host->start(true);
+    const bool declared = waitUntil([&] { return !b.componentType("signs.sign").isEmpty(); }, 10000);
+    b.newScene();
+    const uint32_t cube = uint32_t(ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 0.5, 0.0}}}).value("id").toInt());
+    v->setFocusBox(AABB(Vector3(-3, -1, -3), Vector3(3, 2, 3)));
+    v->frameScene();
+    b.select(0);
+    pump(100);
+    const QJsonArray plate{"M -1 -0.5 L 1 -0.5 C 1 0 1 0 1 0.5 L -1 0.5 Z"}; // two units wide, one high
+    const auto centre = [](const QPolygonF& box) { return box.boundingRect().center(); };
+    const auto near = [](const QPointF& a, const QPointF& b, double px = 1.5) { return std::hypot(a.x() - b.x(), a.y() - b.y()) < px; };
+    const bool put = ops->runNow("view_draw", {{"key", "агент/знак"}, {"fill", plate}, {"object", int(cube)}, {"at", QJsonArray{0, 0.5, 0}}, {"space", "label"}, {"scale", 0.05}})
+                         .value("ok").toBool();
+    pump(100);
+    const QPolygonF label = v->fillBox("агент/знак");
+    const bool over = put && !label.isEmpty() && near(centre(label), v->pixelOf(Vector3(0, 1.0f, 0))) &&
+                      std::fabs(label.boundingRect().height() - 0.05 * v->height()) < 1.5 && std::fabs(label.boundingRect().width() - 0.1 * v->height()) < 1.5;
+    ops->runNow("scene_move", {{"ids", QJsonArray{int(cube)}}, {"by", QJsonArray{0.5, 0.0, 0.0}}});
+    pump(100);
+    const QPolygonF moved = v->fillBox("агент/знак");
+    const bool went = !moved.isEmpty() && near(centre(moved), v->pixelOf(Vector3(0.5f, 1.0f, 0)));
+    sendMouse(v, QEvent::MouseButtonPress, centre(moved), Qt::LeftButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, centre(moved), Qt::LeftButton, Qt::NoButton);
+    pump(100);
+    const bool taken = b.selectedId() == cube;
+    std::printf("  a label two units wide at 5 %% of a view %d px high: %.0f x %.0f px over its cube %s; the cube moved, it went along %s; a click on it took the cube %s\n",
+                v->height(), label.boundingRect().width(), label.boundingRect().height(), over ? "yes" : "NO", went ? "yes" : "NO", taken ? "yes" : "NO");
+    c.check(over && went && taken, "a filled picture that belongs to an object: painted over it at its size of the view, moved with it, and a click on it takes the object");
+
+    ops->runNow("view_draw", {{"key", "агент/мир"}, {"fill", plate}, {"at", QJsonArray{0, 1.5, 0}}, {"scale", 0.5}});
+    ops->runNow("view_draw", {{"key", "агент/кадр"}, {"fill", plate}, {"space", "screen"}, {"place", QJsonArray{0.25, 0.75}}, {"scale", 0.1}});
+    pump(100);
+    const QPolygonF world = v->fillBox("агент/мир"), frame = v->fillBox("агент/кадр");
+    // In the world a unit is 0.5 m: its box's corners are where the view sees the plane's own, from its left top round.
+    const bool lies = world.size() == 4 && near(world[0], v->pixelOf(Vector3(-0.5f, 1.75f, 0))) && near(world[1], v->pixelOf(Vector3(0.5f, 1.75f, 0))) &&
+                      near(world[2], v->pixelOf(Vector3(0.5f, 1.25f, 0))) && near(world[3], v->pixelOf(Vector3(-0.5f, 1.25f, 0)));
+    const bool stands = !frame.isEmpty() && near(centre(frame), QPointF(0.25 * v->width(), 0.75 * v->height())) && std::fabs(frame.boundingRect().height() - 0.1 * v->height()) < 1.5;
+    const auto refused = [&](QJsonObject call) {
+        call.insert("key", "агент/нет");
+        return !ops->runNow("view_draw", call).value("ok").toBool();
+    };
+    const bool words = refused({{"fill", QJsonArray{"L 0 0 Z"}}}) && refused({{"fill", plate}, {"space", "sky"}}) && refused({{"fill", plate}, {"object", 99999}}) &&
+                       refused({{"fill", plate}, {"scale", 0}}) && !v->hasDrawing("агент/нет");
+    const bool cleared = ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;
+    pump(60);
+    c.check(lies && stands && words && cleared && v->fillBox("агент/мир").isEmpty(),
+            "one in the world lies on its plane in the view's perspective, one on the screen stands at its place of the frame; a row that is no outline, a space "
+            "that is none, an object that is not there and a scale of 0 are refused");
+
+    ops->runNow("component_set", {{"id", int(cube)}, {"type", "signs.sign"}});
+    const QString first = QString("signs/%1/a").arg(cube), second = QString("signs/%1/bc").arg(cube);
+    const bool drew = declared && waitUntil([&] { return v->hasDrawing(first); }, 6000);
+    b.select(0), b.select(cube);
+    pump(150);
+    auto* line = w.findChild<QLineEdit*>("pluginField:word");
+    const size_t steps = b.undoTaken();
+    if (line) {
+        line->setText("bc");
+        line->setModified(true); // as typed
+        emit line->editingFinished();
+    }
+    const bool typed = line && waitUntil([&] { return v->hasDrawing(second) && !v->hasDrawing(first); }, 6000);
+    const bool one = b.undoTaken() == steps + 1 && ops->runNow("component_list", {{"type", "signs.sign"}}).value("components").toArray().at(0).toObject()
+                                                           .value("values").toObject().value("word").toString() == "bc";
+    b.undoAction()->trigger();
+    const bool undone = waitUntil([&] { return v->hasDrawing(first) && !v->hasDrawing(second); }, 6000);
+    ops->runNow("component_remove", {{"id", int(cube)}, {"type", "signs.sign"}});
+    const bool off = waitUntil([&] { return !v->hasDrawing(first); }, 6000);
+    std::printf("  @on_change: drawn at its start %s; a line typed in the card - redrawn %s, one edit %s; after an undo %s; the component off, its picture off %s\n",
+                drew ? "yes" : "NO", typed ? "yes" : "NO", one ? "yes" : "NO", undone ? "yes" : "NO", off ? "yes" : "NO");
+    c.check(drew && typed && one && undone && off, "a line typed in a plugin component's card is one edit, and the plugin's @on_change draws anew after it, "
+                                                   "after an undo and when the component is taken off");
+    QDir(folder + "/signs").removeRecursively();
+    waitUntil([&] { return b.componentType("signs.sign").isEmpty(); }, 5000);
+}
+
 void testScan(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
     const char* hello = "from kinetica.plugin import command\n\n\n@command(label=\"Привет\")\ndef hello(scene):\n    return {\"said\": True}\n";
     QDir().mkpath(folder + "/late");
@@ -854,6 +961,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
     testGizmos(c, w, b, v, ops, host, dir.path());
+    testFillAndChange(c, w, b, v, ops, host, dir.path());
     testScan(c, w, ops, host, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;

@@ -128,6 +128,11 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
                        std::function<quint16()> apiPort, std::function<void(PluginPanel*, bool)> place)
     : QObject(window), ops_(ops), builder_(builder), window_(window), menu_(menu), hooks_(hooks), apiPort_(std::move(apiPort)),
       place_(std::move(place)), watcher_(new QFileSystemWatcher(this)) {
+    changeTimer_ = new QTimer(this);
+    changeTimer_->setSingleShot(true);
+    changeTimer_->setInterval(120);
+    connect(changeTimer_, &QTimer::timeout, this, &PluginHost::componentsChanged);
+    connect(builder_, &SceneBuilder::editSnapshot, changeTimer_, qOverload<>(&QTimer::start)); // every edit of the scene redraws it
     connect(hooks_, &RunHooks::drew, this, &PluginHost::hookDrew);
     connect(hooks_, &RunHooks::failed, this, &PluginHost::hookFailed);
     connect(hooks_, &RunHooks::showed, this, &PluginHost::hookShowed);
@@ -467,6 +472,56 @@ void PluginHost::hookFailed(const QString& name, const QString& event, const QSt
     notice(name, uiText("Kinetica", "Плагин «") + name + uiText("Kinetica", "»: ошибка в on_") + event + " — " + error);
 }
 
+namespace {
+
+// The plugin's components in the scene, in one text: whose they are and what they hold.
+QByteArray componentsOf(const ke::SceneGraph& g, const QString& plugin) {
+    const std::string prefix = plugin.toStdString() + ".";
+    std::string text;
+    ke::eachObjectList(g, [&](const auto& objects) {
+        for (const auto& o : objects)
+            for (const ke::PluginComponent& c : o.components) {
+                if (c.type.rfind(prefix, 0) != 0) continue;
+                text += std::to_string(o.id) + " " + c.type;
+                for (const auto& [key, word] : c.values) text += " " + key + "=" + word;
+                text += "\n";
+            }
+    });
+    return QByteArray::fromStdString(text);
+}
+
+} // namespace
+
+// @on_change (kinetica.plugin): a plugin that asked is told when its components in the scene are no longer what it was
+// last told of - one put on an object, changed or taken off, by a hand, a script, an undo, a scene opened - and once
+// when it starts. Told as a call of its own, «@change», that makes no undo step. Not while the scene plays: what a run
+// changed is told after Stop, if it stayed.
+void PluginHost::componentsChanged() {
+    if (!builder_->editing()) return;
+    for (const auto& p : plugins_) {
+        if (!p->watches || !p->process || p->changeOpen) continue;
+        const QByteArray now = componentsOf(builder_->graph(), p->name);
+        if (now == p->componentsSeen) continue;
+        p->componentsSeen = now;
+        p->changeOpen = true;
+        const int id = ++nextCall_;
+        const auto answered = [this, name = p->name](const QJsonObject& r) {
+            Plugin* q = find(name);
+            if (!q) return;
+            q->changeOpen = false;
+            if (!r.value("ok").toBool()) emit output(name, "on_change: " + r.value("error").toString());
+            changeTimer_->start(); // what changed meanwhile
+        };
+        p->open[id] = answered;
+        p->queued.push_back({id, {"@change", {}}});
+        deliver(*p);
+        QTimer::singleShot(30000, this, [this, name = p->name, id, answered] { // it never answered: the next change is told all the same
+            Plugin* q = find(name);
+            if (q && q->open.erase(id)) answered(EditorOps::error(uiText("Kinetica", "плагин не ответил за 30 с")));
+        });
+    }
+}
+
 void PluginHost::deliver(Plugin& p) {
     if (!p.waiting || p.queued.empty()) return;
     const auto [id, what] = p.queued.front();
@@ -620,7 +675,7 @@ void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
                                    "(python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
-                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), components?: [{}]}",
+                "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), components?: [{}], events?: [str] (change: it has an @on_change)}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {
         QJsonObject refusal;
         Plugin* p = authorised(a, refusal);
@@ -713,6 +768,8 @@ void PluginHost::addOps() {
             place_(p->panel, true);
         }
         p->state = "работает", p->error.clear();
+        p->watches = a.value("events").toArray().contains("change"), p->changeOpen = false, p->componentsSeen = "?"; // told once at its start
+        changeTimer_->start();
         if (noticeFor_ == p->name) notice(p->name, {}); // back: its fall is no news any more
         if (p->reloaded) {
             p->reloaded = false;

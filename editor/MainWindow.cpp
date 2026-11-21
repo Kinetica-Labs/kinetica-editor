@@ -501,6 +501,7 @@ void MainWindow::connectSceneBuilder() {
     connect(view_, &Viewport::cloneDragStarted, builder_, &SceneBuilder::onCloneDragStarted);
     connect(view_, &Viewport::cloneDragFinished, this, &MainWindow::showClonePopover);
     connect(view_, &Viewport::editContextMenu, this, &MainWindow::showEditContextMenu);
+    view_->setObjectPose([this](uint32_t id, ke::Vector3& position, ke::Quaternion& rotation) { return builder_->objectPoseNow(id, position, rotation); });
     // What the mouse ray hits: the authored shapes in edit mode, the simulated bodies on pause.
     view_->setEditPicker([this](const Ray& ray) {
         if (builder_->editing()) return builder_->pickAll(ray);

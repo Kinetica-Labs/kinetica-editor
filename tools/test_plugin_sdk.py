@@ -84,6 +84,26 @@ class PluginSdk(unittest.TestCase):
                                  {"circle": {"centre": [0.0, 0.0, 0.0], "radius": 1.0, "axis": [1.0, 1.0, 0.0]}},
                                  {"box": {"centre": [0.0, 0.5, 0.0], "size": [1.0, 1.0, 2.0]}}])
 
+    def test_a_filled_picture_and_the_change_hook(self):
+        drawn = []  # the outlines, the space and the object are the editor's to draw (view_draw): the SDK passes the words on
+        send, plugin._Draw._send = plugin._Draw._send, lambda self, key, colour=None, **what: drawn.append((key, colour, what))
+        try:
+            plugin.draw.fill("sign", ["M 0 0 L 1 0 L 0 1 Z"], object=7, at=(0, 0.4, 0), space="label", scale=0.05, colour="#ffcc00")
+            plugin.draw.fill("board", ["M 0 0 L 1 0 L 0 1 Z"], turn=(0, 90, 0))
+            plugin.draw.fill("title", ["M 0 0 L 1 0 L 0 1 Z"], space="screen", place=(0.5, 0.1), scale=0.06)
+        finally:
+            plugin._Draw._send = send
+        row = ["M 0 0 L 1 0 L 0 1 Z"]
+        self.assertEqual(drawn, [("sign", "#ffcc00", {"fill": row, "at": [0.0, 0.4, 0.0], "space": "label", "scale": 0.05, "object": 7}),
+                                 ("board", None, {"fill": row, "at": [0.0, 0.0, 0.0], "space": "world", "scale": 1.0, "turn": [0.0, 90.0, 0.0]}),
+                                 ("title", None, {"fill": row, "at": [0.0, 0.0, 0.0], "space": "screen", "scale": 0.06, "place": [0.5, 0.1]})])
+        before = list(plugin._changes)
+        try:
+            hook = plugin.on_change(lambda scene: None)
+            self.assertIs(plugin._changes[-1], hook)  # told when the plugin's components change, and once at its start
+        finally:
+            plugin._changes[:] = before
+
     def test_chart_is_data(self):
         self.assertEqual(plugin._panel["children"], [{"kind": "chart", "title": "Сила", "lines": [{"name": "pushed", "label": "по x"}], "unit": "Н"}])
         self.assertEqual(ui.chart("Углы", ["a", "b"])["lines"], [{"name": "a", "label": "a"}, {"name": "b", "label": "b"}])

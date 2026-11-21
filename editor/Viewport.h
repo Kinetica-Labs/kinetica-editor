@@ -34,6 +34,8 @@
 #include <QOpenGLShaderProgram>
 #include <QOpenGLVertexArrayObject>
 #include <QOpenGLWidget>
+#include <QPainterPath>
+#include <QPolygonF>
 #include <QVector3D>
 
 #include <functional>
@@ -119,6 +121,10 @@ public:
     void setOpensFile(std::function<bool(const QString&)> opens) { opensFile_ = std::move(opens); } // which dropped files are fileDropped
     // A picture over the view (view_draw): a plugin's or an agent's lines, points and words, in world metres, by key - the
     // same key again replaces it. Drawn while the scene plays: gone at Stop, as everything of a run.
+    struct Fill { // a flat picture's closed outlines (ViewportFills.cpp)
+        std::vector<QPainterPath> parts; // y down, in thousandths of the picture's unit
+        QRectF box;                      // around them all
+    };
     struct Drawing {
         std::vector<float> strip, segments; // four floats a point (lines.vert): a line through them, or pairs
         std::vector<ke::Vector3> points;
@@ -127,7 +133,25 @@ public:
         QColor colour{255, 146, 40}; // a plugin's orange
         float size = 6;
         bool play = false; // drawn while the scene ran (played or paused)
+        // A flat picture, filled (ViewportFills.cpp): closed outlines in its own units, x right and y up, put by its
+        // space - World: on its own plane at `at`, turned by `turn`, a unit `scale` metres; Label: on the screen at the
+        // world's point `at`, facing the viewer; Screen: in the frame at `place` (fractions of the view from its left
+        // top); in both a unit is `scale` of the view's height. `object`: the picture is that object's and goes where it
+        // goes - in the world `at` and `turn` are in the object's frame, a label's `at` is from the object's place along
+        // the world's axes - and a click on it takes the object.
+        enum class Space { World, Label, Screen };
+        std::shared_ptr<const Fill> fill;
+        Space space = Space::World;
+        ke::Quaternion turn;
+        QPointF place{0.5, 0.5};
+        float scale = 1;
+        uint32_t object = 0;
     };
+    // view_draw's fill - rows of "M x y L x y C x1 y1 x2 y2 x y Z" - as a Fill (null and `error`: a row that is none).
+    static std::shared_ptr<const Fill> fillOf(const QStringList& rows, QString& error);
+    QPolygonF fillBox(const QString& key) const; // where the last paint drew the key's filled picture: its box's corners (empty: not in the view)
+    // Where an object that is no body of the frame is now (a light, a group): the scene builder's answer.
+    void setObjectPose(std::function<bool(uint32_t, ke::Vector3&, ke::Quaternion&)> pose) { objectPose_ = std::move(pose); }
     void setDrawing(const QString& key, Drawing d);
     int clearDrawings(const QString& prefix); // every key that starts so ("": all); how many went
     void clearPlayDrawings();                 // Stop: what was drawn while the scene ran goes with the run
@@ -187,7 +211,7 @@ public:
     bool createMode() const { return createMode_; }
     const CreateWhat& createWhat() const { return createWhat_; }
     // Joints drawn with both their frames and the gap between them (the solver's error).
-    std::vector<PickHit> pickAll(const Ray& ray) const { return picker_ ? picker_(ray) : std::vector<PickHit>(); }
+    std::vector<PickHit> pickAll(const Ray& ray) const; // the picker's hits, the object of a filled picture under the ray before them (ViewportFills.cpp)
     uint32_t pickEntity(const Ray& ray, ke::Vector3* hit = nullptr) const;
     // A click: the nearest object under the cursor; a second click on the same spot (or Alt+click)
     // takes the next one behind it along the ray, and so on round. Emits entityClicked.
@@ -423,6 +447,11 @@ private:
     void drawToolDrag(class QPainter& p);
     void drawOverlayLines(const QMatrix4x4& vp);
     void drawOverlayMarks(QPainter& p);
+    void drawOverlayFills(QPainter& p); // ViewportFills.cpp
+    bool objectPose(uint32_t id, ke::Vector3& position, ke::Quaternion& rotation) const;
+    struct FillDrawn { QString key; uint32_t object; QPolygonF box; ke::Vector3 anchor; };
+    std::vector<FillDrawn> fillsDrawn_; // by the last paint, in the order drawn
+    std::function<bool(uint32_t, ke::Vector3&, ke::Quaternion&)> objectPose_;
     QString draggedImage_;                  // an image file being dragged over the view
     QString draggedFile_;                   // ... or a file the window opens
     std::function<bool(const QString&)> opensFile_;

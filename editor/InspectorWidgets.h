@@ -145,6 +145,7 @@ public:
     }
     // A slider of whole steps, its value in words beside it; let go within `detent` of 0, it is 0.
     FieldForm& slider(const QString& label, int min, int max, Get get, Set set, int detent = 0);
+    FieldForm& text(const QString& label, Text get, std::function<void(const QString&)> set); // a line typed: set on Enter or when the field is left
     FieldForm& note(Text text); // a line of words, word-wrapped
     FieldForm& unit(std::function<Unit()> unit);
     FieldForm& unit(const QString& suffix, double scale = 1); // the same for every thing
@@ -170,6 +171,7 @@ private:
         std::function<Unit()> unit;
         std::function<bool()> shown;
         Text text;
+        Text words; // a typed line's own text
         std::function<std::vector<Option>()> options;
         std::vector<double> values; // a choice's items' values as filled
         std::vector<double> read() const; // what the thing holds: none, one number or three

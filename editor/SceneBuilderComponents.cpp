@@ -193,9 +193,12 @@ void SceneBuilder::fillPluginCards() {
                 const bool whole = kind == "integer";
                 form->number(label, lo, hi, whole ? 1.0 : std::max(0.001, (hi - lo) / 100.0), whole ? 0 : 3, [now] { return now.toDouble(); },
                              [pending, name](double v) { pending->insert(name, v); });
+            } else if (kind == "string") {
+                form->text(label, [now] { return now.toVariant().toString(); }, [pending, name](const QString& typed) { pending->insert(name, typed); });
             } else {
                 form->note([label, now] { return label + ": " + now.toVariant().toString(); });
             }
+            form->name("pluginField:" + name);
         }
         form->fill();
         card->body()->addWidget(form);
