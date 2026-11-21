@@ -79,6 +79,7 @@ add_library(kecore STATIC
   src/sim/Simulation.h     src/sim/Simulation.cpp
   src/sim/WorldOps.h       src/sim/WorldOps.cpp
   src/api/Scene.h          src/api/Scene.cpp
+  src/api/Wire.h           src/api/Wire.cpp
 )
 # ke/Config.h: the options that change the core's types, one header for the library and its programs.
 configure_file(src/Config.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/ke/Config.h)
@@ -237,7 +238,7 @@ if(KE_TESTS)
     tests/ArrayTests.cpp
     tests/SceneActionTests.cpp
     tests/AssemblyTests.cpp
-    tests/WorldOpsTests.cpp tests/SceneApiTests.cpp
+    tests/WorldOpsTests.cpp tests/SceneApiTests.cpp tests/WireTests.cpp
   )
   target_link_libraries(ke_tests PRIVATE kecore)
   target_compile_definitions(ke_tests PRIVATE KE_EXAMPLES="${CMAKE_CURRENT_SOURCE_DIR}/examples"

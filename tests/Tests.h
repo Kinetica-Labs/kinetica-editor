@@ -142,3 +142,6 @@ void testWorldOpsImpulse();
 void testWorldOpsSensorsAndControllers();
 void testWorldOpsMeasure();
 void testWorldOpsLiveState();
+// WireTests.cpp
+void testWireTranscript();
+void testWireFraming();

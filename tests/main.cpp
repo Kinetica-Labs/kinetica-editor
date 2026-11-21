@@ -29,6 +29,8 @@ int main() {
     run("scene api: the words of this host's refusals", testSceneApiRefusals);
     run("scene api: files - a save, an open in another host, the errors in words", testSceneApiFiles);
     run("scene api: the same script on two fresh scenes says the same", testSceneApiTwoScenesAgree);
+    run("wire: the raw lines of the recording, answered as the window answered them", testWireTranscript);
+    run("wire: order, blank lines, a flush per answer, a line of a megabyte", testWireFraming);
     run("probe: channels, counters, timers, debug drawing", testProbe);
     run("core: units as data (UCUM) and fields as data - their schema, their check, a key's suffix against its unit", testUnitsAndFields);
     run("runtime: bounded pipeline admission", testRuntimePolicyBounds);
