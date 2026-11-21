@@ -141,6 +141,15 @@ void RobotWorld::build(PhysicsWorld& physics) {
         d.position = e.position, d.rotation = entityRotation(e);
         d.velocity = e.rigid.velocity, d.angularVelocity = e.rigid.angularVelocity;
         d.density = e.rigid.density;
+        if (e.rigid.mass > 0) d.massGiven = true, d.mass = e.rigid.mass;
+        if (e.rigid.centerGiven) d.centreGiven = true, d.centre = e.rigid.centerOfMass;
+        if (e.rigid.inertiaGiven) {
+            const Vector3& i = e.rigid.inertiaDiagonal;
+            const Vector3& p = e.rigid.inertiaProducts;
+            d.inertiaGiven = true;
+            d.inertia.m[0][0] = i.x, d.inertia.m[1][1] = i.y, d.inertia.m[2][2] = i.z;
+            d.inertia.m[0][1] = d.inertia.m[1][0] = p.x, d.inertia.m[0][2] = d.inertia.m[2][0] = p.y, d.inertia.m[1][2] = d.inertia.m[2][1] = p.z;
+        }
         d.linearDamping = p.linearDamping, d.angularDamping = p.angularDamping;
         if (const auto g = groups.find(e.id); g != groups.end()) d.group = g->second;
         const std::shared_ptr<const TriMesh> mesh = meshOf(e);

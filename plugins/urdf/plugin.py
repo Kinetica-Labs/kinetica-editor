@@ -235,7 +235,7 @@ def load(scene, path):
                  f"  object id 0 visible 1 locked 0 parent {group}\n"
                  f"  shape {shape['kind']}{file} size {' '.join(map(word, shape['size']))} position {' '.join(map(word, where))} "
                  f"rotation {' '.join(map(word, turn_words))} color {word(r)} {word(g)} {word(b)}\n"
-                 f"  rigid density {word(density)} friction 0.8 restitution 0.1 fixed {int(fixed)}\n"
+                 f"  rigid density {word(density)} friction 0.8 restitution 0.1 fixed {int(fixed)}{f' mass {word(mass)}' if mass > 0 else ''}\n"
                  f"  collider kind {'hull' if shape['kind'] == 'mesh' else 'auto'} fit 1\n"
                  "end\n")
         entity[name] = ed.scene_put(block=block)["id"]

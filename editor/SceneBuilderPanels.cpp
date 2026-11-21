@@ -378,6 +378,8 @@ void SceneBuilder::buildMaterialCards(QVBoxLayout* col) {
     rigid->body()->addWidget(noCollider_);
     RigidRole* r = &shapeDraft_.rigid;
     shapeFields(rigid, &SceneBuilder::rigidFields_)->number(uiText("Kinetica", "Плотность, кг/м³"), 1, 30000, 50, 0, r->density).name("rigidDensity")
+        .number(uiText("Kinetica", "Масса, кг"), 0, 100000, 0.1, 3, r->mass).name("rigidMass")
+        .tip(uiText("Kinetica", "0 — масса из плотности и объёма формы. Своё число — тело весит столько, какой бы ни была форма."))
         .number(uiText("Kinetica", "Трение"), 0, 2, 0.05, 2, r->friction)
         .number(uiText("Kinetica", "Упругость удара"), 0, 1, 0.05, 2, r->restitution)
         .choice(uiText("Kinetica", "Тело"), {uiText("Kinetica", "динамическое"), uiText("Kinetica", "кинематическое"), uiText("Kinetica", "статическое")},

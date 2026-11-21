@@ -108,12 +108,16 @@ public:
                 b3DestroyBody(id);
                 return -1;
             }
-        if (body.massGiven && body.type == BodyDesc::Type::Dynamic) {
-            if (!(body.mass > 0)) return b3DestroyBody(id), error = "the mass is not positive", -1;
-            b3MassData m;
-            m.mass = float(body.mass);
-            m.center = b3v(body.centre);
-            m.inertia = {b3v(body.inertia.col(0)), b3v(body.inertia.col(1)), b3v(body.inertia.col(2))};
+        if ((body.massGiven || body.centreGiven || body.inertiaGiven) && body.type == BodyDesc::Type::Dynamic) {
+            if (body.massGiven && !(body.mass > 0)) return b3DestroyBody(id), error = "the mass is not positive", -1;
+            b3MassData m = b3Body_GetMassData(id); // the shapes' own at the density: what is not given stays theirs
+            if (body.massGiven) {
+                const float scale = m.mass > 0 ? float(body.mass) / m.mass : 1.0f; // the same shape, heavier or lighter
+                if (!body.inertiaGiven) m.inertia = {b3MulSV(scale, m.inertia.cx), b3MulSV(scale, m.inertia.cy), b3MulSV(scale, m.inertia.cz)};
+                m.mass = float(body.mass);
+            }
+            if (body.centreGiven) m.center = b3v(body.centre);
+            if (body.inertiaGiven) m.inertia = {b3v(body.inertia.col(0)), b3v(body.inertia.col(1)), b3v(body.inertia.col(2))};
             b3Body_SetMassData(id, m);
         }
         bodies_.push_back(id);

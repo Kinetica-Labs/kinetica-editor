@@ -326,8 +326,12 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     if (e.rigid.enabled) {
         o << "  rigid density " << num(e.rigid.density) << " friction " << num(e.rigid.friction) << " restitution "
           << num(e.rigid.restitution) << " fixed " << (e.rigid.fixed ? 1 : 0) << " velocity " << vec(e.rigid.velocity)
-          << " spin " << vec(e.rigid.angularVelocity) << (e.rigid.kinematic ? " kinematic 1" : "") << "\n"; // written when set: a file
-                                                                                          // without one reads everywhere
+          << " spin " << vec(e.rigid.angularVelocity) << (e.rigid.kinematic ? " kinematic 1" : ""); // written when set: a file
+                                                                                  // without one reads everywhere - as the next three
+        if (e.rigid.mass > 0) o << " mass " << num(e.rigid.mass);
+        if (e.rigid.centerGiven) o << " center_of_mass " << vec(e.rigid.centerOfMass);
+        if (e.rigid.inertiaGiven) o << " inertia " << vec(e.rigid.inertiaDiagonal) << " " << vec(e.rigid.inertiaProducts);
+        o << "\n";
     }
     if (e.collider.enabled) saveCollider(o, e.collider);
     saveComponents(o, e.components);
@@ -531,6 +535,18 @@ static bool readShape(LineReader& r, Entity& e, const std::string& shapeName, st
     return true;
 }
 
+// An inertia tensor a body can have: positive about each axis, no axis heavier than the other two together (a tensor
+// of a real distribution of mass is so), the products within what the diagonal allows.
+static bool inertiaOk(const RigidRole& r) {
+    const Vector3& d = r.inertiaDiagonal;
+    const Vector3& p = r.inertiaProducts;
+    for (int k = 0; k < 3; ++k)
+        if (!std::isfinite(d[k]) || !std::isfinite(p[k]) || !(d[k] > 0)) return false;
+    const Real slack = 1.000001_r;
+    return d.x <= (d.y + d.z) * slack && d.y <= (d.x + d.z) * slack && d.z <= (d.x + d.y) * slack && p.x * p.x <= d.x * d.y && p.y * p.y <= d.x * d.z &&
+           p.z * p.z <= d.y * d.z;
+}
+
 // One "key value(s)" of a role line; false if the key is not one of that role's.
 static bool readTextureKey(const std::string& k, LineReader& r, SurfaceTexture& t) {
     if (k == "file") return r.text(t.file);
@@ -560,7 +576,11 @@ static bool readRoleKey(const std::string& role, const std::string& k, LineReade
         return k == "density" ? r.number(e.rigid.density) : k == "friction" ? r.number(e.rigid.friction)
              : k == "restitution" ? r.number(e.rigid.restitution) : k == "fixed" ? r.flag(e.rigid.fixed)
              : k == "velocity" ? r.vector(e.rigid.velocity) : k == "spin" ? r.vector(e.rigid.angularVelocity)
-             : k == "kinematic" ? r.flag(e.rigid.kinematic) : false;
+             : k == "kinematic" ? r.flag(e.rigid.kinematic)
+             : k == "mass" ? r.number(e.rigid.mass) && std::isfinite(e.rigid.mass) && e.rigid.mass >= 0
+             : k == "center_of_mass" ? (e.rigid.centerGiven = r.vector(e.rigid.centerOfMass))
+             : k == "inertia" ? (e.rigid.inertiaGiven = r.vector(e.rigid.inertiaDiagonal) && r.vector(e.rigid.inertiaProducts) && inertiaOk(e.rigid))
+             : false;
     }
     if (role == "collider") {
         ColliderRole& c = e.collider;

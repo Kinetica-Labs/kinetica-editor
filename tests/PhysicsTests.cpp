@@ -110,7 +110,7 @@ void testPhysicsTorque() {
     const int computed = body(*w, {0, 0, 0}, {box({0.1_r, 0.2_r, 0.3_r})});
     BodyDesc d;
     d.position = {2, 0, 0};
-    d.massGiven = true, d.mass = 2;
+    d.massGiven = d.centreGiven = d.inertiaGiven = true, d.mass = 2;
     d.inertia.m[0][0] = 0.5_r, d.inertia.m[1][1] = 0.7_r, d.inertia.m[2][2] = 0.9_r;
     std::string error;
     const int given = w->addBody(d, {box({0.1_r, 0.1_r, 0.1_r})}, error);

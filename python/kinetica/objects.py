@@ -121,6 +121,12 @@ class Body(SceneObject):
                     lambda self, v: self._set("shape", "size", v, f"{self.ref}.size = {tuple(v)}"))
     fixed = property(lambda self: self._get("rigid", "fixed") == 1,
                      lambda self, v: self._set("rigid", "fixed", int(bool(v)), f"{self.ref}.fixed = {bool(v)}"))
+    mass = property(lambda self: self._get("rigid", "mass") or 0.0,
+                    lambda self, v: self._set("rigid", "mass", float(v), f"{self.ref}.mass = {float(v)}"),
+                    doc="Its mass given, kg (0: the shape's volume times the density)")
+    center_of_mass = property(lambda self: self._get("rigid", "center_of_mass", 3),
+                              lambda self, v: self._set("rigid", "center_of_mass", [float(x) for x in v], f"{self.ref}.center_of_mass = {tuple(v)}"),
+                              doc="Its centre of mass given, in its own frame, m (None: the shape's own)")
     kinematic = property(lambda self: self._get("rigid", "kinematic") == 1,
                          lambda self, v: self._set("rigid", "kinematic", int(bool(v)), f"{self.ref}.kinematic = {bool(v)}"),
                          doc="It moves as its velocity and spin say and pushes what it meets; nothing pushes it")

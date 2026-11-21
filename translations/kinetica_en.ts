@@ -4442,6 +4442,16 @@ or create one from the toolbar.</translation>
         <translation>Kinematic</translation>
     </message>
     <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
+        <source>Масса, кг</source>
+        <translation>Mass, kg</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
+        <source>0 — масса из плотности и объёма формы. Своё число — тело весит столько, какой бы ни была форма.</source>
+        <translation>0: the mass comes from the density and the shape's volume. Your own number: the body weighs that much, whatever its shape.</translation>
+    </message>
+    <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="384"/>
         <source>Вращение, рад/с</source>
         <translation>Angular Velocity, rad/s</translation>

@@ -59,6 +59,14 @@ struct ColliderRole {
 struct RigidRole {
     bool enabled = false;
     Real density = 500;        // kg/m^3
+    // Given instead of what the shape and the density make - an imported link's, a part weighed on scales; each by
+    // itself, what is not given stays the shape's own:
+    Real mass = 0;              // kg; 0: the shape's volume times the density (the shape's inertia is scaled with a given mass)
+    bool centerGiven = false;   // the centre of mass given:
+    Vector3 centerOfMass{0.0_r}; //   in the body's own frame, m
+    bool inertiaGiven = false;  // the inertia tensor given, about the centre of mass in the body's axes, kg m^2:
+    Vector3 inertiaDiagonal{0.0_r}; //   ixx iyy izz
+    Vector3 inertiaProducts{0.0_r}; //   ixy ixz iyz
     Real friction = 0.5_r;      // kinetic friction coefficient
     Real restitution = 0.2_r;   // bounciness, 0..1
     bool fixed = false;         // static: does not move (a wall, a table)

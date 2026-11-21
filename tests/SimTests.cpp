@@ -264,6 +264,46 @@ void testSimKinematicBodyLeads() {
           "the word is written for a kinematic body only");
 }
 
+// A body's mass, centre of mass and inertia given in the scene instead of what its shape and density make: the
+// engine has them; a mass alone scales the shape's own inertia; a centre of mass put beyond the base tips the box
+// over; the file keeps the words and refuses a tensor no body can have.
+void testSimGivenMass() {
+    SceneGraph g;
+    Entity heavy = solid(1, "Гиря", Vector3(0.2_r), {0, 2, 0}, false); // a 0.2 m cube: 4 kg at 500 kg/m^3
+    heavy.rigid.mass = 10;
+    Entity wheel = solid(2, "Маховик", Vector3(0.2_r), {1, 2, 0}, false);
+    wheel.rigid.mass = 3, wheel.rigid.inertiaGiven = true, wheel.rigid.inertiaDiagonal = {0.5_r, 0.7_r, 0.9_r};
+    Entity tipped = solid(3, "Неваляшка наоборот", Vector3(0.2_r), {2, 0.1_r, 0}, false);
+    tipped.rigid.centerGiven = true, tipped.rigid.centerOfMass = {0.3_r, 0, 0}; // 0.2 m out past the edge of its base
+    g.entities.push_back(heavy), g.entities.push_back(wheel), g.entities.push_back(tipped);
+    g.entities.push_back(solid(4, "Ящик", Vector3(0.2_r), {3, 0.1_r, 0}, false));
+    Simulation s;
+    s.load(g);
+    const BodyState a = s.physics()->state(s.robot()->bodyOf(1)), b = s.physics()->state(s.robot()->bodyOf(2));
+    const Real cube = 10 * 0.2_r * 0.2_r / 6; // m s^2 / 6 about each axis
+    std::printf("  given 10 kg: mass %.3f kg, inertia %.4f (a 10 kg cube: %.4f); given 3 kg and 0.5 0.7 0.9: %.2f kg, %.2f %.2f %.2f\n", double(a.mass),
+                double(a.inertia.m[0][0]), double(cube), double(b.mass), double(b.inertia.m[0][0]), double(b.inertia.m[1][1]), double(b.inertia.m[2][2]));
+    CHECK(std::fabs(a.mass - 10) < 1e-4_r && std::fabs(a.inertia.m[0][0] / cube - 1) < 0.01_r, "a given mass is the body's, the shape's inertia scaled with it");
+    CHECK(std::fabs(b.mass - 3) < 1e-4_r && std::fabs(b.inertia.m[0][0] - 0.5_r) < 1e-4_r && std::fabs(b.inertia.m[1][1] - 0.7_r) < 1e-4_r &&
+          std::fabs(b.inertia.m[2][2] - 0.9_r) < 1e-4_r, "a given inertia is the body's");
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    const BodyState over = s.physics()->state(s.robot()->bodyOf(3)), still = s.physics()->state(s.robot()->bodyOf(4));
+    std::printf("  after 1 s: the box whose centre of mass hangs past its base has turned (w %.3f), the plain one stands (w %.4f)\n",
+                double(over.rotation.w), double(still.rotation.w));
+    CHECK(std::fabs(over.rotation.w) < 0.95_r && std::fabs(still.rotation.w) > 0.9999_r, "a centre of mass beyond the base tips the box over; a plain box stands");
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    CHECK(back.load(text, error) && back.save() == text && back.entities[0].rigid.mass == 10 && back.entities[1].rigid.inertiaGiven &&
+          back.entities[2].rigid.centerGiven && !back.entities[3].rigid.centerGiven, "mass, center_of_mass and inertia come back from the file: %s", error.c_str());
+    CHECK(text.find("mass 10") != std::string::npos && text.find("center_of_mass 0.3 0 0") != std::string::npos &&
+          text.find("inertia 0.5 0.7 0.9 0 0 0") != std::string::npos && SceneGraph().save().find("mass") == std::string::npos,
+          "the words are written for the bodies that have them only");
+    const std::string head = "entity \"X\"\n  object id 9\n  rigid density 500 ";
+    CHECK(!back.load(head + "inertia 1 0.1 0.1 0 0 0\nend\n", error) && !back.load(head + "inertia 0.5 0.7 -0.9 0 0 0\nend\n", error) &&
+          !back.load(head + "mass -2\nend\n", error), "an inertia no body can have, and a mass below zero, are refused");
+}
+
 void testSimServoHoldsAndDroops() {
     JointDrive d;
     d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;

@@ -41,6 +41,7 @@ int main() {
     run("world: bodies alone are one step of the engine a frame, a servo's world a step a substep", testSimBodiesAloneAreOneEngineStep);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
     run("sim: a kinematic body goes as its velocity says and pushes what it meets", testSimKinematicBodyLeads);
+    run("sim: a body's given mass, centre of mass and inertia reach the engine", testSimGivenMass);
     run("world: a DC motor spins up to U / K with the time constant I R / K^2", testSimDcMotorSpinsUp);
     run("world: a battery drives a motor through its driver - charge d J w / K, speed d E / K, a spent pack opens", testSimBatteryDrivesMotor);
     run("world: assembly_actuator joins two drawn shapes with a tuned servo - holds level within a degree, turns to its target", testSimActuatorHolds);

@@ -34,8 +34,8 @@ struct ShapeDesc {
 };
 
 // A body: static (the floor, a table), kinematic (moved by hand) or dynamic. Its mass is the shapes'
-// volume times `density`, or - an imported link's - given: the mass, the centre of mass in the body's
-// frame and the inertia tensor about it in the body's axes.
+// volume times `density`, or given, each part by itself: the mass (without a given inertia the shapes' own is
+// scaled with it), the centre of mass in the body's frame, the inertia tensor about it in the body's axes.
 struct BodyDesc {
     enum class Type { Static, Kinematic, Dynamic };
     Type type = Type::Dynamic;
@@ -43,10 +43,10 @@ struct BodyDesc {
     Quaternion rotation;
     Vector3 velocity{0.0_r}, angularVelocity{0.0_r}; // of the centre of mass; world
     Real density = 1000;                              // kg/m^3
-    bool massGiven = false;
-    Real mass = 0;
-    Vector3 centre{0.0_r};
-    Matrix3x3 inertia = Matrix3x3::identity();
+    bool massGiven = false, centreGiven = false, inertiaGiven = false;
+    Real mass = 0;                                    // kg
+    Vector3 centre{0.0_r};                            // the centre of mass, the body's frame
+    Matrix3x3 inertia = Matrix3x3::identity();        // about the centre of mass, the body's axes, kg m^2
     Real linearDamping = 0, angularDamping = 0;       // 1/s
     int group = 0;                                    // > 0: the bodies of one group never touch each other (one robot's links)
 };
