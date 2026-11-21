@@ -477,6 +477,9 @@ void testJointTies(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
                                                                     {"axis", QJsonArray{0, 0, 1}}}).value("id").toInt());
     const uint32_t hung = uint32_t(ops->runNow("assembly_joint", {{"a", weight}, {"b", 0}, {"type", "hinge"}, {"anchor", QJsonArray{1.0, 1.5, 0.0}},
                                                                    {"axis", QJsonArray{0, 0, 1}}}).value("id").toInt());
+    const int aside = add("box", 0.6, 0.3); // a hinge whose axis runs past its bodies, as the UR5e's elbow does
+    const uint32_t elbow = uint32_t(ops->runNow("assembly_joint", {{"a", aside}, {"b", upper}, {"type", "hinge"}, {"anchor", QJsonArray{0.3, 0.8, 0.0}},
+                                                                    {"axis", QJsonArray{1, 0, 0}}}).value("id").toInt());
     v->setFocusBox(AABB(Vector3(-1.5f, -0.2f, -1.5f), Vector3(2.2f, 2.0f, 1.5f)));
     v->frameScene();
     b.select(0);
@@ -484,14 +487,19 @@ void testJointTies(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     const auto tieOf = [&](uint32_t id) {
         for (const Viewport::JointTie& t : v->jointTies())
             if (t.id == id) return t;
-        return Viewport::JointTie{0, {}, {}, {}, false};
+        return Viewport::JointTie{0, {}, {}, {}, false, {}, {}};
     };
     const auto near = [](const QPointF& a, const QPointF& b) { return std::hypot(a.x() - b.x(), a.y() - b.y()) < 1.5; };
     const Viewport::JointTie two = tieOf(hinge), one = tieOf(hung);
     const bool both = hinge && two.id == hinge && !two.grounded && near(two.pin, v->pixelOf(Vector3(-0.35f, 0.3f, 0))) &&
                       near(two.a, v->pixelOf(Vector3(-0.1f, 0.5f, 0))) && near(two.b, v->pixelOf(Vector3(-0.6f, 0.11f, 0)));
     const bool ground = hung && one.id == hung && one.grounded && near(one.pin, v->pixelOf(Vector3(1.0f, 1.5f, 0))) && near(one.a, v->pixelOf(Vector3(1.5f, 0.9f, 0)));
-    c.check(v->jointTies().size() == 2 && both && ground, "a joint is drawn as a tie: a line from each of its two bodies to its pin; one to the world has the ground at its pin");
+    c.check(v->jointTies().size() == 3 && both && ground && near(two.bendA, two.pin) && near(two.bendB, two.pin),
+            "a joint is drawn as a tie: a line from each of its two bodies to its pin; one to the world has the ground at its pin");
+    const Viewport::JointTie bent = tieOf(elbow);
+    c.check(elbow && bent.id == elbow && near(bent.pin, v->pixelOf(Vector3(0.3f, 0.8f, 0))) && near(bent.bendA, v->pixelOf(Vector3(0.6f, 0.8f, 0))) &&
+                near(bent.bendB, v->pixelOf(Vector3(-0.1f, 0.8f, 0))),
+            "a hinge's tie meets its axis square and runs along it to the pin: not through the air when the axis runs past the body");
     QTemporaryDir shots; // a frame as a camera would film it: none of the editor's marks in it
     const QString marked = shots.path() + "/marked.png", bare = shots.path() + "/bare.png";
     ops->runNow("view_screenshot", {{"file", marked}});

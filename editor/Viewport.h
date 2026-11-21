@@ -233,7 +233,7 @@ public:
 
     // A joint's tie as the last paint drew it (ViewportJoints.cpp): its pin and where it takes its two bodies, on the
     // screen; a joint to the world has its second end at the pin.
-    struct JointTie { uint32_t id; QPointF pin, a, b; bool grounded; };
+    struct JointTie { uint32_t id; QPointF pin, a, b; bool grounded; QPointF bendA, bendB; }; // bend: where a tie meets a hinge's axis
     const std::vector<JointTie>& jointTies() const { return jointTies_; }
     // Lights and cameras drawn as wireframes (SceneMarkers.h), from the scene builder.
     void setSceneMarkers(std::vector<SceneMarker> markers) { markers_ = std::move(markers); update(); }

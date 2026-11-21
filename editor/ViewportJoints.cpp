@@ -1,6 +1,6 @@
 // A joint as what it is - a tie between two bodies -, painted over the picture: from each body's own place a dashed
-// line to the joint, a pin there in the colour of the joint's kind, and under the pin of a joint that holds its body to
-// the world the hatch mechanics draw for the ground. What the joint lets the bodies do - its ring, its travel, its limits
+// line to the joint (a hinge's meets its axis square, then runs along it), a pin there in the colour of the joint's
+// kind, and under the pin of a joint that holds its body to the world the hatch mechanics draw for the ground. What the joint lets the bodies do - its ring, its travel, its limits
 // - is its glyph, drawn in the scene's space (Viewport::drawJoints, JointGlyphs.h); this is the other half: which two
 // things it holds together. The ties of the selected body are drawn brighter.
 #include "Viewport.h"
@@ -39,27 +39,35 @@ void Viewport::drawJointTies(QPainter& p) {
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
     for (const ke::JointVis& j : snap_->joints) {
-        QPointF pin, a, b;
-        if (!seen(j.anchorB, pin) || !seen(j.bodyA, a) || (!j.grounded && !seen(j.bodyB, b))) continue;
+        QPointF pin, a, b, bendA, bendB;
+        // A hinge's pin may stand anywhere on its axis - the UR5e's elbow stands 13 cm aside of the upper arm: a tie meets
+        // the axis square and runs along it to the pin, as a kinematic diagram draws it; straight through the air it was
+        // read as a joint put together wrong.
+        const bool along = j.type == ke::JointType::Hinge && ke::length2(j.axis) > ke::Real(0.5);
+        const auto foot = [&](const ke::Vector3& body) { return along ? j.anchorB + j.axis * ke::dot(body - j.anchorB, j.axis) : j.anchorB; };
+        if (!seen(j.anchorB, pin) || !seen(j.bodyA, a) || !seen(foot(j.bodyA), bendA) || (!j.grounded && (!seen(j.bodyB, b) || !seen(foot(j.bodyB), bendB))))
+            continue;
         const bool bright = chosen(j.a) || chosen(j.b);
         QColor colour = kindColour(j.type);
         colour.setAlpha(bright ? 255 : 170);
         const QColor dark(10, 12, 16, bright ? 200 : 120);
         const double wide = bright ? 2.4 : 1.6;
-        const auto tie = [&](const QPointF& body) { // a line with a dark edge, and a dot where it takes its body
-            if (QLineF(body, pin).length() < 6) return;
-            p.setPen(QPen(dark, wide + 2, Qt::SolidLine, Qt::RoundCap));
-            p.drawLine(body, pin);
-            QPen dashed(colour, wide, Qt::CustomDashLine, Qt::RoundCap);
+        const auto tie = [&](const QPointF& body, const QPointF& bend) { // a line with a dark edge, and a dot where it takes its body
+            if (QLineF(body, bend).length() + QLineF(bend, pin).length() < 6) return;
+            const QPolygonF line{body, bend, pin};
+            p.setBrush(Qt::NoBrush);
+            p.setPen(QPen(dark, wide + 2, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+            p.drawPolyline(line);
+            QPen dashed(colour, wide, Qt::CustomDashLine, Qt::RoundCap, Qt::RoundJoin);
             dashed.setDashPattern({3.0, 2.5});
             p.setPen(dashed);
-            p.drawLine(body, pin);
+            p.drawPolyline(line);
             p.setPen(QPen(dark, 1.2));
             p.setBrush(colour);
             p.drawEllipse(body, 3.2, 3.2);
         };
-        tie(a);
-        if (!j.grounded) tie(b);
+        tie(a, bendA);
+        if (!j.grounded) tie(b, bendB);
         if (j.grounded) { // the ground: a bar under the pin and its hatch
             p.setPen(QPen(dark, wide + 2, Qt::SolidLine, Qt::RoundCap));
             p.drawLine(pin + QPointF(-9, 9), pin + QPointF(9, 9));
@@ -74,7 +82,7 @@ void Viewport::drawJointTies(QPainter& p) {
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(250, 250, 252, colour.alpha()));
         p.drawEllipse(pin, 1.8, 1.8);
-        jointTies_.push_back({j.id, pin, a, j.grounded ? pin : b, j.grounded});
+        jointTies_.push_back({j.id, pin, a, j.grounded ? pin : b, j.grounded, bendA, j.grounded ? pin : bendB});
     }
     p.restore();
 }
