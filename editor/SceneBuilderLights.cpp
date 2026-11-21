@@ -258,6 +258,7 @@ void SceneBuilder::refreshMarkers() {
         add(l, m);
     }
     for (const Force& f : graph_.forces) {
+        if (!editing() && std::binary_search(firedForces_.begin(), firedForces_.end(), f.id)) continue; // an impulse given: its arrow is gone till Stop
         add(f, forceMarker(graph_, f));
         if (const Frame::CameraPose* live = liveCamera(f.id); live && !out.empty() && out.back().id == f.id)
             out.back().position = live->position, out.back().rotation = live->rotation;

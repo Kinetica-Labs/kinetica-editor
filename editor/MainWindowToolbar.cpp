@@ -284,12 +284,14 @@ void MainWindow::addForceButton(QToolBar* tb) {
     menu->setToolTipsVisible(true);
     struct Kind { const char* name; ke::ForceShape shape; ke::ForceMode mode; const char* text; };
     const Kind kinds[] = {
-        {"addForcePush", ke::ForceShape::Directional, ke::ForceMode::Impulse, uiText("Kinetica", "Толчок")},
-        {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв")},
-        {"addForceThrust", ke::ForceShape::Directional, ke::ForceMode::Constant, uiText("Kinetica", "Тяга")},
-        {"addForcePull", ke::ForceShape::Radial, ke::ForceMode::Constant, uiText("Kinetica", "Притяжение")}};
-    const char* tips[] = {uiText("Kinetica", "Толчок: один раз, вдоль оси +Y силы, Н·с"), uiText("Kinetica", "Взрыв: один раз, от точки силы во все стороны, Н·с"),
-                          uiText("Kinetica", "Тяга: всё время, вдоль оси +Y силы, Н"), uiText("Kinetica", "Притяжение: всё время, к точке силы, Н")};
+        {"addForcePush", ke::ForceShape::Directional, ke::ForceMode::Impulse, uiText("Kinetica", "Толчок — разовый импульс телу")},
+        {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв — разовый импульс от точки, в радиусе")},
+        {"addForceThrust", ke::ForceShape::Directional, ke::ForceMode::Constant, uiText("Kinetica", "Тяга — постоянная сила на теле")},
+        {"addForcePull", ke::ForceShape::Radial, ke::ForceMode::Constant, uiText("Kinetica", "Притяжение — постоянная сила к точке, в радиусе")}};
+    const char* tips[] = {uiText("Kinetica", "Толчок: импульс, Н·с — срабатывает один раз. С выбранным телом прикладывается к нему: стрелка из его центра масс"),
+                          uiText("Kinetica", "Взрыв: импульс, Н·с — один раз, от своей точки во все стороны, телам внутри сферы"),
+                          uiText("Kinetica", "Тяга: сила, Н — действует всё время игры. С выбранным телом прикладывается к нему и едет с ним"),
+                          uiText("Kinetica", "Притяжение: сила, Н — всё время, к своей точке, на тела внутри сферы")};
     for (int k = 0; k < 4; ++k) {
         auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape), 48), kinds[k].text);
         a->setObjectName(kinds[k].name);

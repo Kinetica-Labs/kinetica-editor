@@ -532,10 +532,12 @@ uint32_t nextId(const SceneGraph& g);
 Vector3 lightDirection(const SceneGraph& g, const Light& l);
 // The direction of a directional force: the +y axis turned by the object's world rotation.
 Vector3 forceAxis(const Quaternion& q);
-// The body a directional force is applied to: its parent, when that is a rigid shape. The force then acts on that body
-// alone, at its own point - off the centre of mass it turns the body - whatever its radius and tag say. Null: a field,
-// acting on the bodies in its reach at their centres.
+// The shape a directional force is applied to: its parent, when that is a shape. The force then acts on that body
+// alone, at its own point - off the centre of mass it turns the body - whatever its radius and tag say; while the
+// shape is no moving body (no rigid role, or fixed: forceIdle) it acts on nothing. Null: a field, acting on the bodies
+// in its reach at their centres.
 const Entity* forceBody(const SceneGraph& g, const Force& f);
+bool forceIdle(const SceneGraph& g, const Force& f); // a shape's own force that has nothing to push yet
 // The strength one metre of a directional force's arrow stands for. A body's own force is drawn by what it does to
 // that body: a metre is 3 m/s of the velocity an impulse gives it, or 10 m/s^2 of a constant force's acceleration (an
 // arrow up longer than a metre lifts the body). A field's: 10 N s or N.

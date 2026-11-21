@@ -81,6 +81,7 @@ void Viewport::drawSceneMarkers(const QMatrix4x4& vp) {
         const bool force = m.kind == SceneMarker::Push || m.kind == SceneMarker::Burst;
         QVector4D c = m.kind == SceneMarker::Camera ? QVector4D(0.80f, 0.86f, 0.95f, 0.95f) : force ? QVector4D(0.72f, 0.62f, 0.97f, 0.95f) : QVector4D(warm.x, warm.y, warm.z, 0.95f);
         if (m.selected) c = QVector4D(0.98f, 0.62f, 0.2f, 1.0f);
+        if (m.idle) c.setW(0.38f * c.w()); // it pushes nothing yet
         QVector4D hidden = c, faint = c;
         hidden.setW(0.3f);
         faint.setW(0.35f);

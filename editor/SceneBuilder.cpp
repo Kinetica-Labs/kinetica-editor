@@ -555,7 +555,9 @@ void SceneBuilder::onSimulationSnapshot(const Frame& s) {
                        !std::equal(s.forces.begin(), s.forces.end(), liveForces_.begin(), liveForces_.end(), same);
     liveCameras_ = s.cameras;
     liveForces_ = s.forces;
-    if (moved) refreshLightsAndCameras(); // its keys, the body that carries it: the view through it and its mark follow
+    const bool fired = s.firedForces != firedForces_;
+    firedForces_ = s.firedForces;
+    if (moved || fired) refreshLightsAndCameras(); // its keys, the body that carries it: the view through it and its mark follow; an impulse spent: its arrow goes
     else if (aimed) emitCameraView();
     std::vector<uint32_t> bodyEntity(s.bodies.size());
     for (size_t b = 0; b < s.bodies.size(); ++b) { // an array's copy plays as the array (RobotWorld::objectIdOfBody)

@@ -31,6 +31,7 @@ struct SceneMarker {
     float reach = 0; // one being placed: its cone, frame or arrow drawn this far, to where it looks (0: the marker's size);
                      // a force: the arrow's length, negative for one that pulls in (range is its radius)
     bool selected = false;
+    bool idle = false;   // a force that pushes nothing as the scene stands (its shape is no moving body): drawn pale
     bool aimed = false;  // a target camera: a faint line to its target
     ke::Vector3 aim{0.0f};
 };

@@ -15,6 +15,7 @@
 #include <QFile>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
 #include <QPushButton>
@@ -200,12 +201,20 @@ void testFirePlayStop(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
     };
     const float rest = boxX();
     const int lines = firedLines(ops);
+    const auto drawn = [&] { // the force's arrow among the view's marks
+        for (const SceneMarker& m : v->sceneMarkers())
+            if (m.id == id) return true;
+        return false;
+    };
+    const bool before = drawn();
     if (fire) fire->click();
     waitUntil([&] { return boxX() - rest > 0.05f; }, 5000); // the press goes to the world's thread: wait for the box, not for a count of frames
     const float moved = boxX() - rest;
+    const bool spent = waitUntil([&] { return !drawn(); }, 3000);
     pump(100);
     b.stop();
     pump(200);
+    c.check(before && spent && drawn(), "the arrow of an impulse is drawn till it fires, gone once it is given, back after Stop");
     c.check(offInEdit && onInPlay, "«Сработать» is off while editing and on while the scene plays");
     c.check(ran && moved > 0.05f, "pressed, it fires the impulse: the box moves along the force's axis");
     c.check(firedLines(ops) == lines + 1, "the press is a force_fire line in the journal");
@@ -316,11 +325,42 @@ void testHandles(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     c.check(std::fabs(radius - 2.5f) < 0.05f && forceOf(b, field)->radius == 1.5f, ("the point on its reach, dragged out, is the radius; Ctrl+Z takes it back: " + std::to_string(radius)).c_str());
 }
 
+// A push made on a shape that is no body yet is still that shape's own - no field's sphere around it - but it pushes
+// nothing: its arrow is pale and its card says why. The rigid role given, it is a force like any other.
+void testIdle(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    b.newScene();
+    const uint32_t cube = made(b, b.createActions()[0]);
+    b.editEntity(cube, [](Entity& e) { e.rigid.enabled = false; });
+    b.select(cube);
+    pump(60);
+    addAction(w, 0)->trigger();
+    pump(100);
+    const uint32_t push = b.selectedId();
+    const Force* f = forceOf(b, push);
+    if (!f) return void(c.check(false, "a push made with a plain shape selected is selected"));
+    const auto mark = [&]() -> const SceneMarker* {
+        for (const SceneMarker& m : v->sceneMarkers())
+            if (m.id == push) return &m;
+        return nullptr;
+    };
+    auto* owner = w.findChild<QLabel*>("forceOwner");
+    const bool own = f->parent == cube && forceBody(b.graph(), *f) && forceIdle(b.graph(), *f);
+    const bool pale = mark() && mark()->idle && mark()->range == 0 && v->shapeHandles().size() == 1;
+    const bool said = owner && owner->isVisibleTo(b.inspectorPanel()) && owner->text().contains(uiText("Kinetica", "нет физики"));
+    c.check(own && pale && said, "a push on a shape with no physics is the shape's own: no sphere, a pale arrow, and its card says the shape has no physics");
+    b.editEntity(cube, [](Entity& e) { e.rigid.enabled = e.collider.enabled = true; });
+    b.select(0), b.select(push);
+    pump(100);
+    c.check(!forceIdle(b.graph(), *forceOf(b, push)) && mark() && !mark()->idle && owner && !owner->text().contains(uiText("Kinetica", "нет физики")),
+            "the rigid role given, the force is live: its arrow in full colour, its card names the body");
+}
+
 int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     testButtonAndDefaults(c, w, b, v);
     testPickAndGizmo(c, w, b, v);
     testHandles(c, w, b, v);
+    testIdle(c, w, b, v);
     testCard(c, w, b);
     testFirePlayStop(c, w, b, v);
     return c.failures;

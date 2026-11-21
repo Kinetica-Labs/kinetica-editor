@@ -73,6 +73,7 @@ struct Frame {
     };
     std::vector<CameraPose> cameras;
     std::vector<CameraPose> forces; // the same for the forces: a body's own force rides on it
+    std::vector<uint32_t> firedForces; // the impulse forces that have fired in this run, by id, ascending: spent, no longer drawn
 
     // A gripper on an IK goal's effector as the gripper itself reports it (Robotiq's gOBJ: from its fingers' own
     // travel, not from the physics' contacts): open, closing, holding - its fingers stopped short of closed, so

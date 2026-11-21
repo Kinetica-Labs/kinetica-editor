@@ -682,6 +682,7 @@ private:
     std::pair<double, double> cameraAim_{0, 0}; // the card's kind (0 free, 1 target) and target (0: its own cube)
     std::unordered_map<uint32_t, ke::Vector3> liveObjectPositions_; // in play, for a target camera looked through: its target's pose
     std::vector<ke::Frame::CameraPose> liveCameras_, liveForces_;   // in play: where the world has the cameras and forces it moves (Frame)
+    std::vector<uint32_t> firedForces_;                             // in play: the impulses that have fired (Frame::firedForces) - their arrows are not drawn
     ke::Light lightDraft_;
     // The "Сила" card over every selected force: its fields, the draft they edit, the tags «Действует на» lists
     ComponentCard* forceCard_ = nullptr;

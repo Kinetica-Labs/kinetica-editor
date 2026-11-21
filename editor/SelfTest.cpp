@@ -741,7 +741,7 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
         c.check(ru && en && ru->isChecked() == !english && en->isChecked() == english,
                 "the current language is checked");
         auto* push = w.findChild<QAction*>("addForcePush");
-        c.check(push && push->text() == (english ? "Push" : "Толчок"), "the force menu localizes");
+        c.check(push && push->text().startsWith(english ? "Push" : "Толчок") && push->text().contains(english ? "impulse" : "импульс"), "the force menu localizes");
     });
     run("gizmo", [&] { testEuler(c), testArrowDrag(c), testRingTurn(c), testScaleDrag(c), testKeyboardTransform(c); });
     run("play", [&] { testEditPlayStop(c, w, *b, v), testUndoRedo(c, w, *b); });

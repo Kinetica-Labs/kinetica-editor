@@ -278,7 +278,12 @@ Vector3 forceAxis(const Quaternion& q) { return normalize(q.rotate(Vector3(0, 1,
 
 const Entity* forceBody(const SceneGraph& g, const Force& f) {
     const Entity* e = f.shape == ForceShape::Directional && f.parent ? findEntity(g, f.parent) : nullptr;
-    return e && e->rigid.enabled ? e : nullptr;
+    return e && !isHandle(*e) ? e : nullptr;
+}
+
+bool forceIdle(const SceneGraph& g, const Force& f) {
+    const Entity* body = forceBody(g, f);
+    return body && (!body->rigid.enabled || body->rigid.fixed || body->rigid.kinematic);
 }
 
 Real forceUnitPerMetre(const SceneGraph& g, const Force& f) {
@@ -292,7 +297,7 @@ void applyForceTo(SceneGraph& g, Force& f, const Entity& body) {
     worldPose(g, body, p, q);
     f.parent = body.id;
     setWorldPose(g, f, p + q.rotate(body.rigid.centerGiven ? body.rigid.centerOfMass : Vector3(0.0_r)), Quaternion());
-    if (forceBody(g, f)) f.strength = forceUnitPerMetre(g, f) * (f.mode == ForceMode::Impulse ? 1_r : 1.2_r);
+    f.strength = forceUnitPerMetre(g, f) * (f.mode == ForceMode::Impulse ? 1_r : 1.2_r);
 }
 
 Vector3 lightDirection(const SceneGraph& g, const Light& l) {

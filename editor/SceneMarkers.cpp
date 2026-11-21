@@ -184,6 +184,7 @@ SceneMarker forceMarker(const SceneGraph& g, const Force& f) {
     SceneMarker m;
     m.kind = f.shape == ForceShape::Radial ? SceneMarker::Burst : SceneMarker::Push;
     m.range = forceBody(g, f) ? 0.0f : float(f.radius);
+    m.idle = forceIdle(g, f);
     m.reach = f.shape == ForceShape::Radial ? (f.strength < 0 ? -1.0f : 1.0f) : forceArrow(g, f);
     return m;
 }

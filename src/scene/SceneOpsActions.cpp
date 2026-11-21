@@ -104,7 +104,7 @@ bool addForceOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     Force& made = g.forces.back();
     if (a.has("body")) { // that body's own force: its child at its centre of mass (or at `at`), sized by its mass
         const Entity* body = findEntity(g, uint32_t(a["body"].integer()));
-        if (!body || ForceShape(shape) != ForceShape::Directional)
+        if (!body || isHandle(*body) || ForceShape(shape) != ForceShape::Directional)
             return g.forces.pop_back(), e = "body is the id of a shape, and only a directional force is applied to one body", false;
         applyForceTo(g, made, *body);
         if (there) {

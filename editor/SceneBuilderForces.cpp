@@ -43,6 +43,8 @@ void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
         return id;
     }));
     const QString shapeWord = kForceShapeNames[int(shape)], modeWord = kForceModeNames[int(mode)];
+    if (bodyId && forceIdle(graph_, *forceById(selectedId_)))
+        emit statusMessage(uiText("Kinetica", "У этой фигуры нет подвижного тела: сила подействует, когда фигура получит роль «Твёрдое тело»"));
     if (bodyId)
         return codeAction("scene_add_force", QString("scene.add_force(\"%1\", \"%2\", body=scene.objects[%3])").arg(shapeWord, modeWord).arg(bodyId),
                           {{"shape", shapeWord}, {"mode", modeWord}, {"body", int(bodyId)}}, false);
@@ -139,11 +141,11 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
                              if (d->shape == ForceShape::Radial && d->radius < 0.01f) d->radius = 3.0f; // a radial force needs a reach
                          }).name("forceShape")
         .tip(uiText("Kinetica", "Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная)"));
-    forceFields_->choice(uiText("Kinetica", "Режим"), QStringList{uiText("Kinetica", "Импульс"), uiText("Kinetica", "Постоянная")},
+    forceFields_->choice(uiText("Kinetica", "Режим"), QStringList{uiText("Kinetica", "Разовый импульс"), uiText("Kinetica", "Постоянная сила")},
                          [d] { return double(int(d->mode)); }, [d](double v) { d->mode = ForceMode(int(v)); }).name("forceMode")
         .tip(uiText("Kinetica", "Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время"));
-    forceFields_->number(uiText("Kinetica", "Сила, Н·с"), -double(kForceMaxStrength), double(kForceMaxStrength), 1, 2, d->strength)
-        .label([d] { return QString(d->mode == ForceMode::Impulse ? uiText("Kinetica", "Сила, Н·с") : uiText("Kinetica", "Сила, Н")); }).name("forceStrength");
+    forceFields_->number(uiText("Kinetica", "Импульс, Н·с"), -double(kForceMaxStrength), double(kForceMaxStrength), 1, 2, d->strength)
+        .label([d] { return QString(d->mode == ForceMode::Impulse ? uiText("Kinetica", "Импульс, Н·с") : uiText("Kinetica", "Сила, Н")); }).name("forceStrength");
     const auto field = [this, d] { return !forceBody(graph_, *d); }; // a field's own: a body's own force has no reach, falloff or tag
     forceFields_->number(uiText("Kinetica", "Радиус, м"), 0, double(kForceMaxRadius), 0.5, 2, d->radius).shown(field).name("forceRadius")
         .tip(uiText("Kinetica", "Сила действует на тела, чьи центры внутри радиуса; 0 у направленной — на все тела"));
@@ -193,8 +195,12 @@ void SceneBuilder::fillForceCard(const SceneObject& o) {
     forceFire_->setVisible(f->mode == ForceMode::Impulse);
     forceFire_->setEnabled(!editing());
     const Entity* body = forceBody(graph_, *f);
+    const QString name = body ? QString::fromStdString(body->name) : QString();
+    const bool idle = forceIdle(graph_, *f);
     forceOwner_->setVisible(f->shape == ForceShape::Directional);
-    forceOwner_->setText(body ? QString(uiText("Kinetica", "Приложена к телу «%1» в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина"))
-                                    .arg(QString::fromStdString(body->name))
-                              : QString(uiText("Kinetica", "Поле: толкает тела в своём радиусе. Чтобы приложить к одному телу, выберите его и создайте силу")));
+    forceOwner_->setStyleSheet(idle ? "color: #e2b448;" : "");
+    forceOwner_->setText(!body ? QString(uiText("Kinetica", "Поле: действует на тела в своём радиусе (сфера). Чтобы приложить к одному телу, выберите его и создайте силу"))
+                         : !body->rigid.enabled ? QString(uiText("Kinetica", "⚠ У «%1» нет физики: сила ничего не толкает. Дайте фигуре роль «Твёрдое тело»")).arg(name)
+                         : idle ? QString(uiText("Kinetica", "⚠ «%1» закреплён или ведомый: сила его не сдвинет")).arg(name)
+                         : QString(uiText("Kinetica", "Приложена к телу «%1» в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина")).arg(name));
 }

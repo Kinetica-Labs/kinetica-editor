@@ -127,6 +127,7 @@ void RobotWorld::describeCameras(Frame& out) const {
         worldPose(live_, f, pose.position, pose.rotation);
         out.forces.push_back(pose);
     }
+    out.firedForces = firedIds_;
 }
 
 // The scene starts as its active sequence has it at 0 s: an animated body begins where its track does, not with a jump.
@@ -582,7 +583,7 @@ void RobotWorld::markFired(uint32_t id) {
     firedIds_.insert(std::lower_bound(firedIds_.begin(), firedIds_.end(), id), id);
 }
 
-// A body's own force (forceBody: a directional force whose parent is a rigid shape) acts on that body alone, at the
+// A body's own force (forceBody: a directional force whose parent is a shape) acts on that body alone, at the
 // force's own point as the body stands now - off the centre of mass it turns the body. A field: the force on each
 // rigid body of its reach, at the centre of mass (no torque): strength times the falloff's weight along the axis, or
 // away from the force's origin; its poses are the end of the last frame's.
