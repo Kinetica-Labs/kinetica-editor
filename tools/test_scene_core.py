@@ -3,6 +3,7 @@ script meets where they happen, a world restarted by an edit, relative paths, th
 nothing but answers ever goes to the program's stdout."""
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -150,6 +151,58 @@ class SceneCore(unittest.TestCase):
         self.assertIn("не JSON", json.loads(core._proc.stdout.readline())["result"]["error"])
         self.assertTrue(core.call("scene_list")["ok"])
         core.close()
+
+    def test_an_interrupted_call_does_not_break_the_session(self):
+        core = Core()
+        core.call("scene_list")
+        real = core._proc.stdout
+
+        class Break:
+            def readline(self_):
+                core._proc.stdout = real
+                raise KeyboardInterrupt
+
+        core._proc.stdout = Break()
+        with self.assertRaises(KeyboardInterrupt):
+            core.call("scene_list")
+        self.assertTrue(core.call("scene_list")["ok"])
+        core.close()
+
+    def test_a_refused_line_names_its_cause(self):
+        with ke.Scene() as scene:
+            with self.assertRaises(OperationError) as caught:
+                scene.add("box", position=(float("nan"), 0, 0))
+            self.assertIn("JSON", str(caught.exception))
+            self.assertTrue(scene.ed.scene_list()["ok"])
+
+    def test_close_after_the_child_died_is_quiet(self):
+        core = Core()
+        core._proc.kill()
+        core._proc.wait()
+        core.close()
+        core.close()
+        self.assertIsNotNone(core._proc.returncode)
+        self.assertFalse(core._drainer.is_alive())
+
+    def test_data_is_found_beside_the_real_program(self):
+        exe = find_core()
+        with tempfile.TemporaryDirectory() as tmp:
+            bundle = os.path.join(tmp, "usr")
+            os.makedirs(os.path.join(bundle, "bin"))
+            os.symlink(os.path.join(ROOT, "data"), os.path.join(bundle, "data"))
+            real = os.path.join(bundle, "bin", "kinetica-core")
+            shutil.copy(exe, real)
+            os.makedirs(os.path.join(tmp, "links"))
+            link = os.path.join(tmp, "links", "kc")
+            os.symlink(real, link)
+            out = subprocess.run([link], input='{"op": "sensor_models"}\n', capture_output=True, text=True, timeout=30)
+            self.assertEqual(out.returncode, 0, out.stderr)
+            self.assertIn(os.path.join(bundle, "data", "sensors"), out.stdout)
+
+    def test_a_bad_data_dir_is_an_error(self):
+        out = subprocess.run([find_core(), "--data-dir", "/nonexistent"], input="", capture_output=True, text=True, timeout=30)
+        self.assertEqual(out.returncode, 2)
+        self.assertIn("kinetica-core: нет каталога sensors", out.stderr)
 
     def test_the_hello_runs(self):
         out = subprocess.run([sys.executable, os.path.join(ROOT, "examples", "python", "01_hello.py")], cwd=ROOT,

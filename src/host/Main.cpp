@@ -15,7 +15,7 @@ namespace {
 
 const char* usage = "usage: kinetica-core [--data-dir DIR]   JSON lines on stdin, answers on stdout\n"
                     "       kinetica-core --version | --help\n"
-                    "DIR holds sensors/; without it the program looks beside itself, then in the source tree\n";
+                    "DIR holds sensors/ (a DIR without it is an error); without --data-dir the program looks beside itself, then in the source tree\n";
 
 bool hasSensors(const fs::path& dir) {
     std::error_code ec;
@@ -34,11 +34,16 @@ int main(int argc, char** argv) {
         else return std::cerr << "kinetica-core: " << (arg == "--data-dir" ? "--data-dir без значения" : "неизвестный ключ " + arg) << "\n" << usage, 2;
     }
 
+    if (!dataDir.empty() && !hasSensors(fs::u8path(dataDir)))
+        return std::cerr << "kinetica-core: нет каталога sensors в «" << dataDir << "» (--data-dir)\n", 2;
     std::vector<fs::path> places;
     if (!dataDir.empty()) places.push_back(fs::u8path(dataDir));
-    const fs::path self = fs::u8path(argv[0]).parent_path();
-    if (!self.empty()) places.push_back(self / "data"), places.push_back(self / ".." / "data");
-    places.push_back(fs::u8path(KE_SOURCE_DIR) / "data");
+    // the real file of the program: argv[0] may be a link or a bare name found through PATH
+    std::error_code ec;
+    fs::path self = fs::canonical("/proc/self/exe", ec);
+    if (ec) self = fs::canonical(fs::u8path(argv[0]), ec);
+    if (!ec) places.push_back(self.parent_path() / "data"), places.push_back(self.parent_path().parent_path() / "data");
+    places.push_back((fs::u8path(KE_SOURCE_DIR) / "data").lexically_normal());
     std::string searched;
     dataDir.clear();
     for (const fs::path& place : places) {

@@ -138,11 +138,10 @@ SceneGraph Document::beginPlay() {
     return graph;
 }
 
-void Document::endPlay(bool keepEdits, const SceneGraph* keptBefore) {
+void Document::endPlay(bool keepEdits) {
     if (!keepEdits) {
         graph = backup;
         history.cut(stepsAtPlay_);
-        if (keptBefore) history.push(*keptBefore);
     }
     mode = PlayMode::Edit;
 }

@@ -14,4 +14,4 @@ import kinetica as ke  # noqa: E402
 with ke.Scene() as scene:
     box = scene.add("box", position=(0, 1, 0), role="rigid")
     scene.run(1.0)
-    print(f"after 1 s the box is {scene.measure(objects=[box])[f'{box.id}/height']:.3f} m high")
+    print(f"after 1 s the box's centre is {scene.measure(objects=[box])[f'{box.id}/height']:.3f} m high")

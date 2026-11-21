@@ -42,6 +42,7 @@ struct HostOp {
 
 const std::vector<HostOp>& hostOps();
 const HostOp* hostOp(const std::string& name); // null: not one of them
+bool editsGraph(const std::string& name); // an operation that changes the graph (the world built from it must classify the change)
 
 // What ops_list answers for one operation, and whether a name is in the `families` asked for (a list of words, each the
 // text before the first '_' of the names wanted; none: every name).

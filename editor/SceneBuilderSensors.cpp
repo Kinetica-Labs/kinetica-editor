@@ -95,7 +95,7 @@ void SceneBuilder::loadSensorCatalog() {
     std::string problems;
     sensorCatalog().clear();
     for (const QString& dir : dirs)
-        for (SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}) {
+        for (SensorKind kind : kTableKinds) {
             QFile file(dir + "/" + sensorKindKey(kind) + ".csv");
             if (file.open(QIODevice::ReadOnly)) problems += sensorCatalog().read(kind, file.readAll().toStdString(), file.fileName().toStdString());
         }

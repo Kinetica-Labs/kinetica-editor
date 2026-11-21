@@ -225,11 +225,6 @@ void testDocumentPlayBookkeeping() {
     d.endPlay(true);
     CHECK(d.mode == PlayMode::Edit && d.graph.save() == edited && d.history.steps() == 2, "a kept edit stays, with its step");
 
-    d.beginPlay();
-    run(d, "scene_add", R"({"shape": "cone"})");
-    const SceneGraph kept = floorScene(9);
-    d.endPlay(false, &kept);
-    CHECK(d.history.steps() == 3 && d.undo() && d.graph.save() == kept.save(), "the step of what the world took with it comes after the cut");
     CHECK(std::string(modeWord(PlayMode::Edit)) == "edit" && std::string(modeWord(PlayMode::Playing)) == "playing" &&
               std::string(modeWord(PlayMode::Paused)) == "paused", "the three words of a mode");
 }

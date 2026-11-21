@@ -222,7 +222,8 @@ class Body(SceneObject):
         return self.scene._call("assembly_reach", f"{self.ref}.reach({', '.join(shown + (['pose=True'] if pose else []))})", **args)
 
     def attach(self, preset, face="+x", **options):
-        """A ready link on a face (``"motor_wheel"``, ``"hinge"``, ``"shock"``, ``"car"``...): its links."""
+        """A ready link on a face (``"motor_wheel"``, ``"hinge"``, ``"shock"``, ``"car"``...): its links. The preset builds
+        its own link bodies (the returned links); a body you added is not joined by it."""
         args = "".join(f", {k}={v!r}" for k, v in options.items())
         answer = self.scene._call("assembly_preset", f"{self.ref}.attach({_q(preset)}, face={_q(face)}{args})",
                                   target=self.id, preset=preset, face=face, **options)

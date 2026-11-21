@@ -23,8 +23,8 @@ def find_core(executable=None):
     """The program's path: the argument, KE_CORE, beside the package (a bundle), build/ of the source tree, PATH."""
     given = executable or os.environ.get(KE_CORE)
     if given:
-        if not os.path.isfile(given):
-            raise FileNotFoundError(f"kinetica-core: no such file {given!r}" + (f" (from {KE_CORE})" if not executable else ""))
+        if not (os.path.isfile(given) and os.access(given, os.X_OK)):
+            raise FileNotFoundError(f"kinetica-core: no such executable file {given!r}" + (f" (from {KE_CORE})" if not executable else ""))
         return given
     here = os.path.dirname(os.path.abspath(__file__))
     beside = os.path.dirname(os.path.dirname(here))
@@ -43,6 +43,7 @@ class Core:
         self._tail = collections.deque(maxlen=20)
         self._lock = threading.Lock()
         self._next = 0
+        self._owed = 0
         self._closed = False
         self._drainer = threading.Thread(target=self._drain, name="kinetica-core-stderr", daemon=True)
         self._drainer.start()
@@ -60,6 +61,9 @@ class Core:
         with self._lock:
             if self._closed:
                 raise ConnectionError("kinetica-core was closed")
+            while self._owed:
+                self._read()
+                self._owed -= 1
             self._next += 1
             line = json.dumps({"id": self._next, "op": op, "args": args}, ensure_ascii=False) + "\n"
             try:
@@ -67,20 +71,29 @@ class Core:
                 self._proc.stdin.flush()
             except OSError:
                 raise self._gone() from None
-            reply = self._proc.stdout.readline()
-            if not reply:
-                raise self._gone()
-            envelope = json.loads(reply)
-            if envelope.get("id") != self._next:
+            self._owed = 1
+            envelope = self._read()
+            self._owed = 0
+            # a line the program could not parse is answered without an id: it is this request's answer
+            if envelope.get("id", self._next) != self._next:
                 raise ConnectionError("kinetica-core answered out of order")
             return check(op, envelope.get("result", {}))
+
+    def _read(self):
+        reply = self._proc.stdout.readline()
+        if not reply:
+            raise self._gone()
+        return json.loads(reply)
 
     def close(self):
         with self._lock:
             if self._closed:
                 return
             self._closed = True
-            self._proc.stdin.close()
+            try:
+                self._proc.stdin.close()
+            except OSError:
+                pass  # the child is gone; the rest of close still reaps it
             try:
                 self._proc.wait(5)
             except subprocess.TimeoutExpired:

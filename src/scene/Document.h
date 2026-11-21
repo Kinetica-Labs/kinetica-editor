@@ -63,9 +63,7 @@ public:
     bool redo() { return history.redo(graph); }
 
     SceneGraph beginPlay(); // Paused; the graph to build the world from
-    // Edit again. Not keepEdits: the scene before Play comes back and the steps made while it ran go - the step
-    // `keptBefore` (the objects an edit that stopped the world took with it), when given, is taken after them.
-    void endPlay(bool keepEdits, const SceneGraph* keptBefore = nullptr);
+    void endPlay(bool keepEdits); // Edit again. Not keepEdits: the scene before Play comes back and the steps made while it ran go
 
 private:
     bool take(const Remember& remember);

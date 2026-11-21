@@ -87,8 +87,7 @@ void EditorOps::run(const QString& name, const QJsonObject& args, const Reply& r
     if (runtime_ && (!query || name == "view_screenshot" || name == "ui_pointer")) runtime_->request(name, args, source);
     const bool guarded = !name.startsWith("ui_") && !query;
     if (guarded) builder_->apiCallStarted();
-    const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
-    const bool playing = ((core && core->edit) || name == "edit_undo" || name == "edit_redo") && !builder_->editing(); // an edit of a running scene
+    const bool playing = ke::editsGraph(name.toStdString()) && !builder_->editing(); // an edit of a running scene
     it->second.run(args, [this, source, name, args, reply, guarded, query, playing](QJsonObject answer) {
         if (guarded) builder_->apiCallFinished();
         if (playing && answer.value("ok").toBool()) { // decided after the edit: the one the world could not take stopped it, and is kept

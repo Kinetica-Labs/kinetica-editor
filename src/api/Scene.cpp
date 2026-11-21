@@ -130,6 +130,11 @@ bool inFamilies(const std::string& name, const Value& families) {
     return false;
 }
 
+bool editsGraph(const std::string& name) {
+    const SceneOp* core = findSceneOp(name);
+    return (core && core->edit) || name == "edit_undo" || name == "edit_redo";
+}
+
 const char* untilStopNote() { return "сцена играет: правка действует до ■ Стоп - sim_stop вернёт сцену, какой она была до ▶"; }
 
 Scene::Scene(const std::string& dataDir) {
@@ -139,7 +144,7 @@ Scene::Scene(const std::string& dataDir) {
         std::error_code ec;
         if (!fs::is_directory(dir, ec)) throw std::runtime_error("нет каталога data/sensors в «" + dataDir + "»");
         std::string problems;
-        for (const SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}) {
+        for (const SensorKind kind : kTableKinds) {
             const fs::path file = dir / (std::string(sensorKindKey(kind)) + ".csv");
             std::ifstream in(file, std::ios::binary);
             if (!in) continue;
@@ -189,7 +194,7 @@ Value Scene::run(const std::string& name, const Value& args) {
     Op& op = found->second;
     if (const std::string why = argsProblem(args, schemaOf(op)); !why.empty()) return failure(why); // refused, not guessed
     const bool built = doc_.mode != PlayMode::Edit;
-    const bool edits = (op.core && op.core->edit) || name == "edit_undo" || name == "edit_redo";
+    const bool edits = editsGraph(name);
     Value answer = Value::map();
     std::string why;
     bool done;

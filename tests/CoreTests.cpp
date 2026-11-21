@@ -112,12 +112,15 @@ void testUnitsAndFields() {
 
     int fields = 0, disagree = 0;
     std::string why;
-    for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+    for (SensorKind k : kTableKinds)
         for (const Field& f : specFields(k)) {
             ++fields;
             std::string e;
             if (!unitMatchesKey(f, e)) ++disagree, why += e + "; ";
         }
+    bool tabled = true;
+    for (SensorKind k : kTableKinds) tabled = tabled && !specFields(k).empty() && std::string(sensorKindKey(k)) != "";
+    CHECK(tabled, "every kind a host reads a table for has a datasheet");
     Field wrong;
     wrong.key = "rate_hz", wrong.unit = "s";
     std::string caught;

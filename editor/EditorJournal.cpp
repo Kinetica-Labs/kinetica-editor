@@ -26,8 +26,8 @@
 namespace {
 
 const std::set<QString>& queries() {
-    static const std::set<QString> q = {"ops_list", "journal_lines", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
-                                        "assembly_preview", "sim_state", "sim_measure", "sensor_read", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
+    static const std::set<QString> q = {"journal_lines", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
+                                        "assembly_preview", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
     return q;
 }
 
@@ -59,7 +59,10 @@ QString EditorOps::kind(const QString& name) const {
 
 bool EditorOps::isQuery(const QString& name) {
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
-    return name == "runtime_status" || name == "view_draw" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_list" || name == "plugin_panel_set" || queries().count(name) > 0 ||
+    const std::string word = name.toStdString();
+    const ke::HostOp* host = ke::hostOp(word);
+    const ke::WorldOp* world = ke::worldOp(word);
+    return (host && host->kind == "query") || (world && world->kind == "query") || name == "runtime_status" || name == "view_draw" || name == "plugin_wait" || name == "plugin_reply" || name == "plugin_list" || name == "plugin_panel_set" || queries().count(name) > 0 ||
            (core && core->query) || name.endsWith("_get"); // a plugin's waiting and answering, a picture over the view: no scene change
 }
 
