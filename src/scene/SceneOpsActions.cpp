@@ -65,11 +65,13 @@ bool addShapeOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     if (at) x.position = position;
     if (a.has("name")) x.name = a["name"].text("");
     Role role = Role::Rigid;
-    const bool fixed = a["fixed"].truth(false), roled = a.has("role") || fixed; // a fixed shape is a rigid one held still
+    const bool fixed = a["fixed"].truth(false), kinematic = a["kinematic"].truth(false);
+    if (fixed && kinematic) return e = "a body is fixed or kinematic, not both", false;
+    const bool roled = a.has("role") || fixed || kinematic; // a fixed or a kinematic shape is a rigid one
     if (roled && !roleOfWord(a["role"].text("rigid"), role)) return e = "role is rigid or collider", false;
     const std::string note = roled ? setRoles(g, {id}, role, true) : std::string();
     for (Entity& made : g.entities)
-        if (made.id == id && fixed) made.rigid.fixed = true;
+        if (made.id == id) made.rigid.fixed = fixed, made.rigid.kinematic = kinematic;
     merge(r, answerOf({id}));
     if (!note.empty()) r.set("note", note);
     return true;
@@ -159,6 +161,27 @@ SceneOp treeOp(const char* name, const char* help, const char* args = "{ids}") {
         }
         return merge(r, answerOf(made)), true;
     }, true};
+}
+
+// A tag put on the objects or taken off them - of any kind: a shape, a joint, a sensor, a battery, a sequence.
+bool tagOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    const std::vector<uint32_t> ids = idsArg(a);
+    const std::string word = a["tag"].text("");
+    if (!tagWord(word)) return e = "a tag is one word of up to 48 bytes, no spaces or quotes", false;
+    if (ids.empty()) return e = "no objects to tag: pass ids", false;
+    std::vector<std::vector<std::string>*> all;
+    for (uint32_t id : ids) {
+        all.push_back(objectTags(g, id));
+        if (!all.back()) return e = "no object " + std::to_string(id), false;
+    }
+    int changed = 0;
+    for (std::vector<std::string>* tags : all) {
+        const auto at = std::find(tags->begin(), tags->end(), word);
+        const bool on = a.has("on") ? a["on"].truth() : at == tags->end();
+        if (on && at == tags->end()) tags->push_back(word), ++changed;
+        if (!on && at != tags->end()) tags->erase(at), ++changed;
+    }
+    return r.set("changed", changed), true; // not the ids: a tag is no reason to change what is selected
 }
 
 bool roleOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
@@ -349,9 +372,10 @@ SceneOp transform(const char* name, const char* help, const char* args) {
 std::vector<SceneOp> actionSceneOps() {
     return {
         {"scene_add", "A shape as the toolbar's button adds it: in the air over a free spot, named after its shape; role: a moving body "
-                      "(rigid, with its collider) or a static obstacle (collider), as scene_role gives it; fixed: a rigid body held still in the world. A cylinder's "
+                      "(rigid, with its collider) or a static obstacle (collider), as scene_role gives it; fixed: a rigid body held still in the world; "
+                      "kinematic: one that moves as its velocity and spin say and pushes what it meets, itself pushed by nothing. A cylinder's "
                       "axis is its own y",
-         "{shape: box|sphere|cylinder|cone|plane, name?: str, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool}",
+         "{shape: box|sphere|cylinder|cone|plane, name?: str, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool, kinematic?: bool}",
          {}, addShapeOp},
         {"scene_add_light", "A light as the menu adds it: the sun high at a slant, a lamp or a spot over `at` (else the scene's centre); "
                             "with `position` it stands there shining at `target` (else at `at`)",
@@ -373,6 +397,9 @@ std::vector<SceneOp> actionSceneOps() {
          [](SceneGraph& g, const Value&, Value&, std::string&) { return showAll(g), true; }},
         {"scene_role", "A role given to the shapes or taken from them, as the role bar does; no `on`: switched as a click",
          "{ids, role: rigid|collider, on?: bool}", {}, roleOp, true},
+        {"scene_tag", "A tag - one word, 'target', 'keep' - put on objects of any kind or taken off them; no `on`: switched. scene_list "
+                      "{tag} finds by it, scene_get says an object's tags. For a plugin or a script to find what it is to act on",
+         "{ids, tag: str, on?: bool}", {}, tagOp, true},
         {"component_set", "A plugin's component on a shape - added if it has none - with these values (a number, [x, y, z], a flag, a "
                           "word); the plugin's schema says what they mean and draws its card. One undo step",
          "{id: int, type: str, values?: {}}", {}, componentSetOp, true},

@@ -41,5 +41,6 @@ private:
     QColor colourValue_;
     Vec3Row* position_ = nullptr;
     Vec3Row* rotation_ = nullptr;
+    QLineEdit* tags_ = nullptr; // the object's tags, words apart by spaces
     class QFormLayout* form_ = nullptr;
 };

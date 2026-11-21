@@ -45,6 +45,7 @@ QString rolesText(const Entity& e) {
     for (int k = 0; k < int(RoleIcon::Count); ++k)
         if (roleEnabled(e, RoleIcon(k))) roles << roleName(RoleIcon(k)).toLower();
     if (e.rigid.enabled && e.rigid.fixed) roles.replaceInStrings(uiText("Kinetica", "твёрдое"), uiText("Kinetica", "неподвижное"));
+    else if (e.rigid.enabled && e.rigid.kinematic) roles.replaceInStrings(uiText("Kinetica", "твёрдое"), uiText("Kinetica", "кинематическое"));
     if (!e.rigid.enabled && e.collider.enabled) roles.replaceInStrings(uiText("Kinetica", "коллайдер"), uiText("Kinetica", "препятствие"));
     const QString name = QString::fromStdString(e.name);
     return roles.isEmpty() ? name : name + " — " + roles.join(", ");
@@ -379,7 +380,11 @@ void SceneBuilder::buildMaterialCards(QVBoxLayout* col) {
     shapeFields(rigid, &SceneBuilder::rigidFields_)->number(uiText("Kinetica", "Плотность, кг/м³"), 1, 30000, 50, 0, r->density).name("rigidDensity")
         .number(uiText("Kinetica", "Трение"), 0, 2, 0.05, 2, r->friction)
         .number(uiText("Kinetica", "Упругость удара"), 0, 1, 0.05, 2, r->restitution)
-        .toggle(uiText("Kinetica", "неподвижное (стена, стол)"), r->fixed)
+        .choice(uiText("Kinetica", "Тело"), {uiText("Kinetica", "динамическое"), uiText("Kinetica", "кинематическое"), uiText("Kinetica", "статическое")},
+                [r] { return r->fixed ? 2.0 : r->kinematic ? 1.0 : 0.0; },
+                [r](double kind) { r->fixed = kind == 2, r->kinematic = kind == 1; }).name("rigidBodyKind")
+        .tip(uiText("Kinetica", "Динамическое двигает физика: оно падает и сталкивается. Кинематическое движется как задано — своей "
+                                "скоростью или секвенцией — и толкает других, а его не толкает ничто. Статическое стоит: стена, стол."))
         .vector(uiText("Kinetica", "Скорость, м/с"), -100, 100, 0.5, 2, r->velocity)
         .vector(uiText("Kinetica", "Вращение, рад/с"), -200, 200, 0.5, 2, r->angularVelocity);
 }

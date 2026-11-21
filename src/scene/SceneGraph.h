@@ -52,7 +52,11 @@ struct RigidRole {
     Real density = 500;        // kg/m^3
     Real friction = 0.5_r;      // kinetic friction coefficient
     Real restitution = 0.2_r;   // bounciness, 0..1
-    bool fixed = false;         // does not move (a wall, a table)
+    bool fixed = false;         // static: does not move (a wall, a table)
+    bool kinematic = false;     // moves as it is told - by its velocity and spin, or by a sequence - and pushes what it meets;
+                                // nothing pushes it: no gravity, no contact (a conveyor, a door, a lift). A fixed one stays static
+    // What physics moves by forces: neither held still nor led.
+    bool dynamic() const { return enabled && !fixed && !kinematic; }
     Vector3 velocity{0.0_r};     // initial, m/s
     Vector3 angularVelocity{0.0_r};
 };
@@ -70,6 +74,7 @@ struct SceneObject {
     // Hierarchy: the id of the parent object (0: none). position / rotationDeg are then RELATIVE to
     // the parent, and moving the parent moves the children (a group). worldPose() composes them.
     uint32_t parent = 0;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
 };
 
 // A group: an object with no geometry of its own that other objects hang under (Ctrl+G in the
@@ -192,6 +197,7 @@ struct JointObject {
     Vector3 frameA{0.0_r}, frameB{0.0_r};   // the frames' turns, Euler degrees as SceneObject::rotationDeg
     JointFreedom dof[6];                // travel x, y, z; turn x, y, z (JointDof)
     bool collide = false;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
 };
 
 // A battery of the scene (electro/Battery.h): a pack of cells - an equivalent circuit with its own
@@ -199,6 +205,7 @@ struct JointObject {
 struct BatteryObject {
     uint32_t id = 0;
     std::string name;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
     int series = 1, parallel = 1;
     Real capacityAh = 2.5_r;            // of one cell [A h]
     Real r0 = 0.03_r, r1 = 0.015_r;     // of one cell [Ohm]
@@ -216,6 +223,7 @@ struct BatteryObject {
 struct DriverObject {
     uint32_t id = 0;
     std::string name;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
     uint32_t joint = 0;                 // the joint whose freedom `dof` has the DC motor
     int dof = DofRx;
     uint32_t battery = 0;
@@ -263,6 +271,7 @@ struct ControllerAction {
 struct ControllerObject {
     uint32_t id = 0;
     std::string name;
+    std::vector<std::string> tags; // the words it is marked with ("target", "keep"): scene_tag puts them, scene_list {tag} finds by them
     std::vector<ControllerAction> actions;
 };
 
@@ -425,6 +434,11 @@ std::string worldText(const WorldSettings& w);
 // ---------------------------------------------------------------------------
 // The object with this id - an entity, a group, an array, a light, a camera or a sensor (null: none).
 const SceneObject* findObject(const SceneGraph& g, uint32_t id);
+// The tags of an object of any kind - a shape, a joint, a battery, a sequence (nullptr: no such object). A tag is one
+// word (tagWord): letters, digits and - _ . : of any alphabet, no spaces or quotes, 48 bytes at most.
+std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id);
+const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id);
+bool tagWord(const std::string& word);
 const Entity* findEntity(const SceneGraph& g, uint32_t id); // only an entity (null: none, or another kind)
 // Any object's orientation from its rotationDeg (Ry Rx Rz), and back: Euler degrees of a rotation.
 Quaternion objectRotation(const SceneObject& o);

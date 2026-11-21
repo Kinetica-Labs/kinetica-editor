@@ -43,6 +43,7 @@ void takeObject(const SceneObject& before, const SceneObject& after, SceneObject
     take(before.color, after.color, target.color);
     take(before.position, after.position, target.position);
     take(before.rotationDeg, after.rotationDeg, target.rotationDeg);
+    if (after.tags != before.tags) target.tags = after.tags;
 }
 
 // The geometry and its look (the components' numbers are their cards', which write the one field edited themselves).
@@ -96,7 +97,9 @@ Entity SceneBuilder::readWidgets() const {
 // Called after the widgets were filled from the active object.
 void SceneBuilder::markMixed() {
     std::vector<const SceneObject*> objects;
-    for (uint32_t id : selection_) objects.push_back(findObject(graph_, id));
+    for (uint32_t id : selection_)
+        if (const SceneObject* o = findObject(graph_, id)) objects.push_back(o); // a joint or a battery among them has no place of its own
+    if (objects.empty()) return;
     int position = 0, rotation = 0;
     bool name = false;
     for (const SceneObject* o : objects) {

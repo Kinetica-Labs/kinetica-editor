@@ -202,6 +202,14 @@ static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
 }
 
 // The part every object has, for groups and arrays: a quoted name, its object line and its pose.
+// An object's tags, a line of their own - written when it has any: a file without them reads everywhere.
+static void saveTags(std::ostringstream& o, const std::vector<std::string>& tags) {
+    if (tags.empty()) return;
+    o << "  tags";
+    for (const std::string& t : tags) o << " " << t;
+    o << "\n";
+}
+
 static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneObject& s) {
     std::string name = s.name;
     for (char& c : name)
@@ -210,6 +218,7 @@ static void saveObjectHead(std::ostringstream& o, const char* kind, const SceneO
     o << "  object id " << s.id << " visible " << (s.visible ? 1 : 0) << " locked " << (s.locked ? 1 : 0);
     if (s.parent != 0) o << " parent " << s.parent;
     o << "\n  pose position " << vec(s.position) << " rotation " << vec(s.rotationDeg) << " color " << vec(s.color) << "\n";
+    saveTags(o, s.tags);
 }
 
 // A sequence: the object head, its clip line, then each track - its object, then its keys, by time.
@@ -285,6 +294,7 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     if (e.parent != 0) o << " parent " << e.parent;
     if (e.instanceOf != 0) o << " instance " << e.instanceOf;
     o << "\n";
+    saveTags(o, e.tags);
     o << "  shape " << kShapeNames[int(e.shape)];
     if (e.shape == ShapeKind::Mesh) o << " file \"" << e.meshFile << "\"";
     o << " size " << vec(e.size) << " position " << vec(e.position)
@@ -306,7 +316,8 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     if (e.rigid.enabled) {
         o << "  rigid density " << num(e.rigid.density) << " friction " << num(e.rigid.friction) << " restitution "
           << num(e.rigid.restitution) << " fixed " << (e.rigid.fixed ? 1 : 0) << " velocity " << vec(e.rigid.velocity)
-          << " spin " << vec(e.rigid.angularVelocity) << "\n";
+          << " spin " << vec(e.rigid.angularVelocity) << (e.rigid.kinematic ? " kinematic 1" : "") << "\n"; // written when set: a file
+                                                                                          // without one reads everywhere
     }
     if (e.collider.enabled) saveCollider(o, e.collider);
     for (const PluginComponent& c : e.components) {
@@ -342,6 +353,7 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
     for (char& c : name)
         if (c == '"') c = '\'';
     o << "joint \"" << name << "\"\n  object id " << j.id << "\n";
+    saveTags(o, j.tags);
     o << "  link a " << j.a << " b " << j.b << " anchor_a " << vec(j.anchorA) << " frame_a " << vec(j.frameA) << " anchor_b "
       << vec(j.anchorB) << " frame_b " << vec(j.frameB) << "\n";
     for (int k = 0; k < 6; ++k) saveFreedom(o, k, j.dof[k]);
@@ -351,12 +363,14 @@ static void saveJoint(std::ostringstream& o, const JointObject& j) {
 
 static void saveBattery(std::ostringstream& o, const BatteryObject& b) {
     o << "battery " << quoted(b.name) << "\n  object id " << b.id << "\n";
+    saveTags(o, b.tags);
     o << "  cells series " << b.series << " parallel " << b.parallel << " capacity " << num(b.capacityAh) << " r0 " << num(b.r0) << " r1 "
       << num(b.r1) << " c1 " << num(b.c1) << " cutoff " << num(b.cutoff) << " soc " << num(b.soc) << "\nend\n";
 }
 
 static void saveDriver(std::ostringstream& o, const DriverObject& d) {
     o << "driver " << quoted(d.name) << "\n  object id " << d.id << "\n";
+    saveTags(o, d.tags);
     o << "  bridge joint " << d.joint << " dof " << kDofNames[std::clamp(d.dof, 0, 5)] << " battery " << d.battery << " duty " << num(d.duty)
       << " switches " << num(d.switches) << " limit " << num(d.currentLimit) << " stop " << (d.brake ? "brake" : "coast") << "\nend\n";
 }
@@ -367,6 +381,7 @@ static const char* const kControlDrives[] = {"plane", "lift", "turn", "grip", "j
 
 static void saveController(std::ostringstream& o, const ControllerObject& c) {
     o << "controller " << quoted(c.name) << "\n  object id " << c.id << "\n";
+    saveTags(o, c.tags);
     for (const ControllerAction& a : c.actions) {
         o << "  action " << a.name << " " << kControlValues[int(a.value)] << " drive " << kControlDrives[int(a.drive)] << " target " << a.target;
         if (a.drive == ControlDrive::Jog) o << " dof " << kDofNames[std::clamp(a.dof, 0, 5)];
@@ -534,7 +549,8 @@ static bool readRoleKey(const std::string& role, const std::string& k, LineReade
     if (role == "rigid") {
         return k == "density" ? r.number(e.rigid.density) : k == "friction" ? r.number(e.rigid.friction)
              : k == "restitution" ? r.number(e.rigid.restitution) : k == "fixed" ? r.flag(e.rigid.fixed)
-             : k == "velocity" ? r.vector(e.rigid.velocity) : k == "spin" ? r.vector(e.rigid.angularVelocity) : false;
+             : k == "velocity" ? r.vector(e.rigid.velocity) : k == "spin" ? r.vector(e.rigid.angularVelocity)
+             : k == "kinematic" ? r.flag(e.rigid.kinematic) : false;
     }
     if (role == "collider") {
         ColliderRole& c = e.collider;
@@ -944,6 +960,18 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         else return fail(bad, w[0]);
         return true;
     }
+    if (w[0] == "tags") { // an object's, whatever it is
+        std::vector<std::string>& tags = block == Block::Entity ? g.entities.back().tags : block == Block::Group ? g.groups.back().tags
+            : block == Block::Array ? g.arrays.back().tags : block == Block::Light ? g.lights.back().tags : block == Block::Camera ? g.cameras.back().tags
+            : block == Block::Joint ? g.joints.back().tags : block == Block::Battery ? g.batteries.back().tags
+            : block == Block::Driver ? g.drivers.back().tags : block == Block::Sensor ? g.sensors.back().tags : block == Block::Wheel ? g.wheels.back().tags
+            : block == Block::Controller ? g.controllers.back().tags : g.sequences.back().tags;
+        for (size_t i = 1; i < w.size(); ++i) {
+            if (!tagWord(w[i])) return fail(bad, w[i]);
+            if (std::find(tags.begin(), tags.end(), w[i]) == tags.end()) tags.push_back(w[i]);
+        }
+        return true;
+    }
     if (w[0] == "end") {
         // A file from before colliders were a role of their own: its rigid bodies collide as their
         // geometry - the Auto collider, now written out.
@@ -964,6 +992,27 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
     if (block == Block::Sequence) return readSequenceLine(w, g.sequences.back(), bad);
     return readArrayLine(w, g.arrays.back(), bad);
 }
+
+bool tagWord(const std::string& word) {
+    if (word.empty() || word.size() > 48) return false;
+    for (const unsigned char c : word)
+        if (c <= ' ' || c == '"' || c == '\'' || c == '#' || c == 127) return false;
+    return true;
+}
+
+template <class Graph>
+static auto tagsIn(Graph& g, uint32_t id) -> decltype(&g.entities.front().tags) {
+    decltype(&g.entities.front().tags) found = nullptr;
+    const auto look = [&](auto& objects) {
+        for (auto& o : objects)
+            if (o.id == id) found = &o.tags;
+    };
+    look(g.entities), look(g.groups), look(g.arrays), look(g.lights), look(g.cameras), look(g.joints), look(g.batteries), look(g.drivers);
+    look(g.sensors), look(g.wheels), look(g.controllers), look(g.sequences);
+    return id == 0 ? nullptr : found;
+}
+std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id) { return tagsIn(g, id); }
+const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id) { return tagsIn(g, id); }
 
 bool SceneGraph::load(const std::string& text, std::string& error) {
     SceneGraph g;

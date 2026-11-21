@@ -150,6 +150,56 @@ void testSceneFieldsReadInTheCore() {
 
 // scene_array by name: the row it makes takes its count and step from the call - five copies a width and a gap apart
 // when the call names none, as the button makes it.
+// A tag is a word on an object of any kind - a shape, a joint, a light: scene_tag puts it and takes it off, scene_list
+// finds by it, scene_get says an object's; it goes to the file as a line of the object's block and comes back.
+void testSceneTags() {
+    SceneGraph g;
+    std::string error;
+    const auto run = [&g, &error](const char* op, const Value& a) {
+        Value r = Value::map();
+        const SceneOp* o = findSceneOp(op);
+        const bool ok = o->query ? o->query(g, a, r, error) : o->edit(g, a, r, error);
+        if (!ok) r = Value::map();
+        return r;
+    };
+    const auto tag = [](std::initializer_list<int> ids, const char* word) {
+        Value a = Value::map(), list = Value::list();
+        for (int id : ids) list.push(id);
+        return a.set("ids", list), a.set("tag", word), a;
+    };
+    Value box = Value::map(), ball = Value::map(), light = Value::map(), hinge = Value::map(), anchor = Value::list();
+    box.set("shape", "box"), box.set("role", "rigid"), box.set("fixed", true);
+    ball.set("shape", "sphere"), ball.set("role", "rigid");
+    const int base = run("scene_add", box)["id"].integer(), link = run("scene_add", ball)["id"].integer();
+    light.set("kind", "point");
+    const int lamp = run("scene_add_light", light)["id"].integer();
+    anchor.push(0), anchor.push(0.3), anchor.push(0);
+    hinge.set("a", link), hinge.set("b", base), hinge.set("anchor", anchor);
+    const int joint = run("assembly_joint", hinge)["id"].integer();
+    CHECK(run("scene_tag", tag({base, joint, lamp}, "робот-1"))["changed"].integer() == 3 && run("scene_tag", tag({base}, "keep"))["changed"].integer() == 1,
+          "scene_tag marks a shape, a joint and a light: %s", error.c_str());
+    Value by = Value::map(), one = Value::map();
+    by.set("tag", "робот-1"), one.set("id", base);
+    const Value found = run("scene_list", by), got = run("scene_get", one);
+    CHECK(found["objects"].size() == 3 && got["tags"].size() == 2 && got["tags"].items()[1].text() == "keep",
+          "scene_list {tag} finds the three, scene_get says the two tags of the base");
+    Value toggle = tag({base}, "keep"), off = tag({joint}, "робот-1"), again = tag({lamp}, "робот-1");
+    off.set("on", false), again.set("on", true);
+    CHECK(run("scene_tag", toggle)["changed"].integer() == 1 && run("scene_tag", off)["changed"].integer() == 1 &&
+          run("scene_tag", again)["changed"].integer() == 0 && run("scene_list", by)["objects"].size() == 2,
+          "no `on` switches the tag, on: false takes it off, a tag put twice is there once");
+    Value r = Value::map();
+    const SceneOp* op = findSceneOp("scene_tag");
+    CHECK(!op->edit(g, tag({base}, "two words"), r, error) && !op->edit(g, tag({base}, ""), r, error) && !op->edit(g, tag({999}, "x"), r, error),
+          "a tag of two words, an empty one and an object that is not there are refused");
+    const std::string text = g.save();
+    SceneGraph back;
+    CHECK(back.load(text, error) && back.save() == text && objectTags(back, uint32_t(lamp)) && objectTags(back, uint32_t(lamp))->size() == 1 &&
+          text.find("tags робот-1") != std::string::npos, "the tags come back from the file: %s", error.c_str());
+    CHECK(!back.load("entity \"X\"\n  object id 5\n  tags good bad\"word\nend\n", error) && SceneGraph().save().find("tags") == std::string::npos,
+          "a tag with a quote in it is refused in a file; a scene without tags has no such line");
+}
+
 void testSceneArrayOp() {
     SceneGraph g;
     std::string error;

@@ -135,7 +135,9 @@ void RobotWorld::build(PhysicsWorld& physics) {
         if (!e.visible || entityIsGeometryOnly(e)) continue;
         BodyDesc d;
         d.type = animated.count(e.id) ? BodyDesc::Type::Kinematic // the sequence's: led along its track, it pushes what it meets
-               : e.rigid.enabled && !e.rigid.fixed ? BodyDesc::Type::Dynamic : BodyDesc::Type::Static;
+               : e.rigid.dynamic() ? BodyDesc::Type::Dynamic
+               : e.rigid.enabled && e.rigid.kinematic && !e.rigid.fixed ? BodyDesc::Type::Kinematic // its own velocity and spin lead it
+               : BodyDesc::Type::Static;
         d.position = e.position, d.rotation = entityRotation(e);
         d.velocity = e.rigid.velocity, d.angularVelocity = e.rigid.angularVelocity;
         d.density = e.rigid.density;

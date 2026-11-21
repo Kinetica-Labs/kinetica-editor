@@ -2349,6 +2349,21 @@ The picture is being prepared…</translation>
         <translation>Lock: prevent mouse selection and movement (floor, background)</translation>
     </message>
     <message>
+        <location filename="../editor/ObjectInspector.cpp" line="60"/>
+        <source>Метки</source>
+        <translation>Tags</translation>
+    </message>
+    <message>
+        <location filename="../editor/ObjectInspector.cpp" line="60"/>
+        <source>слова через пробел: мишень, не-трогать</source>
+        <translation>words apart by spaces: target, keep</translation>
+    </message>
+    <message>
+        <location filename="../editor/ObjectInspector.cpp" line="60"/>
+        <source>Метки: по ним объект находят скрипты и плагины (scene_list {tag})</source>
+        <translation>Tags: scripts and plugins find the object by them (scene_list {tag})</translation>
+    </message>
+    <message>
         <location filename="../editor/ObjectInspector.cpp" line="46"/>
         <location filename="../editor/ObjectInspector.cpp" line="77"/>
         <source>имя</source>
@@ -4405,6 +4420,26 @@ or create one from the toolbar.</translation>
         <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
         <source>неподвижное (стена, стол)</source>
         <translation>Static (wall, table)</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
+        <source>динамическое</source>
+        <translation>Dynamic</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
+        <source>статическое</source>
+        <translation>Static</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
+        <source>Динамическое двигает физика: оно падает и сталкивается. Кинематическое движется как задано — своей скоростью или секвенцией — и толкает других, а его не толкает ничто. Статическое стоит: стена, стол.</source>
+        <translation>Dynamic: physics moves it - it falls and collides. Kinematic: it moves as it is set, by its velocity or by a sequence, and pushes others while nothing pushes it. Static: it stands still - a wall, a table.</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="382"/>
+        <source>кинематическое</source>
+        <translation>Kinematic</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="384"/>

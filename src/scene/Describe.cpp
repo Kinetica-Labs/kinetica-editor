@@ -36,7 +36,7 @@ std::string direction(const Vector3& d) {
 
 Real massOf(const Entity& e) {
     static const Real share[] = {1.0_r, kPi / 6, kPi / 4, kPi / 12, 1.0_r, 0.0_r};
-    if (!e.rigid.enabled || e.rigid.fixed) return 0;
+    if (!e.rigid.dynamic()) return 0;
     return e.rigid.density * share[int(e.shape)] * e.size.x * e.size.y * e.size.z;
 }
 
@@ -46,6 +46,7 @@ std::string shapeWords(const Entity& e) {
     if (massOf(e) > 0) s += ", " + num(massOf(e), 2) + " кг";
     std::string roles = e.rigid.enabled ? "твёрдое" : "";
     if (e.rigid.enabled && e.rigid.fixed) roles += ", закреплено";
+    else if (e.rigid.enabled && e.rigid.kinematic) roles += ", кинематическое";
     if (roles.empty()) roles = e.collider.enabled ? "только коллайдер (неподвижное препятствие)" : "только геометрия";
     return s + ", " + roles;
 }

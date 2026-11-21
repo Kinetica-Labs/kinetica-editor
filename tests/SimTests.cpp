@@ -228,6 +228,42 @@ void testSimBodiesAloneAreOneEngineStep() {
           int(box.awake), weight, double(mass) * 9.81);
 }
 
+// A kinematic body goes as its velocity says: gravity does not take it, the box in its way does not stop it - it
+// pushes the box; a body that is fixed as well stays static. In the file the word is written only when set, so a
+// scene without such a body is read by an editor that does not know the word.
+void testSimKinematicBodyLeads() {
+    SceneGraph g;
+    Entity lift = solid(1, "Толкатель", Vector3(0.2_r), {0, 0.1_r, 0}, false); // on the floor, as the box it will meet
+    lift.rigid.kinematic = true, lift.rigid.velocity = {1, 0, 0};
+    Entity held = solid(3, "Опора", Vector3(0.2_r), {0, 0.5_r, 2}, true);
+    held.rigid.kinematic = true, held.rigid.velocity = {1, 0, 0};
+    g.entities.push_back(lift);
+    g.entities.push_back(solid(2, "Ящик", Vector3(0.2_r), {0.5_r, 0.1_r, 0}, false));
+    g.entities.push_back(held);
+    Entity hung = solid(4, "Полка", Vector3(0.2_r), {0, 1.5_r, -2}, false);
+    hung.rigid.kinematic = true;
+    g.entities.push_back(hung);
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    CHECK(std::fabs(s.physics()->state(s.robot()->bodyOf(4)).position.y - 1.5_r) < 1e-5_r, "gravity does not take a kinematic body hung in the air");
+    const BodyState pusher = s.physics()->state(s.robot()->bodyOf(1)), box = s.physics()->state(s.robot()->bodyOf(2)),
+                    post = s.physics()->state(s.robot()->bodyOf(3));
+    std::printf("  after 1 s: the kinematic body at x %.3f y %.3f (mass %.1f), the box it met at x %.3f, the fixed one at x %.3f\n",
+                double(pusher.position.x), double(pusher.position.y), double(pusher.mass), double(box.position.x), double(post.position.x));
+    CHECK(std::fabs(pusher.position.x - 1) < 0.01_r && std::fabs(pusher.position.y - 0.1_r) < 1e-4_r && pusher.mass == 0,
+          "a kinematic body goes 1 m in a second at 1 m/s at its own height: x %f y %f", double(pusher.position.x), double(pusher.position.y));
+    CHECK(box.position.x > 1.1_r, "the box in its way is pushed ahead of it: x %f", double(box.position.x));
+    CHECK(std::fabs(post.position.x) < 1e-5_r, "fixed wins: a body that is both stays where it stands");
+    SceneGraph back;
+    std::string error;
+    const std::string text = g.save();
+    CHECK(back.load(text, error) && back.entities[0].rigid.kinematic && !back.entities[1].rigid.kinematic && back.save() == text,
+          "the kinematic word comes back from the file: %s", error.c_str());
+    CHECK(text.find("kinematic 1") != std::string::npos && SceneGraph().save().find("kinematic") == std::string::npos,
+          "the word is written for a kinematic body only");
+}
+
 void testSimServoHoldsAndDroops() {
     JointDrive d;
     d.enabled = true, d.stiffness = 60, d.damping = 4, d.target = 0.5_r, d.maxForce = 100;

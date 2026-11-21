@@ -48,6 +48,15 @@ class SceneObject:
     def name(self):
         return self.scene._call("scene_get", id=self.id)["name"]
 
+    @property
+    def tags(self):
+        """The words it is marked with: ``scene.objects.tagged("target")`` finds by them."""
+        return self.scene._call("scene_get", id=self.id)["tags"]
+
+    def tag(self, word, on=True):
+        """A tag put on it (on=False: taken off): one word, no spaces. Any object takes one - a shape, a joint, a sensor."""
+        self.scene._call("scene_tag", f"{self.ref}.tag({_q(word)}{'' if on else ', False'})", ids=[self.id], tag=word, on=bool(on))
+
     def _get(self, line, key, count=1):
         """What `_set` writes, read: the value after `key` on the block's line `line` - `count` of them as a tuple
         (None: the block has no such line or key)."""
@@ -112,6 +121,9 @@ class Body(SceneObject):
                     lambda self, v: self._set("shape", "size", v, f"{self.ref}.size = {tuple(v)}"))
     fixed = property(lambda self: self._get("rigid", "fixed") == 1,
                      lambda self, v: self._set("rigid", "fixed", int(bool(v)), f"{self.ref}.fixed = {bool(v)}"))
+    kinematic = property(lambda self: self._get("rigid", "kinematic") == 1,
+                         lambda self, v: self._set("rigid", "kinematic", int(bool(v)), f"{self.ref}.kinematic = {bool(v)}"),
+                         doc="It moves as its velocity and spin say and pushes what it meets; nothing pushes it")
 
     @property
     def velocity(self):

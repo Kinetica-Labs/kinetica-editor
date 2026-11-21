@@ -46,6 +46,10 @@ class Objects:
     def __iter__(self):
         return iter([self._wrap(row) for row in self._list()])
 
+    def tagged(self, word):
+        """The objects marked with the tag: ``for o in scene.objects.tagged("target"): ...``"""
+        return [self._wrap(row) for row in self._scene._call("scene_list", tag=word)["objects"]]
+
     def __len__(self):
         return len(self._list())
 
@@ -220,12 +224,13 @@ class Scene:
     def _refs(objects):
         return ", ".join(o.ref for o in objects)
 
-    def add(self, shape="box", name=None, position=None, size=None, role=None, fixed=None):
+    def add(self, shape="box", name=None, position=None, size=None, role=None, fixed=None, kinematic=None):
         """A shape as the toolbar's button adds it - in the air over a free spot, named "Куб 2" - or with what is given:
         its body. No role: geometry that stands where it is put; role="rigid": a body that falls (fixed=True: held still
-        in the world); role="collider": an obstacle."""
-        given = {k: v for k, v in (("name", name), ("position", position), ("size", size), ("role", role), ("fixed", fixed)) if v is not None}
-        show = {"name": _q, "role": _q, "fixed": repr}  # the rest are three numbers
+        in the world; kinematic=True: it moves as its velocity says and pushes what it meets); role="collider": an obstacle."""
+        given = {k: v for k, v in (("name", name), ("position", position), ("size", size), ("role", role), ("fixed", fixed),
+                                   ("kinematic", kinematic)) if v is not None}
+        show = {"name": _q, "role": _q, "fixed": repr, "kinematic": repr}  # the rest are three numbers
         shown = "".join(f", {k}={show.get(k, tuple)(v)}" for k, v in given.items())
         return self.objects[self._call("scene_add", f"scene.add({_q(shape)}{shown})", shape=shape,
                                        **{k: v if k in show else list(v) for k, v in given.items()})["id"]]

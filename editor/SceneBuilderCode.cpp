@@ -56,7 +56,7 @@ QString propertyLine(const SceneGraph& g, const GraphEdit& e) {
     }
     if (e.values.size() != 1) return {};
     if (line == "object" && (key == "visible" || key == "locked") && o) return r + "." + key + " = " + (v == "1" ? "True" : "False");
-    if (has(g.entities, e.id) && line == "rigid" && key == "fixed") return r + ".fixed = " + (v == "1" ? "True" : "False");
+    if (has(g.entities, e.id) && line == "rigid" && (key == "fixed" || key == "kinematic")) return r + "." + key + " = " + (v == "1" ? "True" : "False");
     if (has(g.drivers, e.id) && line == "bridge" && key == "duty") return r + ".duty = " + v;
     if (has(g.drivers, e.id) && line == "bridge" && key == "stop") return r + ".brake = " + (v == "brake" ? "True" : "False");
     if (has(g.sensors, e.id) && line == "encoder" && key == "lines") return r + ".lines = " + v;

@@ -93,23 +93,25 @@ SceneGraph robotGraph() {
 // key or a value - is still in what is saved (new keys with their defaults may join them). A key under the name it
 // had before the format settled on one style loads too and is saved under the new one.
 void testSceneFormatOnlyGrows() {
-    std::ifstream file(std::string(KE_TEST_DATA) + "/scene-format-1.kscene", std::ios::binary);
-    std::stringstream sample;
-    sample << file.rdbuf();
-    SceneGraph g;
     std::string error;
-    const bool loaded = !sample.str().empty() && g.load(sample.str(), error);
-    CHECK(loaded, "the format's sample does not load: %s", error.c_str());
-    std::map<std::string, int> left;
-    size_t words = 0;
-    for (std::string w; sample >> w; ++words) ++left[w];
-    std::istringstream saved(loaded ? g.save() : std::string());
-    for (std::string w; saved >> w;) --left[w];
-    std::string lost;
-    for (const auto& [word, count] : left)
-        if (count > 0) lost += " " + word;
-    std::printf("  the format's sample: %zu words, lost on load and save:%s\n", words, lost.empty() ? " none" : lost.c_str());
-    CHECK(lost.empty(), "words of the format's sample are not in what is saved:%s", lost.c_str());
+    for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene"}) { // 2: what the format gained after 1 - kinematic, tags
+        std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
+        std::stringstream sample;
+        sample << file.rdbuf();
+        SceneGraph g;
+        const bool loaded = !sample.str().empty() && g.load(sample.str(), error);
+        CHECK(loaded, "the format's sample %s does not load: %s", name, error.c_str());
+        std::map<std::string, int> left;
+        size_t words = 0;
+        for (std::string w; sample >> w; ++words) ++left[w];
+        std::istringstream saved(loaded ? g.save() : std::string());
+        for (std::string w; saved >> w;) --left[w];
+        std::string lost;
+        for (const auto& [word, count] : left)
+            if (count > 0) lost += " " + word;
+        std::printf("  %s: %zu words, lost on load and save:%s\n", name, words, lost.empty() ? " none" : lost.c_str());
+        CHECK(lost.empty(), "words of the format's sample %s are not in what is saved:%s", name, lost.c_str());
+    }
 
     SceneGraph old;
     const std::string before = "world gravity 0 -9.81 0 size 4 3 4\nphysics substeps 16 contactHertz 300 jointDamping 7\n"

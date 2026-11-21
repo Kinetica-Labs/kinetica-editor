@@ -36,7 +36,15 @@ bool isOfKind(const SceneGraph& g, uint32_t id, const std::string& word) {
 }
 
 // Empty word: every object. A word no object can be: false, and the words there are.
-bool objectList(const SceneGraph& g, const std::string& word, Value& out, std::string& error) {
+// An object's tags as an answer holds them (empty: no tags, or no such object).
+Value tagsValue(const SceneGraph& g, uint32_t id) {
+    Value list = Value::list();
+    if (const std::vector<std::string>* tags = objectTags(g, id))
+        for (const std::string& t : *tags) list.push(t);
+    return list;
+}
+
+bool objectList(const SceneGraph& g, const std::string& word, const std::string& tag, Value& out, std::string& error) {
     out = Value::list();
     bool known = word.empty() || std::any_of(std::begin(kListKinds), std::end(kListKinds), [&](const char* k) { return word == k; });
     for (int k = 0; k <= int(SensorKind::Stereo) && !known; ++k) known = word == sensorKindKey(SensorKind(k));
@@ -49,8 +57,10 @@ bool objectList(const SceneGraph& g, const std::string& word, Value& out, std::s
     auto add = [&](const auto& objects) {
         for (const auto& o : objects) {
             if (!word.empty() && !isOfKind(g, o.id, word)) continue;
+            if (!tag.empty() && std::find(o.tags.begin(), o.tags.end(), tag) == o.tags.end()) continue;
             Value row = Value::map();
             row.set("id", o.id), row.set("kind", kindOf(g, o.id)), row.set("name", o.name);
+            if (!o.tags.empty()) row.set("tags", tagsValue(g, o.id));
             out.push(row);
         }
     };
@@ -80,13 +90,14 @@ std::vector<SceneOp> readOps() {
     return {
         query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
               "camera, joint, battery, driver, sensor, wheel, controller), a sensor's own (encoder, imu, sonar, touch, wrench, effort, "
-              "stereo), or body - an entity with the rigid role. What a plugin's field of a scene object chooses from",
-              "{kind?: str}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
+              "stereo), or body - an entity with the rigid role. With tag - only those marked with it (scene_tag); a row says its "
+              "tags when it has any. What a plugin's field of a scene object chooses from",
+              "{kind?: str, tag?: str}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
             Value objects;
-            if (!objectList(g, a["kind"].text(""), objects, e)) return false;
+            if (!objectList(g, a["kind"].text(""), a["tag"].text(""), objects, e)) return false;
             return r.set("objects", objects), true;
         }),
-        query("scene_get", "One object's block of the scene file: text, and the same read - kind, name, lines (each line as its words, a "
+        query("scene_get", "One object's block of the scene file: text, and the same read - kind, name, tags, lines (each line as its words, a "
               "number as a number); the whole file without an id. With line: values - the count words (1) after key on the object's "
               "line that starts with the words of line, as scene_set names them (no key: right after the line's own; null: not there)",
               "{id?: int, line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
@@ -98,6 +109,7 @@ std::vector<SceneOp> readOps() {
             Value all = Value::list();
             for (const std::vector<BlockWord>& words : lines) all.push(wordValues(words));
             r.set("text", block), r.set("kind", lines[0][0].text), r.set("name", lines[0].size() > 1 ? lines[0][1].text : "");
+            r.set("tags", tagsValue(g, uint32_t(a["id"].integer())));
             return r.set("lines", all), true;
         }),
         query("scene_describe", "The scene in words: the bodies as a tree of joints with their shapes, masses, roles and drives; sensors and where "

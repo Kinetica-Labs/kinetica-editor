@@ -40,6 +40,7 @@ int main() {
     run("world: a body fallen out of the world leaves the engine; the frame's contacts only when they are read", testSimLostBodiesLeaveTheWorld);
     run("world: bodies alone are one step of the engine a frame, a servo's world a step a substep", testSimBodiesAloneAreOneEngineStep);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
+    run("sim: a kinematic body goes as its velocity says and pushes what it meets", testSimKinematicBodyLeads);
     run("world: a DC motor spins up to U / K with the time constant I R / K^2", testSimDcMotorSpinsUp);
     run("world: a battery drives a motor through its driver - charge d J w / K, speed d E / K, a spent pack opens", testSimBatteryDrivesMotor);
     run("world: assembly_actuator joins two drawn shapes with a tuned servo - holds level within a degree, turns to its target", testSimActuatorHolds);
@@ -68,6 +69,7 @@ int main() {
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
     run("actions: scene_array - a row of copies by its count and step", testSceneArrayOp);
+    run("actions: tags on objects of any kind - put, found by, kept in the file", testSceneTags);
     run("actions: a block's fields are read in the core - scene_get, world_get, world_set by line and key", testSceneFieldsReadInTheCore);
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("scene: the Sequencer - a sequence's poses between keys, held, looped; keys, the file, the playhead, a lost track", testSequence);

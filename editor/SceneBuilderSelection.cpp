@@ -392,7 +392,7 @@ void SceneBuilder::refreshIkView() {
     // Neither on a goal itself (its own button would lift it over itself) nor where no arm can take it.
     const Entity* selected = entityById(selectedId_);
     const bool link = selected && !ke::ikChain(graph_, selectedId_).empty();
-    const bool movable = selected && selected->rigid.enabled && !selected->rigid.fixed; // a thing to take, not the floor or a table
+    const bool movable = selected && selected->rigid.dynamic(); // a thing to take, not the floor, a table or what is led
     const bool reach = selected && !link && !selected->goalOf && movable && goalNear(selectedId_) != 0;
     goalButton_->setVisible(link || reach);
     goalButton_->setText(reach ? uiText("Kinetica", "Рука — к этому предмету") : uiText("Kinetica", "Вести звено мышью (цель)")); // it said «рука тянется сюда» and did not

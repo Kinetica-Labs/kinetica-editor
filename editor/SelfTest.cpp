@@ -580,6 +580,31 @@ void handSession(QMainWindow& w, SceneBuilder& b, EditorOps& ops, uint32_t& cube
     pump(500);
 }
 
+// Tags: a word put on a shape and on a joint is found by scene_list, shows in the object's card and is one undo step;
+// and a joint selected together with a shape - what an agent's selection_set may ask for - does not bring the window
+// down (the card of several things read every one of them as a thing with a place).
+void testTags(Checker& c, QMainWindow& w, SceneBuilder& b) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    ops->runNow("scene_new", {});
+    const int base = ops->runNow("scene_add", {{"shape", "box"}, {"role", "rigid"}, {"fixed", true}}).value("id").toInt();
+    const int link = ops->runNow("scene_add", {{"shape", "box"}, {"role", "rigid"}, {"position", QJsonArray{0, 0.6, 0}}}).value("id").toInt();
+    const int joint = ops->runNow("assembly_joint", {{"a", link}, {"b", base}, {"anchor", QJsonArray{0, 0.4, 0}}}).value("id").toInt();
+    const QJsonObject put = ops->runNow("scene_tag", {{"ids", QJsonArray{base, joint}}, {"tag", "мишень"}});
+    const int found = ops->runNow("scene_list", {{"tag", "мишень"}}).value("objects").toArray().size();
+    ops->runNow("selection_set", {{"ids", QJsonArray{base}}});
+    pump(200);
+    auto* field = w.findChild<QLineEdit*>("objectTags");
+    const QString shown = field ? field->text() : QString("no field");
+    ops->runNow("edit_undo", {});
+    const int after = ops->runNow("scene_list", {{"tag", "мишень"}}).value("objects").toArray().size();
+    c.check(put.value("changed").toInt() == 2 && found == 2 && shown == "мишень" && after == 0,
+            "a tag on a shape and a joint: found by scene_list, shown in the card, gone by one undo");
+    ops->runNow("selection_set", {{"ids", QJsonArray{joint, base}}});
+    pump(200);
+    c.check(b.selection().size() == 2, "a joint selected together with a shape: the window stands");
+    ops->runNow("selection_set", {{"ids", QJsonArray{}}});
+}
+
 // The window's buttons as code: each action of a hand's session is its one line of the object model
 // (scene.add("box"), editor.select(...), a gizmo drag as .move(...) / .turn("y", ...), the tool shelf as
 // editor.gizmo.tool = ...); each edit one undo step; and the lines run as the operations they name make
@@ -693,6 +718,7 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
     run("mouse", [&] { testMouseDrag(c, w, *b, v), testCyclePicking(c, w, *b, v); });
     run("menu", [&] { testContextMenu(c, w, *b, v); });
     run("console", [&] { testApiConsole(c), testWindowAsCode(c, w, *b), testPythonConsole(c, w, *b); });
+    run("tags", [&] { testTags(c, w, *b); });
     run("live", [&] { testLiveEdit(c, w, *b, v); });
     run("components", [&] { c.failures += runComponentTests(w, *b, v, shotsDir); });
     run("controls", [&] { c.failures += runControlTests(w, *b, v, shotsDir); });

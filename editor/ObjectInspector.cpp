@@ -7,6 +7,7 @@
 #include "InspectorWidgets.h"
 
 #include <QBoxLayout>
+#include <algorithm>
 #include <QColorDialog>
 #include <QFormLayout>
 #include <QLabel>
@@ -58,9 +59,17 @@ ObjectInspector::ObjectInspector(QWidget* parent) : QWidget(parent) {
     rotation_ = new Vec3Row(-360, 360, 5, 0);
     form->addRow(uiText("Kinetica", "Где, м"), position_);
     form->addRow(uiText("Kinetica", "Поворот, °"), rotation_);
+    tags_ = new QLineEdit;
+    tags_->setObjectName("objectTags");
+    tags_->setPlaceholderText(uiText("Kinetica", "слова через пробел: мишень, не-трогать"));
+    tags_->setToolTip(uiText("Kinetica", "Метки: по ним объект находят скрипты и плагины (scene_list {tag})"));
+    form->addRow(uiText("Kinetica", "Метки"), tags_);
     col->addLayout(form);
 
     connect(name_, &QLineEdit::textEdited, this, &ObjectInspector::edited);
+    connect(tags_, &QLineEdit::editingFinished, this, [this] { // a word half typed is no tag yet
+        if (tags_->isModified()) tags_->setModified(false), emit edited();
+    });
     connect(position_, &Vec3Row::edited, this, &ObjectInspector::edited);
     connect(rotation_, &Vec3Row::edited, this, &ObjectInspector::edited);
     connect(colour_, &QPushButton::clicked, this, &ObjectInspector::pickColour);
@@ -81,6 +90,10 @@ void ObjectInspector::setObject(const ke::SceneObject& o) {
     colour_->setStyleSheet(swatchStyle(colourValue_));
     position_->setValue(o.position);
     rotation_->setValue(o.rotationDeg);
+    QStringList tags;
+    for (const std::string& t : o.tags) tags << QString::fromStdString(t);
+    tags_->setText(tags.join(' '));
+    tags_->setModified(false);
     updateToggleIcons();
 }
 
@@ -96,6 +109,11 @@ void ObjectInspector::writeTo(ke::SceneObject& o) const {
     o.color = ke::Vector3(float(colourValue_.redF()), float(colourValue_.greenF()), float(colourValue_.blueF()));
     o.position = position_->value();
     o.rotationDeg = rotation_->value();
+    o.tags.clear();
+    for (const QString& word : tags_->text().split(' ', Qt::SkipEmptyParts)) { // what is no tag - a quote in it - is left out
+        const std::string tag = word.toStdString();
+        if (ke::tagWord(tag) && std::find(o.tags.begin(), o.tags.end(), tag) == o.tags.end()) o.tags.push_back(tag);
+    }
 }
 
 void ObjectInspector::showMixed(bool name, int positionMask, int rotationMask) {
