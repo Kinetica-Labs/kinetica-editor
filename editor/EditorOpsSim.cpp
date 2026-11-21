@@ -129,7 +129,7 @@ void EditorOps::addViewOps() {
                                "width: scaled to so many pixels across, smoothly; clean: without the text and the navigation cube over the view - "
                                "a picture for the documentation; marks: false - without the editor's own marks in the scene either (joints and their ties, "
                                "sensors, lights, cameras, the gizmo, the selection's outline): what a camera would film - what a plugin or an agent drew (view_draw) stays in both; view_frame {id} first puts an object in the middle of it; file: where to save it - none, a new file in the temporary folder, "
-                               "named in the answer)",
+                               "named in the answer; a picture of the window answers where the view stands in it, `view` in its pixels)",
             "{file?: str, window?: bool, screen?: bool, width?: int, clean?: bool, marks?: bool}",
             [this](const QJsonObject& a) {
         static int shots = 0;
@@ -137,20 +137,28 @@ void EditorOps::addViewOps() {
                                                 : QDir::tempPath() + QString("/kinetica-shot-%1-%2.png").arg(QCoreApplication::applicationPid()).arg(++shots);
         if (refresh_) refresh_();
         const bool clean = a.value("clean").toBool();
-        QWidget* banner = clean ? window_->findChild<QWidget*>("apiBanner") : nullptr;
-        const bool bannerShown = banner && banner->isVisible();
+        std::vector<QWidget*> over; // the bar «an agent drives» and «Смотрю через»: words over the view, out of a clean picture
+        for (const char* name : {"apiBanner", "cameraPicker"})
+            if (QWidget* w = clean ? window_->findChild<QWidget*>(name) : nullptr; w && w->isVisible()) over.push_back(w);
         const bool marks = a.value("marks").toBool(true);
         if (clean) view_->setOverlayVisible(false);
         if (!marks) view_->setMarksVisible(false);
-        if (bannerShown) banner->hide();
-        QImage image = a.value("screen").toBool() ? seenWindow(window_) : a.value("window").toBool() ? wholeWindow(window_) : view_->grabFramebuffer();
+        for (QWidget* w : over) w->hide();
+        const bool whole = a.value("screen").toBool() || a.value("window").toBool();
+        QImage image = a.value("screen").toBool() ? seenWindow(window_) : whole ? wholeWindow(window_) : view_->grabFramebuffer();
         if (clean) view_->setOverlayVisible(true);
         if (!marks) view_->setMarksVisible(true);
-        if (bannerShown) banner->show();
+        for (QWidget* w : over) w->show();
+        const double logical = image.width() / image.devicePixelRatio(); // the window's own pixels: the view stands in them
         if (const int width = a.value("width").toInt(); width > 0 && width < image.width())
             image = image.scaledToWidth(width, Qt::SmoothTransformation);
         if (file.isEmpty() || !image.save(file)) return error("cannot save '" + file + "'");
         QJsonObject answer{{"file", file}, {"width", image.width()}, {"height", image.height()}};
+        if (whole && view_->isVisible()) { // where the 3D view stands in the picture, in its pixels
+            const double k = image.width() / logical;
+            const QPoint at = view_->mapTo(window_, QPoint(0, 0));
+            answer["view"] = QJsonObject{{"x", at.x() * k}, {"y", at.y() * k}, {"width", view_->width() * k}, {"height", view_->height() * k}};
+        }
         return ok(answer);
     });
     addSync("view_frame", "Show the object (selected), or the whole scene without an id", "{id?: int}", [this](const QJsonObject& a) {
