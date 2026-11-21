@@ -129,10 +129,15 @@ bool aimCameraOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
 }
 
 // Delete, duplicate, group, ungroup, make an array: on the topmost of `ids` (a member goes with its group).
-SceneOp treeOp(const char* name, const char* help) {
-    return {name, help, "{ids}", {}, [op = std::string(name)](SceneGraph& g, const Value& a, Value& r, std::string& e) {
+SceneOp treeOp(const char* name, const char* help, const char* args = "{ids}") {
+    return {name, help, args, {}, [op = std::string(name)](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         const std::vector<uint32_t> named = idsArg(a), roots = topmost(g, named);
         if (!(e = unknown(g, named)).empty()) return false;
+        Vector3 step;
+        bool stepped = false;
+        const int count = a["count"].integer(5);
+        if (!optionalVector(a, "step", step, stepped, e)) return false;
+        if (count < 1 || count > 1000) return e = "count is 1..1000 copies", false;
         std::vector<uint32_t> made;
         if (op == "scene_delete") {
             std::vector<uint32_t> gone = roots;
@@ -148,6 +153,9 @@ SceneOp treeOp(const char* name, const char* help) {
             made = op == "scene_duplicate" ? duplicateObjects(g, roots) : op == "scene_group" ? std::vector<uint32_t>{groupObjects(g, roots)}
                                                                                                : arrayObjects(g, roots);
             if (made.empty()) return e = "no shape to make an array of", false;
+            if (op == "scene_array")
+                for (ArrayObject& row : g.arrays)
+                    if (std::find(made.begin(), made.end(), row.id) != made.end()) row.count[0] = count, row.step = stepped ? step : row.step;
         }
         return merge(r, answerOf(made)), true;
     }, true};
@@ -358,7 +366,9 @@ std::vector<SceneOp> actionSceneOps() {
         treeOp("scene_duplicate", "Copies a little above the originals (Ctrl+D); the copies are the answer"),
         treeOp("scene_group", "A group at the centre of the objects, their poses kept in the world (Ctrl+G)"),
         treeOp("scene_ungroup", "The groups dissolved, their members kept where they stand (Ctrl+Shift+G)"),
-        treeOp("scene_array", "Each shape becomes the hidden template of a row of 5 copies along x"),
+        treeOp("scene_array", "Each shape becomes the hidden template of a row of copies: count of them (5), a step apart (its width and a gap, along "
+               "x). The row is an object of its own - its pattern line holds the rest (a grid, a circle, a turn a copy: scene_set)",
+               "{ids, count?: int, step?: [x,y,z]}"),
         {"scene_show_all", "Every hidden object shown again (Alt+H), not the templates of arrays", "{}", {},
          [](SceneGraph& g, const Value&, Value&, std::string&) { return showAll(g), true; }},
         {"scene_role", "A role given to the shapes or taken from them, as the role bar does; no `on`: switched as a click",

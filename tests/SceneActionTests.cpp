@@ -148,6 +148,31 @@ void testSceneFieldsReadInTheCore() {
           "world_set of a line the world has not got is refused");
 }
 
+// scene_array by name: the row it makes takes its count and step from the call - five copies a width and a gap apart
+// when the call names none, as the button makes it.
+void testSceneArrayOp() {
+    SceneGraph g;
+    std::string error;
+    Value add = Value::map(), box = Value::map(), ids = Value::list(), plain = Value::map(), made = Value::map();
+    add.set("shape", "box");
+    findSceneOp("scene_add")->edit(g, add, box, error);
+    ids.push(box["id"].integer());
+    plain.set("ids", ids);
+    const SceneOp* array = findSceneOp("scene_array");
+    CHECK(array->edit(g, plain, made, error) && g.arrays.size() == 1 && g.arrays[0].count[0] == 5 && g.arrays[0].step.x > 0 && g.arrays[0].step.y == 0,
+          "scene_array of a shape: a row of five along x: %s", error.c_str());
+    Value second = Value::map(), row = Value::map(), step = Value::list(), other = Value::list();
+    add.set("shape", "sphere");
+    findSceneOp("scene_add")->edit(g, add, second, error);
+    other.push(second["id"].integer());
+    step.push(0), step.push(0.5), step.push(0);
+    row.set("ids", other), row.set("count", 12), row.set("step", step);
+    CHECK(array->edit(g, row, made, error) && g.arrays.size() == 2 && g.arrays[1].count[0] == 12 && g.arrays[1].step.y == 0.5_r && g.arrays[1].step.x == 0 &&
+          g.arrays[0].count[0] == 5, "scene_array {count, step}: twelve copies half a metre up, the first row as it was: %s", error.c_str());
+    row.set("count", 0);
+    CHECK(!array->edit(g, row, made, error) && g.arrays.size() == 2, "a count of no copies is refused");
+}
+
 void testSceneOpsRegistry() {
     int malformed = 0;
     for (const SceneOp& op : sceneOps()) malformed += op.name.empty() || op.help.empty() || op.args.empty() || bool(op.query) == bool(op.edit);

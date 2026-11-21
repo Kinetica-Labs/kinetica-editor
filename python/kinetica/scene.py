@@ -271,9 +271,12 @@ class Scene:
         """The groups dissolved, their members kept where they stand: the members."""
         return self._objects(self._act("scene_ungroup", "ungroup", groups)["ids"])
 
-    def make_array(self, *shapes):
-        """Each shape becomes the hidden template of a row of 5 copies along x: the arrays."""
-        return self._objects(self._call("scene_array", f"scene.make_array({self._refs(shapes)})", ids=[o.id for o in shapes])["ids"])
+    def make_array(self, *shapes, **row):
+        """Each shape becomes the hidden template of a row of copies - ``count`` of them (5), ``step`` apart (its width
+        and a gap, along x): the arrays. ``scene.make_array(brick, count=10, step=(0, 0.11, 0))``."""
+        shown = "".join(f", {key}={value!r}" for key, value in row.items())
+        return self._objects(self._call("scene_array", f"scene.make_array({self._refs(shapes)}{shown})", ids=[o.id for o in shapes],
+                                        **{key: list(value) if key == "step" else value for key, value in row.items()})["ids"])
 
     def show_all(self):
         """Every hidden object shown again (Alt+H)."""
