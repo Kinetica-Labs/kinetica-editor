@@ -1260,11 +1260,11 @@ Force forceOf(uint32_t id, const Vector3& at, ForceShape shape, ForceMode mode, 
 
 Real massOf(const Simulation& s, uint32_t id) { return s.physics()->state(s.robot()->bodyOf(id)).mass; }
 Vector3 velocityOf(const Simulation& s, uint32_t id) { return s.physics()->state(s.robot()->bodyOf(id)).velocity; }
-// The momentum of a body, N s: what a force gives, whatever the body's mass is.
+// The momentum of a body, N s: what a body's own force gives it.
 Vector3 momentumOf(const Simulation& s, uint32_t id) { return velocityOf(s, id) * massOf(s, id); }
 bool near(const Vector3& a, const Vector3& b, Real tol = 1e-4_r) { return length(a - b) <= tol * (1 + length(b)); }
 
-// One box at `at` and one force, `frames` frames: the box's momentum.
+// One box at `at` and one field, `frames` frames: the box's velocity - what a field gives, whatever the box weighs.
 Vector3 kicked(const Force& f, const Vector3& at, int frames = 1) {
     SceneGraph g = calm();
     g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), at, false));
@@ -1272,7 +1272,7 @@ Vector3 kicked(const Force& f, const Vector3& at, int frames = 1) {
     Simulation s;
     s.load(g);
     for (int k = 0; k < frames; ++k) s.stepFrame();
-    return momentumOf(s, 1);
+    return velocityOf(s, 1);
 }
 
 } // namespace
@@ -1289,7 +1289,7 @@ void testSimForces() {
     const auto R = ForceShape::Radial;
 
     // Directional impulse: along +Y; turned 90 degrees about z along -X; a negative strength reverses; no spin.
-    CHECK(near(kicked(forceOf(2, at, D, I, 5), at), up * 5), "a push of 5 N s along +Y gives the box 5 N s");
+    CHECK(near(kicked(forceOf(2, at, D, I, 5), at), up * 5), "a field push of 5 m/s along +Y gives the box 5 m/s, whatever it weighs");
     Force turned = forceOf(2, at, D, I, 5);
     turned.rotationDeg = Vector3(0, 0, 90);
     CHECK(near(kicked(turned, at), Vector3(-5, 0, 0)), "turned about z by 90 degrees it pushes along -X");
@@ -1343,13 +1343,13 @@ void testSimForces() {
         Simulation s;
         s.load(g);
         s.stepFrame();
-        CHECK(near(momentumOf(s, 1), up * 5) && length(velocityOf(s, 2)) == 0, "the tagged body is pushed, the other is not");
+        CHECK(near(velocityOf(s, 1), up * 5) && length(velocityOf(s, 2)) == 0, "the tagged body is pushed, the other is not");
         CHECK(length(velocityOf(s, 3)) == 0 && length(velocityOf(s, 4)) == 0, "a static or a kinematic body is never touched");
         g.forces[0].tag.clear();
         Simulation all;
         all.load(g);
         all.stepFrame();
-        CHECK(near(momentumOf(all, 2), up * 5) && length(velocityOf(all, 3)) == 0 && length(velocityOf(all, 4)) == 0, "no tag: every dynamic body");
+        CHECK(near(velocityOf(all, 2), up * 5) && length(velocityOf(all, 3)) == 0 && length(velocityOf(all, 4)) == 0, "no tag: every dynamic body");
         g.forces[0].visible = false;
         Simulation hidden;
         hidden.load(g);
@@ -1403,7 +1403,7 @@ void testSimForces() {
         CHECK(!s.physics()->state(s.robot()->bodyOf(1)).awake, "the box fell asleep");
         std::string error;
         CHECK(s.robot()->fireForce(*s.physics(), 10, error), "fired: %s", error.c_str());
-        CHECK(near(momentumOf(s, 1), up * 5) && s.physics()->state(s.robot()->bodyOf(1)).awake, "the impulse is in the velocity at once, the body awake");
+        CHECK(near(velocityOf(s, 1), up * 5) && s.physics()->state(s.robot()->bodyOf(1)).awake, "the impulse is in the velocity at once, the body awake");
         s.stepFrame();
         CHECK(s.physics()->state(s.robot()->bodyOf(1)).position.y > 2.0001_r, "and it has moved");
         CHECK(!s.robot()->fireForce(*s.physics(), 11, error) && error.find("constant") != std::string::npos, "a constant force is not fired: %s", error.c_str());
@@ -1416,7 +1416,7 @@ void testSimForces() {
         Simulation s;
         s.load(g);
         s.stepFrame();
-        CHECK(near(momentumOf(s, 1), up * (12 / 60.0_r), 1e-3_r), "a constant 12 N for one frame gives 12 N / 60 s of momentum");
+        CHECK(near(velocityOf(s, 1), up * (12 / 60.0_r), 1e-3_r), "a constant field of 12 m/s^2 for one frame gives 12 / 60 m/s");
     }
     {
         SceneGraph g = calm();
@@ -1450,11 +1450,11 @@ void testSimForces() {
         for (int k = 0; k < 60; ++k) {
             const int64_t clock = s.robot()->clockNs();
             s.stepFrame();
-            const Real vy = momentumOf(s, 10).y;
+            const Real vy = velocityOf(s, 10).y;
             if (clock + slack + std::llround(double(s.frameDt) * 1e9) < due && vy != 0) early = false;
             if (clock >= due && std::fabs(vy - 5) > 1e-3_r) once = false;
         }
-        CHECK(early && once, "an impulse starting at 0.5 s fires once, not before its moment (%s): v*m %f", servo ? "a servo in the scene" : "bodies alone", double(momentumOf(s, 10).y));
+        CHECK(early && once, "an impulse starting at 0.5 s fires once, not before its moment (%s): v*m %f", servo ? "a servo in the scene" : "bodies alone", double(velocityOf(s, 10).y));
     }
     {
         SceneGraph g = calm();
@@ -1463,7 +1463,7 @@ void testSimForces() {
         Simulation s;
         s.load(g);
         s.stepFrame();
-        CHECK(near(momentumOf(s, 1), up * 5), "start 0 fires in the very first frame");
+        CHECK(near(velocityOf(s, 1), up * 5), "start 0 fires in the very first frame");
         g.forces[0].start = 0.5_r;
         Simulation pressed;
         pressed.load(g);
@@ -1471,7 +1471,7 @@ void testSimForces() {
         std::string error;
         CHECK(pressed.robot()->fireForce(*pressed.physics(), 10, error), "the button: %s", error.c_str());
         for (int k = 0; k < 54; ++k) pressed.stepFrame();
-        CHECK(near(momentumOf(pressed, 1), up * 5), "the button cancels the timed firing: once, not twice (%f)", double(momentumOf(pressed, 1).y));
+        CHECK(near(velocityOf(pressed, 1), up * 5), "the button cancels the timed firing: once, not twice (%f)", double(velocityOf(pressed, 1).y));
     }
 
     // A constant force is the same whatever the number of engine steps a frame is.
@@ -1484,9 +1484,9 @@ void testSimForces() {
             Simulation s;
             s.load(g);
             for (int k = 0; k < 60; ++k) s.stepFrame();
-            const Real got = momentumOf(s, 10).y;
+            const Real got = velocityOf(s, 10).y;
             CHECK(s.robot()->engineSteps(substeps) == (servo ? substeps : 1) && std::fabs(got - 12) < 12e-3_r,
-                  "12 N for 1 s: %f N s with %d engine steps a frame, %d substeps", double(got), s.robot()->engineSteps(substeps), substeps);
+                  "12 m/s^2 for 1 s: %f m/s with %d engine steps a frame, %d substeps", double(got), s.robot()->engineSteps(substeps), substeps);
         }
     {
         SceneGraph g = calm();
@@ -1495,9 +1495,9 @@ void testSimForces() {
         Simulation s;
         s.load(g);
         for (int k = 0; k < 200; ++k) s.stepFrame();
-        const Real a = momentumOf(s, 1).y;
+        const Real a = velocityOf(s, 1).y;
         for (int k = 0; k < 20; ++k) s.stepFrame();
-        CHECK(a > 0 && momentumOf(s, 1).y == a, "a constant force stops when the box is beyond its radius");
+        CHECK(a > 0 && velocityOf(s, 1).y == a, "a constant force stops when the box is beyond its radius");
     }
 
     // The pose of the last frame; a force on the body it acts on pushes it.
@@ -1530,7 +1530,7 @@ void testSimForces() {
         Simulation t;
         t.load(own);
         t.stepFrame();
-        CHECK(near(momentumOf(t, 1), up * 5), "a force parented to its own body pushes it");
+        CHECK(near(momentumOf(t, 1), up * 5), "a force parented to its own body pushes it: 5 N s of momentum");
     }
 
     // The same run twice is the same bit for bit; impulses on different bodies commute.
@@ -1564,7 +1564,7 @@ void testSimForces() {
         Simulation p, q;
         p.load(two), q.load(swapped);
         for (int k = 0; k < 10; ++k) p.stepFrame(), q.stepFrame();
-        CHECK(near(momentumOf(p, 1), momentumOf(q, 1), 0) && near(momentumOf(p, 2), momentumOf(q, 2), 0), "impulses on different bodies commute");
+        CHECK(near(velocityOf(p, 1), velocityOf(q, 1), 0) && near(velocityOf(p, 2), velocityOf(q, 2), 0), "impulses on different bodies commute");
     }
 
     // Edits while the world runs.
@@ -1575,12 +1575,12 @@ void testSimForces() {
         Simulation s;
         s.load(g);
         for (int k = 0; k < 30; ++k) s.stepFrame();
-        const Real half = momentumOf(s, 1).y;
+        const Real half = velocityOf(s, 1).y;
         std::vector<Force> edited = g.forces;
         edited[0].strength = 12;
         s.robot()->setForces(edited);
         for (int k = 0; k < 30; ++k) s.stepFrame();
-        CHECK(std::fabs(half - 3) < 3e-3_r && std::fabs(momentumOf(s, 1).y - half - 6) < 6e-3_r, "a constant force's new strength acts at once, no rebuild: %f then %f", double(half), double(momentumOf(s, 1).y));
+        CHECK(std::fabs(half - 3) < 3e-3_r && std::fabs(velocityOf(s, 1).y - half - 6) < 6e-3_r, "a constant force's new strength acts at once, no rebuild: %f then %f", double(half), double(velocityOf(s, 1).y));
     }
     {
         SceneGraph g = calm();
@@ -1593,16 +1593,16 @@ void testSimForces() {
         edited[0].strength = 50;
         s.robot()->setForces(edited);
         s.stepFrame();
-        CHECK(near(momentumOf(s, 1), up * 5), "an edit of a fired impulse does not fire it again");
+        CHECK(near(velocityOf(s, 1), up * 5), "an edit of a fired impulse does not fire it again");
         s.robot()->setForces({});
         s.robot()->setForces(g.forces); // deleted and added again in play, start 0
         s.stepFrame();
-        CHECK(near(momentumOf(s, 1), up * 5), "a force added while playing, its moment passed, does not fire by itself");
+        CHECK(near(velocityOf(s, 1), up * 5), "a force added while playing, its moment passed, does not fire by itself");
         std::string error;
-        CHECK(s.robot()->fireForce(*s.physics(), 10, error) && near(momentumOf(s, 1), up * 10), "the button fires it");
+        CHECK(s.robot()->fireForce(*s.physics(), 10, error) && near(velocityOf(s, 1), up * 10), "the button fires it");
         s.load(g); // Stop, then play
         s.stepFrame();
-        CHECK(near(momentumOf(s, 1), up * 5), "Stop and play again: it fires once more");
+        CHECK(near(velocityOf(s, 1), up * 5), "Stop and play again: it fires once more");
 
         g.forces[0].start = 3600;
         Simulation late;
@@ -1613,7 +1613,7 @@ void testSimForces() {
         edited[0].start = 0;
         late.robot()->setForces(edited);
         late.stepFrame();
-        CHECK(near(momentumOf(late, 1), up * 5), "an unfired impulse moved to a passed moment fires at the next step");
+        CHECK(near(velocityOf(late, 1), up * 5), "an unfired impulse moved to a passed moment fires at the next step");
     }
 }
 
@@ -1665,7 +1665,7 @@ void testSimForceOnBody() {
     g.forces[0].mode = ForceMode::Impulse;
     CHECK(forceUnitPerMetre(g, g.forces[0]) == mass * 3, "of an impulse's: 3 m/s");
     g.forces[0].shape = ForceShape::Radial;
-    CHECK(!forceBody(g, g.forces[0]) && forceUnitPerMetre(g, g.forces[0]) == 10, "a radial force is a field whatever its parent is");
+    CHECK(!forceBody(g, g.forces[0]) && forceUnitPerMetre(g, g.forces[0]) == 3, "a radial force is a field whatever its parent is: a metre is 3 m/s, no mass in it");
     g.entities[0].rotationDeg = Vector3(0, 0, 40), g.entities[0].rigid.centerGiven = true, g.entities[0].rigid.centerOfMass = Vector3(0, 0.05_r, 0);
     Force made = forceOf(4, Vector3(5, 5, 5), ForceShape::Directional, ForceMode::Constant, 1);
     applyForceTo(g, made, g.entities[0]);

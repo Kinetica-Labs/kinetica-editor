@@ -538,9 +538,10 @@ Vector3 forceAxis(const Quaternion& q);
 // bodies in its reach at their centres.
 const Entity* forceBody(const SceneGraph& g, const Force& f);
 bool forceIdle(const SceneGraph& g, const Force& f); // a shape's own force that has nothing to push yet
-// The strength one metre of a directional force's arrow stands for. A body's own force is drawn by what it does to
-// that body: a metre is 3 m/s of the velocity an impulse gives it, or 10 m/s^2 of a constant force's acceleration (an
-// arrow up longer than a metre lifts the body). A field's: 10 N s or N.
+// The strength one metre of a directional force's arrow stands for. The arrow shows what the force does: a metre is
+// 3 m/s of the velocity an impulse gives, or 10 m/s^2 of a constant force's acceleration (an arrow up longer than a
+// metre lifts a body). A field's strength is that velocity or acceleration itself; a body's own force's is N s or N,
+// so its metre is that times the body's mass.
 Real forceUnitPerMetre(const SceneGraph& g, const Force& f);
 // The force made that body's own: its child, standing at the body's centre of mass, upright in the world, a metre of
 // arrow long (a constant one 1.2 m: straight up it lifts the body).

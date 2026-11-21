@@ -288,7 +288,7 @@ bool forceIdle(const SceneGraph& g, const Force& f) {
 
 Real forceUnitPerMetre(const SceneGraph& g, const Force& f) {
     const Entity* body = forceBody(g, f);
-    return body ? bodyMass(resolveInstance(g, *body)) * (f.mode == ForceMode::Impulse ? 3_r : 10_r) : 10_r;
+    return (body ? bodyMass(resolveInstance(g, *body)) : 1_r) * (f.mode == ForceMode::Impulse ? 3_r : 10_r);
 }
 
 void applyForceTo(SceneGraph& g, Force& f, const Entity& body) {

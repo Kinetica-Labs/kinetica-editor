@@ -131,7 +131,7 @@ int main() {
     run("world ops: sim_step's frames as the window's Qt conversions read them", testWorldOpsFramesArg);
     run("world ops: robot_command - a servo, a force, bad entries in the order of their keys, keys read as toUInt reads them", testWorldOpsRobotCommand);
     run("world ops: sim_impulse - the order of its checks, v = J / m, a static body refused", testWorldOpsImpulse);
-    run("world ops: force_fire - the order of its checks, a constant force refused, |v| = J / m", testWorldOpsForceFire);
+    run("world ops: force_fire - the order of its checks, a constant force refused, a field's velocity given", testWorldOpsForceFire);
     run("world ops: sensor_read and controller_input", testWorldOpsSensorsAndControllers);
     run("world ops: sim_measure against the engine's own channels", testWorldOpsMeasure);
     run("world ops: the live state against the Simulation, the flags of a static, a kinematic and a sleeping body", testWorldOpsLiveState);

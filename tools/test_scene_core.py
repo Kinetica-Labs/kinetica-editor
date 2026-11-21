@@ -235,7 +235,7 @@ class SceneCore(unittest.TestCase):
                                                                        ("directional", "constant"), ("radial", "constant"))]
             self.assertEqual([(f.kind, f.shape, f.mode) for f in kinds], [("force", s, m) for s, m in (
                 ("directional", "impulse"), ("radial", "impulse"), ("directional", "constant"), ("radial", "constant"))])
-            self.assertEqual([f.strength for f in kinds], [5, 10, 10, -10])
+            self.assertEqual([f.strength for f in kinds], [3, 6, 12, -15])  # fields: m/s and m/s^2
             push = kinds[0]
             push.strength, push.falloff, push.start, push.acts_on = 7, "inverse_square", 2.5, "crate"
             self.assertEqual((push.strength, push.falloff, push.start, push.acts_on), (7, "inverse_square", 2.5, "crate"))
@@ -298,7 +298,7 @@ class SceneCore(unittest.TestCase):
             push.fire()
             scene.step(2)
             channels = scene.measure(objects=[box])
-            self.assertAlmostEqual(channels[f"{box.id}/velocity y"], 5 / channels[f"{box.id}/mass"], delta=1e-3)
+            self.assertAlmostEqual(channels[f"{box.id}/velocity y"], 3, delta=1e-3)  # a field push: 3 m/s to every body, whatever it weighs
 
     def test_the_hello_runs(self):
         out = subprocess.run([sys.executable, os.path.join(ROOT, "examples", "python", "01_hello.py")], cwd=ROOT,

@@ -113,8 +113,9 @@ void SceneBuilder::onForceHandle(int index, Vector3 point, int phase) {
         const Vector3 from = forceAxis(q) * (start->strength < 0 ? -1.0f : 1.0f);
         setWorldPose(graph_, f, p, Quaternion::fromTwoVectors(from, to) * q);
         f.strength = std::min(float(kForceMaxStrength), metres * float(forceUnitPerMetre(componentGraph_, *start))) * (start->strength < 0 ? -1.0f : 1.0f);
+        const bool own = forceBody(componentGraph_, *start), impulse = f.mode == ForceMode::Impulse;
         emit statusMessage(QString("%1: %2 %3").arg(QString::fromStdString(f.name), QLocale().toString(std::fabs(double(f.strength)), 'f', 2),
-                                                 f.mode == ForceMode::Impulse ? uiText("Kinetica", "Н·с") : uiText("Kinetica", "Н")));
+                                                 own ? (impulse ? uiText("Kinetica", "Н·с") : uiText("Kinetica", "Н")) : impulse ? uiText("Kinetica", "м/с") : uiText("Kinetica", "м/с²")));
     };
     if (phase == 1) { // live: the mark follows the mouse; the undo step and the journal's line at the release
         drag(*forceById(selectedId_));
@@ -145,7 +146,11 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
                          [d] { return double(int(d->mode)); }, [d](double v) { d->mode = ForceMode(int(v)); }).name("forceMode")
         .tip(uiText("Kinetica", "Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время"));
     forceFields_->number(uiText("Kinetica", "Импульс, Н·с"), -double(kForceMaxStrength), double(kForceMaxStrength), 1, 2, d->strength)
-        .label([d] { return QString(d->mode == ForceMode::Impulse ? uiText("Kinetica", "Импульс, Н·с") : uiText("Kinetica", "Сила, Н")); }).name("forceStrength");
+        .label([this, d] { // a body's own force in N s or N; a field in what it gives every body: m/s or m/s^2
+            const bool impulse = d->mode == ForceMode::Impulse;
+            if (forceBody(graph_, *d)) return QString(impulse ? uiText("Kinetica", "Импульс, Н·с") : uiText("Kinetica", "Сила, Н"));
+            return QString(impulse ? uiText("Kinetica", "Скорость, м/с") : uiText("Kinetica", "Ускорение, м/с²"));
+        }).name("forceStrength");
     const auto field = [this, d] { return !forceBody(graph_, *d); }; // a field's own: a body's own force has no reach, falloff or tag
     forceFields_->number(uiText("Kinetica", "Радиус, м"), 0, double(kForceMaxRadius), 0.5, 2, d->radius).shown(field).name("forceRadius")
         .tip(uiText("Kinetica", "Сила действует на тела, чьи центры внутри радиуса; 0 у направленной — на все тела"));
@@ -172,7 +177,10 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
     forceFire_->setObjectName("forceFire");
     forceFire_->setToolTip(uiText("Kinetica", "Импульс срабатывает сейчас, в идущем мире; когда настанет его момент, он второй раз не сработает"));
     connect(forceFire_, &QPushButton::clicked, this, [this] { emit fireForceRequested(selectedId_); });
-    connect(this, &SceneBuilder::modeChanged, this, [this] { forceFire_->setEnabled(!editing()); });
+    connect(this, &SceneBuilder::modeChanged, this, [this] {
+        forceFire_->setEnabled(!editing());
+        emitShapeHandles(); // the orange points are the edit's: none while the scene plays
+    });
     forceCard_->body()->addWidget(forceFire_);
     connect(forceCard_, &ComponentCard::removeClicked, this, &SceneBuilder::removeSelected);
     col->addWidget(forceCard_);
@@ -199,7 +207,7 @@ void SceneBuilder::fillForceCard(const SceneObject& o) {
     const bool idle = forceIdle(graph_, *f);
     forceOwner_->setVisible(f->shape == ForceShape::Directional);
     forceOwner_->setStyleSheet(idle ? "color: #e2b448;" : "");
-    forceOwner_->setText(!body ? QString(uiText("Kinetica", "Поле: тела в радиусе"))
+    forceOwner_->setText(!body ? QString(uiText("Kinetica", "Поле: все тела в радиусе, лёгкие и тяжёлые одинаково"))
                          : !resolveInstance(graph_, *body).rigid.enabled ? QString(uiText("Kinetica", "⚠ У «%1» нет физики")).arg(name)
                          : idle ? QString(uiText("Kinetica", "⚠ «%1» закреплён")).arg(name)
                          : QString(uiText("Kinetica", "Тело: %1")).arg(name));

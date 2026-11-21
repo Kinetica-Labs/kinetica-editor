@@ -584,9 +584,10 @@ void RobotWorld::markFired(uint32_t id) {
 }
 
 // A body's own force (forceBody: a directional force whose parent is a shape) acts on that body alone, at the
-// force's own point as the body stands now - off the centre of mass it turns the body. A field: the force on each
-// rigid body of its reach, at the centre of mass (no torque): strength times the falloff's weight along the axis, or
-// away from the force's origin; its poses are the end of the last frame's.
+// force's own point as the body stands now - off the centre of mass it turns the body; its strength is N s or N. A
+// field acts on each rigid body of its reach alike, light or heavy, at the centre of mass (no torque): its strength
+// is the velocity (m/s) or the acceleration (m/s^2) it gives, times the falloff's weight, along the axis or away from
+// the force's origin; its poses are the end of the last frame's.
 void RobotWorld::actForce(PhysicsWorld& physics, const Force& f) {
     if (!effectivelyVisible(live_, f)) return;
     if (forceBody(live_, f)) {
@@ -618,7 +619,8 @@ void RobotWorld::actForce(PhysicsWorld& physics, const Force& f) {
         const Real m = std::max(d, 1_r);
         const Real w = f.falloff == ForceFalloff::Linear && f.radius > 0 ? 1_r - d / f.radius
                      : f.falloff == ForceFalloff::InverseSquare ? 1_r / (m * m) : 1_r;
-        const Vector3 push = (f.shape == ForceShape::Radial ? away / d : axis) * (f.strength * w);
+        // A field's strength is what it does to a body, whatever the body weighs: m/s of velocity, m/s^2 of acceleration.
+        const Vector3 push = (f.shape == ForceShape::Radial ? away / d : axis) * (f.strength * w * s.mass);
         if (f.mode == ForceMode::Constant) physics.applyForce(int(b), push, s.centre);
         else physics.applyImpulse(int(b), push, s.centre);
     }

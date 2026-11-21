@@ -56,10 +56,10 @@ void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport
     c.check(four && sub && sub->actions().size() == 4, "«Сила ▾» holds Толчок, Взрыв, Тяга and Притяжение, and so does «Сцена» → «Добавить» → «Сила»");
 
     struct Expect { ForceShape shape; ForceMode mode; float strength, radius; ForceFalloff falloff; };
-    const Expect table[] = {{ForceShape::Directional, ForceMode::Impulse, 5, 1.5f, ForceFalloff::None},
-                            {ForceShape::Radial, ForceMode::Impulse, 10, 3, ForceFalloff::Linear},
-                            {ForceShape::Directional, ForceMode::Constant, 10, 1.5f, ForceFalloff::None},
-                            {ForceShape::Radial, ForceMode::Constant, -10, 5, ForceFalloff::Linear}};
+    const Expect table[] = {{ForceShape::Directional, ForceMode::Impulse, 3, 1.5f, ForceFalloff::None}, // fields: m/s and m/s^2
+                            {ForceShape::Radial, ForceMode::Impulse, 6, 3, ForceFalloff::Linear},
+                            {ForceShape::Directional, ForceMode::Constant, 12, 1.5f, ForceFalloff::None},
+                            {ForceShape::Radial, ForceMode::Constant, -15, 5, ForceFalloff::None}};
     b.newScene();
     b.frameAll();
     pump(150);
@@ -74,7 +74,7 @@ void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport
         rows = rows && f && listed(w, f->name);
         marks = marks && v->sceneMarkers().size() == markers + 1;
     }
-    c.check(defaults && selected, "each of the four makes its kind with the menu's defaults (5 / 10 / 10 / -10, radius 1.5 / 3 / 1.5 / 5), selected");
+    c.check(defaults && selected, "each of the four makes its kind with the menu's defaults (3 m/s / 6 m/s / 12 m/s2 / -15 m/s2, radius 1.5 / 3 / 1.5 / 5), selected");
     c.check(rows && marks, "each is a row of the scene list and one more wireframe in the view");
 }
 

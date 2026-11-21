@@ -611,10 +611,10 @@ void testSceneForces() {
     };
     const SceneGraph& g = d.graph;
     struct Kind { const char *shape, *mode; ForceShape s; ForceMode m; Real strength, radius; ForceFalloff falloff; const char* name; } kinds[] = {
-        {"directional", "impulse", ForceShape::Directional, ForceMode::Impulse, 5, 1.5_r, ForceFalloff::None, "Толчок 1"},
-        {"radial", "impulse", ForceShape::Radial, ForceMode::Impulse, 10, 3, ForceFalloff::Linear, "Взрыв 1"},
-        {"directional", "constant", ForceShape::Directional, ForceMode::Constant, 10, 1.5_r, ForceFalloff::None, "Тяга 1"},
-        {"radial", "constant", ForceShape::Radial, ForceMode::Constant, -10, 5, ForceFalloff::Linear, "Притяжение 1"}};
+        {"directional", "impulse", ForceShape::Directional, ForceMode::Impulse, 3, 1.5_r, ForceFalloff::None, "Толчок 1"}, // fields: m/s and m/s^2
+        {"radial", "impulse", ForceShape::Radial, ForceMode::Impulse, 6, 3, ForceFalloff::Linear, "Взрыв 1"},
+        {"directional", "constant", ForceShape::Directional, ForceMode::Constant, 12, 1.5_r, ForceFalloff::None, "Тяга 1"},
+        {"radial", "constant", ForceShape::Radial, ForceMode::Constant, -15, 5, ForceFalloff::None, "Притяжение 1"}};
     for (const Kind& k : kinds) {
         add(k.shape, k.mode);
         const Force& f = g.forces.back();

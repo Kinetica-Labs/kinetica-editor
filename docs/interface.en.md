@@ -288,15 +288,15 @@ object.
 
 ### Forces
 
-Force puts a force object - a push, a blast, a thrust or a pull. A Push and a Blast are one **impulse** (N s): it fires once, and in play its arrow is gone after that until Stop. A Thrust and a Pull are a constant **force** (N): it acts all the time the scene plays. The arrow is a vector: where and how strongly; only a field has a sphere, and it shows which bodies the field acts on. **A force applied to a body:** select a body and make a Push or a Thrust - the force is attached to it, the start of its arrow stands at the body's centre of mass, it acts on that body alone and rides on it. Drag the orange point at the end of the arrow - it is the whole vector: where it points the force pushes, and the arrow's length is its strength (a metre is 3 m/s of the body's velocity for a push and 10 m/s² of acceleration for a thrust; a thrust up longer than a metre lifts the body). The gizmo moves the start of the arrow: off the centre of mass the force turns the body. While the shape has no Rigid Body role (or the body is fixed) the force is still the shape's own but pushes nothing: its arrow is pale and its card says why. **A field:** a force made with no body selected, and every Blast and Pull, act on the centre of mass of the rigid bodies in their radius while the
+Force puts a force object - a push, a blast, a thrust or a pull. A Push and a Blast are one **impulse** (N s): it fires once, and in play its arrow is gone after that until Stop. A Thrust and a Pull are a constant **force** (N): it acts all the time the scene plays. The arrow is a vector: where and how strongly; only a field has a sphere, and it shows which bodies the field acts on. **A force applied to a body:** select a body and make a Push or a Thrust - the force is attached to it, the start of its arrow stands at the body's centre of mass, it acts on that body alone and rides on it. Drag the orange point at the end of the arrow - it is the whole vector: where it points the force pushes, and the arrow's length is its strength (a metre is 3 m/s of the body's velocity for a push and 10 m/s² of acceleration for a thrust; a thrust up longer than a metre lifts the body). The gizmo moves the start of the arrow: off the centre of mass the force turns the body. While the shape has no Rigid Body role (or the body is fixed) the force is still the shape's own but pushes nothing: its arrow is pale and its card says why. **A field:** a force made with no body selected, and every Blast and Pull, act on all the rigid bodies in their radius alike, light or heavy: a field's strength is the velocity it gives (m/s, an impulse) or the acceleration (m/s², a constant one), not newtons. They act on the centre of mass while the
 world runs and do not spin them. The gizmo moves and turns a force like any object; a field has a second orange point on its sphere - the radius. A click anywhere on the arrow selects the force. A Blast made with a body selected stands at its side. In Edit a force does nothing.
 
 | Kind | Shape | Mode | Default (with no body selected) |
 |---|---|---|---|
-| Push | directional | impulse | 5 N s, radius 1.5 m |
-| Blast | radial | impulse | 10 N s, radius 3 m, linear falloff |
-| Thrust | directional | constant | 10 N, radius 1.5 m |
-| Pull | radial | constant | -10 N (inward), radius 5 m, linear falloff |
+| Push | directional | impulse | 3 m/s, radius 1.5 m |
+| Blast | radial | impulse | 6 m/s, radius 3 m, linear falloff |
+| Thrust | directional | constant | 12 m/s², radius 1.5 m |
+| Pull | radial | constant | -15 m/s² (inward), radius 5 m, no falloff |
 
 A directional force pushes along its own +Y axis (a negative strength: the other way), a radial one away from its point
 (toward it when the strength is negative). The card has Shape, Mode, Strength, Radius (1.5 m on a new directional force - it pushes what is near; 0: every body

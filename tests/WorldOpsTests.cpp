@@ -229,12 +229,11 @@ void testWorldOpsForceFire() {
         CHECK(call(&s, "force_fire", wrong).error == "id is a positive scene object id", "%s", wrong);
     CHECK(call(&s, "force_fire", "{\"id\":99}").error == "no force with id 99 in the scene", "no such force");
     CHECK(call(&s, "force_fire", "{\"id\":21}").error == "a constant force acts on its own: only an impulse is fired", "a constant force is refused");
-    const Real mass = s.physics()->state(s.robot()->bodyOf(6)).mass;
     const Result taken = call(&s, "force_fire", "{\"id\":20}");
     CHECK(taken.ok && taken.answer["accepted"].truth() && taken.answer["id"].number() == 20 && !taken.answer.has("body") && !taken.answer.has("velocity"),
           "an impulse is accepted, the answer has no body data");
     const Vector3 v = velocityOf(s, 6);
-    CHECK(std::fabs(length(v) - 2 / mass) < 1e-4_r * (2 / mass), "|v| = J / m: %f, not %f", double(length(v)), double(2 / mass));
+    CHECK(std::fabs(length(v) - 2) < 2e-4_r, "a field of 2 m/s gives the body 2 m/s, whatever it weighs: %f", double(length(v)));
 }
 
 void testWorldOpsSensorsAndControllers() {
