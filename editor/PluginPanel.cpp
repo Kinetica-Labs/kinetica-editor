@@ -10,15 +10,49 @@
 #include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
+#include <QPainter>
 #include <QPushButton>
 #include <QTimer>
 #include <QToolTip>
 #include <QVBoxLayout>
 
 #include <algorithm>
+#include <cmath>
 
 namespace {
 constexpr double kLiveSeconds = 60.0; // a chart shows the run's last minute, sliding
+}
+
+SvgView::SvgView(int maxHeight, QWidget* parent) : QWidget(parent), maxHeight_(maxHeight > 0 ? maxHeight : 240) {
+    setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+}
+
+void SvgView::setSvg(const QByteArray& data) {
+    if (data == data_) return;
+    data_ = data;
+    renderer_.load(data); // an invalid one leaves the renderer invalid: the placeholder
+    updateGeometry();
+    update();
+}
+
+int SvgView::heightForWidth(int w) const {
+    const QSizeF s = renderer_.isValid() ? QSizeF(renderer_.defaultSize()) : QSizeF();
+    if (s.width() <= 0 || s.height() <= 0) return std::min(maxHeight_, 60);
+    return std::clamp(int(std::lround(w * s.height() / s.width())), 1, maxHeight_);
+}
+
+void SvgView::paintEvent(QPaintEvent*) {
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    const QSizeF s = renderer_.isValid() ? QSizeF(renderer_.defaultSize()) : QSizeF();
+    if (s.width() <= 0 || s.height() <= 0) {
+        p.setPen(palette().color(QPalette::Disabled, QPalette::WindowText));
+        p.drawText(rect(), Qt::AlignCenter, uiText("Kinetica", "нет картинки"));
+        return;
+    }
+    const double k = std::min(width() / s.width(), height() / s.height());
+    const QSizeF to(s.width() * k, s.height() * k);
+    renderer_.render(&p, QRectF((width() - to.width()) / 2, (height() - to.height()) / 2, to.width(), to.height()));
 }
 
 PluginPanel::PluginPanel(const QJsonObject& d, std::function<void(const QString&, const QJsonObject&)> press, QWidget* parent)
@@ -108,6 +142,11 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
         texts_.push_back({name, line});
         connect(line, &QLineEdit::textEdited, this, [this, name](const QString& t) { values_.insert(name, t); });
         into->addWidget(line);
+    } else if (kind == "svg") {
+        auto* v = new SvgView(n.value("height").toInt(), this);
+        v->setObjectName("pluginSvg_" + name);
+        svgs_.push_back({name, v});
+        into->addWidget(v);
     } else if (kind == "chart") {
         auto* view = new TrackChart(this);
         view->setObjectName("pluginChart");
@@ -149,7 +188,12 @@ void PluginPanel::setValues(const QJsonObject& values, double time) {
     for (Chart& c : charts_) {
         if (c.x.isEmpty() || !values.value(c.x).isDouble()) continue;
         const double x = values.value(c.x).toDouble();
-        if (x < c.lastX) // the step went back: a new training, a new history
+        // The step did not advance: a new training (it starts again at the generation the last one ended on), a new
+        // history - unless the same x only brings the other lines' values of one step, in several show() calls.
+        bool again = x < c.lastX;
+        for (auto& [name, line] : c.lines)
+            if (x == c.lastX && values.value(name).isDouble() && line->size() > 0 && line->time(line->size() - 1) == x) again = true;
+        if (again)
             for (auto& [name, line] : c.lines) line->clear();
         c.lastX = x;
         for (auto& [name, line] : c.lines)
@@ -198,6 +242,7 @@ void PluginPanel::refresh() {
     }
     for (auto& [name, line] : texts_)
         if (line->text() != values_.value(name).toString()) line->setText(values_.value(name).toString());
+    for (auto& [name, v] : svgs_) v->setSvg(values_.value(name).toString().toUtf8());
     const double from = std::max(0.0, now_ - kLiveSeconds);
     for (Chart& c : charts_) {
         const SharedChart own{c.title, c.xWords, c.view->tracks(), {}};

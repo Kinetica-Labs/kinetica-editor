@@ -124,7 +124,7 @@ endif()
 # The window links OpenGL as Qt's own libraries do - libGL.so.1, there wherever a GL driver is - not GLVND's
 # libOpenGL.so.0, which a clean Ubuntu lacks (the package libopengl0): the one-folder program would not start.
 set(OpenGL_GL_PREFERENCE LEGACY)
-find_package(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network)
+find_package(Qt6 COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Network Svg)
 if(Qt6_FOUND)
   find_package(Qt6 REQUIRED COMPONENTS LinguistTools)
   qt_standard_project_setup()
@@ -229,7 +229,7 @@ if(Qt6_FOUND)
   if(WIN32) # the program's own icon: what Explorer, the taskbar and a shortcut show
     target_sources(kinetica PRIVATE resources/kinetica.rc)
   endif()
-  target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
+  target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network Qt6::Svg)
   # examples/, data/ and clients/python/ of the source tree when the program runs from the build (resourceDir).
   target_compile_definitions(kinetica PRIVATE KE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   if(MSVC)

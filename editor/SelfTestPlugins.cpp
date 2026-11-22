@@ -12,6 +12,7 @@
 #include "PlotPanel.h"
 #include "PluginHost.h"
 #include "Resources.h"
+#include "PluginPanel.h"
 #include "TrackChart.h"
 
 #include <QAction>
@@ -446,6 +447,45 @@ def count(scene, dt, sensors):
     c.check(waitUntil([&] { return w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000), "the plugin gone, its chart goes with its panel");
 }
 
+// A picture in the panel (ui.svg): an SVG the plugin sends through show() from a command is drawn by the editor, scaled to
+// the panel with the aspect kept; an invalid one does not crash and leaves the placeholder.
+void testSvg(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/painter");
+    write(folder + "/painter/plugin.py", R"py(from kinetica.plugin import command, show, ui
+
+ui.panel("Рисунок", ui.svg("pic", height=120), place="bottom")
+
+
+@command(label="Рисовать")
+def draw(scene, good: bool = True):
+    show(pic='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 100"><rect width="200" height="100" fill="#ff0000"/></svg>' if good else "not an svg")
+)py");
+    host->start(true);
+    SvgView* view = nullptr;
+    waitUntil([&] { return (view = w.findChild<SvgView*>("pluginSvg_pic")) != nullptr && action(w, "plugin:painter_draw") != nullptr; }, 10000);
+    if (!view) return c.check(false, "a picture comes with its panel"), void();
+    const auto look = [&](bool good) {
+        ops->run("painter_draw", {{"good", good}}, [](const QJsonObject&) {}, "ui");
+        waitUntil([&] { return view->valid() == good; }, 5000);
+        pump(150);
+    };
+    look(true);
+    view->resize(300, 200);
+    const QImage red = view->grab().toImage();
+    int painted = 0;
+    for (int y = 0; y < red.height(); ++y)
+        for (int x = 0; x < red.width(); ++x) painted += qRed(red.pixel(x, y)) > 200 && qGreen(red.pixel(x, y)) < 60;
+    const bool fitted = view->heightForWidth(300) == 120 && view->heightForWidth(100) == 50; // aspect 2:1, at most 120 px
+    std::printf("  a picture «pluginSvg_pic»: valid %s, %d red pixels in 300x200, heightForWidth(300)=%d\n", view->valid() ? "yes" : "no", painted, view->heightForWidth(300));
+    c.check(view->valid() && painted > 5000, "an SVG the plugin shows is drawn in the panel (a valid renderer, a painted picture)");
+    c.check(fitted, "the picture takes the panel's width with its aspect kept, at most the given height");
+    look(false);
+    const QImage placeholder = view->grab().toImage();
+    c.check(!view->valid() && placeholder.width() > 0, "an invalid SVG does not crash: the quiet placeholder");
+    QDir(folder + "/painter").removeRecursively();
+    c.check(waitUntil([&] { return w.findChild<SvgView*>("pluginSvg_pic") == nullptr; }, 5000), "the plugin gone, its picture goes with its panel");
+}
+
 // A training's chart (ui.chart(..., x="step")): the axis is a step, not the run's time, and the points come from a thread
 // of the plugin through show() - no run, no on_tick. They are in the panel's chart and in the bottom plots' section of
 // the plugin, the same series; a step going back is a new training; the plugin gone, the section goes with its panel.
@@ -459,9 +499,9 @@ ui.panel("Обучение", ui.chart("Награда", {"best": "лучший",
 
 
 @command(label="Учить")
-def train(scene, generations: int = 5):
+def train(scene, generations: int = 5, first: int = 0):
     def loop():
-        for g in range(generations):
+        for g in range(first, first + generations):
             show(step=g, best=10.0 * g, mean=g)
     threading.Thread(target=loop).start()
 )py");
@@ -470,8 +510,8 @@ def train(scene, generations: int = 5):
     waitUntil([&] { return (chart = w.findChild<TrackChart*>("pluginChart")) != nullptr && action(w, "plugin:trainer_train") != nullptr; }, 10000);
     auto* plots = w.findChild<PlotPanel*>();
     if (!chart || !plots) return c.check(false, "a step chart comes with its panel"), void();
-    const auto train = [&](int n, size_t points) {
-        ops->run("trainer_train", {{"generations", n}}, [](const QJsonObject&) {}, "ui");
+    const auto train = [&](int n, size_t points, int first = 0) {
+        ops->run("trainer_train", {{"generations", n}, {"first", first}}, [](const QJsonObject&) {}, "ui");
         waitUntil([&] { return chart->tracks()[0].series->size() == points; }, 5000);
         pump(150);
     };
@@ -489,6 +529,15 @@ def train(scene, generations: int = 5):
     c.check(shared, "the plugin's chart is also in the bottom plots, in a section headed with the panel's title, the same lines and points");
     train(3, 3); // the step went back: a new training, a new history
     c.check(best && best->size() == 3 && best->time(0) == 0, "the step going back starts a new history");
+    train(2, 2, 2); // a new training starts again at the generation the last one ended on: still a new history
+    c.check(best && best->size() == 2 && best->time(0) == 2, "a step not advancing (equal to the last) starts a new history too");
+    const QString tip = plotHoverText(chart->tracks()[0], 2.4, chart->axisWords());
+    c.check(tip.contains("поколение 2") && !tip.contains("2,4"), "a step chart's tooltip says the generation of the nearest point, not the mouse's x");
+    for (PlotPanel::Arrangement a : {PlotPanel::Arrangement::Normalized, PlotPanel::Arrangement::Lanes, PlotPanel::Arrangement::Overlay}) {
+        plots->setArrangement(a);
+        pump(50);
+        c.check(plots->pluginSections().size() == 1 && plots->pluginSections()[0].second.size() == 1, "the plugin's section of the plots is in every layout");
+    }
     QDir(folder + "/trainer").removeRecursively();
     c.check(waitUntil([&] { return plots->pluginSections().empty() && w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000),
             "the plugin gone, its section of the plots goes with its panel");
@@ -1044,6 +1093,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
     testChart(c, w, b, ops, host, dir.path());
     testStepChart(c, w, ops, host, dir.path());
+    testSvg(c, w, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
     testGizmos(c, w, b, v, ops, host, dir.path());

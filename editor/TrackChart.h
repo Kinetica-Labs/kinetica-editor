@@ -130,6 +130,7 @@ protected:
 
 private:
     void updateRanges();
+    bool wholeSteps() const;
     QRectF plotRect() const;
     int layoutHeader(std::vector<QRectF>* legendBoxes) const; // title + legend rows: their height
     double shown(size_t k, double v) const;                    // a value as drawn (normalised if on)

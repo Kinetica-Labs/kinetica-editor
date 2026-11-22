@@ -52,6 +52,7 @@ const QColor kMuted(110, 117, 130);
 
 constexpr double kHeaderRow = 18.0;   // one row of title / legend
 constexpr double kBottomAxis = 22.0;
+constexpr double kStepWords = 14.0; // a step axis (a generation) names itself on a row of its own under the numbers
 constexpr double kLabelWidth = 118.0; // a direct label at most this wide (elided)
 constexpr double kLegendText = 240.0; // a legend entry's words at most this wide (elided)
 constexpr double kDense = 1.5;        // samples per pixel column from which a line is drawn as a ribbon
@@ -148,6 +149,11 @@ void TrackChart::setTracks(std::vector<PlotTrack> tracks) {
 }
 
 QString plotHoverText(const PlotTrack& line, double x, const QString& xWords) {
+    if (!xWords.isEmpty() && line.series && line.series->size() > 0) { // a step axis: the nearest point, not where the mouse is
+        const PlotSeries& s = *line.series;
+        const size_t after = s.firstAtOrAfter(x);
+        x = after == 0 ? s.time(0) : after >= s.size() ? s.time(s.size() - 1) : x - s.time(after - 1) <= s.time(after) - x ? s.time(after - 1) : s.time(after);
+    }
     const double v = line.series ? line.series->valueAt(x) : std::nan("");
     if (!std::isfinite(v)) return QString();
     const QString value = numberText(v) + (line.unit.isEmpty() ? QString() : " " + line.unit);
@@ -247,7 +253,7 @@ QRectF TrackChart::plotRect() const {
     const double left = sharedLeft_ > 0 ? sharedLeft_ : neededLeftMargin();
     const double right = sharedRight_ > 0 ? sharedRight_ : neededRightMargin();
     const double top = layoutHeader(nullptr) + 4.0;
-    const double bottom = timeAxis_ ? kBottomAxis : 8.0;
+    const double bottom = timeAxis_ ? kBottomAxis + (axisWords_.isEmpty() ? 0.0 : kStepWords) : 8.0;
     return QRectF(left, top, std::max(10.0, width() - left - right), std::max(10.0, height() - top - bottom));
 }
 
@@ -359,7 +365,9 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
     }
     if (!timeAxis_) return;
     double tStep = 0;
-    const std::vector<double> ticks = niceTicks(t0_, t1_, std::max(2, int(r.width() / 70)), &tStep);
+    std::vector<double> ticks = niceTicks(t0_, t1_, std::max(2, int(r.width() / 70)), &tStep);
+    if (!axisWords_.isEmpty() && tStep < 1 && wholeSteps()) // whole generations get whole numbers
+        ticks = niceTicks(t0_, t1_, std::max(2, int(std::floor(t1_ - t0_)) + 1), &tStep);
     for (double t : ticks) {
         const double x = std::round(toScreen(r, t, y0_).x()) + 0.5;
         p.setPen(QPen(kGrid, 1.0));
@@ -368,8 +376,16 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
         p.drawText(QRectF(x - 40, r.bottom() + 5, 80, 14), Qt::AlignHCenter | Qt::AlignTop, formatNumber(t, tStep));
     }
     p.setPen(kMuted);
-    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop,
-               axisWords_.isEmpty() ? QString(uiText("Kinetica", "t, с")) : axisWords_);
+    if (axisWords_.isEmpty()) p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop, uiText("Kinetica", "t, с"));
+    else p.drawText(QRectF(r.left(), r.bottom() + 5 + kStepWords, r.width(), 14), Qt::AlignRight | Qt::AlignTop, axisWords_);
+}
+
+// Every point of a step chart is a whole number (generations, iterations): its ticks are too.
+bool TrackChart::wholeSteps() const {
+    for (const PlotTrack& t : tracks_)
+        for (size_t i = 0; t.series && i < t.series->size(); ++i)
+            if (t.series->time(i) != std::floor(t.series->time(i))) return false;
+    return true;
 }
 
 // One line: the samples inside the window, as a 2 px line when they are sparse and as a ribbon when

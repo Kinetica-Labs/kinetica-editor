@@ -569,8 +569,8 @@ void PlotPanel::rebuildCharts() {
         const bool headers = !object.empty();
         box->addWidget(section(headers ? QString(uiText("Kinetica", "Сцена")) : QString(), scene, true), std::max(1, int(scene.size())));
         if (!object.empty()) box->addWidget(section(objectTitle(), object, false), int(object.size()));
-        for (size_t i = 0; i < plugins_.size(); ++i) box->addWidget(pluginSection(i), std::max(1, int(plugins_[i].charts.size())));
     }
+    for (size_t i = 0; i < plugins_.size(); ++i) box->addWidget(pluginSection(i), std::max(1, int(plugins_[i].charts.size()))); // in every layout
     scroll_->setWidget(host);
     refreshCharts();
     showHint();

@@ -10,12 +10,17 @@
 // last minute of it; the time going back is a new run and a new history. With `x` (a training: a generation, an
 // iteration) the horizontal axis is another value of the panel: a line takes a point whenever one show() or
 // plugin_panel_set carries both the `x` and the line's value, from any thread, and the chart keeps every point from the
-// first to the last; `x` going back is a new training and a new history. The series are shared (sharedCharts()): the bottom
+// first to the last; `x` not advancing is a new training and a new history. The series are shared (sharedCharts()): the bottom
 // plots draw the same ones. Qt lives here only: a plugin does not know it.
+//
+// A picture (svg) is an SVG the plugin sends as the value of its name: SvgView draws it as wide as the panel with the
+// aspect kept, at most `height` px high; an empty or invalid one is a quiet placeholder. It follows the panel's refresh.
 #include "PlotSeries.h"
 #include "TrackChart.h"
 
+#include <QByteArray>
 #include <QJsonObject>
+#include <QSvgRenderer>
 #include <QWidget>
 
 #include <cmath>
@@ -28,6 +33,25 @@ class QBoxLayout;
 class QLabel;
 class QLineEdit;
 class QTimer;
+
+class SvgView : public QWidget {
+    Q_OBJECT
+public:
+    explicit SvgView(int maxHeight, QWidget* parent = nullptr);
+    void setSvg(const QByteArray& data); // the same data again costs nothing
+    bool valid() const { return renderer_.isValid(); }
+    bool hasHeightForWidth() const override { return true; }
+    int heightForWidth(int w) const override;
+    QSize sizeHint() const override { return {240, heightForWidth(240)}; }
+
+protected:
+    void paintEvent(QPaintEvent*) override;
+
+private:
+    QSvgRenderer renderer_;
+    QByteArray data_;
+    int maxHeight_;
+};
 
 class PluginPanel : public QWidget {
 public:
@@ -54,6 +78,7 @@ private:
     std::vector<FieldForm*> forms_;
     std::vector<std::pair<QString, QLabel*>> words_;    // value(name)
     std::vector<std::pair<QString, QLineEdit*>> texts_; // text(name)
+    std::vector<std::pair<QString, SvgView*>> svgs_;    // svg(name)
     FieldForm* open_ = nullptr;                         // the form fields go into until another kind of element
     struct Chart {
         TrackChart* view = nullptr;

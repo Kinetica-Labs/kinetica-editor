@@ -113,6 +113,10 @@ class PluginSdk(unittest.TestCase):
         finally:
             plugin._changes[:] = before
 
+    def test_svg_is_data(self):
+        self.assertEqual(ui.svg("net", height=260), {"kind": "svg", "name": "net", "height": 260})
+        self.assertEqual(ui.svg("net"), {"kind": "svg", "name": "net"})
+
     def test_chart_is_data(self):
         self.assertEqual(plugin._panel["children"], [{"kind": "chart", "title": "Сила", "lines": [{"name": "pushed", "label": "по x"}], "unit": "Н"}])
         self.assertEqual(ui.chart("Углы", ["a", "b"])["lines"], [{"name": "a", "label": "a"}, {"name": "b", "label": "b"}])

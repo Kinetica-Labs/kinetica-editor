@@ -364,6 +364,15 @@ class ui:
         return {"kind": "chart", "title": title, "lines": [{"name": n, "label": l} for n, l in lines.items()], **({"unit": unit} if unit else {}), **axis}
 
     @staticmethod
+    def svg(name, height=None):
+        """A picture in the panel: an SVG the plugin sends as the value `name`, drawn as wide as the panel (aspect kept),
+        at most `height` px high. It changes with every show(), from a hook or any thread::
+
+            ui.svg("net", height=260)
+            show(net='<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 200">...</svg>')"""
+        return {"kind": "svg", "name": name, **({"height": height} if height else {})}
+
+    @staticmethod
     def button(command, label=None, help=None):
         name = command if isinstance(command, str) else command.__name__
         return {"kind": "button", "command": name, "label": label or _commands.get(name, {}).get("label", name), **({"help": help} if help else {})}
