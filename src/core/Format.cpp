@@ -4,10 +4,14 @@
 
 #include <algorithm>
 #include <charconv>
+#include <clocale>
+#include <cmath>
+#include <cstdlib>
 #include <iomanip>
 #include <locale>
 #include <limits>
 #include <sstream>
+#include <type_traits>
 
 namespace ke {
 
@@ -16,7 +20,17 @@ static bool parse(const std::string& word, T& out) {
     std::istringstream in(word);
     in.imbue(std::locale::classic());
     in >> out;
-    return !in.fail() && in.peek() == std::char_traits<char>::eof();
+    if (!in.fail() && in.peek() == std::char_traits<char>::eof()) return true;
+    // libc++ (macOS) fails a subnormal number - 5e-324 - though it read it right (strtod's ERANGE): such a word is read
+    // again by strtod itself, its point the C locale's, and a finite value other than 0 kept; one past the range stays out.
+    // Only a number written with a point is read so: «1,2» is no number in any locale (the window's is a comma's).
+    if (word.empty() || word.find_first_not_of("0123456789+-.eE") != std::string::npos) return false;
+    std::string w = word;
+    std::replace(w.begin(), w.end(), '.', *std::localeconv()->decimal_point);
+    char* end = nullptr;
+    const T v = std::is_same<T, float>::value ? T(std::strtof(w.c_str(), &end)) : T(std::strtod(w.c_str(), &end));
+    if (end != w.c_str() + w.size() || !std::isfinite(v) || v == 0) return false;
+    return out = v, true;
 }
 
 bool parseNumber(const std::string& word, float& out) { return parse(word, out); }

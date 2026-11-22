@@ -75,6 +75,10 @@ void testJsonNumbers() {
         CHECK(numberTextShortest(0.1) == "0.1" && numberTextShortest(1e-5) == "1e-05" && toJson(Value(2.5)) == "2.5", "the text of a number does not depend on the locale");
         CHECK(parseJson("[0.5,1e-5]").items()[0].number() == 0.5 && parseJson("[0.5,1e-5]").items()[1].number() == 1e-5,
               "the reader does not depend on the locale");
+        double d = 0;
+        float f = 0;
+        CHECK(!comma.active || (!parseNumber("1,2", d) && !parseNumber("1,2", f) && parseNumber("1.25", d) && d == 1.25),
+              "a word with the locale's comma is no number: the two hosts read a scene's words alike");
     }
 }
 
