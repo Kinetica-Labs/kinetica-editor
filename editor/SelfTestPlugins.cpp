@@ -24,7 +24,9 @@
 #include <QElapsedTimer>
 #include <QFile>
 #include <QJsonObject>
+#include <QMouseEvent>
 #include <QSettings>
+#include <QWheelEvent>
 #include <QJsonDocument>
 #include <QApplication>
 #include <QKeyEvent>
@@ -479,6 +481,14 @@ def draw(scene, good: bool = True):
     std::printf("  a picture «pluginSvg_pic»: valid %s, %d red pixels in 300x200, heightForWidth(300)=%d\n", view->valid() ? "yes" : "no", painted, view->heightForWidth(300));
     c.check(view->valid() && painted > 5000, "an SVG the plugin shows is drawn in the panel (a valid renderer, a painted picture)");
     c.check(fitted, "the picture takes the panel's width with its aspect kept, at most the given height");
+    const QPointF middle(150, 60);
+    QWheelEvent wheel(middle, view->mapToGlobal(middle), {}, {0, 480}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QApplication::sendEvent(view, &wheel);
+    const double zoomed = view->zoom();
+    QMouseEvent twice(QEvent::MouseButtonDblClick, middle, view->mapToGlobal(middle), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+    QApplication::sendEvent(view, &twice);
+    std::printf("  the wheel over it: zoom %.2f; a double click: %.2f\n", zoomed, view->zoom());
+    c.check(zoomed > 1.5 && view->zoom() == 1.0, "the wheel zooms the picture in, a double click shows it whole again");
     look(false);
     const QImage placeholder = view->grab().toImage();
     c.check(!view->valid() && placeholder.width() > 0, "an invalid SVG does not crash: the quiet placeholder");

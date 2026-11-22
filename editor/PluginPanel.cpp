@@ -10,11 +10,13 @@
 #include <QJsonArray>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMouseEvent>
 #include <QPainter>
 #include <QPushButton>
 #include <QTimer>
 #include <QToolTip>
 #include <QVBoxLayout>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <cmath>
@@ -25,6 +27,41 @@ constexpr double kLiveSeconds = 60.0; // a chart shows the run's last minute, sl
 
 SvgView::SvgView(int maxHeight, QWidget* parent) : QWidget(parent), maxHeight_(maxHeight > 0 ? maxHeight : 240) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    setCursor(Qt::OpenHandCursor);
+    setToolTip(uiText("Kinetica", "Колесо — приблизить, перетащить — сдвинуть, двойной щелчок — целиком"));
+}
+
+void SvgView::wheelEvent(QWheelEvent* e) {
+    const double to = std::clamp(zoom_ * std::pow(1.0015, e->angleDelta().y()), 1.0, 30.0);
+    const QPointF at = e->position();
+    pan_ = at - (at - pan_) * (to / zoom_); // the point under the mouse stays under it
+    if (to == 1.0) pan_ = {};
+    zoom_ = to;
+    update();
+    e->accept(); // the panel does not scroll under a picture being zoomed
+}
+
+void SvgView::mousePressEvent(QMouseEvent* e) {
+    if (e->button() != Qt::LeftButton) return QWidget::mousePressEvent(e);
+    dragging_ = true, dragFrom_ = e->position();
+    setCursor(Qt::ClosedHandCursor);
+}
+
+void SvgView::mouseMoveEvent(QMouseEvent* e) {
+    if (!dragging_) return QWidget::mouseMoveEvent(e);
+    pan_ += e->position() - dragFrom_, dragFrom_ = e->position();
+    update();
+}
+
+void SvgView::mouseReleaseEvent(QMouseEvent* e) {
+    dragging_ = false;
+    setCursor(Qt::OpenHandCursor);
+    QWidget::mouseReleaseEvent(e);
+}
+
+void SvgView::mouseDoubleClickEvent(QMouseEvent*) {
+    zoom_ = 1.0, pan_ = {};
+    update();
 }
 
 void SvgView::setSvg(const QByteArray& data) {
@@ -52,6 +89,8 @@ void SvgView::paintEvent(QPaintEvent*) {
     }
     const double k = std::min(width() / s.width(), height() / s.height());
     const QSizeF to(s.width() * k, s.height() * k);
+    p.translate(pan_);
+    p.scale(zoom_, zoom_);
     renderer_.render(&p, QRectF((width() - to.width()) / 2, (height() - to.height()) / 2, to.width(), to.height()));
 }
 

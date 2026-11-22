@@ -15,6 +15,8 @@
 //
 // A picture (svg) is an SVG the plugin sends as the value of its name: SvgView draws it as wide as the panel with the
 // aspect kept, at most `height` px high; an empty or invalid one is a quiet placeholder. It follows the panel's refresh.
+// The mouse looks closer: the wheel zooms about the point under it, a drag moves the picture, a double click shows it
+// whole again - the zoom kept while the plugin sends new pictures.
 #include "PlotSeries.h"
 #include "TrackChart.h"
 
@@ -43,14 +45,24 @@ public:
     bool hasHeightForWidth() const override { return true; }
     int heightForWidth(int w) const override;
     QSize sizeHint() const override { return {240, heightForWidth(240)}; }
+    double zoom() const { return zoom_; }
 
 protected:
     void paintEvent(QPaintEvent*) override;
+    void wheelEvent(QWheelEvent* e) override;
+    void mousePressEvent(QMouseEvent* e) override;
+    void mouseMoveEvent(QMouseEvent* e) override;
+    void mouseReleaseEvent(QMouseEvent* e) override;
+    void mouseDoubleClickEvent(QMouseEvent* e) override;
 
 private:
     QSvgRenderer renderer_;
     QByteArray data_;
     int maxHeight_;
+    double zoom_ = 1.0;   // 1: the whole picture
+    QPointF pan_;         // where the picture's corner is moved to, px: the screen point = pan_ + zoom_ * the picture's
+    QPointF dragFrom_;    // the mouse where a drag began (none: not dragging)
+    bool dragging_ = false;
 };
 
 class PluginPanel : public QWidget {

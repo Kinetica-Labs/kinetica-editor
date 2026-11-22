@@ -2913,6 +2913,16 @@ The picture is being prepared…</translation>
         <translation>The lines will appear after PLAN</translation>
     </message>
     <message>
+        <location filename="../editor/PluginPanel.cpp" line="30"/>
+        <source>Колесо — приблизить, перетащить — сдвинуть, двойной щелчок — целиком</source>
+        <translation>Wheel: zoom in; drag: move; double click: the whole picture</translation>
+    </message>
+    <message>
+        <location filename="../editor/PluginPanel.cpp" line="80"/>
+        <source>нет картинки</source>
+        <translation>no picture</translation>
+    </message>
+    <message>
         <location filename="../editor/ProfilerBar.cpp" line="31"/>
         <source>Вне замеров</source>
         <translation>Unmeasured</translation>
