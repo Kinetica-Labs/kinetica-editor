@@ -33,8 +33,8 @@ QIcon colliderIcon(ke::ColliderKind kind, int size = 28);
 // grid, a circle of small cubes.
 enum class ObjectIcon { Group, ArrayLine, ArrayGrid, ArrayCircle, Count };
 QIcon objectIcon(ObjectIcon kind, int size = 28);
-// Lights, a camera and forces of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera, «Сила» (any force),
-// and the four forces - on a body or a field round a point, once (a flash) or all the time (chevrons); pictures.
+// Lights, a camera and forces of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera, «Сила» (any force: the push's
+// picture), and the four forces - on a body or a field round a point, once (a flash) or all the time (chevrons); pictures.
 enum class SceneIcon { Sun, Bulb, Spot, Camera, Force, ForcePush, ForceThrust, ForceBlast, ForcePull, Count };
 QIcon sceneIcon(SceneIcon kind, int size = 28);
 

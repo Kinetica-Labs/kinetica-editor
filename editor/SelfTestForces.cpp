@@ -11,6 +11,7 @@
 #include "UiLanguage.h"
 
 #include <QComboBox>
+#include <algorithm>
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QJsonArray>
@@ -53,7 +54,9 @@ void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport
         for (QAction* item : top->menu() ? top->menu()->actions() : QList<QAction*>())
             if (item->menu() && item->text() == uiText("Kinetica", "Сила")) sub = item->menu();
     if (sub) emit sub->aboutToShow();
-    c.check(four && sub && sub->actions().size() == 4, "«Сила ▾» holds Толчок, Взрыв, Тяга and Притяжение, and so does «Сцена» → «Добавить» → «Сила»");
+    const QList<QAction*> subItems = sub ? sub->actions() : QList<QAction*>();
+    const auto items = std::count_if(subItems.begin(), subItems.end(), [](QAction* a) { return !a->isSeparator(); });
+    c.check(four && items == 4, "«Сила ▾» holds Толчок, Тяга, Взрыв and Притяжение, and so does «Сцена» → «Добавить» → «Сила»");
 
     struct Expect { ForceShape shape; ForceMode mode; float strength, radius; ForceFalloff falloff; };
     const Expect table[] = {{ForceShape::Directional, ForceMode::Impulse, 3, 1.5f, ForceFalloff::None}, // fields: m/s and m/s^2

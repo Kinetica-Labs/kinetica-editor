@@ -623,52 +623,6 @@ void drawCameraIcon(QPainter& p) {
     p.drawEllipse(QPointF(22, 51), 4, 4);
 }
 
-// A solid arrow from a to b, lit across its width; `depth`: a darker copy below it, the arrow's thickness.
-void drawSolidArrow(QPainter& p, QPointF a, QPointF b, qreal shaft, qreal headWidth, qreal headLength, const QColor& c, qreal depth) {
-    const QPointF d = b - a;
-    const qreal length = std::hypot(d.x(), d.y());
-    const QPointF u = d / length, n(-u.y(), u.x()), neck = b - u * headLength;
-    QPainterPath path;
-    path.moveTo(a + n * shaft / 2);
-    for (const QPointF& q : {neck + n * shaft / 2, neck + n * headWidth / 2, b, neck - n * headWidth / 2, neck - n * shaft / 2, a - n * shaft / 2}) path.lineTo(q);
-    path.closeSubpath();
-    p.setPen(outline(c));
-    p.setBrush(shade(c, 60));
-    p.drawPath(path.translated(depth * 0.6, depth));
-    QLinearGradient g(a + n * (length * 0.12), a - n * (length * 0.12));
-    g.setColorAt(0, shade(c, 150));
-    g.setColorAt(0.5, c);
-    g.setColorAt(1, shade(c, 75));
-    p.setBrush(g);
-    p.drawPath(path);
-}
-
-// A flash: a star of `spikes` points around c, between the radii r0 and r1.
-QPainterPath flash(QPointF c, qreal r0, qreal r1, int spikes, qreal turn) {
-    QPainterPath path;
-    for (int i = 0; i < spikes * 2; ++i) {
-        const qreal a = turn + M_PI * i / spikes, r = i % 2 ? r0 : (i % 4 ? r1 : r1 * 0.86);
-        const QPointF q = c + QPointF(std::cos(a), std::sin(a)) * r;
-        i ? path.lineTo(q) : path.moveTo(q);
-    }
-    path.closeSubpath();
-    return path;
-}
-
-const QColor kForceColour(150, 104, 240), kFlashColour(250, 150, 40);
-
-// «Сила»: a flash and an arrow out of it - a blow and the way it pushes.
-void drawForce(QPainter& p) {
-    shadow(p, 50, 90, 36);
-    p.setPen(outline(kFlashColour));
-    p.setBrush(kFlashColour);
-    p.drawPath(flash({40, 58}, 17, 33, 8, 0.3));
-    p.setPen(Qt::NoPen);
-    p.setBrush(QColor(252, 210, 70));
-    p.drawPath(flash({40, 58}, 10, 21, 8, 0.7));
-    drawSolidArrow(p, {36, 64}, {90, 14}, 15, 34, 24, kForceColour, 4);
-}
-
 // The four forces are pictures (resources/icons/force-*.png), scaled down once to the pixels they take: a block or a
 // ring round a point (where), an orange flash or chevrons (once or all the time).
 void drawPicture(QPainter& p, const char* file) {
@@ -992,7 +946,7 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
     case SceneIcon::Bulb: drawBulb(p); break;
     case SceneIcon::Spot: drawSpotlight(p); break;
     case SceneIcon::Camera: drawCameraIcon(p); break;
-    case SceneIcon::Force: drawForce(p); break;
+    case SceneIcon::Force: drawPicture(p, "force-push.png"); break; // «Сила ▾»: the push stands for them all
     case SceneIcon::ForcePush: drawPicture(p, "force-push.png"); break;
     case SceneIcon::ForceThrust: drawPicture(p, "force-thrust.png"); break;
     case SceneIcon::ForceBlast: drawPicture(p, "force-blast.png"); break;
