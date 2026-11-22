@@ -13,7 +13,7 @@
 
 <p align="center">
   <a href="https://kinetica-labs.github.io/kinetica-docs/"><img src="docs/images/showcase.gif" alt="Рука UR5e крутит ферзя кистью и ставит мат, шар на маятнике сносит башню из брусков: формулы, текстуры и свет в одной сцене" width="640"></a><br>
-  <sub>▶ <a href="https://kinetica-labs.github.io/kinetica-docs/">Фильм целиком, 29 с</a> — сцена плагина <a href="https://github.com/Kinetica-Labs/kinetica-plugins/tree/early-dev/showcase">showcase</a>, снятая самим редактором</sub>
+  <sub>▶ <a href="https://kinetica-labs.github.io/kinetica-docs/">Фильм целиком, 29 с</a> — сцена плагина <a href="https://github.com/Kinetica-Labs/kinetica-plugins/tree/main/showcase">showcase</a>, снятая самим редактором</sub>
 </p>
 
 # Kinetica Editor
