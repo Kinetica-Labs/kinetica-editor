@@ -10,6 +10,7 @@
 #include "scene/SensorSpec.h"
 
 #include <algorithm>
+#include <type_traits>
 
 namespace ke {
 
@@ -86,6 +87,56 @@ Value fieldValues(const std::string& block, const Value& a) {
     return words.empty() ? Value() : wordValues(words);
 }
 
+// The scene's links as one list, both ways (docs/contracts/names.md, the abstract layer): each a kind - the part and the
+// key of the scene file that write it -, from the object that holds it, to the object it names (0: the world). Read off
+// the graph itself: a link a new kind of object holds is added here, and the list knows it.
+const char* const kRelationKinds[] = {"object.parent", "object.instance", "goal.effector", "target.camera", "target.object", "pattern.template",
+                                      "link.a", "link.b", "bridge.joint", "bridge.battery", "encoder.against", "action.target", "track.object"};
+
+bool relations(const SceneGraph& g, const Value& a, Value& out, std::string& e) {
+    const std::string kind = a["kind"].text("");
+    if (!kind.empty() && std::find_if(std::begin(kRelationKinds), std::end(kRelationKinds), [&](const char* k) { return kind == k; }) == std::end(kRelationKinds)) {
+        e = "no relation kind '" + kind + "'; the kinds:";
+        for (const char* k : kRelationKinds) e += std::string(" ") + k;
+        return false;
+    }
+    out = Value::list();
+    const auto add = [&](const char* k, uint32_t from, uint32_t to, const std::string& action = {}) {
+        if ((a.has("from") && from != uint32_t(a["from"].integer())) || (a.has("to") && to != uint32_t(a["to"].integer())) || (!kind.empty() && kind != k)) return;
+        Value row = Value::map();
+        row.set("kind", k), row.set("from", from), row.set("to", to);
+        if (!action.empty()) row.set("action", action);
+        out.push(row);
+    };
+    eachObjectList(g, [&](const auto& list) {
+        for (const auto& o : list)
+            if constexpr (std::is_base_of_v<SceneObject, std::decay_t<decltype(o)>>)
+                if (o.parent) add("object.parent", o.id, o.parent);
+    });
+    for (const Entity& x : g.entities) {
+        if (x.instanceOf) add("object.instance", x.id, x.instanceOf);
+        if (x.goalOf) add("goal.effector", x.id, x.goalOf);
+        if (x.targetOf) add("target.camera", x.id, x.targetOf);
+    }
+    for (const Camera& c : g.cameras)
+        if (c.target) add("target.object", c.id, c.target);
+    for (const ArrayObject& r : g.arrays)
+        if (r.templateId) add("pattern.template", r.id, r.templateId);
+    for (const JointObject& j : g.joints) add("link.a", j.id, j.a), add("link.b", j.id, j.b); // b 0: the world
+    for (const DriverObject& d : g.drivers) {
+        if (d.joint) add("bridge.joint", d.id, d.joint);
+        if (d.battery) add("bridge.battery", d.id, d.battery);
+    }
+    for (const SensorObject& s : g.sensors)
+        if (s.against) add("encoder.against", s.id, s.against);
+    for (const ControllerObject& c : g.controllers)
+        for (const ControllerAction& x : c.actions)
+            if (x.target) add("action.target", c.id, x.target, x.name);
+    for (const SequenceObject& q : g.sequences)
+        for (const SequenceTrack& t : q.tracks) add("track.object", q.id, t.object);
+    return true;
+}
+
 std::vector<SceneOp> readOps() {
     return {
         query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
@@ -111,6 +162,14 @@ std::vector<SceneOp> readOps() {
             r.set("text", block), r.set("kind", lines[0][0].text), r.set("name", lines[0].size() > 1 ? lines[0][1].text : "");
             r.set("tags", tagsValue(g, uint32_t(a["id"].integer())));
             return r.set("lines", all), true;
+        }),
+        query("relation_list", "The scene's links as one list, both ways: each {kind, from, to} - kind is the part and the key of the scene "
+              "file that write it (object.parent, object.instance, goal.effector, target.camera, target.object, pattern.template, link.a, "
+              "link.b, bridge.joint, bridge.battery, encoder.against, action.target - with its action -, track.object), from the object that "
+              "holds it, to the object it names (0: the world). from, to, kind: only those - to gives what refers to an object",
+              "{from?: int, to?: int, kind?: str}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
+            Value list;
+            return relations(g, a, list, e) && (r.set("relations", list), true);
         }),
         query("scene_describe", "The scene in words: the bodies as a tree of joints with their shapes, masses, roles and drives; sensors and where "
               "they look; the batteries - for a person or a language model building by text", "{}",

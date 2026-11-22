@@ -270,6 +270,18 @@ class SceneCore(unittest.TestCase):
             push.shape = "radial"
             self.assertEqual(push.shape, "radial")
 
+    def test_the_scene_links_are_one_list_both_ways(self):
+        with ke.Scene() as scene:
+            low, high = scene.add("box", position=(0, 0.5, 0)), scene.add("box", position=(0, 1.5, 0))
+            joint = scene.ed.assembly_joint(a=high.id, b=low.id, type="hinge", anchor=[0, 1, 0], axis=[0, 0, 1])["id"]
+            group = scene.group(low, high)
+            links = {(r["kind"], r["from"], r["to"]) for r in scene.ed.relation_list()["relations"]}
+            self.assertEqual(links, {("object.parent", low.id, group.id), ("object.parent", high.id, group.id),
+                                     ("link.a", joint, high.id), ("link.b", joint, low.id)})
+            self.assertEqual(scene.ed.relation_list(to=low.id)["relations"], [{"kind": "link.b", "from": joint, "to": low.id}])
+            with self.assertRaisesRegex(ke.OperationError, "no relation kind 'parent'.*object.parent"):
+                scene.ed.relation_list(kind="parent")
+
     def test_the_play_range_is_a_word_of_the_world_line(self):
         # scene.world.duration: where a window's play and take end; this host has no clock, so it only keeps the number
         with ke.Scene() as scene:

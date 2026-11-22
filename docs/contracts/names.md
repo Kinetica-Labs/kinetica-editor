@@ -91,6 +91,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `robot` | команды роботу | stable |
 | `runtime` | среда исполнения: фоновые задачи, пределы | stable |
 | `scene` | объекты сцены и её файл | stable |
+| `relation` | связи между объектами: кто на кого ссылается | testing |
 | `script` | скрипты | stable |
 | `selection` | выделение | stable |
 | `sensor` | датчики: паспорт, показания | stable |
@@ -159,6 +160,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `file` | `str` | путь к файлу; относительный - от места запуска | stable |  |
 | `fill` | `[]` | контуры заливки: строки `M x y L x y C x1 y1 x2 y2 x y Z` | stable |  |
 | `fixed` | `bool` | тело стоит на месте, физика его не двигает | stable |  |
+| `from` | `int` | объект, от которого идёт связь | testing |  |
 | `flip` | `bool` | развернуть заготовку по нормали | stable |  |
 | `folder` | `str` | путь к папке | stable |  |
 | `force` | `number` | предельная сила или момент привода, Н или Н·м; сила схвата, Н | stable |  |
@@ -254,6 +256,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `target` | `[3]` | точка, на которую смотрят, м | stable |  |
 | `text` | `str` | текст | stable |  |
 | `time` | `number` | время, с | stable |  |
+| `to` | `int` | объект, к которому идёт связь; 0 - мир | testing |  |
 | `to` | `[3]` | вторая точка мира - конец отрезка, м | testing |  |
 | `tool` | `str` | инструмент гизмо: select, move, rotate, scale | stable |  |
 | `travel` | `number` | ход схвата от открытого, м | stable |  |
@@ -282,7 +285,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 
 ### testing
 
-`view_measure`
+`relation_list` `view_measure`
 
 ### obsolete
 
@@ -301,6 +304,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | Ключ | Смысл, единица | Ступень | Вместо |
 |---|---|---|---|
 | `a` | первое тело контакта | stable |  |
+| `action` | действие контроллера, чья это связь | testing |  |
 | `accel` | ускорение по осям датчика, м/с² | stable |  |
 | `accepted` | мир принял толчок | stable |  |
 | `actions` | имена действий контроллера | stable |  |
@@ -334,6 +338,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `file` | путь к файлу | stable |  |
 | `fixed` | тело стоит на месте | stable |  |
 | `force` | сила, Н | stable |  |
+| `from` | объект, от которого идёт связь | testing |  |
 | `frame` | номер кадра мира | stable |  |
 | `frame_timing` | время частей кадра, мс | stable |  |
 | `gyro` | угловая скорость по осям датчика, рад/с | stable |  |
@@ -360,6 +365,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `reading` | показание датчика - в его единице | stable |  |
 | `redone` | повтор сделан | stable |  |
 | `relative` | показание относительно нуля датчика | stable |  |
+| `relations` | связи `[{kind, from, to}]`: kind - часть и ключ файла сцены, что пишут связь | testing |  |
 | `reload` | что мир построит заново: world, groups, arrays, devices, bodies, joints | stable |  |
 | `requested_frames` | сколько кадров просили | stable |  |
 | `rotation` | поворот углами Эйлера [x, y, z], градусы | stable |  |
@@ -375,6 +381,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `tags` | метки | stable |  |
 | `text` | текст: файл сцены | stable |  |
 | `time` | время мира, с | stable |  |
+| `to` | объект, к которому идёт связь; 0 - мир | testing |  |
 | `travel` | ход сустава, м или рад | stable |  |
 | `truth` | истинные значения из физики рядом с показанием - для проверок, не для управления | stable |  |
 | `type` | тип компонента `плагин.компонент` | stable |  |

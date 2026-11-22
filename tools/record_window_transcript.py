@@ -140,6 +140,8 @@ TRANSCRIPT = [
     R("edit_undo after the paused pair", "edit_undo"),
     R("the intensity after that undo: 4 is one step back, 3 is both", "scene_get", {"id": 17, "line": "kind", "key": "intensity"}),
     R("edit_redo", "edit_redo"),
+    R("the scene's links as one list: the hinge's two bodies, the wheel module's parts on the chassis, the driver's joint and battery, the controller's action", "relation_list"),
+    R("what refers to the chassis (id 7): the links into it", "relation_list", {"to": 7}),
 
     # --- what the window fills in by itself: selection and view -----------------------------------------------------------------
     R("the selection of a window that has not selected anything by hand", "selection_get", window_only=True),
