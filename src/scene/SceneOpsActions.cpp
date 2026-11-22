@@ -163,10 +163,10 @@ SceneOp treeOp(const char* name, const char* help, const char* args = "{ids}") {
     return {name, help, args, {}, [op = std::string(name)](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         const std::vector<uint32_t> named = idsArg(a), roots = topmost(g, named);
         if (!(e = unknown(g, named)).empty()) return false;
-        Vector3 step;
-        bool stepped = false;
+        Vector3 step, by;
+        bool stepped = false, shifted = false;
         const int count = a["count"].integer(5);
-        if (!optionalVector(a, "step", step, stepped, e)) return false;
+        if (!optionalVector(a, "step", step, stepped, e) || !optionalVector(a, "by", by, shifted, e)) return false;
         if (count < 1 || count > 1000) return e = "count is 1..1000 copies", false;
         std::vector<uint32_t> made;
         if (op == "scene_delete") {
@@ -180,7 +180,7 @@ SceneOp treeOp(const char* name, const char* help, const char* args = "{ids}") {
         } else if (roots.empty()) {
             return e = "nothing to act on (locked?)", false;
         } else {
-            made = op == "scene_duplicate" ? duplicateObjects(g, roots) : op == "scene_group" ? std::vector<uint32_t>{groupObjects(g, roots)}
+            made = op == "scene_duplicate" ? duplicateObjects(g, roots, shifted ? &by : nullptr) : op == "scene_group" ? std::vector<uint32_t>{groupObjects(g, roots)}
                                                                                                : arrayObjects(g, roots);
             if (made.empty()) return e = "no shape to make an array of", false;
             if (op == "scene_array")
@@ -453,7 +453,8 @@ std::vector<SceneOp> actionSceneOps() {
                        "at `point`, or (neither) at where it looks now; free: true - a free camera again, looking where it looked",
          "{camera: int, at?: int, point?: [x,y,z], free?: bool}", {}, aimCameraOp},
         treeOp("scene_delete", "Objects deleted as Del does: with everything under them, the joints and sensors they hold (scene_remove: one object, its children kept)"),
-        treeOp("scene_duplicate", "Copies a little above the originals (Ctrl+D); the copies are the answer"),
+        treeOp("scene_duplicate", "Copies a little above the originals (Ctrl+D), or each `by` metres from its original in the world "
+               "([0,0,0]: in its place); the copies are the answer", "{ids, by?: [x,y,z]}"),
         treeOp("scene_group", "A group at the centre of the objects, their poses kept in the world (Ctrl+G)"),
         treeOp("scene_ungroup", "The groups dissolved, their members kept where they stand (Ctrl+Shift+G)"),
         treeOp("scene_array", "Each shape becomes the hidden template of a row of copies: count of them (5), a step apart (its width and a gap, along "

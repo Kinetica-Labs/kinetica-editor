@@ -95,9 +95,9 @@ class SceneObject:
         else:
             self.scene.delete(self)
 
-    def duplicate(self):
-        """A copy a little above it (Ctrl+D): the copy."""
-        return self.scene.duplicate(self)[0]
+    def duplicate(self, by=None):
+        """A copy a little above it (Ctrl+D), or `by` from it, m ((0, 0, 0): in its place): the copy."""
+        return self.scene.duplicate(self, by=by)[0]
 
     def move(self, by):
         """Moved by a step in the world, m - its angles kept (the gizmo's arrows)."""

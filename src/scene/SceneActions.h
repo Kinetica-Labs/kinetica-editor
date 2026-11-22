@@ -62,8 +62,9 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids);
 // A copy of the object and all under it (sensors go with their body) under `parent`; an instance copy
 // shares the master's geometry. Its id.
 uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent);
-// Copies of `roots` (topmost) a little above them - a sensor's copy stays on its mount: the copies.
-std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots);
+// Copies of `roots` (topmost) a little above them - a sensor's copy stays on its mount -, or each `by` from its original
+// in the world (zero: in its place): the copies.
+std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots, const Vector3* by = nullptr);
 // A group at the centre of `roots`, their world poses kept: its id (0: no roots).
 uint32_t groupObjects(SceneGraph& g, const std::vector<uint32_t>& roots);
 // The groups dissolved, their members kept where they stand in the world: the members.

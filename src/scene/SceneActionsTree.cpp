@@ -128,7 +128,7 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids) {
     eraseDead(g.sequences, named); // a sequence named; an object gone leaves its track lost (skipped)
 }
 
-std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots) {
+std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots, const Vector3* by) {
     std::vector<uint32_t> copies;
     for (uint32_t id : roots) {
         const SceneObject* original = findObject(g, id);
@@ -141,7 +141,9 @@ std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t
         Quaternion q;
         worldPose(g, *o, p, q);
         const Vector3 keep = o->rotationDeg;
-        if (!byId(g.sensors, c)) // a sensor's copy stays on its mount; anything else goes on top of the original
+        if (by) // where it was asked to be
+            setWorldPose(g, *o, p + *by, q);
+        else if (!byId(g.sensors, c)) // a sensor's copy stays on its mount; anything else goes on top of the original
             setWorldPose(g, *o, p + Vector3(0.0_r, (box.valid() ? box.extent().y : 0.2_r) + 0.02_r, 0.0_r), q);
         o->rotationDeg = keep;
         copies.push_back(c);

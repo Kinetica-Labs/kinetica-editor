@@ -72,6 +72,10 @@ void testActionsDeleteAndDuplicate() {
     CHECK(g.forces.size() == 2 && g.forces[1].parent == copies[0] && g.forces[1].strength == 3 && g.forces[0].parent == a, "...and its own thrust");
     const std::vector<uint32_t> sensorCopy = duplicateObjects(g, {sonar});
     CHECK(gap(worldAt(g, sensorCopy[0]), worldAt(g, sonar)) == 0 && findObject(g, sensorCopy[0])->parent == a, "a sensor's copy stays on its mount");
+    const Vector3 none(0, 0, 0), aside(1, 0, 0);
+    const uint32_t inPlace = duplicateObjects(g, {a}, &none)[0], moved = duplicateObjects(g, {a}, &aside)[0];
+    CHECK(gap(worldAt(g, inPlace), worldAt(g, a)) < 1e-6_r && gap(worldAt(g, moved), worldAt(g, a) + aside) < 1e-6_r,
+          "a copy `by` [0,0,0] stands where its original does, `by` [1,0,0] a metre aside");
     g = before;
     deleteObjects(g, {group});
     CHECK(!findObject(g, a) && !findObject(g, sonar) && !findJoint(g, joint) && findObject(g, b), "the group, its member, the sensor and the joint go; the other link stays");

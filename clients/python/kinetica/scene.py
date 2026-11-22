@@ -341,9 +341,13 @@ class Scene:
         """Out of the scene as Del does it: with everything under them, the joints and sensors they hold."""
         self._act("scene_delete", "delete", objects)
 
-    def duplicate(self, *objects):
-        """Copies a little above the originals (Ctrl+D): the copies."""
-        return self._objects(self._act("scene_duplicate", "duplicate", objects)["ids"])
+    def duplicate(self, *objects, by=None):
+        """Copies a little above the originals (Ctrl+D), or each `by` from its original, m ((0, 0, 0): in its place):
+        the copies."""
+        if by is None:
+            return self._objects(self._act("scene_duplicate", "duplicate", objects)["ids"])
+        return self._objects(self._call("scene_duplicate", f"scene.duplicate({self._refs(objects)}, by={_t(by)})",
+                                        ids=[o.id for o in objects], by=list(by))["ids"])
 
     def group(self, *objects):
         """A group at their centre, their poses kept in the world (Ctrl+G): the group."""
