@@ -371,6 +371,7 @@ Value bodyStates(const Simulation& s) {
         Value body = Value::map();
         body.set("position", listOf(st.centre)), body.set("velocity", listOf(st.velocity));
         body.set("spin", listOf(st.angularVelocity)), body.set("angular_velocity", listOf(st.angularVelocity)); // spin: the first name, kept
+        body.set("rotation", listOf(eulerDegrees(st.rotation))); // to push it along its own axes (a thruster, a tyre)
         body.set("mass", double(st.mass));
         out.set(std::to_string(e.id), body);
     }

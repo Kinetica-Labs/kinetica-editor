@@ -110,8 +110,12 @@ def start(scene):
     frames.clear()
 
 
+turned = []
+
+
 @on_tick(world=True)
 def hold(scene, dt, bodies):
+    turned.append(len(bodies[CUBE].get("rotation", [])) == 3)
     return {CUBE: {"force": [0, bodies[CUBE]["mass"] * 9.81, 0]}}
 
 
@@ -130,6 +134,7 @@ def control(scene, dt, sensors):
 @on_stop
 def stop(scene):
     print("ticks", ticks)
+    print("rotation", all(turned) and len(turned) > 0)
     print("frames", frames[:6], frames == list(range(len(frames))) and len(frames) > 10)
     print("last", last)
 )py").replace("CUBE", QString::number(cube)).replace("JOINT", QString::number(joint)));
@@ -173,6 +178,7 @@ def stop(scene):
                 "target %.3f -> %.3f\n", double(y0), double(y), double(angle), qPrintable(seen), qPrintable(counted),
                 static_cast<long long>(awake - last), qPrintable(added.join(", ")), double(authored), double(after));
     c.check(std::fabs(y - y0) < 0.01f, "a physics plugin's on_tick(world=True) pushes a body every frame: m g up holds a cube in the air");
+    c.check(printed.filter("rotation").value(0) == "rotation True", "...and sees each body's rotation, to push it along its own axes");
     c.check(std::fabs(angle - 0.5f) < 0.05f && seen.contains("encoder") && seen.endsWith("False"),
             "a controller's on_tick sees its encoder's reading, not the truth, and turns the servo by its command");
     c.check(told && counted == "ticks 61", "the lockstep: one tick a frame - the starting one too -, before the next is stepped");

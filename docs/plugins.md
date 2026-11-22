@@ -113,7 +113,7 @@ def control(scene, dt, sensors):        # sensors: {id: {"kind": "encoder", "rea
 
 
 @on_tick(world=True)
-def wind(scene, dt, bodies):            # bodies: {id: {"position", "velocity", "angular_velocity", "mass"}} - истина движка
+def wind(scene, dt, bodies):            # bodies: {id: {"position", "rotation", "velocity", "angular_velocity", "mass"}} - истина движка
     return {i: {"force": [2.0, 0, 0]} for i in bodies}   # Н за кадр, в центре масс (ветер, магнит, тяга…)
 ```
 

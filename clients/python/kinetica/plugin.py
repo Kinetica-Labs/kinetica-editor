@@ -305,7 +305,7 @@ def on_tick(fn=None, *, world=False):
     A plugin that extends the physics (wind, a magnet, a thruster) sees the bodies as the engine has them and pushes them::
 
         @on_tick(world=True)
-        def wind(scene, dt, bodies):                # bodies: {id: {"position", "velocity", "spin", "mass"}}
+        def wind(scene, dt, bodies):                # bodies: {id: {"position", "rotation", "velocity", "spin", "mass"}}
             return {i: {"force": [2.0, 0, 0]} for i in bodies}   # N over this frame, at the centre of mass
     """
     def take(f):
