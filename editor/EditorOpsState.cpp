@@ -92,10 +92,18 @@ void EditorOps::addStateOps() {
         QVector3D eye, target;
         if (!vector(a.value("eye"), eye) || !vector(a.value("target"), target) || (eye - target).length() < 1e-4f)
             return error("eye and target are two different points [x, y, z]");
-        view_->followBody(0);
+        view_->setFollow(0);
         view_->camera().lookAt(eye, target);
         view_->update();
         return ok();
+    });
+    addSync("view_follow", "The view's camera follows a body's centre of mass whenever the world plays - now, or from the next ▶ - and orbits "
+                           "it as the mouse turns it (Вид → «Следить за выделенным», Shift+F); body 0: the editor's own view again. "
+                           "view_look, view_through, F and Home end it", "{body: int}", [this](const QJsonObject& a) {
+        const uint32_t id = uint32_t(a.value("body").toInt());
+        if (id && !ke::findEntity(builder_->graph(), id)) return error(QString("no body %1 in the scene").arg(id));
+        view_->setFollow(id);
+        return ok({{"follow_body", int(view_->followWish())}});
     });
     addSync("view_through", "The view looks through a camera of the scene - its eye, its turn and its lens, wherever its keys or the running world take "
                             "it - as «Смотрю через» in the view's corner; no camera (or 0): the editor's own view again, as it was",
@@ -103,7 +111,7 @@ void EditorOps::addStateOps() {
         const uint32_t id = uint32_t(a.value("camera").toInt());
         const std::vector<Camera>& cameras = builder_->graph().cameras;
         if (id && std::none_of(cameras.begin(), cameras.end(), [id](const Camera& c) { return c.id == id; })) return error(QString("no camera %1").arg(id));
-        view_->followBody(0);
+        view_->setFollow(0);
         builder_->lookThrough(id);
         return ok({{"through", int(builder_->lookingThrough())}});
     });

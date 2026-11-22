@@ -44,7 +44,7 @@ bool isFlyKey(int k) { return k == Qt::Key_W || k == Qt::Key_A || k == Qt::Key_S
 // The camera
 // ---------------------------------------------------------------------------
 void Viewport::frameScene() {
-    if (followedBody_) followBody(0);
+    setFollow(0);
     if (focusBox_.valid()) {
         camera_.frame(focusBox_, 40.0f, 24.0f);
         update();

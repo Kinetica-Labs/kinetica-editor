@@ -195,6 +195,7 @@ now. Four buttons in the top right corner hide and show the panels; `F11` leaves
 | Middle button | pan |
 | Wheel | zoom |
 | `F` | frame the selection; `Home` - the whole scene |
+| `Shift+F` | follow the selected body: the camera keeps it in the middle while the world plays (turned on in edit - from ▶) |
 
 The mouse layout is chosen in Settings → Controls.
 
@@ -545,6 +546,7 @@ Settings → Language switches the window between Russian and English. The mouse
 | Laboratory | `F8` | | 3D View Only | `F11` |
 | Performance | `F3` | | <img src="images/ui/icons/stop.png" height="22" alt=""> Stop / Deselect | `Esc` |
 
+| Follow Selected | `Shift+F` | | | |
 ## When something goes wrong
 
 | What you see | Why, and what to do |

@@ -258,8 +258,26 @@ void MainWindow::buildLayoutActions() {
     hud->setToolTip(uiText("Kinetica", "Табличка в углу вида (F3): кадров в секунду крупно, график последних кадров, время рисования и шага физики, "
                     "скорость против реального времени, кто рисует — видеокарта или процессор"));
     connect(hud, &QAction::triggered, this, [this](bool on) { ops_->run("view_hud", {{"on", on}}, [](const QJsonObject&) {}, "ui"); });
+    auto* follow = new QAction(uiText("Kinetica", "Следить за выделенным"), this);
+    follow->setObjectName("actionFollowSelected");
+    follow->setCheckable(true);
+    follow->setShortcut(QKeySequence("Shift+F"));
+    follow->setToolTip(uiText("Kinetica", "Камера держит выбранное тело в центре, пока мир играет, — сейчас или с ▶; вращать и приближать её можно. "
+                                          "Ещё раз, Esc, F или Home — свой вид"));
+    connect(follow, &QAction::triggered, this, [this, follow](bool on) {
+        if (on && !builder_->selectedId()) {
+            follow->setChecked(false);
+            return statusBar()->showMessage(uiText("Kinetica", "Выберите тело, за которым следить"), 4000);
+        }
+        ops_->run("view_follow", {{"body", on ? int(builder_->selectedId()) : 0}}, [this, follow](const QJsonObject& r) {
+            follow->setChecked(view_->followWish() != 0);
+            if (!r.value("ok").toBool()) statusBar()->showMessage(r.value("error").toString(), 4000);
+        }, "ui");
+    });
+    connect(view_, &Viewport::followChanged, follow, [follow](uint32_t body) { follow->setChecked(body != 0); });
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     viewMenu->addSeparator();
+    viewMenu->addAction(follow);
     viewMenu->addAction(hud);
     viewMenu->addAction(collidersAct_);
     viewMenu->addAction(graphsAct_);

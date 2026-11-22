@@ -111,7 +111,7 @@ void Viewport::setLookThrough(bool on, const Vector3& eye, const Vector3& forwar
         updateHint();
         return;
     }
-    if (followedBody_) followBody(0);
+    setFollow(0);
     const bool entering = !lookThrough_;
     if (entering) editorCamera_ = camera_;
     lookThrough_ = true;

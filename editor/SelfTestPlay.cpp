@@ -181,6 +181,35 @@ void testKeep(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     c.check(std::fabs(last(b).position.y - 1.0f) < 1e-4f, "one Ctrl+Z after Stop puts it back up");
 }
 
+// Вид → «Следить за выделенным» (Shift+F) on a cube chosen in the edit mode: from ▶ the camera holds the falling cube
+// in the middle; Esc - the editor's own view; with nothing chosen it says so and stays off.
+void testFollow(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    b.newScene();
+    b.createActions()[0]->trigger();
+    const uint32_t id = last(b).id;
+    b.editEntity(id, [](Entity& e) { e.position = Vector3(0, 2.0f, 0); e.rigid.enabled = true; e.collider.enabled = true; });
+    auto* follow = w.findChild<QAction*>("actionFollowSelected");
+    b.select(0);
+    trigger(w, "actionFollowSelected");
+    c.check(follow && !follow->isChecked() && !v->followWish(), "Shift+F with nothing chosen: the camera stays the editor's");
+    b.select(id);
+    trigger(w, "actionFollowSelected");
+    const bool armed = follow && follow->isChecked() && v->followWish() == id && !v->followedBody();
+    b.play();
+    waitFrames(v, 40, 30000);
+    float gap = -1, y = -1;
+    if (auto s = v->snapshot(); s && b.bodyOfEntity(id) >= 0) {
+        const auto& p = s->bodies[size_t(b.bodyOfEntity(id))].pos;
+        gap = (v->camera().target() - QVector3D(p.x, p.y, p.z)).length(), y = p.y;
+    }
+    std::printf("  follow: armed in the edit mode %s; playing, the cube at %.3f m, the camera's target %.4f m from it\n", armed ? "yes" : "no", y, gap);
+    c.check(armed && v->followedBody() == id && gap >= 0 && gap < 1e-3f && y < 1.99f, "chosen in the edit mode, the falling cube is followed from ▶");
+    trigger(w, "actionEscape");
+    c.check(!v->followWish() && !v->followedBody() && !follow->isChecked() && b.mode() != SceneBuilder::Mode::Edit, "Esc: the editor's own view, the world plays on");
+    b.stop();
+    pump(200);
+}
+
 void testCommandSearch(Checker& c, QMainWindow& w, SceneBuilder& b, const QString& dir) {
     b.newScene();
     std::vector<uint32_t> ids;
@@ -280,6 +309,7 @@ int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& di
     testSameLook(c, b, v, dir);
     testPlayBar(c, w, b, v, dir);
     testKeep(c, w, b, v);
+    testFollow(c, w, b, v);
     testCommandSearch(c, w, b, dir);
     if (auto* mw = qobject_cast<MainWindow*>(&w)) testPivotAndBlank(c, *mw, b, v);
     return c.failures;

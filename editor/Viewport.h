@@ -75,6 +75,10 @@ public:
     // Interaction (used by the ViewportTool strategies; ViewportInput.cpp)
     OrbitCamera& camera() { return camera_; }
     bool followBody(uint32_t object); // 0 restores the independent scene camera
+    // The body the camera follows whenever the world plays - now, or from the next ▶ (0: none, the editor's own view);
+    // a camera move of the editor's own (F, Home, another scene, looking through a camera) ends it. followChanged says so.
+    void setFollow(uint32_t body);
+    uint32_t followWish() const { return followWish_; }
     uint32_t followedBody() const { return followedBody_; }
 
     // Which mouse button moves the camera, and how (ControlScheme.h).
@@ -262,6 +266,7 @@ signals:
     void grabReleased();
     void goalDragged(uint32_t goal, ke::Vector3 position, ke::Quaternion turn, bool end); // play: the mouse drags an IK goal (GoalTool)
     void bodyClicked(int body);                       // play: left click on a body (index into the frame's bodies)
+    void followChanged(uint32_t body);                // setFollow: the body the camera follows when the world plays (0: none)
     void sensorClicked(uint32_t id);                  // playing: left click on a sensor's glyph
     void entityClicked(uint32_t id);                  // edit mode: a click selected this object (0: empty space); play: a see-through goal clicked
     void entityHovered(uint32_t id);                  // edit mode: the object under the mouse changed
@@ -429,6 +434,7 @@ private:
     OrbitCamera camera_;
     OrbitCamera sceneOrbit_, bodyOrbit_;
     uint32_t followedBody_ = 0;
+    uint32_t followWish_ = 0; // setFollow: followed whenever the world plays
     bool bodyOrbitSaved_ = false;
 
     CameraTool cameraTool_;

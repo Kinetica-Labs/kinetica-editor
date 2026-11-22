@@ -7018,5 +7018,20 @@ Sample </translation>
         <source>точки появятся по ходу обучения</source>
         <translation>The points will appear as the training goes</translation>
     </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="1"/>
+        <source>Следить за выделенным</source>
+        <translation>Follow selected</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="1"/>
+        <source>Камера держит выбранное тело в центре, пока мир играет, — сейчас или с ▶; вращать и приближать её можно. Ещё раз, Esc, F или Home — свой вид</source>
+        <translation>The camera keeps the selected body in the middle while the world plays - now or from ▶; you can still turn and zoom it. Again, Esc, F or Home - your own view</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="1"/>
+        <source>Выберите тело, за которым следить</source>
+        <translation>Select the body to follow</translation>
+    </message>
 </context>
 </TS>

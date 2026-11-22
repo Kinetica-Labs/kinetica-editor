@@ -105,7 +105,7 @@
 Второе слово имени новой операции. Стандартные - как в API, которые живут десятилетиями: `get` - одно, `list` -
 много, `add` - создать, `set` - изменить, `remove` и `delete` - убрать. Остальные - действия своих областей.
 
-`add` `aim` `attach` `clear` `configure` `delete` `describe` `draw` `duplicate` `fire` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `undo` `ungroup`
+`add` `aim` `attach` `clear` `configure` `delete` `describe` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `undo` `ungroup`
 
 ## 6. Словарь аргументов
 
@@ -292,7 +292,7 @@
 
 ### testing
 
-нет
+`view_follow`
 
 ### obsolete
 

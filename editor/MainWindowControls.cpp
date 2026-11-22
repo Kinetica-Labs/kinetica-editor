@@ -74,7 +74,7 @@ void MainWindow::buildEditMenu() {
     auto* esc = keyAction(menu, "actionEscape", uiText("Kinetica", "Стоп / снять выделение"), {QKeySequence(Qt::Key_Escape)});
     esc->setToolTip(uiText("Kinetica", "Идёт симуляция — стоп и сцена как до ▶; в правке — снять выделение"));
     connect(esc, &QAction::triggered, this, [this] {
-        if (view_->followedBody()) view_->followBody(0);
+        if (view_->followWish() || view_->followedBody()) view_->setFollow(0);
         else if (builder_->lookingThrough()) builder_->lookThrough(0); // first out of the camera
         else if (!builder_->editing()) builder_->stop();
         else if (builder_->colliderEditing()) builder_->setColliderEdit(false); // out of the collider first, the body still selected
@@ -209,7 +209,7 @@ void MainWindow::connectViewportControls() {
 // view switches another way (cameraView: the inspector's button, the menu, Esc), a scene is loaded.
 void MainWindow::buildCameraPicker() {
     cameraPicker_ = new CameraPicker(view_);
-    connect(cameraPicker_, &CameraPicker::chosen, this, [this](uint32_t id) { view_->followBody(0); builder_->lookThrough(id); });
+    connect(cameraPicker_, &CameraPicker::chosen, this, [this](uint32_t id) { view_->setFollow(0); builder_->lookThrough(id); });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { if (builder_->editing()) view_->followBody(0); });
     auto follow = [this] {
         std::vector<CameraPicker::Choice> cameras;
@@ -246,7 +246,7 @@ void MainWindow::buildCamerasMenu() {
     menu->setObjectName("camerasMenu");
     connect(menu, &QMenu::aboutToShow, this, [this, menu] {
         menu->clear();
-        QAction* editor = menu->addAction(uiText("Kinetica", "Вид редактора"), this, [this] { view_->followBody(0); builder_->lookThrough(0); });
+        QAction* editor = menu->addAction(uiText("Kinetica", "Вид редактора"), this, [this] { view_->setFollow(0); builder_->lookThrough(0); });
         editor->setCheckable(true);
         editor->setChecked(builder_->lookingThrough() == 0 && !view_->followedBody());
         menu->addSeparator();

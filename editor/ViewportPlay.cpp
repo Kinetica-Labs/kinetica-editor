@@ -72,12 +72,21 @@ bool Viewport::followBody(uint32_t object) {
     updateBodyOrbit();
     update(); return true;
 }
+void Viewport::setFollow(uint32_t body) {
+    const bool changed = body != followWish_;
+    followWish_ = body;
+    if (followedBody_ && followedBody_ != body) followBody(0);
+    updateBodyOrbit(); // playing: at once
+    if (changed) emit followChanged(body);
+}
+
 void Viewport::updateBodyOrbit() {
+    if (followWish_ && followedBody_ != followWish_ && !editMode_ && !lookThrough_) followBody(followWish_); // its ▶, or it is back
     if (!followedBody_) return;
     if (snap_) for (const auto& b:snap_->bodies) if (b.object==followedBody_ && b.movable) {
         const QVector3D centre(b.pos.x,b.pos.y,b.pos.z);
         camera_.translate(centre-camera_.target());
         return;
     }
-    followBody(0); // removed body or reset: restore the scene view
+    followBody(0); // removed body or reset: restore the scene view (the wish waits for the next run)
 }
