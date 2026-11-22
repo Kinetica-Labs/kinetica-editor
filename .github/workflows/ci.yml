@@ -220,6 +220,9 @@ jobs:
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4 # the tag's own words are the release's
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
@@ -232,8 +235,9 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.txt # --notes-from-tag is refused beside --repo
           gh release create "$GITHUB_REF_NAME" kinetica-windows.zip kinetica-linux.tar.gz kinetica-macos.zip \
-            --repo "$GITHUB_REPOSITORY" --title "Kinetica Editor ${GITHUB_REF_NAME#v}" --notes-from-tag --verify-tag
+            --repo "$GITHUB_REPOSITORY" --title "Kinetica Editor ${GITHUB_REF_NAME#v}" --notes-file notes.txt --verify-tag
 
   ablation:
     name: Только робототехника
