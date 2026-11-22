@@ -604,7 +604,7 @@ QString Viewport::mouseHint() const {
     if (rightHeld_ && rightButtonFlies(scheme_) && (flew_ || !flyKeys_.empty()))
         return uiText("Kinetica", "Полёт: W A S D — вперёд, влево, назад, вправо · Q / E — вниз / вверх · Shift — быстрее · мышь — осмотреться");
     if (!toolOp_.isEmpty())
-        return "«" + toolLabel_ + (toolDrags_ ? uiText("Kinetica", "»: тяните от точки до точки — обе уходят плагину · щелчок — одна точка · Esc — выход · ")
+        return "«" + toolLabel_ + (toolDrags_ ? uiText("Kinetica", "»: тяните от точки до точки · Esc — выход · ")
                                               : uiText("Kinetica", "»: щелчок по объекту или полу — точка, нормаль и объект уходят плагину · Esc — выход · ")) + cameraHint(scheme_);
     if (!editMode_ && gizmoShown() && !gizmo_.dragging() && gizmo_.hover() != GizmoHandle::None)
         return uiText("Kinetica", "Тяните: цель IK, рука идёт за ней моторами · ") + cameraHint(scheme_);

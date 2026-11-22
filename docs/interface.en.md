@@ -218,7 +218,9 @@ arrows - across a plane.
 |---|---|---|
 | ![The move gizmo](images/ui/en/gizmo-move.png) | ![The rotate gizmo](images/ui/en/gizmo-rotate.png) | ![The scale gizmo](images/ui/en/gizmo-scale.png) |
 
-- Global switches the gizmo's axes between the world's and the object's own.
+- Ruler (`M`), a group of its own under a line, measures and moves nothing: press on a point of an object or the floor, drag to another, let go - the view
+  shows the line and its length in metres. The line stays until the next one; Esc or another tool takes it off. As
+  code - `view_measure {point, to}`.
 - A turn released near a quarter of a revolution completes itself to it.
 
 ### Roles: what physics knows

@@ -277,6 +277,19 @@ void drawScaleSquares(QPainter& p) {
     p.drawPolygon(head, 3);
 }
 
+// A ruler laid aslant, its marks along its upper edge, long and short in turns: the tool that measures point to point.
+void drawRuler(QPainter& p) {
+    p.save();
+    p.translate(50, 50);
+    p.rotate(-40);
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(kControl, 6, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+    p.drawRoundedRect(QRectF(-46, -15, 92, 30), 5, 5);
+    p.setPen(QPen(kControl, 5, Qt::SolidLine, Qt::RoundCap));
+    for (int k = -3; k <= 3; ++k) p.drawLine(QPointF(k * 11.5, -15), QPointF(k * 11.5, k % 2 ? -5 : 3));
+    p.restore();
+}
+
 // A window outline with its area: filled while open, only the dividing line while closed. The menu
 // button shows a side bar beside two stacked panes.
 void drawLayout(QPainter& p, LayoutIcon kind, bool open) {
@@ -345,6 +358,7 @@ void drawControl(QPainter& p, ControlIcon c) {
     case ControlIcon::ToolMove: drawMoveCross(p); break;
     case ControlIcon::ToolRotate: drawCircleArrow(p); break;
     case ControlIcon::ToolScale: drawScaleSquares(p); break;
+    case ControlIcon::ToolRuler: drawRuler(p); break;
     case ControlIcon::Step: {
         p.setBrush(kControl);
         const QPointF tri[] = {{20, 18}, {66, 50}, {20, 82}};

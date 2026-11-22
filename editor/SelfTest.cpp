@@ -313,6 +313,37 @@ void testCyclePicking(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
     trigger(w, "toolMove");
 }
 
+// The ruler of the tool shelf: its button takes the view; a drag from a point of the floor to another leaves the line
+// between them with its length over it - the length view_measure answers -; Esc leaves the ruler and takes the line off.
+void testRuler(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    auto* ruler = w.findChild<QAction*>("toolRuler");
+    if (!ruler) return void(c.check(false, "the tool shelf has «Линейка»"));
+    b.newScene();
+    b.select(0);
+    pump(100);
+    ruler->trigger();
+    pump(50);
+    const bool taken = v->pluginTool() == "view_measure" && ruler->isChecked();
+    const Vector3 a(-1.0f, 0.0f, 0.0f), z(1.0f, 0.0f, 0.5f);
+    const QPointF from = v->pixelOf(a), to = v->pixelOf(z);
+    sendMouse(v, QEvent::MouseButtonPress, from, Qt::LeftButton, Qt::LeftButton);
+    for (int i = 1; i <= 8; ++i) sendMouse(v, QEvent::MouseMove, from + (to - from) * (i / 8.0), Qt::NoButton, Qt::LeftButton);
+    sendMouse(v, QEvent::MouseButtonRelease, to, Qt::LeftButton, Qt::NoButton);
+    pump(100);
+    const Viewport::Drawing* line = v->drawing("editor/ruler");
+    const float drawn = line && line->points.size() == 2 ? length(line->points[1] - line->points[0]) : -1.0f;
+    const double said = ops->runNow("view_measure", {{"point", QJsonArray{-1, 0, 0}}, {"to", QJsonArray{1, 0, 0.5}}}).value("length").toDouble();
+    std::printf("  the ruler dragged over the floor from (-1, 0, 0) to (1, 0, 0.5): the line %.3f m, «%s»; view_measure %.4f m\n",
+                double(drawn), line ? qPrintable(line->text) : "-", said);
+    c.check(taken && std::fabs(drawn - length(z - a)) < 0.02f && std::fabs(said - double(length(z - a))) < 1e-4,
+            "the ruler: a drag from point to point leaves the line between them with its length");
+    QKeyEvent esc(QEvent::KeyPress, Qt::Key_Escape, Qt::NoModifier);
+    QCoreApplication::sendEvent(v, &esc);
+    pump(50);
+    c.check(v->pluginTool().isEmpty() && !ruler->isChecked() && !v->hasDrawing("editor/ruler"), "Esc leaves the ruler and takes its line off");
+}
+
 // A joint's drive changed while the scene plays: the servo of a hinge gets a new target and the arm turns
 // to it in the running world - nothing is built again, the post's body keeps its index; Stop brings the
 // target back as it was authored. A change of what the world is built of (the post's size)
@@ -745,7 +776,7 @@ int runBuilderSelfTest(QMainWindow& w, const QString& shotsDir) {
     });
     run("gizmo", [&] { testEuler(c), testArrowDrag(c), testRingTurn(c), testScaleDrag(c), testKeyboardTransform(c); });
     run("play", [&] { testEditPlayStop(c, w, *b, v), testUndoRedo(c, w, *b); });
-    run("mouse", [&] { testMouseDrag(c, w, *b, v), testCyclePicking(c, w, *b, v); });
+    run("mouse", [&] { testMouseDrag(c, w, *b, v), testCyclePicking(c, w, *b, v), testRuler(c, w, *b, v); });
     run("menu", [&] { testContextMenu(c, w, *b, v); });
     run("console", [&] { testApiConsole(c), testWindowAsCode(c, w, *b), testPythonConsole(c, w, *b); });
     run("tags", [&] { testTags(c, w, *b); });

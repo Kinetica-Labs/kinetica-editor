@@ -164,8 +164,8 @@ public:
         const auto at = drawings_.find(key);
         return at == drawings_.end() ? nullptr : &at->second;
     }
-    // A plugin's tool (PluginHost): while on, a left click calls its command `op` with the point, the normal and the
-    // object under the mouse; Esc, another tool of the shelf or making shapes leaves it.
+    // A tool that is an operation - a plugin's (PluginHost) or the ruler (view_measure): while on, a left click calls `op`
+    // with the point, the normal and the object under the mouse; Esc, another tool of the shelf or making shapes leaves it.
     // drags: its command takes `to` - a press, a drag and a release give it two points, a line between them drawn meanwhile.
     void setPluginTool(const QString& op, const QString& label, bool drags = false);
     bool pluginToolDrags() const { return toolDrags_; }

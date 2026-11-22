@@ -3,6 +3,7 @@
 // in the 3D view - the events a hand would send, so the magnet's preview and click are tested as used.
 #include "EditorOps.h"
 #include "SceneBuilder.h"
+#include "UiLanguage.h"
 #include "UiWindowSpace.h"
 
 #include "Viewport.h"
@@ -14,6 +15,7 @@
 #include <QHelpEvent>
 #include <QKeyEvent>
 #include <QKeySequence>
+#include <QLocale>
 #include <QMenu>
 #include <QMouseEvent>
 #include <QPointer>
@@ -263,6 +265,27 @@ void EditorOps::addInputOps() {
             return error("nothing to draw: line, segments, points, circle, box, text or fill");
         view_->setDrawing(key, std::move(d));
         return ok({{"key", key}, {"drawings", int(view_->drawings())}});
+    });
+    // The ruler of the tool shelf (MainWindow::buildToolShelf) is this operation: a drag gives it its two points.
+    addSync("view_measure", "The ruler: a line in the view from a world point to another, its length over its middle; answers the length "
+            "and the difference along x, y and z (metres). None of the two: the line off. Changes nothing of the scene",
+            "{point?: [x,y,z], to?: [x,y,z]}", [this](const QJsonObject& a) {
+        static const QString key = "editor/ruler";
+        if (!a.contains("point") && !a.contains("to")) return ok({{"cleared", view_->clearDrawings(key)}});
+        const QJsonArray f = a.value("point").toArray(), t = a.value("to").toArray();
+        if (f.size() != 3 || t.size() != 3) return error("point and to: two world points [x, y, z]");
+        const ke::Vector3 from(float(f.at(0).toDouble()), float(f.at(1).toDouble()), float(f.at(2).toDouble())),
+            to(float(t.at(0).toDouble()), float(t.at(1).toDouble()), float(t.at(2).toDouble())), by = to - from;
+        const double length = double(ke::length(by));
+        Viewport::Drawing d;
+        d.colour = QColor(255, 214, 90);
+        d.strip = {from.x, from.y, from.z, 0.0f, to.x, to.y, to.z, 0.0f};
+        d.points = {from, to};
+        d.text = QLocale().toString(length, 'f', 3) + uiText("Kinetica", " м");
+        d.at = (from + to) * 0.5f;
+        d.play = !builder_->editing();
+        view_->setDrawing(key, std::move(d));
+        return ok({{"length", length}, {"by", QJsonArray{double(by.x), double(by.y), double(by.z)}}});
     });
     addSync("view_project", "The pixel of the 3D view (origin top-left) where a world point is seen", "{point: [x,y,z]}",
             [this](const QJsonObject& a) {

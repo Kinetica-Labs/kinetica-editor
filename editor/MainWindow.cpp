@@ -397,6 +397,27 @@ void MainWindow::buildToolShelf() {
         localAct_->setText(on ? uiText("Kinetica", "Лок.") : uiText("Kinetica", "Глоб.")); // not «Мир»: that is the inspector's tab of the world's physics
         view_->update();
     });
+    // The ruler, a group of its own under a line - it measures and moves nothing: press on a point, drag to another, let
+    // go - the line between them with its length, by view_measure, which the drag gives its two points; the line stays
+    // until the next one or until the ruler is left.
+    static const QString measure = "view_measure";
+    tb->addSeparator();
+    QAction* ruler = tb->addAction(controlIcon(ControlIcon::ToolRuler, 28), uiText("Kinetica", "Линейка"));
+    ruler->setObjectName("toolRuler");
+    ruler->setCheckable(true);
+    ruler->setShortcut(QKeySequence("M"));
+    ruler->setToolTip(uiText("Kinetica", "Линейка (M): нажмите на точку, тяните к другой, отпустите — линия и её длина; Esc — выход"));
+    connect(ruler, &QAction::triggered, this, [this, ruler] {
+        view_->setPluginTool(ruler->isChecked() ? measure : QString(), uiText("Kinetica", "Линейка"), true);
+    });
+    connect(view_, &Viewport::pluginToolChanged, ruler, [this, ruler](const QString& op) {
+        ruler->setChecked(op == measure);
+        if (op != measure && view_->hasDrawing("editor/ruler")) operators()->run(measure, {}, [](const QJsonObject&) {}, "ui");
+    });
+    connect(view_, &Viewport::toolDragged, this, [this](const QString& op, ke::Vector3 from, ke::Vector3, uint32_t, ke::Vector3 to, uint32_t) {
+        const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+        if (op == measure) operators()->run(measure, {{"point", three(from)}, {"to", three(to)}}, [](const QJsonObject&) {}, "ui");
+    });
     setTool(GizmoMode::Translate);
 }
 

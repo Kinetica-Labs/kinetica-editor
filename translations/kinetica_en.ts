@@ -188,7 +188,7 @@
         <translation>One object &quot;Massive&quot;: the number of copies and step are changed by one number</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="608"/>
+        <location filename="../editor/PluginHost.cpp" line="628"/>
         <location filename="../editor/MainWindowPlugins.cpp" line="159"/>
         <location filename="../editor/ClonePopover.cpp" line="50"/>
         <source>Отмена</source>
@@ -319,7 +319,7 @@
 The picture is being prepared…</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="93"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="94"/>
         <location filename="../editor/ExamplesGallery.cpp" line="42"/>
         <source>Примеры</source>
         <translation>Examples</translation>
@@ -891,19 +891,19 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="235"/>
-        <location filename="../editor/MainWindow.cpp" line="714"/>
+        <location filename="../editor/MainWindow.cpp" line="733"/>
         <source>Управление и методы</source>
         <translation>Controls and Methods</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="236"/>
-        <location filename="../editor/MainWindow.cpp" line="743"/>
+        <location filename="../editor/MainWindow.cpp" line="762"/>
         <source>О программе</source>
         <translation>About Kinetica</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="240"/>
-        <location filename="../editor/MainWindow.cpp" line="588"/>
+        <location filename="../editor/MainWindow.cpp" line="607"/>
         <source>Графики</source>
         <translation>Plots</translation>
     </message>
@@ -1028,23 +1028,34 @@ The picture is being prepared…</translation>
         <translation>Scale (R): Cubes on the axis, center - in whole; Ctrl - step 10%</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="389"/>
+        <location filename="../editor/MainWindow.cpp" line="391"/>
         <location filename="../editor/MainWindow.cpp" line="397"/>
+        <source>Линейка</source>
+        <translation>Ruler</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="395"/>
+        <source>Линейка (M): нажмите на точку, тяните к другой, отпустите — линия и её длина; Esc — выход</source>
+        <translation>Ruler (M): press on a point, drag to another, let go - the line and its length; Esc - leave</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="408"/>
+        <location filename="../editor/MainWindow.cpp" line="416"/>
         <source>Глоб.</source>
         <translation>Global</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="393"/>
+        <location filename="../editor/MainWindow.cpp" line="412"/>
         <source>Оси гизмо (L): «Глоб.» — оси сцены, «Лок.» — оси самого объекта</source>
         <translation>The axis of gizmo (L): &quot;Globe.&quot; - the axis of the stage, &quot;Lok.&quot; - the axis of the object itself</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="397"/>
+        <location filename="../editor/MainWindow.cpp" line="416"/>
         <source>Лок.</source>
         <translation>Local</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="423"/>
+        <location filename="../editor/MainWindow.cpp" line="442"/>
         <location filename="../editor/PlotPanel.cpp" line="566"/>
         <location filename="../editor/PlotChannels.cpp" line="35"/>
         <location filename="../editor/PlotChannels.cpp" line="102"/>
@@ -1052,128 +1063,128 @@ The picture is being prepared…</translation>
         <translation>Scene</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="424"/>
+        <location filename="../editor/MainWindow.cpp" line="443"/>
         <location filename="../editor/ObjectInspector.cpp" line="40"/>
         <location filename="../editor/PlotChannels.cpp" line="103"/>
         <source>Объект</source>
         <translation>Object</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="425"/>
+        <location filename="../editor/MainWindow.cpp" line="444"/>
         <source>Мир</source>
         <translation>World</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="426"/>
+        <location filename="../editor/MainWindow.cpp" line="445"/>
         <source>Все объекты сцены</source>
         <translation>All scene objects</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="427"/>
+        <location filename="../editor/MainWindow.cpp" line="446"/>
         <source>Физика всей сцены: гравитация, шаг, контакты, суставы</source>
         <translation>Physics of the whole scene: gravity, step, contacts, joints</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="428"/>
+        <location filename="../editor/MainWindow.cpp" line="447"/>
         <source>Выбранный объект: где стоит, как выглядит и что умеет</source>
         <translation>Selected object: where it stands, how it looks and what it can do</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="429"/>
+        <location filename="../editor/MainWindow.cpp" line="448"/>
         <source>Инспектор</source>
         <translation>Inspector</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="465"/>
+        <location filename="../editor/MainWindow.cpp" line="484"/>
         <source>Готово (Esc)</source>
         <translation>Done (Esc)</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="474"/>
+        <location filename="../editor/MainWindow.cpp" line="493"/>
         <source>&lt;b&gt;Правка коллайдера&lt;/b&gt; «</source>
         <translation>&lt;b&gt;Edit Collider&lt;/b&gt; “</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="475"/>
+        <location filename="../editor/MainWindow.cpp" line="494"/>
         <source>» — точки: размер, гизмо: место и поворот, модель не меняется</source>
         <translation>”Dots: size, gizmo: place and turn, the model does not change</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="526"/>
+        <location filename="../editor/MainWindow.cpp" line="545"/>
         <source>С&amp;цена</source>
         <translation>S&amp;cene</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="527"/>
+        <location filename="../editor/MainWindow.cpp" line="546"/>
         <source>Новая пустая сцена</source>
         <translation>New Empty Scene</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="530"/>
+        <location filename="../editor/MainWindow.cpp" line="549"/>
         <source>Новая сцена. Прежняя не потеряна: Ctrl+Z вернёт её</source>
         <translation>New scene created. Press Ctrl+Z to restore the previous scene.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="532"/>
+        <location filename="../editor/MainWindow.cpp" line="551"/>
         <source>Открыть…</source>
         <translation>Open…</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="533"/>
-        <location filename="../editor/MainWindow.cpp" line="536"/>
+        <location filename="../editor/MainWindow.cpp" line="552"/>
+        <location filename="../editor/MainWindow.cpp" line="555"/>
         <location filename="../editor/MainWindowStart.cpp" line="166"/>
         <location filename="../editor/MainWindowStart.cpp" line="257"/>
         <source>Открыть сцену</source>
         <translation>Open Scene</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="533"/>
-        <location filename="../editor/MainWindow.cpp" line="539"/>
+        <location filename="../editor/MainWindow.cpp" line="552"/>
+        <location filename="../editor/MainWindow.cpp" line="558"/>
         <source>Сцена Kinetica (*.kscene)</source>
         <translation>Kinetica Scene (*.kscene)</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="538"/>
+        <location filename="../editor/MainWindow.cpp" line="557"/>
         <source>Сохранить…</source>
         <translation>Save…</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="539"/>
-        <location filename="../editor/MainWindow.cpp" line="542"/>
+        <location filename="../editor/MainWindow.cpp" line="558"/>
+        <location filename="../editor/MainWindow.cpp" line="561"/>
         <source>Сохранить сцену</source>
         <translation>Save Scene</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="543"/>
-        <location filename="../editor/MainWindow.cpp" line="702"/>
-        <location filename="../editor/MainWindow.cpp" line="709"/>
+        <location filename="../editor/MainWindow.cpp" line="562"/>
+        <location filename="../editor/MainWindow.cpp" line="721"/>
+        <location filename="../editor/MainWindow.cpp" line="728"/>
         <location filename="../editor/MainWindowPlots.cpp" line="217"/>
         <source>Сохранено: </source>
         <translation>Saved: </translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="556"/>
+        <location filename="../editor/MainWindow.cpp" line="575"/>
         <source>Примеры…</source>
         <translation>Examples…</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="560"/>
+        <location filename="../editor/MainWindow.cpp" line="579"/>
         <source>Добавить</source>
         <translation>Add</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="561"/>
+        <location filename="../editor/MainWindow.cpp" line="580"/>
         <source>Фигура</source>
         <translation>Shape</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="561"/>
+        <location filename="../editor/MainWindow.cpp" line="580"/>
         <location filename="../editor/SceneBuilderLights.cpp" line="143"/>
         <source>Свет</source>
         <translation>Light</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="562"/>
+        <location filename="../editor/MainWindow.cpp" line="581"/>
         <location filename="../editor/SceneBuilderLights.cpp" line="85"/>
         <location filename="../editor/SceneBuilderLights.cpp" line="163"/>
         <location filename="../editor/ViewportTools.cpp" line="380"/>
@@ -1181,59 +1192,59 @@ The picture is being prepared…</translation>
         <translation>Camera</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="562"/>
+        <location filename="../editor/MainWindow.cpp" line="581"/>
         <source>Датчик на выбранное</source>
         <translation>Sensor on Selection</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="563"/>
+        <location filename="../editor/MainWindow.cpp" line="582"/>
         <location filename="../editor/SceneBuilderForces.cpp" line="133"/>
         <location filename="../editor/SelfTestForces.cpp" line="54"/>
         <source>Сила</source>
         <translation>Force</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="574"/>
+        <location filename="../editor/MainWindow.cpp" line="593"/>
         <source>Компонент выбранного: сочленение, датчик…</source>
         <translation>Add Component to Selection: Joint, Sensor…</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="578"/>
+        <location filename="../editor/MainWindow.cpp" line="597"/>
         <source>Сначала выберите тело (с Ctrl — второе: сочленение между ними)</source>
         <translation>Select a body first. Ctrl-click a second body to create a joint between them.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="670"/>
+        <location filename="../editor/MainWindow.cpp" line="689"/>
         <source>3D-модели (*.obj *.stl)</source>
         <translation>3D models (*.obj *.stl)</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="672"/>
+        <location filename="../editor/MainWindow.cpp" line="691"/>
         <source>Всё, что откроется (</source>
         <translation>Anything that opens (</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="673"/>
+        <location filename="../editor/MainWindow.cpp" line="692"/>
         <source>Импорт</source>
         <translation>Import</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="679"/>
+        <location filename="../editor/MainWindow.cpp" line="698"/>
         <source>Выполнить скрипт</source>
         <translation>Run Script</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="680"/>
+        <location filename="../editor/MainWindow.cpp" line="699"/>
         <source>Скрипты Python (*.py)</source>
         <translation>Python scripts (*.py)</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="683"/>
+        <location filename="../editor/MainWindow.cpp" line="702"/>
         <source>Скрипт «%1» выполнен</source>
         <translation>Script “%1” finished</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="691"/>
+        <location filename="../editor/MainWindow.cpp" line="710"/>
         <location filename="../editor/MainWindowToolbar.cpp" line="58"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="257"/>
         <location filename="../src/scene/SceneActions.cpp" line="62"/>
@@ -1241,46 +1252,46 @@ The picture is being prepared…</translation>
         <translation>Model</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="691"/>
+        <location filename="../editor/MainWindow.cpp" line="710"/>
         <source>Не удалось загрузить модель:
 </source>
         <translation>It was not possible to load the model:
 </translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="696"/>
-        <location filename="../editor/MainWindow.cpp" line="701"/>
+        <location filename="../editor/MainWindow.cpp" line="715"/>
+        <location filename="../editor/MainWindow.cpp" line="720"/>
         <source>Экспорт</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="696"/>
+        <location filename="../editor/MainWindow.cpp" line="715"/>
         <source>Нет данных: запустите расчёт.</source>
         <translation>No data. Run the simulation first.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="699"/>
+        <location filename="../editor/MainWindow.cpp" line="718"/>
         <source>Экспорт графиков</source>
         <translation>Export Plots</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="701"/>
+        <location filename="../editor/MainWindow.cpp" line="720"/>
         <location filename="../editor/MainWindowPlots.cpp" line="216"/>
         <source>Не удалось записать файл.</source>
         <translation>Could not write the file.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="708"/>
+        <location filename="../editor/MainWindow.cpp" line="727"/>
         <source>Сохранить скриншот</source>
         <translation>Save Screenshot</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="717"/>
+        <location filename="../editor/MainWindow.cpp" line="736"/>
         <source>&lt;h3&gt;Управление&lt;/h3&gt;&lt;b&gt;Пробел&lt;/b&gt; — пуск/пауза (над секвенсором — проиграть и остановить секвенцию, как в видеоредакторе), &lt;b&gt;Shift+пробел&lt;/b&gt; — стоп, &lt;b&gt;.&lt;/b&gt; — шаг, &lt;b&gt;F&lt;/b&gt; — показать выбранное, &lt;b&gt;Ctrl+K&lt;/b&gt; — найти команду.&lt;br&gt;Камера: &lt;b&gt;зажатое колесо&lt;/b&gt; — вращение, &lt;b&gt;Shift+колесо&lt;/b&gt; или ПКМ — сдвиг, прокрутка — масштаб (схема — в «Вид → Управление»).&lt;br&gt;В правке: &lt;b&gt;щелчок&lt;/b&gt; — выбрать (ещё щелчок там же — то, что глубже: датчик, деталь внутри), &lt;b&gt;тяните тело&lt;/b&gt; при инструменте «Перемещение» — едет по полу, стрелки гизмо — по оси.&lt;br&gt;Добавить в сцену — меню «Сцена»: фигура, свет, камера, датчик, сочленение между двумя выбранными (движется выбранное последним).&lt;br&gt;&lt;b&gt;ЛКМ&lt;/b&gt; во время игры — рука мыши: тело тянется к курсору пружиной.&lt;br&gt;Рука UR5e: &lt;b&gt;W S A D&lt;/b&gt; — по полу, &lt;b&gt;R F&lt;/b&gt; — вверх-вниз, &lt;b&gt;Z X&lt;/b&gt; — поворот, &lt;b&gt;пробел&lt;/b&gt; — схват; или щёлкните предмет и нажмите «Рука — к этому предмету» справа.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Мир робота&lt;/h3&gt;Твёрдые тела и суставы считает движок Box3D. Серво и мотор постоянного тока — код робота: момент на звенья на каждом подшаге. Обратная связь по суставам — через модели энкодеров; истинные позы и углы движка видят только графики и Лаборатория.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Свои команды — плагины&lt;/h3&gt;«Плагины → Новый плагин…» создаёт файл plugin.py с готовой командой: она сразу становится кнопкой в «Плагины», строкой в Ctrl+K, вызовом в консоли и инструментом для ИИ-агента. Сохраните файл — плагин перезапустится. Каждое действие окна видно строкой Python в «Консоли API» — с неё и начинают свою команду. Подробно — docs/plugins.md.</source>
         <translation>&lt;h3&gt;Controls&lt;/h3&gt;&lt;b&gt;Space&lt;/b&gt; — play or pause (over the Sequencer, toggle sequence preview), &lt;b&gt;Shift+Space&lt;/b&gt; — stop, &lt;b&gt;.&lt;/b&gt; — step one frame, &lt;b&gt;F&lt;/b&gt; — frame the selection, &lt;b&gt;Ctrl+K&lt;/b&gt; — find a command.&lt;br&gt;Camera: &lt;b&gt;middle-drag&lt;/b&gt; to orbit, &lt;b&gt;Shift+middle-drag&lt;/b&gt; or right-drag to pan, and scroll to zoom. See View → Controls for other control schemes.&lt;br&gt;In Edit mode, &lt;b&gt;click&lt;/b&gt; to select. Click again in the same spot to pick an item farther back, such as a sensor or an enclosed part. With Move active, &lt;b&gt;drag a body&lt;/b&gt; along the floor or drag a gizmo arrow to constrain movement to its axis.&lt;br&gt;Add shapes, lights, cameras, and sensors from the Scene menu. Creating a joint between two selected objects moves the one selected last.&lt;br&gt;While playing, hold the &lt;b&gt;left mouse button&lt;/b&gt; to pull a body toward the cursor with a spring.&lt;br&gt;UR5e arm: &lt;b&gt;W S A D&lt;/b&gt; move along the floor, &lt;b&gt;R F&lt;/b&gt; move up and down, &lt;b&gt;Z X&lt;/b&gt; rotate, and &lt;b&gt;Space&lt;/b&gt; operates the gripper. You can also select an object and use “Move Arm to This Object” in the inspector.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Robot World&lt;/h3&gt;Box3D simulates rigid bodies and joints. The robot code applies torque from servos and DC motors at each substep. Joint feedback comes from encoder models. Ground-truth poses and angles are visible in Plots and the Laboratory.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Custom Commands and Plugins&lt;/h3&gt;Plugins → New Plugin… creates a plugin.py file with a command that appears in the Plugins menu, Ctrl+K, the API Console, and the agent&apos;s tools. Save the file to reload the plugin. The API Console shows editor actions as Python calls you can reuse in your own commands. See docs/plugins.md for details.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="744"/>
+        <location filename="../editor/MainWindow.cpp" line="763"/>
         <source>&lt;b&gt;Kinetica Editor 0.1&lt;/b&gt;&lt;br&gt;Редактор робототехники: звенья, суставы, приводы, датчики.&lt;br&gt;Физика твёрдых тел — Box3D. C++17 · Qt 6 · OpenGL 3.0</source>
         <translation>&lt;b&gt;Kinetica Editor 0.1&lt;/b&gt;&lt;br&gt;Robotics editor: links, joints, actuators, sensors.&lt;br&gt;Solid body physics - Box3D. C++17 · Qt 6 · OpenGL 3.0</translation>
     </message>
@@ -2183,191 +2194,191 @@ The picture is being prepared…</translation>
         <translation>Import geometry from an OBJ or STL file. Add physics or other components in the inspector.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="94"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="95"/>
         <source>Все готовые сцены картинками: UR5e, рука-манипулятор, текстуры… Нажмите — откроется</source>
         <translation>Browse the UR5e, robot-arm and texture examples. Click a preview to open its scene.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="97"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="98"/>
         <source>Физика мира…</source>
         <translation>World Physics…</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="102"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="103"/>
         <source>Физика мира: гравитация, шаг и подшаги, контакты, жёсткость суставов — вкладка «Мир» инспектора</source>
         <translation>Open the World inspector tab for gravity, time steps, contacts and joint stiffness.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="116"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="117"/>
         <source>Фигура ▾</source>
         <translation>Shape ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="120"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="121"/>
         <source>Создать фигуру: куб, сфера, цилиндр, конус, плоскость или модель из файла. Только форма — роль плитками справа</source>
         <translation>Create a cube, sphere, cylinder, cone, plane or imported mesh. Add components in the inspector.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="137"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="138"/>
         <source>Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)</source>
         <translation>Cube: pick two opposite base corners and then the height. You can also drag the base and click to set the height.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="138"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="139"/>
         <source>Шар: центр, затем радиус</source>
         <translation>Sphere: center, then radius</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="138"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="139"/>
         <source>Цилиндр: центр основания, радиус, высота</source>
         <translation>Cylinder: base center, radius, then height</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="139"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="140"/>
         <source>Конус: центр основания, радиус, высота</source>
         <translation>Cone: base center, radius, then height</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="139"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="140"/>
         <source>Плоскость: угол, затем противоположный угол</source>
         <translation>Plane: one corner, then the opposite corner</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="158"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="159"/>
         <source>Создавать можно в режиме правки — остановите сцену</source>
         <translation>You can create in editing mode - stop the scene</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="196"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="197"/>
         <source>Создание: </source>
         <translation>Create: </translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="204"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="205"/>
         <source>Свет ▾</source>
         <translation>Light ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="208"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="209"/>
         <source>Свет: солнце, лампа или прожектор. Физика его не видит — он для глаза и скриншотов</source>
         <translation>Add a sun, point light, or spotlight for the viewport and screenshots. Lights have no effect on physics.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="212"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="213"/>
         <source>Солнце: место, высота, куда светит — важно только направление; с тенями</source>
         <translation>Sun: pick position, height and direction. Lighting depends only on the direction. Shadows are enabled.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="213"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="214"/>
         <source>Лампа: место, затем высота; светит во все стороны</source>
         <translation>Lamp: place, then height; shines in all directions</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="213"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="214"/>
         <source>Прожектор: место, высота, куда светит — конус света</source>
         <translation>Spotlight: the place, height where it shines - a cone of light</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="227"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="228"/>
         <source>Камера ▾</source>
         <translation>Camera ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="232"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="233"/>
         <source>Камера: свободная или с целью. Место, высота, куда смотрит. Через неё — вид и скриншоты</source>
         <translation>Add a free or target camera. Pick its position, height and look direction for the viewport and screenshots.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="237"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="238"/>
         <source>Свободная камера</source>
         <translation>Free Camera</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="238"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="239"/>
         <source>Свободная: смотрит туда, куда повёрнута. Место, высота, куда смотрит</source>
         <translation>Free camera: pick a position, height, and look direction.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="239"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="240"/>
         <location filename="../editor/ViewportTools.cpp" line="380"/>
         <source>Камера с целью</source>
         <translation>Target Camera</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="240"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="241"/>
         <source>С целью: всегда смотрит на цель — объект под третьим щелчком (схват робота: камера следит за ним в игре) или точку. Двигаете камеру — она продолжает смотреть на цель</source>
         <translation>Target camera: your third click sets the target to an object or point. The camera keeps looking at the target as either one moves.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="252"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="253"/>
         <source>Датчик ▾</source>
         <translation>Sensor ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="256"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="257"/>
         <source>Датчик на выбранное тело или на его сочленение: без своей формы, накидывается как свойство</source>
         <translation>Attach a sensor to the selected body or its joint. Sensors are components without their own geometry.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="261"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="262"/>
         <source>На тело</source>
         <translation>On the Body</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="264"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="265"/>
         <source>На сочленение тела</source>
         <translation>On the Body&apos;s Joint</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="277"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="278"/>
         <source>Сила ▾</source>
         <translation>Force ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="281"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="282"/>
         <source>Сила: толчок или взрыв разом, тяга или притяжение всё время. Действует на тела, пока идёт мир</source>
         <translation>Force: a push or a blast all at once, a thrust or a pull all the time. It acts on bodies while the world runs</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
         <source>Разовый импульс выбранному телу, Н·с</source>
         <translation>One impulse to the selected body, N s</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
         <source>Разовый импульс от точки телам в радиусе, Н·с</source>
         <translation>One impulse from a point to the bodies in the radius, N s</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="293"/>
         <source>Постоянная сила на выбранном теле, Н</source>
         <translation>A constant force on the selected body, N</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="292"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="293"/>
         <source>Постоянная сила к точке на тела в радиусе, Н</source>
         <translation>A constant force toward a point on the bodies in the radius, N</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="287"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="288"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Толчок</source>
         <translation>Push</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="288"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="289"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Взрыв</source>
         <translation>Blast</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="289"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="290"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Тяга</source>
         <translation>Thrust</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="290"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="291"/>
         <location filename="../src/scene/SceneActions.cpp" line="68"/>
         <source>Притяжение</source>
         <translation>Pull</translation>
@@ -2714,9 +2725,9 @@ The picture is being prepared…</translation>
         <location filename="../editor/PluginHost.cpp" line="231"/>
         <location filename="../editor/PluginHost.cpp" line="315"/>
         <location filename="../editor/PluginHost.cpp" line="336"/>
-        <location filename="../editor/PluginHost.cpp" line="410"/>
-        <location filename="../editor/PluginHost.cpp" line="706"/>
-        <location filename="../editor/PluginHost.cpp" line="810"/>
+        <location filename="../editor/PluginHost.cpp" line="430"/>
+        <location filename="../editor/PluginHost.cpp" line="726"/>
+        <location filename="../editor/PluginHost.cpp" line="831"/>
         <source>плагин «</source>
         <translation>plugin “</translation>
     </message>
@@ -2739,7 +2750,7 @@ The picture is being prepared…</translation>
         <location filename="../editor/PluginHost.cpp" line="282"/>
         <location filename="../editor/PluginHost.cpp" line="292"/>
         <location filename="../editor/PluginHost.cpp" line="342"/>
-        <location filename="../editor/PluginHost.cpp" line="472"/>
+        <location filename="../editor/PluginHost.cpp" line="492"/>
         <location filename="../editor/SceneBuilderComponents.cpp" line="145"/>
         <source>Плагин «</source>
         <translation>Plugin “</translation>
@@ -2796,97 +2807,97 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/ScriptRunner.cpp" line="78"/>
-        <location filename="../editor/PluginHost.cpp" line="396"/>
+        <location filename="../editor/PluginHost.cpp" line="416"/>
         <source>. Правки этого вызова отменены: сцена как до него</source>
         <translation>The editing of this challenge is canceled: the scene as before it</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="410"/>
+        <location filename="../editor/PluginHost.cpp" line="430"/>
         <source>» не ответил за 30 с</source>
         <translation>”He didn&apos;t answer for 30 seconds</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="440"/>
+        <location filename="../editor/PluginHost.cpp" line="460"/>
         <source>%1: объект %2 — не «%3»; в сцене: %4</source>
         <translation>%1: object %2 is not “%3”; scene: %4</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="440"/>
+        <location filename="../editor/PluginHost.cpp" line="460"/>
         <source>таких нет</source>
         <translation>none found</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="472"/>
+        <location filename="../editor/PluginHost.cpp" line="492"/>
         <source>»: ошибка в on_</source>
         <translation>”&quot;: an error in on_</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="520"/>
+        <location filename="../editor/PluginHost.cpp" line="540"/>
         <source>плагин не ответил за 30 с</source>
         <translation>the plugin did not answer in 30 s</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="564"/>
+        <location filename="../editor/PluginHost.cpp" line="584"/>
         <source>в сцене нет: </source>
         <translation>No matching objects in the scene: </translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="607"/>
+        <location filename="../editor/PluginHost.cpp" line="627"/>
         <source>Выполнить</source>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="664"/>
+        <location filename="../editor/PluginHost.cpp" line="684"/>
         <source> открыт</source>
         <translation> opened</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="698"/>
+        <location filename="../editor/PluginHost.cpp" line="718"/>
         <source>поле «</source>
         <translation>Field “</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="698"/>
+        <location filename="../editor/PluginHost.cpp" line="718"/>
         <source>» команды «</source>
         <translation>” of command “</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="706"/>
+        <location filename="../editor/PluginHost.cpp" line="726"/>
         <source>» не запущен</source>
         <translation>” is not running</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="724"/>
+        <location filename="../editor/PluginHost.cpp" line="745"/>
         <source>клавиша </source>
         <translation>Shortcut </translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="724"/>
+        <location filename="../editor/PluginHost.cpp" line="745"/>
         <source> уже у «</source>
         <translation> is already assigned to “</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="724"/>
+        <location filename="../editor/PluginHost.cpp" line="745"/>
         <source>»: у «</source>
         <translation>”; “</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="724"/>
+        <location filename="../editor/PluginHost.cpp" line="745"/>
         <source>» её нет, выберите другую</source>
         <translation>”&quot;It&apos;s not there, pick another one.&quot;</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="731"/>
+        <location filename="../editor/PluginHost.cpp" line="752"/>
         <source>Открыть plugin.py</source>
         <translation>Open plugin.py</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="777"/>
+        <location filename="../editor/PluginHost.cpp" line="798"/>
         <source>Плагин «%1» перезапущен за %2 мс</source>
         <translation>Plugin &quot;%1&quot; restarted in %2 ms</translation>
     </message>
     <message>
-        <location filename="../editor/PluginHost.cpp" line="831"/>
+        <location filename="../editor/PluginHost.cpp" line="852"/>
         <source>нет папки «</source>
         <translation>Folder does not exist: “</translation>
     </message>
@@ -3833,12 +3844,13 @@ Situation battery: motor without power</translation>
         <translation>Anchor %1</translation>
     </message>
     <message>
+        <location filename="../editor/EditorOpsInput.cpp" line="284"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="130"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="135"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="146"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="76"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="238"/>
-        <location filename="../editor/Viewport.cpp" line="788"/>
+        <location filename="../editor/Viewport.cpp" line="796"/>
         <location filename="../editor/ViewportTools.cpp" line="584"/>
         <location filename="../editor/ViewportTools.cpp" line="590"/>
         <location filename="../editor/ViewportTools.cpp" line="592"/>
@@ -3867,7 +3879,7 @@ Situation battery: motor without power</translation>
         <translation>From</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="85"/>
+        <location filename="../editor/SequencerPanel.cpp" line="86"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="134"/>
         <source>До</source>
         <translation>To</translation>
@@ -4889,7 +4901,7 @@ At the range limit</translation>
 Sample </translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="91"/>
+        <location filename="../editor/SequencerPanel.cpp" line="92"/>
         <location filename="../editor/SequencerTimeline.cpp" line="51"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="85"/>
         <source> с</source>
@@ -5260,7 +5272,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="57"/>
-        <location filename="../editor/SequencerPanel.cpp" line="228"/>
+        <location filename="../editor/SequencerPanel.cpp" line="231"/>
         <source>▶ Просмотр</source>
         <translation>▶ Preview</translation>
     </message>
@@ -5301,7 +5313,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="69"/>
-        <location filename="../editor/SequencerPanel.cpp" line="299"/>
+        <location filename="../editor/SequencerPanel.cpp" line="302"/>
         <source>⏺ Запись</source>
         <translation>⏺ Record</translation>
     </message>
@@ -5326,68 +5338,73 @@ Sample </translation>
         <translation>Filter tracks</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="92"/>
+        <location filename="../editor/SequencerPanel.cpp" line="93"/>
         <source>без конца</source>
         <translation>no end</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="94"/>
+        <location filename="../editor/SequencerPanel.cpp" line="95"/>
         <source>Время проигрывания: «Пуск» и «Запись» идут до этой секунды и встают на паузу; с «Петлёй» начинают сначала. 0 — без конца</source>
         <translation>Playback time: Play and Record run to this second and pause; with Loop they start over. 0 — no end</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="228"/>
+        <location filename="../editor/SequencerPanel.cpp" line="185"/>
+        <source>Прогон не запоминается, назад не перемотать: бегунок ходит после ■ Стоп</source>
+        <translation>A run is not kept, so it cannot be scrubbed back: the playhead moves after ■ Stop</translation>
+    </message>
+    <message>
+        <location filename="../editor/SequencerPanel.cpp" line="231"/>
         <source>■ Стоп</source>
         <translation>■ Stop</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="245"/>
+        <location filename="../editor/SequencerPanel.cpp" line="248"/>
         <source>◆ Линейно — по прямой</source>
         <translation>Linearly - in a straight line</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="245"/>
+        <location filename="../editor/SequencerPanel.cpp" line="248"/>
         <source>● Плавно — кривая через ключи</source>
         <translation>Smooth - curve through the keys</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="245"/>
+        <location filename="../editor/SequencerPanel.cpp" line="248"/>
         <source>■ Ступенька — держать до следующего</source>
         <translation>■ The step is to hold until the next</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="253"/>
+        <location filename="../editor/SequencerPanel.cpp" line="256"/>
         <source>Бегунок на ключ</source>
         <translation>Go to Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="254"/>
+        <location filename="../editor/SequencerPanel.cpp" line="257"/>
         <source>Удалить ключ</source>
         <translation>Delete Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="259"/>
+        <location filename="../editor/SequencerPanel.cpp" line="262"/>
         <source>Ключи ставятся в правке: остановите «Пуск»</source>
         <translation>The keys are put in the edit: stop &quot;Start ”</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="260"/>
+        <location filename="../editor/SequencerPanel.cpp" line="263"/>
         <source>Выделите объект для ключа</source>
         <translation>Select an object for the key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="271"/>
-        <location filename="../editor/SequencerPanel.cpp" line="308"/>
+        <location filename="../editor/SequencerPanel.cpp" line="274"/>
+        <location filename="../editor/SequencerPanel.cpp" line="311"/>
         <source>%1 / %2 с</source>
         <translation>%1 /%2 s</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="286"/>
+        <location filename="../editor/SequencerPanel.cpp" line="289"/>
         <source>нет секвенций</source>
         <translation>No seq.</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="299"/>
+        <location filename="../editor/SequencerPanel.cpp" line="302"/>
         <source>■ Закончить запись</source>
         <translation>■ Stop Recording</translation>
     </message>
@@ -5627,27 +5644,27 @@ Sample </translation>
         <translation>OpenGL 3.0 is not available (%1). Run with the key -software-gl - render on the processor.</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="708"/>
+        <location filename="../editor/Viewport.cpp" line="716"/>
         <source>t = %1 с</source>
         <translation>t = %1</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="712"/>
+        <location filename="../editor/Viewport.cpp" line="720"/>
         <source>Схват: держит ✓</source>
         <translation>Gripper: Holding ✓</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="712"/>
+        <location filename="../editor/Viewport.cpp" line="720"/>
         <source>Схват: сомкнут — пусто, промах</source>
         <translation>Snatch: Close - empty, miss</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="713"/>
+        <location filename="../editor/Viewport.cpp" line="721"/>
         <source>Схват: смыкается…</source>
         <translation>Gripper: Closing…</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="713"/>
+        <location filename="../editor/Viewport.cpp" line="721"/>
         <source>Схват: открыт (пробел — сомкнуть)</source>
         <translation>Gripper: Open (Space to Close)</translation>
     </message>
@@ -5718,8 +5735,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/ViewportInput.cpp" line="607"/>
-        <source>»: тяните от точки до точки — обе уходят плагину · щелчок — одна точка · Esc — выход · </source>
-        <translation>”: Pull from point to point – both go to plugin · click – one dot · Esc – output · </translation>
+        <source>»: тяните от точки до точки · Esc — выход · </source>
+        <translation>”: drag from point to point · Esc - leave · </translation>
     </message>
     <message>
         <location filename="../editor/ViewportInput.cpp" line="608"/>
