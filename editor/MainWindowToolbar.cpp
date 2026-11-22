@@ -1,5 +1,6 @@
 // The big bar on top of the window (see MainWindow.h): what you can create (shapes, a model, the
-// lights, a camera), then run+record / pause / stop, then undo / redo, and at the right end the text
+// lights, a camera, a force), then run+record / pause / stop, then the robot's tools (the magnet, the sensors), then
+// undo / redo, and at the right end the text
 // buttons Примеры, Лаборатория, Графики. A shape of «Фигура ▾» is drawn
 // with the mouse in the view (CreateTool, ViewportTools.h) and made by one call of scene_add.
 //
@@ -61,20 +62,22 @@ void MainWindow::buildMainToolbar() {
     create.push_back(modelAct);
     addShapeButton(tb, create);
     addLightButtons(tb);
-    tb->addSeparator(); // what is made, then what links and measures it
+    addForceButton(tb); // a force is a thing of the scene, as a light is
+    tb->addSeparator();
+    const auto addRun = [this, tb](QAction* a) { // a step: «.», Симуляция
+        tb->addAction(a);
+        runButtons_.push_back(qobject_cast<QToolButton*>(tb->widgetForAction(a)));
+    };
+    for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_}) addRun(a);
+    tb->addSeparator(); // what links and measures what is made: the robot's own tools, before undo
     tb->addAction(magnet_->action()); // a link on a face, with a joint (MagnetController)
     if (auto* b = qobject_cast<QToolButton*>(tb->widgetForAction(magnet_->action()))) {
         b->setPopupMode(QToolButton::MenuButtonPopup);
         createButtons_.push_back(b); // narrows with the shapes on a narrow window
     }
     addSensorButton(tb);
-    addForceButton(tb);
     tb->addSeparator();
-    for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_, builder_->undoAction(), builder_->redoAction()}) { // a step: «.», Симуляция
-        if (a == builder_->undoAction()) tb->addSeparator();
-        tb->addAction(a);
-        runButtons_.push_back(qobject_cast<QToolButton*>(tb->widgetForAction(a)));
-    }
+    for (QAction* a : {builder_->undoAction(), builder_->redoAction()}) addRun(a);
     auto* spacer = new QWidget;
     spacer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     tb->addWidget(spacer);
