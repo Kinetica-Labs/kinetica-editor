@@ -168,7 +168,7 @@ jobs:
 
   macos:
     name: macOS - программа kinetica.app
-    runs-on: macos-14 # Apple Silicon
+    runs-on: macos-latest # Apple Silicon, the image GitHub keeps current (macos-14 was retired)
     steps:
       - uses: actions/checkout@v4
         with:
