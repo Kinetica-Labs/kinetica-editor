@@ -4,11 +4,13 @@ holds (tests/data/window-transcript.jsonl) - its --check keeps both current.
 
 The registry only grows: every operation the editor has is in it, every name in it (but reserved) is still there,
 names follow the grammar, every argument word is a row of the dictionary in its type, every answer key a row of its
-own, and every word the scene file's reader knows (read off its code) a row of the scene's words. A new operation or a new
+own, every word the scene file's reader knows (read off its code) a row of the scene's words, and every public name
+of the Python package and its keyword words rows of the package's. A new operation or a new
 word fails here until its row is written - the name is decided once, on purpose, and never changed after.
 
     cd tools && python3 -m unittest test_names
 """
+import ast
 import json
 import os
 import re
@@ -20,6 +22,7 @@ OPS = os.path.join(ROOT, "tests", "data", "ops-list.json")
 TRANSCRIPT = os.path.join(ROOT, "tests", "data", "window-transcript.jsonl")
 READER = os.path.join(ROOT, "src", "scene", "SceneGraph.cpp")
 CONTROLS = os.path.join(ROOT, "src", "scene", "SceneOpsControllers.cpp")
+PACKAGE = ("scene", "objects", "plugin", "client", "core")  # the modules of python/kinetica whose names are its API
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 TIERS = ("stable", "testing", "obsolete", "reserved")
 
@@ -147,6 +150,39 @@ class Names(unittest.TestCase):
             self.assertIn(row[3], TIERS, f"scene word «{word}»: no tier «{row[3]}»")
             if row[3] == "obsolete":
                 self.assertIn(row[4].strip("`"), words, f"scene word «{word}» is obsolete: its «instead» is a word of section 9")
+
+    def test_every_public_python_name_and_its_words_are_in_the_registry(self):
+        names_text, _, words_text = section(self.text, "10").partition("### Слова аргументов Python")
+        names = {r[0].strip("`"): r for r in rows(names_text)}
+        own = {r[0].strip("`"): r for r in rows(words_text)}
+        public, keywords = set(), {}
+        for module in PACKAGE:
+            with open(os.path.join(ROOT, "python", "kinetica", module + ".py"), encoding="utf-8") as f:
+                tree = ast.parse(f.read())
+            for node in tree.body:
+                if not isinstance(node, (ast.FunctionDef, ast.ClassDef)) or (node.name.startswith("_") and node.name != "_Draw"):
+                    continue
+                owner = "draw" if node.name == "_Draw" else node.name  # draw = _Draw(): its methods are draw.<name>
+                if node.name != "_Draw":
+                    public.add(node.name)
+                functions = [(node.name, node)] if isinstance(node, ast.FunctionDef) else \
+                    [(f"{owner}.{f.name}", f) for f in node.body if isinstance(f, ast.FunctionDef) and not f.name.startswith("_")]
+                for name, function in functions:
+                    public.add(name)
+                    for arg in function.args.args + function.args.kwonlyargs:
+                        if arg.arg not in ("self", "cls"):
+                            keywords.setdefault(arg.arg, set()).add(name)
+        self.assertEqual(sorted(public - set(names)), [], f"public names of the package not in {DOC} section 10: write the row first")
+        gone = sorted(set(names) - public)
+        self.assertEqual(gone, [], "registered names the package no longer has: a public name is never removed or renamed")
+        words = {w for w, _ in self.words} | set(own)
+        unknown = sorted(f"{w} (in {', '.join(sorted(where))})" for w, where in keywords.items() if w not in words)
+        self.assertEqual(unknown, [], f"keyword words neither in section 6 nor in section 10's own list: write the row first")
+        for word, row in own.items():
+            self.assertRegex(word, NAME)
+            self.assertIn(row[2], TIERS, f"Python word «{word}»: no tier «{row[2]}»")
+            if row[2] == "obsolete":
+                self.assertIn(row[3].strip("`"), words, f"Python word «{word}» is obsolete: its «instead» is a word of section 6 or 10")
 
     def test_dictionary_rows_are_well_formed(self):
         words = {w for w, _ in self.words}

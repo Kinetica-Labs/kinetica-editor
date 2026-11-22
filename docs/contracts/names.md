@@ -21,8 +21,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | 6. Расширения | имена плагинов | область плагина - его имя |
 
 Под замком - операции ядра и окна, слова их аргументов и ключи их ответов, какие держит запись окна
-(`tests/data/window-transcript.jsonl`), и слова файла сцены. Имена пакета Python подчиняются тем же правилам и
-войдут в реестр следующим шагом.
+(`tests/data/window-transcript.jsonl`), слова файла сцены и имена пакета Python с именами их аргументов.
 
 ## 0. Соглашения
 
@@ -613,3 +612,221 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `width` | stereo; tyre | ширина кадра, пикселей; у шины - ширина, м | stable |  |
 | `world` | строка | мир: тяжесть, размер, время проигрывания | stable |  |
 | `wrench` | датчик | датчик силы и момента | stable |  |
+
+## 10. Пакет Python
+
+Пакет `kinetica` (`python/kinetica`) - объектная модель над операциями и SDK плагинов. Его публичное имя - класс,
+функция, метод или свойство без `_` в начале; у `draw` - его методы. Имя здесь значит то же навсегда; рядом - что оно
+делает и какую операцию зовёт.
+
+| Имя | Что, операция | Ступень |
+|---|---|---|
+| `Battery` | батарея | stable |
+| `Body` | форма с ролями: твёрдое тело, коллайдер | stable |
+| `Body.add_controller` | контроллер цели - `controller_add` | stable |
+| `Body.add_goal` | цель ИК для эффектора - `assembly_goal` | stable |
+| `Body.add_imu` | IMU на грань - `assembly_sensor` | stable |
+| `Body.add_sonar` | дальномер на грань - `assembly_sensor` | stable |
+| `Body.add_touch` | датчик касания на грань - `assembly_sensor` | stable |
+| `Body.add_wheel` | колесо - `assembly_wheel` | stable |
+| `Body.attach` | готовое звено на грань - `assembly_preset` | stable |
+| `Body.follow` | цель идёт по пути - `assembly_path` | stable |
+| `Body.grip` | закрыть или открыть схват - `assembly_grip` | stable |
+| `Body.gripped` | что говорит схват: open, closing, holding | stable |
+| `Body.ignores` | метки того, с чем нет контакта - `scene_collider` | stable |
+| `Body.pose` | цель сразу в позу - `assembly_goal_pose` | stable |
+| `Body.reach` | обратная кинематика - `assembly_reach` | stable |
+| `Body.roles` | роли тела | stable |
+| `Body.sensors` | датчики на теле | stable |
+| `Body.velocity` | скорость тела сейчас, м/с | stable |
+| `Camera` | камера сцены | stable |
+| `Camera.aim` | камера с целью - `camera_aim` | stable |
+| `Camera.free` | камера снова свободная - `camera_aim` | stable |
+| `Camera.target` | на что смотрит камера с целью | stable |
+| `check` | ответ операции или OperationError | stable |
+| `Client` | связь с окном по API | stable |
+| `Client.call` | ответ одной операции | stable |
+| `Client.close` | закрыть связь | stable |
+| `command` | функция файла - команда редактора: кнопка, операция, инструмент MCP | stable |
+| `component` | класс - компонент: его поля в карточке объекта | stable |
+| `connect` | сцена окна редактора по его API: `ke.connect(port)` | stable |
+| `Controller` | контроллер: действия и привязки | stable |
+| `Controller.actions` | имена действий | stable |
+| `Core` | связь с `kinetica-core` по каналам | stable |
+| `Core.call` | ответ одной операции | stable |
+| `Core.close` | закрыть `kinetica-core` | stable |
+| `draw.box` | рёбра коробки в виде | stable |
+| `draw.circle` | окружность в виде | stable |
+| `draw.clear` | убрать свои рисунки | stable |
+| `draw.fill` | залитый рисунок - `view_draw {fill}` | stable |
+| `draw.label` | надпись у точки мира | stable |
+| `draw.line` | ломаная в виде | stable |
+| `draw.points` | точки в виде | stable |
+| `draw.segments` | отрезки в виде | stable |
+| `Driver` | драйвер мотора | stable |
+| `Driver.battery` | его батарея | stable |
+| `Driver.joint` | его сустав | stable |
+| `Editor` | окно как объекты: выделение - `selection_get`, `selection_set` | stable |
+| `Editor.select` | выделить объекты - `selection_set` | stable |
+| `Editor.selection` | выделенные объекты, активный последним | stable |
+| `Effort` | датчик усилия | stable |
+| `Encoder` | энкодер | stable |
+| `field` | аргумент команды или поле компонента: значение по умолчанию, единица, предел | stable |
+| `field.schema` | схема поля | stable |
+| `find_core` | путь к `kinetica-core` | stable |
+| `Force` | сила сцены | stable |
+| `Force.acts_on` | метка тел, на которые действует | stable |
+| `Force.fire` | толчок сейчас - `force_fire` | stable |
+| `Gizmo` | гизмо: инструмент и оси - `gizmo_get`, `gizmo_set` | stable |
+| `Group` | группа | stable |
+| `Group.members` | её объекты | stable |
+| `Group.ungroup` | распустить - `scene_ungroup` | stable |
+| `Imu` | IMU | stable |
+| `Joint` | сустав | stable |
+| `Joint.add_effort` | датчик усилия - `assembly_sensor` | stable |
+| `Joint.add_encoder` | энкодер - `assembly_encoder` | stable |
+| `Joint.add_wrench` | датчик силы и момента - `assembly_sensor` | stable |
+| `Joint.coordinates` | координаты сустава сейчас, м и рад | stable |
+| `Joint.drive` | привод степени - `assembly_drive` | stable |
+| `Joint.power` | мотор от батареи - `assembly_power` | stable |
+| `Joint.servo` | есть ли у главной степени сервопривод | stable |
+| `Light` | свет | stable |
+| `Link` | звено, поставленное заготовкой: тело и его сустав | stable |
+| `main` | запуск файла как плагина: `python -m kinetica.plugin plugin.py` | stable |
+| `Objects` | объекты сцены: перебор, по id или по имени - `scene_list`, `scene_get` | stable |
+| `Objects.tagged` | объекты с меткой - `scene_list {tag}` | stable |
+| `on_change` | вызов, когда компонент плагина поставили, изменили или сняли | stable |
+| `on_play` | вызов при ▶ | stable |
+| `on_stop` | вызов при ■ Стоп | stable |
+| `on_tick` | вызов каждого кадра, пока сцена играет | stable |
+| `OperationError` | ошибка операции: `{ok: false, error}` | stable |
+| `Operations` | любая операция по имени: `ed.<операция>(**аргументы)` | stable |
+| `PointWheel` | колесо точкой своего тела | stable |
+| `Roles` | роли: rigid, collider - `scene_role` | stable |
+| `Roles.add` | добавить роль | stable |
+| `Roles.remove` | снять роль | stable |
+| `Scene` | сцена как объекты; `Scene()` - без окна, через `kinetica-core` | stable |
+| `Scene.add` | форма, как добавляет кнопка - `scene_add` | stable |
+| `Scene.add_camera` | камера - `scene_add_camera` | stable |
+| `Scene.add_force` | сила - `scene_add_force` | stable |
+| `Scene.add_joint` | сустав между телами - `assembly_joint` | stable |
+| `Scene.add_light` | свет - `scene_add_light` | stable |
+| `Scene.close` | закрыть сцену без окна | stable |
+| `Scene.command` | команды роботу в работе - `robot_command` | stable |
+| `Scene.delete` | убрать объекты, как Del - `scene_delete` | stable |
+| `Scene.describe` | сцена словами - `scene_describe` | stable |
+| `Scene.duplicate` | копии объектов, как Ctrl+D - `scene_duplicate` | stable |
+| `Scene.group` | сгруппировать - `scene_group` | stable |
+| `Scene.key` | ключ секвенции - `sequence_key` | stable |
+| `Scene.make_array` | массив копий - `scene_array` | stable |
+| `Scene.measure` | каналы замера - `sim_measure` | stable |
+| `Scene.move` | сдвинуть объекты, м - `scene_move` | stable |
+| `Scene.new` | пустая сцена - `scene_new` | stable |
+| `Scene.open` | открыть файл сцены - `scene_open` | stable |
+| `Scene.pause` | пауза - `sim_pause` | stable |
+| `Scene.play` | ▶ - `sim_play` | stable |
+| `Scene.push` | толчок телу, Н·с - `sim_impulse` | stable |
+| `Scene.put` | объект из куска файла сцены - `scene_put` | stable |
+| `Scene.redo` | повторить - `edit_redo` | stable |
+| `Scene.restore` | сцена сессии журнала после строки - `journal_restore` | stable |
+| `Scene.run` | секунды симуляции, потом пауза - `sim_step` | stable |
+| `Scene.save` | сохранить сцену - `scene_save` | stable |
+| `Scene.scale` | масштабировать объекты - `scene_scale` | stable |
+| `Scene.screenshot` | снимок вида - `view_screenshot` | stable |
+| `Scene.seek` | бегунок секвенции - `sequence_seek` | stable |
+| `Scene.sessions` | сессии журнала - `journal_sessions` | stable |
+| `Scene.show_all` | показать скрытое - `scene_show_all` | stable |
+| `Scene.step` | кадры симуляции, потом пауза - `sim_step` | stable |
+| `Scene.stop` | ■ Стоп - `sim_stop` | stable |
+| `Scene.time` | время мира, с - `sim_state` | stable |
+| `Scene.turn` | повернуть объекты, градусы - `scene_turn` | stable |
+| `Scene.undo` | отменить - `edit_undo` | stable |
+| `Scene.ungroup` | распустить группы - `scene_ungroup` | stable |
+| `SceneObject` | объект сцены по id | stable |
+| `SceneObject.block` | его кусок файла сцены - `scene_get` | stable |
+| `SceneObject.delete` | убрать - `scene_delete` | stable |
+| `SceneObject.duplicate` | копия - `scene_duplicate` | stable |
+| `SceneObject.inside` | что сейчас внутри этой зоны | stable |
+| `SceneObject.move` | сдвинуть, м - `scene_move` | stable |
+| `SceneObject.name` | имя | stable |
+| `SceneObject.ref` | выражение, которым он назван: `scene.objects["Шасси"]` | stable |
+| `SceneObject.scale` | масштабировать - `scene_scale` | stable |
+| `SceneObject.tag` | поставить или снять метку - `scene_tag` | stable |
+| `SceneObject.tags` | метки | stable |
+| `SceneObject.turn` | повернуть, градусы - `scene_turn` | stable |
+| `Sensor` | датчик | stable |
+| `Sensor.model` | модель - строка таблицы | stable |
+| `Sensor.parent` | на чём стоит | stable |
+| `Sensor.problem` | почему не читает | stable |
+| `Sensor.set_spec` | паспорт модели и поверх свои числа - `sensor_spec` | stable |
+| `Sensor.spec` | паспорт `{ключ: число}` | stable |
+| `show` | значения и слова панели из плагина - `plugin_panel_set` | stable |
+| `Sonar` | ультразвуковой дальномер | stable |
+| `Touch` | датчик касания | stable |
+| `ui` | панель плагина как данные | stable |
+| `ui.button` | кнопка - команда | stable |
+| `ui.chart` | график по времени прогона | stable |
+| `ui.choice` | выбор из слов | stable |
+| `ui.label` | надпись | stable |
+| `ui.number` | поле числа | stable |
+| `ui.panel` | панель плагина: вкладка справа или снизу | stable |
+| `ui.row` | строка панели | stable |
+| `ui.section` | раздел панели | stable |
+| `ui.slider` | ползунок | stable |
+| `ui.text` | текстовое поле | stable |
+| `ui.toggle` | переключатель | stable |
+| `ui.value` | показываемое значение | stable |
+| `ui.vector` | поле [x, y, z] | stable |
+| `View` | камера вида - `view_get`, `view_look`, `view_frame` | stable |
+| `View.frame` | объект или вся сцена в кадре - `view_frame` | stable |
+| `View.look` | глаз в `eye`, взгляд на `target` - `view_look` | stable |
+| `WheelModule` | части колёсного модуля | stable |
+| `WheelModule.duty` | скважность драйвера -1..1 | stable |
+| `World` | мир: тяжесть, размер, физика - `world_get`, `world_set` | stable |
+| `World.duration` | время проигрывания, с; 0 - без конца | stable |
+| `World.gravity` | тяжесть [x, y, z], м/с² | stable |
+| `World.size` | размер мира [x, y, z], м | stable |
+| `World.substeps` | подшагов физики на кадр | stable |
+| `Wrench` | датчик силы и момента | stable |
+
+### Слова аргументов Python
+
+Именованный аргумент функции пакета - слово словаря аргументов (раздел 6) или строка здесь: слова, которые есть только у
+Python. Короткие имена параметров, которые достались от первых версий (`g`, `s`, `n`), - obsolete: рядом слово файла
+сцены, которым их назвать в новой функции.
+
+| Слово | Смысл, единица | Ступень | Вместо |
+|---|---|---|---|
+| `annotation` | тип из подписи функции, по которому поле строит свою схему | stable |  |
+| `answer` | ответ операции | stable |  |
+| `center` | центр [x, y, z], м - как `center_of_mass` в файле сцены и во всех стандартах 3D | testing |  |
+| `centre` | центр окружности или коробки рисунка [x, y, z], м | obsolete | `center` |
+| `choices` | слова, из которых выбирают | stable |  |
+| `command` | команда, которую вызывает кнопка панели | stable |  |
+| `default` | значение по умолчанию | stable |  |
+| `executable` | путь к программе `kinetica-core` | stable |  |
+| `fn` | функция, которую делают крючком | stable |  |
+| `g` | тяжесть [x, y, z], м/с² | obsolete | `gravity` |
+| `gravity` | тяжесть [x, y, z], м/с² - слово файла сцены | testing |  |
+| `help` | справка для человека | stable |  |
+| `host` | адрес машины окна | stable |  |
+| `keep_children` | убрать объект, оставив вложенные | stable |  |
+| `label` | подпись на кнопке или поле | stable |  |
+| `n` | подшагов физики на кадр | obsolete | `substeps` |
+| `obj` | объект сцены | stable |  |
+| `op` | имя операции | stable |  |
+| `opens` | расширения файлов, которые команда открывает | stable |  |
+| `outlines` | контуры заливки: строки `M x y L x y C x1 y1 x2 y2 x y Z` | stable |  |
+| `port` | порт API окна | stable |  |
+| `pose` | поза: `targets` - уставки приводов, `pose` - сразу | stable |  |
+| `py` | строка Python, которой операцию покажет консоль | stable |  |
+| `range` | предел значения [от, до] | stable |  |
+| `s` | размер мира [x, y, z], м | obsolete | `size` |
+| `seconds` | секунды | stable |  |
+| `substeps` | подшагов физики на кадр - слово файла сцены | testing |  |
+| `tags` | метки | stable |  |
+| `title` | заголовок панели, раздела или графика | stable |  |
+| `unit` | единица - для человека | stable |  |
+| `value` | значение | stable |  |
+| `word` | слово: метка или роль | stable |  |
+| `world` | такт мира: функция получает тела и отвечает силами | stable |  |
