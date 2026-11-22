@@ -1,0 +1,81 @@
+# Kinetica Editor: what never goes into the repository.
+
+# Builds (CMake, Ninja, Qt Creator, CLion)
+/build/
+/build-*/
+/out/
+cmake-build-*/
+CMakeFiles/
+CMakeCache.txt
+CMakeUserPresets.json
+cmake_install.cmake
+compile_commands.json
+install_manifest.txt
+Makefile
+Testing/
+*.d
+*.o
+*.obj
+*.a
+*.lib
+*.so
+*.so.*
+*.dylib
+*.dll
+*.exe
+*.out
+*.app
+*.ilk
+*.pdb
+*.dwo
+*.gch
+*.pch
+
+# Models: only the examples' meshes are kept (the robots' with their licence)
+!examples/models/*.obj
+!examples/models/ur5e/*.obj
+
+# IDEs and editors
+CMakeLists.txt.user*
+*.pro.user*
+.qtc_clangd/
+.vscode/
+.idea/
+.cache/
+*.code-workspace
+*.swp
+*~
+
+# The operating systems
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# The editor's runs: journals, screenshots, captures, profiles
+*.jsonl
+# the window's recorded answers are a test fixture, not a log
+!tests/data/*.jsonl
+kinetica-journal-*
+shots/
+*.perf
+perf.data*
+
+# Temporary files
+*.tmp
+*.log
+*.bak
+*.orig
+*.rej
+
+# The guide's pictures: the editor photographs itself (tools/ui_guide_shots.py), and its film (tools/showcase_film.py).
+# They live in the guide's own repository, kinetica-docs, where tools/build_site.py puts them - megabytes that would
+# grow with every retake. The README's GIF stays: GitHub shows it from here.
+/docs/images/ui/
+/docs/images/showcase.mp4

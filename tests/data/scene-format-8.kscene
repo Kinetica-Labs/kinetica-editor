@@ -1,0 +1,27 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Box"
+  object id 2 visible 1 locked 0
+  shape box size 0.3 0.3 0.3 position 0 0.5 0 rotation 0 0 0 color 0.6 0.6 0.6
+end
+force "Толчок 1"
+  object id 3 visible 1 locked 0
+  pose position 0 0.5 0 rotation 0 0 0 color 0.45 0.85 0.55
+  tags blast
+  effect radius 0 shape directional mode impulse strength 5
+end
+force "Взрыв 1"
+  object id 4 visible 1 locked 0
+  pose position 0 0.5 0 rotation 0 0 0 color 0.45 0.85 0.55
+  effect radius 3 shape radial mode impulse strength 10 falloff linear start 2.5 tag crate
+end
+force "Тяга 1"
+  object id 5 visible 1 locked 0 parent 2
+  pose position 0 0.5 0 rotation 0 0 90 color 0.45 0.85 0.55
+  effect radius 2 shape directional mode constant strength 10 falloff inverse_square
+end
+force "Притяжение 1"
+  object id 6 visible 1 locked 0
+  pose position 1 0.5 0 rotation 0 0 0 color 0.45 0.85 0.55
+  effect radius 5 shape radial mode constant strength -10 falloff linear
+end

@@ -1,0 +1,12 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Wall"
+  object id 2 visible 1 locked 0
+  shape box size 1 1 0.2 position 0 0.5 0 rotation 0 0 0 color 0.6 0.6 0.6
+  texture kind image repeats 2 file "maps/brick.png" bump 0.002 height_file "maps/brick-relief.png" normal_file "maps/brick-normal.png"
+end
+entity "Plate"
+  object id 3 visible 1 locked 0
+  shape box size 1 0.1 1 position 2 0.05 0 rotation 0 0 0 color 0.6 0.6 0.6
+  texture kind none repeats 4 file "" normal_file "maps/steel normal.png"
+end
