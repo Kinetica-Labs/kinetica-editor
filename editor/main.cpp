@@ -14,6 +14,7 @@
 
 #include <QTimer>
 #include <QJsonObject>
+#include <QFile>
 #include <QFileInfo>
 #include <QApplication>
 #include <QDoubleSpinBox>
@@ -339,7 +340,7 @@ static bool unattended(const QCommandLineParser& cli, const Options& o) {
 
 // What the window does after it is shown: a test, pictures, automation, or the builder for a person.
 static int run(QApplication& app, MainWindow& w, const QCommandLineParser& cli, const Options& o) {
-    if (cli.isSet(o.selfTest)) return runBuilderSelfTest(w, cli.value(o.shots)); // its journal: KE_JOURNAL (main sets a temporary one)
+    if (cli.isSet(o.selfTest)) return runBuilderSelfTest(w, cli.value(o.shots)); // its journal: KE_JOURNAL (main sets a temporary one, removed at the end)
     if (cli.isSet(o.gizmoShots)) return runGizmoShots(w, cli.value(o.gizmoShots));
     w.setScreenshotWholeWindow(cli.isSet(o.window));
     w.setEditScreenshot(cli.isSet(o.edit));
@@ -405,8 +406,13 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "--agent-eval requires --api <port>\n");
         return 2;
     }
-    if (unattended(cli, o) && qEnvironmentVariableIsEmpty("KE_JOURNAL")) // a test's edits are not the person's history
-        qputenv("KE_JOURNAL", (QDir::tempPath() + "/kinetica-journal-" + QString::number(QCoreApplication::applicationPid()) + ".jsonl").toUtf8());
+    // A test's edits are not the person's history: their journal is a file of this run alone, removed when the run ends
+    // (left, 68 of them - 33 MB - were found in the temporary folder). One the caller named in KE_JOURNAL is its own.
+    struct RunJournal { QString file; ~RunJournal() { if (!file.isEmpty()) QFile::remove(file); } } runJournal;
+    if (unattended(cli, o) && qEnvironmentVariableIsEmpty("KE_JOURNAL")) {
+        runJournal.file = QDir::tempPath() + "/kinetica-journal-" + QString::number(QCoreApplication::applicationPid()) + ".jsonl";
+        qputenv("KE_JOURNAL", runJournal.file.toUtf8());
+    }
 
     app.setProperty("keAgentEval", cli.isSet(o.agentEval));
     app.setProperty("keInteractive", !unattended(cli, o));
