@@ -7,6 +7,7 @@
 <p align="center">
   <a href="https://github.com/Kinetica-Labs/kinetica-editor/releases/latest">Скачать</a> ·
   <a href="https://kinetica-labs.github.io/kinetica-docs/">Руководство в картинках · Guide</a> ·
+  <a href="CONTRIBUTING.md">Писать для Kinetica</a> ·
   <a href="docs/contracts/README.md">Контракты и плагины</a> ·
   <a href="docs/constitution.md">Конституция</a>
 </p>
