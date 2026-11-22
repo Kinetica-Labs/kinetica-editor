@@ -142,6 +142,8 @@ TRANSCRIPT = [
     R("edit_redo", "edit_redo"),
     R("the scene's links as one list: the hinge's two bodies, the wheel module's parts on the chassis, the driver's joint and battery, the controller's action", "relation_list"),
     R("what refers to the chassis (id 7): the links into it", "relation_list", {"to": 7}),
+    R("the format's kinds of block and their lines: what the scene file holds", "schema_list"),
+    R("a joint's lines and keys as the reader reads them: forms and units", "schema_get", {"kind": "joint"}),
 
     # --- what the window fills in by itself: selection and view -----------------------------------------------------------------
     R("the selection of a window that has not selected anything by hand", "selection_get", window_only=True),

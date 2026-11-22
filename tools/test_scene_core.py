@@ -270,6 +270,24 @@ class SceneCore(unittest.TestCase):
             push.shape = "radial"
             self.assertEqual(push.shape, "radial")
 
+    def test_the_format_tells_its_own_kinds_lines_and_keys(self):
+        with ke.Scene() as scene:
+            kinds = {k["kind"]: k["parts"] for k in scene.ed.schema_list()["kinds"]}
+            self.assertEqual(set(kinds), {"world", "physics", "entity", "group", "array", "light", "force", "camera", "joint", "battery",
+                                          "driver", "sensor", "wheel", "controller", "sequence"})
+            self.assertIn("rigid", kinds["entity"])
+            joint = {p["word"]: p for p in scene.ed.schema_get(kind="joint")["parts"]}
+            drive = {k["word"]: k for k in joint["drive"]["keys"]}
+            self.assertEqual((drive["target"]["form"], drive["target"]["unit"]), ("number", "rad or m"))
+            self.assertIn("tx ty tz rx ry rz", joint["drive"]["lead"])
+            rigid = {k["word"]: k.get("unit", "") for p in scene.ed.schema_get(kind="entity")["parts"] if p["word"] == "rigid" for k in p["keys"]}
+            self.assertEqual((rigid["mass"], rigid["angular_velocity"]), ("kg", "rad/s"))
+            box = scene.add("box")  # what the schema says the reader reads, scene_set writes and scene_get reads back
+            scene.ed.scene_set(id=box.id, line="rigid", key="mass", values=[2.5])
+            self.assertEqual(scene.ed.scene_get(id=box.id, line="rigid", key="mass")["values"], [2.5])
+            with self.assertRaisesRegex(ke.OperationError, "no kind 'robot'; the kinds: world physics entity"):
+                scene.ed.schema_get(kind="robot")
+
     def test_the_scene_links_are_one_list_both_ways(self):
         with ke.Scene() as scene:
             low, high = scene.add("box", position=(0, 0.5, 0)), scene.add("box", position=(0, 1.5, 0))

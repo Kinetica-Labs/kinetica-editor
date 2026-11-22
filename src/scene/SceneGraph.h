@@ -491,6 +491,22 @@ std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id);
 const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id);
 bool tagWord(const std::string& word);
 
+// The scene file's format as data (SceneGraph.cpp reads by these very tables): every kind of block, the lines it may hold
+// and their keys - the form of the values after a key and their unit. schema_list and schema_get answer it; a line's `lead`
+// is what stands between its first word and its keys (a shape's kind, a freedom's name).
+struct SchemaKey {
+    std::string word, form, unit; // form: what the values after the key are
+};
+struct SchemaPart {
+    std::string word, lead;
+    std::vector<SchemaKey> keys;
+};
+struct SchemaKind {
+    std::string kind;
+    std::vector<SchemaPart> parts;
+};
+const std::vector<SchemaKind>& sceneSchema();
+
 // A key of the scene file under the name the format has for it today: one of its earlier names (anchorA) comes
 // back as the present one (anchor_a), any other word as it is - what a script or a journal written before names
 // still means the same.

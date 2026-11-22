@@ -92,6 +92,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `runtime` | среда исполнения: фоновые задачи, пределы | stable |
 | `scene` | объекты сцены и её файл | stable |
 | `relation` | связи между объектами: кто на кого ссылается | testing |
+| `schema` | опись формата: виды блоков сцены, их строки и ключи | testing |
 | `script` | скрипты | stable |
 | `selection` | выделение | stable |
 | `sensor` | датчики: паспорт, показания | stable |
@@ -285,7 +286,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 
 ### testing
 
-`relation_list` `view_measure`
+`relation_list` `schema_get` `schema_list` `view_measure`
 
 ### obsolete
 
@@ -339,6 +340,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `fixed` | тело стоит на месте | stable |  |
 | `force` | сила, Н | stable |  |
 | `from` | объект, от которого идёт связь | testing |  |
+| `form` | вид значений ключа в описи: number, vector, flag, id, one of... | testing |  |
 | `frame` | номер кадра мира | stable |  |
 | `frame_timing` | время частей кадра, мс | stable |  |
 | `gyro` | угловая скорость по осям датчика, рад/с | stable |  |
@@ -347,7 +349,10 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `ids` | объекты сцены | stable |  |
 | `joint` | сустав | stable |  |
 | `joints` | суставы | stable |  |
+| `keys` | ключи строки описи `[{word, form, unit}]` | testing |  |
 | `kind` | вид: строки сцены, датчика, операции | stable |  |
+| `kinds` | виды блоков описи `[{kind, parts}]` | testing |  |
+| `lead` | что стоит в строке между её первым словом и ключами: вид формы, имя степени | testing |  |
 | `lines` | строки: слова строк файла сцены | stable |  |
 | `mode` | режим окна: edit, playing, paused | stable |  |
 | `model` | модель датчика - строка его таблицы | stable |  |
@@ -357,6 +362,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `objects` | объекты сцены `[{id, kind, name}]` | stable |  |
 | `ok` | вышло ли; false - см. error | stable |  |
 | `ops` | операции `[{name, kind, args, help, schema}]` | stable |  |
+| `parts` | строки блока в описи: их первые слова, или `[{word, lead, keys}]` | testing |  |
 | `play_stopped` | правка остановила мир и сохранена | stable |  |
 | `points` | сколько точек касания | obsolete | `count` |
 | `position` | где стоит, м | stable |  |
@@ -387,12 +393,13 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `type` | тип компонента `плагин.компонент` | stable |  |
 | `undo_steps` | сколько шагов отмены есть | stable |  |
 | `undone` | отмена сделана | stable |  |
-| `unit` | единица канала - для человека | stable |  |
+| `unit` | единица - для человека: канала замера, ключа описи | stable |  |
 | `until_stop` | правка действует до ■ Стоп: мир построен | stable |  |
 | `value` | значение канала в его единице | stable |  |
 | `values` | значения: поля компонента по именам, слова ключа | stable |  |
 | `velocity` | скорость [x, y, z], м/с | stable |  |
 | `wheel` | колесо | stable |  |
+| `word` | слово файла сцены: первое слово строки или ключ | testing |  |
 | `world` | правка изменила мир: тяжесть, физику | stable |  |
 
 ## 9. Слова файла сцены

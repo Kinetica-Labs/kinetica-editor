@@ -137,6 +137,26 @@ bool relations(const SceneGraph& g, const Value& a, Value& out, std::string& e) 
     return true;
 }
 
+// The format's tables as an answer (sceneSchema): a kind's lines, each with its lead and its keys - a unit and a lead only
+// where there is one.
+Value schemaParts(const SchemaKind& k) {
+    Value parts = Value::list();
+    for (const SchemaPart& p : k.parts) {
+        Value part = Value::map(), keys = Value::list();
+        part.set("word", p.word);
+        if (!p.lead.empty()) part.set("lead", p.lead);
+        for (const SchemaKey& key : p.keys) {
+            Value row = Value::map();
+            row.set("word", key.word), row.set("form", key.form);
+            if (!key.unit.empty()) row.set("unit", key.unit);
+            keys.push(row);
+        }
+        part.set("keys", keys);
+        parts.push(part);
+    }
+    return parts;
+}
+
 std::vector<SceneOp> readOps() {
     return {
         query("scene_list", "The objects of the scene: id, kind, name. With kind - only those: a row's kind (entity, group, array, light, "
@@ -162,6 +182,29 @@ std::vector<SceneOp> readOps() {
             r.set("text", block), r.set("kind", lines[0][0].text), r.set("name", lines[0].size() > 1 ? lines[0][1].text : "");
             r.set("tags", tagsValue(g, uint32_t(a["id"].integer())));
             return r.set("lines", all), true;
+        }),
+        query("schema_list", "The kinds of block the scene file holds - world, physics, entity, group, array, light, force, camera, joint, battery, "
+              "driver, sensor, wheel, controller, sequence - each with the first words of its lines; schema_get tells one's keys",
+              "{}", [](const SceneGraph&, const Value&, Value& r, std::string&) {
+            Value kinds = Value::list();
+            for (const SchemaKind& k : sceneSchema()) {
+                Value row = Value::map(), parts = Value::list();
+                for (const SchemaPart& p : k.parts) parts.push(p.word);
+                row.set("kind", k.kind), row.set("parts", parts);
+                kinds.push(row);
+            }
+            return r.set("kinds", kinds), true;
+        }),
+        query("schema_get", "One kind of block of the scene file as the reader reads it: its lines (parts) - each its first word, what stands "
+              "between it and its keys (lead), its keys with the form of their values and their unit. What scene_get and scene_set read and write "
+              "by line and key; the very tables the scene file is read by",
+              "{kind: str}", [](const SceneGraph&, const Value& a, Value& r, std::string& e) {
+            const std::string kind = a["kind"].text("");
+            for (const SchemaKind& k : sceneSchema())
+                if (k.kind == kind) return r.set("kind", k.kind), r.set("parts", schemaParts(k)), true;
+            e = "no kind '" + kind + "'; the kinds:";
+            for (const SchemaKind& k : sceneSchema()) e += " " + k.kind;
+            return false;
         }),
         query("relation_list", "The scene's links as one list, both ways: each {kind, from, to} - kind is the part and the key of the scene "
               "file that write it (object.parent, object.instance, goal.effector, target.camera, target.object, pattern.template, link.a, "

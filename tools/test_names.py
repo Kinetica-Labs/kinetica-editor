@@ -136,6 +136,7 @@ class Names(unittest.TestCase):
         words = {r[0].strip("`"): r for r in rows(section(self.text, "9"))}
         with open(READER, encoding="utf-8") as f:
             code = re.sub(r"//[^\n]*", "", f.read())
+        code = re.sub(r'\{"([a-z][a-z0-9_]*)", "[^"]*", "[^"]*",', r'{"\1",', code)  # a key's row: its word, not its form and unit
         known = set(re.findall(r'"([a-z][a-z0-9_]*)"', code))  # what it compares and the tables it reads and writes by
         for literal in re.findall(r'<< "((?:[^"\\]|\\.)*)"', code):  # what it writes: "  collider kind "
             known |= {w for w in literal.replace("\\n", " ").split() if NAME.match(w)}
