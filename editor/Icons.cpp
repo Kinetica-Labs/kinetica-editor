@@ -668,26 +668,83 @@ void drawForce(QPainter& p) {
     drawSolidArrow(p, {36, 64}, {90, 14}, 15, 34, 24, kForceColour, 4);
 }
 
-// A directional force: one thick arrow rising to the upper right.
-void drawForceArrow(QPainter& p) {
-    shadow(p, 52, 90, 34);
-    drawSolidArrow(p, {20, 82}, {82, 18}, 20, 42, 30, kForceColour, 5);
+// The four forces are a 2 x 2 table read by two marks of their own: where - a body (a grey block, the rigid body's
+// sign) or a field (a ring round a point) - and when - once (an orange flash, a blow) or all the time (chevrons, a flow).
+// Pairs differ in one mark: a push and a thrust, a blast and a pull (arrows out, chevrons in).
+void drawBody(QPainter& p) { // the block a force acts on, in the lower left
+    p.save();
+    p.translate(2, 40);
+    p.scale(0.58, 0.58);
+    drawRigidBlock(p);
+    p.restore();
 }
 
-// A radial force: a core with four arrows out of it.
-void drawForceBall(QPainter& p) {
-    shadow(p, 50, 91, 34);
-    for (const QPointF& d : {QPointF(0, -1), QPointF(0, 1), QPointF(-1, 0), QPointF(1, 0)}) drawSolidArrow(p, QPointF(50, 50) + d * 14, QPointF(50, 50) + d * 44, 11, 25, 15, kForceColour, 2);
-    QRadialGradient g(QPointF(44, 42), 28, QPointF(41, 40));
-    g.setColorAt(0.0, shade(kFlashColour, 165));
-    g.setColorAt(0.45, kFlashColour);
-    g.setColorAt(1.0, shade(kFlashColour, 45));
+void drawSpark(QPainter& p, QPointF c, qreal r) { // a four-point flash: the moment of a blow
     p.setPen(outline(kFlashColour));
-    p.setBrush(g);
-    p.drawEllipse(QPointF(50, 50), 19, 19);
+    p.setBrush(kFlashColour);
+    p.drawPath(flash(c, r * 0.36, r, 4, 0));
     p.setPen(Qt::NoPen);
-    p.setBrush(QColor(255, 255, 255, 150));
-    p.drawEllipse(QPointF(43, 42), 4.2, 2.7);
+    p.setBrush(QColor(252, 210, 70));
+    p.drawPath(flash(c, r * 0.2, r * 0.55, 4, 0));
+}
+
+// A chevron pointing along `u` with its tip at `tip`: arms `half` aside, `thick` deep; lit and with a darker copy below.
+void drawChevron(QPainter& p, QPointF tip, QPointF u, qreal half, qreal thick) {
+    const QPointF n(-u.y(), u.x()), back = tip - u * half;
+    QPainterPath path;
+    path.moveTo(back + n * half);
+    for (const QPointF& q : {tip, back - n * half, back - n * half - u * thick, tip - u * thick, back + n * half - u * thick}) path.lineTo(q);
+    path.closeSubpath();
+    p.setPen(outline(kForceColour));
+    p.setBrush(shade(kForceColour, 60));
+    p.drawPath(path.translated(1.5, 2.5));
+    QLinearGradient g(tip + n * half, tip - n * half);
+    g.setColorAt(0, shade(kForceColour, 150));
+    g.setColorAt(1, shade(kForceColour, 85));
+    p.setBrush(g);
+    p.drawPath(path);
+}
+
+void drawRing(QPainter& p) { // the field's reach
+    p.setPen(QPen(shade(kForceColour, 120), 3.5));
+    p.setBrush(QColor(150, 104, 240, 34));
+    p.drawEllipse(QPointF(50, 50), 46, 46);
+}
+
+const QPointF kRays[] = {{0, -1}, {1, 0}, {0, 1}, {-1, 0}}; // four, not eight: at 16 px eight melt into a wheel
+
+// «Толчок»: a block, a flash on its corner and an arrow off it - one blow to one body.
+void drawForcePush(QPainter& p) {
+    drawBody(p);
+    drawSolidArrow(p, {40, 58}, {94, 6}, 15, 36, 27, kForceColour, 4);
+    drawSpark(p, {41, 57}, 22);
+}
+
+// «Тяга»: a block and three chevrons off it - one body pushed all the time.
+void drawForceThrust(QPainter& p) {
+    drawBody(p);
+    const QPointF u(0.7071, -0.7071);
+    for (int i = 0; i < 3; ++i) drawChevron(p, QPointF(56, 42) + u * (i * 23.0), u, 15, 8.5);
+}
+
+// «Взрыв»: a ring, arrows out of its middle and a flash there - one blow to all round.
+void drawForceBlast(QPainter& p) {
+    drawRing(p);
+    for (const QPointF& d : kRays) drawSolidArrow(p, QPointF(50, 50) + d * 15, QPointF(50, 50) + d * 45, 11, 27, 17, kForceColour, 2);
+    drawSpark(p, {50, 50}, 24);
+}
+
+// «Притяжение»: a ring, chevrons pointing in, a core - all round drawn to a point all the time.
+void drawForcePull(QPainter& p) {
+    drawRing(p);
+    for (const QPointF& d : kRays)
+        for (const qreal r : {17.0, 31.0}) drawChevron(p, QPointF(50, 50) + d * r, -d, 12, 7.5);
+    QRadialGradient g(QPointF(46, 46), 14, QPointF(44, 44));
+    g.setColorAt(0.0, shade(kForceColour, 160));
+    g.setColorAt(1.0, shade(kForceColour, 70));
+    p.setPen(outline(kForceColour));
+    p.setBrush(g);
+    p.drawEllipse(QPointF(50, 50), 9, 9);
 }
 
 // An encoder: a code disc with its slots round the rim and the read head over them.
@@ -1006,8 +1063,10 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
     case SceneIcon::Spot: drawSpotlight(p); break;
     case SceneIcon::Camera: drawCameraIcon(p); break;
     case SceneIcon::Force: drawForce(p); break;
-    case SceneIcon::ForceArrow: drawForceArrow(p); break;
-    case SceneIcon::ForceBall: drawForceBall(p); break;
+    case SceneIcon::ForcePush: drawForcePush(p); break;
+    case SceneIcon::ForceThrust: drawForceThrust(p); break;
+    case SceneIcon::ForceBlast: drawForceBlast(p); break;
+    case SceneIcon::ForcePull: drawForcePull(p); break;
     case SceneIcon::Count: break;
     }
 }

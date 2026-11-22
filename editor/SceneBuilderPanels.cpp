@@ -630,7 +630,7 @@ void SceneBuilder::refreshList() {
         if (const Entity* t = entityById(a.templateId); t && isHiddenTemplate(*t) && !findObject(graph_, t->parent)) under[t->id] = a.id;
     }
     for (const Light& l : graph_.lights) row(l, sceneIcon(lightIcon(l.kind), 22), QString::fromStdString(l.name));
-    for (const Force& f : graph_.forces) row(f, sceneIcon(forceIcon(f.shape), 22), QString::fromStdString(f.name));
+    for (const Force& f : graph_.forces) row(f, sceneIcon(forceIcon(f.shape, f.mode), 22), QString::fromStdString(f.name));
     for (const Camera& c : graph_.cameras)
         row(c, sceneIcon(SceneIcon::Camera, 22), QString::fromStdString(c.name) + (c.id == throughId_ ? uiText("Kinetica", " — вид через неё") : c.active ? uiText("Kinetica", " — активная") : ""));
     for (const SensorObject& s : graph_.sensors) row(s, deviceIcon(DeviceIcon(int(s.kind)), 22), QString::fromStdString(s.name));

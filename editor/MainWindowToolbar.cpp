@@ -295,7 +295,7 @@ void MainWindow::addForceButton(QToolBar* tb) {
     const char* tips[] = {uiText("Kinetica", "Разовый импульс выбранному телу, Н·с"), uiText("Kinetica", "Разовый импульс от точки телам в радиусе, Н·с"),
                           uiText("Kinetica", "Постоянная сила на выбранном теле, Н"), uiText("Kinetica", "Постоянная сила к точке на тела в радиусе, Н")};
     for (int k = 0; k < 4; ++k) {
-        auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape), 48), kinds[k].text);
+        auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape, kinds[k].mode), 48), kinds[k].text);
         a->setObjectName(kinds[k].name);
         a->setToolTip(tips[k]);
         connect(a, &QAction::triggered, this, [this, shape = kinds[k].shape, mode = kinds[k].mode] { builder_->addForce(shape, mode); });

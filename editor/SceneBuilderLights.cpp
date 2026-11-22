@@ -63,7 +63,7 @@ QIcon SceneBuilder::kindIcon(uint32_t id, int size) const {
     for (const Light& l : graph_.lights)
         if (l.id == id) return sceneIcon(lightIcon(l.kind), size);
     for (const Force& f : graph_.forces)
-        if (f.id == id) return sceneIcon(forceIcon(f.shape), size);
+        if (f.id == id) return sceneIcon(forceIcon(f.shape, f.mode), size);
     for (const SensorObject& s : graph_.sensors)
         if (s.id == id) return deviceIcon(DeviceIcon(int(s.kind)), size);
     return findCamera(graph_, id) ? sceneIcon(SceneIcon::Camera, size) : QIcon();

@@ -18,7 +18,10 @@
 
 using namespace ke;
 
-SceneIcon forceIcon(ForceShape s) { return s == ForceShape::Radial ? SceneIcon::ForceBall : SceneIcon::ForceArrow; }
+SceneIcon forceIcon(ForceShape s, ForceMode m) {
+    const bool once = m == ForceMode::Impulse;
+    return s == ForceShape::Radial ? (once ? SceneIcon::ForceBlast : SceneIcon::ForcePull) : (once ? SceneIcon::ForcePush : SceneIcon::ForceThrust);
+}
 
 Force* SceneBuilder::forceById(uint32_t id) {
     for (Force& f : graph_.forces)

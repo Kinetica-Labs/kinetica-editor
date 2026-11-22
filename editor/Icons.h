@@ -33,9 +33,9 @@ QIcon colliderIcon(ke::ColliderKind kind, int size = 28);
 // grid, a circle of small cubes.
 enum class ObjectIcon { Group, ArrayLine, ArrayGrid, ArrayCircle, Count };
 QIcon objectIcon(ObjectIcon kind, int size = 28);
-// Lights, a camera and forces of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera, an arrow (a
-// directional force), a ball with arrows (a radial one).
-enum class SceneIcon { Sun, Bulb, Spot, Camera, Force, ForceArrow, ForceBall, Count };
+// Lights, a camera and forces of a scene: a sun, a light bulb (a lamp), a spotlight's cone, a camera, «Сила» (any force),
+// and the four forces - on a body or a field round a point, once (a flash) or all the time (chevrons).
+enum class SceneIcon { Sun, Bulb, Spot, Camera, Force, ForcePush, ForceThrust, ForceBlast, ForcePull, Count };
 QIcon sceneIcon(SceneIcon kind, int size = 28);
 
 // The devices of mechatronics: the sensors (in the order of ke::SensorKind), the electrics, and Sensor - any sensor, the

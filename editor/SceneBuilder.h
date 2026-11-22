@@ -742,7 +742,7 @@ const char* shapeName(ke::ShapeKind k);
 // The names and icons of the kinds of light: "Солнце", "Лампа", "Прожектор".
 const char* lightName(ke::LightKind k);
 SceneIcon lightIcon(ke::LightKind k);
-SceneIcon forceIcon(ke::ForceShape s); // an arrow for a directional force, a ball for a radial one
+SceneIcon forceIcon(ke::ForceShape s, ke::ForceMode m); // each of the four forces its own
 // The words of the API (SceneBuilderCode.cpp): "box", "sun", "rigid" - as the scene file and kinetica
 // say them; and back (-1: no such word).
 const char* shapeWord(ke::ShapeKind k);
