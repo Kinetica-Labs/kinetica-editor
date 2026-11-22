@@ -56,11 +56,11 @@
 | Ступень | Значит | Куда дальше |
 |---|---|---|
 | `stable` | выпущено: работает всегда; имя, тип, смысл и единица не меняются | в `obsolete`, если найдено имя лучше |
-| `testing` | ещё не выпущено - нет в чистой ветке `gold_clear`; можно поправить или убрать | в `stable` с выпуском; убранное - в `reserved` |
+| `testing` | ещё не выпущено - нет в чистой ветке `main`; можно поправить или убрать | в `stable` с выпуском; убранное - в `reserved` |
 | `obsolete` | работает всегда, но новым не брать: рядом сказано, что вместо | никуда: не удаляется |
 | `reserved` | имени нет и не будет; занять его другим смыслом нельзя | никуда |
 
-Выпуск - снимок в `gold_clear`: всё `testing`, что в нём есть, тем же шагом становится `stable`.
+Выпуск - снимок `dev` в чистую ветку `main`: всё `testing`, что в нём есть, тем же шагом становится `stable`.
 
 ## 3. Как исправить имя
 
@@ -89,8 +89,8 @@
 | `robot` | команды роботу | stable |
 | `runtime` | среда исполнения: фоновые задачи, пределы | stable |
 | `scene` | объекты сцены и её файл | stable |
-| `relation` | связи между объектами: кто на кого ссылается | testing |
-| `schema` | опись формата: виды блоков сцены, их строки и ключи | testing |
+| `relation` | связи между объектами: кто на кого ссылается | stable |
+| `schema` | опись формата: виды блоков сцены, их строки и ключи | stable |
 | `script` | скрипты | stable |
 | `selection` | выделение | stable |
 | `sensor` | датчики: паспорт, показания | stable |
@@ -141,13 +141,13 @@
 | `clean` | `bool` | снимок без надписей и куба поверх вида | stable |  |
 | `clear` | `bool` | убрать рисунки, чьё имя начинается так | stable |  |
 | `close` | `bool` | закрыть схват; false - открыть | stable |  |
-| `color` | `[3]` | цвет [r, g, b], каждое 0-1 - слово файла сцены и всех стандартов 3D | testing |  |
+| `color` | `[3]` | цвет [r, g, b], каждое 0-1 - слово файла сцены и всех стандартов 3D | stable |  |
 | `colour` | `[3]` | цвет [r, g, b], каждое 0-1 | obsolete | `color` |
 | `commands` | `{}` | команды исполнителям робота по их id: `{"7": {...}}` | stable |  |
 | `constant` | `number` | постоянная мотора, Н·м/А | stable |  |
 | `count` | `int` | сколько: копий в массиве, слов после ключа | stable |  |
 | `cursor` | `bool` | двигать и настоящий курсор человека | stable |  |
-| `curves` | `bool` | кривые одной дорожки в секвенсоре, а не дорожки | testing |  |
+| `curves` | `bool` | кривые одной дорожки в секвенсоре, а не дорожки | stable |  |
 | `damping` | `number` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
 | `degrees` | `number` | угол, градусы | stable |  |
 | `diameter` | `number` | диаметр, м | stable |  |
@@ -159,16 +159,16 @@
 | `families` | `[]` | начала имён операций для отбора: `["scene", "sim"]` | stable |  |
 | `file` | `str` | путь к файлу; относительный - от места запуска | stable |  |
 | `fill` | `[]` | контуры заливки: строки `M x y L x y C x1 y1 x2 y2 x y Z` | stable |  |
-| `fit` | `bool` | показать всё целиком, как F | testing |  |
+| `fit` | `bool` | показать всё целиком, как F | stable |  |
 | `fixed` | `bool` | тело стоит на месте, физика его не двигает | stable |  |
-| `from` | `int` | объект, от которого идёт связь | testing |  |
+| `from` | `int` | объект, от которого идёт связь | stable |  |
 | `flip` | `bool` | развернуть заготовку по нормали | stable |  |
 | `folder` | `str` | путь к папке | stable |  |
 | `force` | `number` | предельная сила или момент привода, Н или Н·м; сила схвата, Н | stable |  |
 | `fov` | `number` | угол обзора камеры по вертикали, градусы | stable |  |
 | `frames` | `int` | кадров симуляции - её шагов | stable |  |
 | `free` | `bool` | камера снова свободная - не следит за объектом | stable |  |
-| `from` | `number` | начало показанного времени секвенсора, с | testing |  |
+| `from` | `number` | начало показанного времени секвенсора, с | stable |  |
 | `goal` | `int` | цель обратной кинематики | stable |  |
 | `goals` | `[int]` | цели обратной кинематики | stable |  |
 | `group` | `[int]` | объекты, замеряемые вместе | stable |  |
@@ -211,7 +211,7 @@
 | `on` | `bool` | включить; false - выключить | stable |  |
 | `open_force` | `number` | сила, с которой схват открывается, Н | stable |  |
 | `ops` | `[]` | операции пакета `[{op, args}]` - одним шагом отмены | stable |  |
-| `part` | `str` | часть окна на снимке: view, toolbar, tools, inspector, sequencer, plots, console, laboratory | testing |  |
+| `part` | `str` | часть окна на снимке: view, toolbar, tools, inspector, sequencer, plots, console, laboratory | stable |  |
 | `pivot` | `[3]` | точка, вокруг которой поворачивают, м | stable |  |
 | `place` | `[2]` | место в кадре: доли ширины и высоты вида от левого верхнего угла | stable |  |
 | `play` | `bool` | ▶ проигрывает секвенцию | stable |  |
@@ -223,7 +223,7 @@
 | `quaternion` | `[4]` | поворот кватернионом [w, x, y, z] | stable |  |
 | `quaternions` | `[[]]` | повороты кватернионами `[[w, x, y, z], ...]` | stable |  |
 | `radius` | `number` | радиус, м | stable |  |
-| `range` | `[]` | значения кривых [низ, верх]; `[]` - по кривой в виду | testing |  |
+| `range` | `[]` | значения кривых [низ, верх]; `[]` - по кривой в виду | stable |  |
 | `reference` | `number` | координата сустава при нулевом счёте энкодера, рад или м | stable |  |
 | `resistance` | `number` | сопротивление обмотки, Ом | stable |  |
 | `role` | `str` | роль тела: rigid - твёрдое, collider - коллайдер | stable |  |
@@ -260,9 +260,9 @@
 | `target` | `[3]` | точка, на которую смотрят, м | stable |  |
 | `text` | `str` | текст | stable |  |
 | `time` | `number` | время, с | stable |  |
-| `to` | `int` | объект, к которому идёт связь; 0 - мир | testing |  |
-| `to` | `[3]` | вторая точка мира - конец отрезка, м | testing |  |
-| `to` | `number` | конец показанного времени секвенсора, с | testing |  |
+| `to` | `int` | объект, к которому идёт связь; 0 - мир | stable |  |
+| `to` | `[3]` | вторая точка мира - конец отрезка, м | stable |  |
+| `to` | `number` | конец показанного времени секвенсора, с | stable |  |
 | `tool` | `str` | инструмент гизмо: select, move, rotate, scale | stable |  |
 | `travel` | `number` | ход схвата от открытого, м | stable |  |
 | `trigger` | `bool` | форма-датчик: замечает касание, но не толкает | stable |  |
@@ -273,7 +273,7 @@
 | `values` | `[]` | значения ключа строки сцены | stable |  |
 | `values` | `{}` | значения по именам | stable |  |
 | `velocity` | `number` | скорость привода, рад/с или м/с | stable |  |
-| `velocity` | `[3]` | скорость ключа [x, y, z], м/с: наклон плавного ключа, его ручки Безье в кривых | testing |  |
+| `velocity` | `[3]` | скорость ключа [x, y, z], м/с: наклон плавного ключа, его ручки Безье в кривых | stable |  |
 | `voltage` | `number` | напряжение, В | stable |  |
 | `width` | `int` | ширина снимка, пикселей | stable |  |
 | `width` | `number` | ширина кадра камеры, пикселей | stable |  |
@@ -287,11 +287,11 @@
 
 ### stable
 
-`app_quit` `assembly_actuator` `assembly_attach` `assembly_camera` `assembly_can_reach` `assembly_drive` `assembly_encoder` `assembly_goal` `assembly_goal_pose` `assembly_grip` `assembly_joint` `assembly_path` `assembly_power` `assembly_preset` `assembly_presets` `assembly_preview` `assembly_reach` `assembly_sensor` `assembly_snap` `assembly_suggest` `assembly_wheel` `camera_aim` `component_list` `component_remove` `component_set` `console_note` `controller_add` `controller_input` `edit_redo` `edit_undo` `force_fire` `gizmo_get` `gizmo_set` `journal_lines` `journal_restore` `journal_sessions` `ops_list` `plugin_list` `plugin_new` `plugin_reload` `plugin_scan` `robot_command` `runtime_configure` `runtime_keepalive` `runtime_status` `runtime_stop` `scene_add` `scene_add_camera` `scene_add_force` `scene_add_light` `scene_array` `scene_batch` `scene_collider` `scene_delete` `scene_describe` `scene_duplicate` `scene_get` `scene_group` `scene_list` `scene_move` `scene_new` `scene_open` `scene_put` `scene_remove` `scene_role` `scene_save` `scene_scale` `scene_set` `scene_show_all` `scene_tag` `scene_turn` `scene_ungroup` `script_run` `script_stop` `selection_get` `selection_set` `sensor_models` `sensor_read` `sensor_spec` `sequence_add` `sequence_clear` `sequence_delete_key` `sequence_get` `sequence_key` `sequence_key_set` `sequence_seek` `sequence_set` `sim_impulse` `sim_measure` `sim_pause` `sim_play` `sim_record` `sim_state` `sim_step` `sim_stop` `ui_actions` `ui_key` `ui_pointer` `ui_trigger` `ui_type` `view_draw` `view_frame` `view_get` `view_hud` `view_look` `view_project` `view_screenshot` `view_through` `world_get` `world_set`
+`app_quit` `assembly_actuator` `assembly_attach` `assembly_camera` `assembly_can_reach` `assembly_drive` `assembly_encoder` `assembly_goal` `assembly_goal_pose` `assembly_grip` `assembly_joint` `assembly_path` `assembly_power` `assembly_preset` `assembly_presets` `assembly_preview` `assembly_reach` `assembly_sensor` `assembly_snap` `assembly_suggest` `assembly_wheel` `camera_aim` `component_list` `component_remove` `component_set` `console_note` `controller_add` `controller_input` `edit_redo` `edit_undo` `force_fire` `gizmo_get` `gizmo_set` `journal_lines` `journal_restore` `journal_sessions` `ops_list` `plugin_list` `plugin_new` `plugin_reload` `plugin_scan` `relation_list` `robot_command` `runtime_configure` `runtime_keepalive` `runtime_status` `runtime_stop` `scene_add` `scene_add_camera` `scene_add_force` `scene_add_light` `scene_array` `scene_batch` `scene_collider` `scene_delete` `scene_describe` `scene_duplicate` `scene_get` `scene_group` `scene_list` `scene_move` `scene_new` `scene_open` `scene_put` `scene_remove` `scene_role` `scene_save` `scene_scale` `scene_set` `scene_show_all` `scene_tag` `scene_turn` `scene_ungroup` `schema_get` `schema_list` `script_run` `script_stop` `selection_get` `selection_set` `sensor_models` `sensor_read` `sensor_spec` `sequence_add` `sequence_clear` `sequence_delete_key` `sequence_frame` `sequence_get` `sequence_key` `sequence_key_set` `sequence_seek` `sequence_set` `sim_impulse` `sim_measure` `sim_pause` `sim_play` `sim_record` `sim_state` `sim_step` `sim_stop` `ui_actions` `ui_key` `ui_pointer` `ui_trigger` `ui_type` `view_draw` `view_frame` `view_get` `view_hud` `view_look` `view_measure` `view_project` `view_screenshot` `view_through` `world_get` `world_set`
 
 ### testing
 
-`relation_list` `schema_get` `schema_list` `sequence_frame` `view_measure`
+нет
 
 ### obsolete
 
@@ -310,13 +310,13 @@
 | Ключ | Смысл, единица | Ступень | Вместо |
 |---|---|---|---|
 | `a` | первое тело контакта | stable |  |
-| `action` | действие контроллера, чья это связь | testing |  |
+| `action` | действие контроллера, чья это связь | stable |  |
 | `accel` | ускорение по осям датчика, м/с² | stable |  |
 | `accepted` | мир принял толчок | stable |  |
 | `actions` | имена действий контроллера | stable |  |
 | `anchor` | точка мира, где сустав или привод держит тела, м | stable |  |
 | `angle` | угол сустава, рад | stable |  |
-| `angular_velocity` | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | testing |  |
+| `angular_velocity` | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | stable |  |
 | `args` | строка аргументов операции - она же её схема | stable |  |
 | `asleep` | тело уснуло: не движется, мир его не считает | stable |  |
 | `axle` | ось колеса - её сустав | stable |  |
@@ -333,7 +333,7 @@
 | `coordinates` | координаты сустава по шести степеням свободы, м и рад | stable |  |
 | `count` | счёт: энкодера, сколько чего | stable |  |
 | `current` | ток мотора, А | stable |  |
-| `curves` | секвенсор показывает кривые, а не дорожки | testing |  |
+| `curves` | секвенсор показывает кривые, а не дорожки | stable |  |
 | `damping` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
 | `depth` | глубина проникновения, м | stable |  |
 | `distance` | расстояние, м | stable |  |
@@ -345,21 +345,21 @@
 | `file` | путь к файлу | stable |  |
 | `fixed` | тело стоит на месте | stable |  |
 | `force` | сила, Н | stable |  |
-| `from` | объект, от которого идёт связь; у `sequence_frame` - начало показанного времени, с | testing |  |
-| `form` | вид значений ключа в описи: number, vector, flag, id, one of... | testing |  |
+| `from` | объект, от которого идёт связь; у `sequence_frame` - начало показанного времени, с | stable |  |
+| `form` | вид значений ключа в описи: number, vector, flag, id, one of... | stable |  |
 | `frame` | номер кадра мира | stable |  |
 | `frame_timing` | время частей кадра, мс | stable |  |
 | `gyro` | угловая скорость по осям датчика, рад/с | stable |  |
-| `height` | высота места в снимке окна, пикселей (`ui_actions`, `view` у снимка) | testing |  |
+| `height` | высота места в снимке окна, пикселей (`ui_actions`, `view` у снимка) | stable |  |
 | `help` | справка операции | stable |  |
 | `id` | объект сцены; у канала замера - его путь (строка) | stable |  |
 | `ids` | объекты сцены | stable |  |
 | `joint` | сустав | stable |  |
 | `joints` | суставы | stable |  |
-| `keys` | ключи строки описи `[{word, form, unit}]` | testing |  |
+| `keys` | ключи строки описи `[{word, form, unit}]` | stable |  |
 | `kind` | вид: строки сцены, датчика, операции | stable |  |
-| `kinds` | виды блоков описи `[{kind, parts}]` | testing |  |
-| `lead` | что стоит в строке между её первым словом и ключами: вид формы, имя степени | testing |  |
+| `kinds` | виды блоков описи `[{kind, parts}]` | stable |  |
+| `lead` | что стоит в строке между её первым словом и ключами: вид формы, имя степени | stable |  |
 | `lines` | строки: слова строк файла сцены | stable |  |
 | `mode` | режим окна: edit, playing, paused | stable |  |
 | `model` | модель датчика - строка его таблицы | stable |  |
@@ -369,17 +369,17 @@
 | `objects` | объекты сцены `[{id, kind, name}]` | stable |  |
 | `ok` | вышло ли; false - см. error | stable |  |
 | `ops` | операции `[{name, kind, args, help, schema}]` | stable |  |
-| `parts` | строки блока в описи: их первые слова, или `[{word, lead, keys}]` | testing |  |
+| `parts` | строки блока в описи: их первые слова, или `[{word, lead, keys}]` | stable |  |
 | `play_stopped` | правка остановила мир и сохранена | stable |  |
 | `points` | сколько точек касания | obsolete | `count` |
 | `position` | где стоит, м | stable |  |
 | `power` | мощность мотора, Вт | stable |  |
 | `problem` | неисправность датчика: текст, пусто - нет | stable |  |
-| `range` | значения кривых секвенсора [низ, верх] | testing |  |
+| `range` | значения кривых секвенсора [низ, верх] | stable |  |
 | `reading` | показание датчика - в его единице | stable |  |
 | `redone` | повтор сделан | stable |  |
 | `relative` | показание относительно нуля датчика | stable |  |
-| `relations` | связи `[{kind, from, to}]`: kind - часть и ключ файла сцены, что пишут связь | testing |  |
+| `relations` | связи `[{kind, from, to}]`: kind - часть и ключ файла сцены, что пишут связь | stable |  |
 | `reload` | что мир построит заново: world, groups, arrays, devices, bodies, joints | stable |  |
 | `requested_frames` | сколько кадров просили | stable |  |
 | `rotation` | поворот углами Эйлера [x, y, z], градусы | stable |  |
@@ -395,7 +395,7 @@
 | `tags` | метки | stable |  |
 | `text` | текст: файл сцены | stable |  |
 | `time` | время мира, с | stable |  |
-| `to` | объект, к которому идёт связь; 0 - мир; у `sequence_frame` - конец показанного времени, с | testing |  |
+| `to` | объект, к которому идёт связь; 0 - мир; у `sequence_frame` - конец показанного времени, с | stable |  |
 | `travel` | ход сустава, м или рад | stable |  |
 | `truth` | истинные значения из физики рядом с показанием - для проверок, не для управления | stable |  |
 | `type` | тип компонента `плагин.компонент` | stable |  |
@@ -407,11 +407,11 @@
 | `values` | значения: поля компонента по именам, слова ключа | stable |  |
 | `velocity` | скорость [x, y, z], м/с | stable |  |
 | `wheel` | колесо | stable |  |
-| `width` | ширина места в снимке окна, пикселей; у снимка - его ширина | testing |  |
-| `word` | слово файла сцены: первое слово строки или ключ | testing |  |
+| `width` | ширина места в снимке окна, пикселей; у снимка - его ширина | stable |  |
+| `word` | слово файла сцены: первое слово строки или ключ | stable |  |
 | `world` | правка изменила мир: тяжесть, физику | stable |  |
-| `x` | левый край места в снимке окна, пикселей - то, что берёт `ui_pointer` space window | testing |  |
-| `y` | верхний край места в снимке окна, пикселей | testing |  |
+| `x` | левый край места в снимке окна, пикселей - то, что берёт `ui_pointer` space window | stable |  |
+| `y` | верхний край места в снимке окна, пикселей | stable |  |
 
 ## 9. Слова файла сцены
 
@@ -430,7 +430,7 @@
 | `anchor_a` | link | точка сустава в осях тела a, м | stable |  |
 | `anchor_b` | link | точка сустава в осях тела b, м | stable |  |
 | `angular_damping` | physics, rigid | затухание вращения, 1/с | stable |  |
-| `angular_velocity` | rigid | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | testing |  |
+| `angular_velocity` | rigid | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | stable |  |
 | `array` | строка | массив копий шаблона | stable |  |
 | `auto` | collider | форма коллайдера по форме тела | stable |  |
 | `axis` | action | вид действия: одно число -1..1 | stable |  |
@@ -566,7 +566,7 @@
 | `radial` | effect | поле от центра или к центру | stable |  |
 | `radius` | pattern, effect, tyre | радиус, м | stable |  |
 | `range` | kind | дальность света, м | stable |  |
-| `record_from` | world | начало дубля, с времени мира; раньше `duration` | testing |  |
+| `record_from` | world | начало дубля, с времени мира; раньше `duration` | stable |  |
 | `reference` | encoder | координата сустава при нулевом счёте, рад или м | stable |  |
 | `repeats` | texture | повторов на метр | stable |  |
 | `resistance` | dcmotor | сопротивление обмотки, Ом | stable |  |
@@ -811,7 +811,7 @@
 | `World` | мир: тяжесть, размер, физика - `world_get`, `world_set` | stable |
 | `World.duration` | время проигрывания, с; 0 - без конца | stable |
 | `World.gravity` | тяжесть [x, y, z], м/с² | stable |
-| `World.record_from` | начало дубля, с; раньше `duration` | testing |
+| `World.record_from` | начало дубля, с; раньше `duration` | stable |
 | `World.size` | размер мира [x, y, z], м | stable |
 | `World.substeps` | подшагов физики на кадр | stable |
 | `Wrench` | датчик силы и момента | stable |
@@ -826,7 +826,7 @@ Python. Короткие имена параметров, которые дос�
 |---|---|---|---|
 | `annotation` | тип из подписи функции, по которому поле строит свою схему | stable |  |
 | `answer` | ответ операции | stable |  |
-| `center` | центр [x, y, z], м - как `center_of_mass` в файле сцены и во всех стандартах 3D | testing |  |
+| `center` | центр [x, y, z], м - как `center_of_mass` в файле сцены и во всех стандартах 3D | stable |  |
 | `centre` | центр окружности или коробки рисунка [x, y, z], м | obsolete | `center` |
 | `choices` | слова, из которых выбирают | stable |  |
 | `command` | команда, которую вызывает кнопка панели | stable |  |
@@ -834,7 +834,7 @@ Python. Короткие имена параметров, которые дос�
 | `executable` | путь к программе `kinetica-core` | stable |  |
 | `fn` | функция, которую делают крючком | stable |  |
 | `g` | тяжесть [x, y, z], м/с² | obsolete | `gravity` |
-| `gravity` | тяжесть [x, y, z], м/с² - слово файла сцены | testing |  |
+| `gravity` | тяжесть [x, y, z], м/с² - слово файла сцены | stable |  |
 | `help` | справка для человека | stable |  |
 | `host` | адрес машины окна | stable |  |
 | `keep_children` | убрать объект, оставив вложенные | stable |  |
@@ -850,7 +850,7 @@ Python. Короткие имена параметров, которые дос�
 | `range` | предел значения [от, до] | stable |  |
 | `s` | размер мира [x, y, z], м | obsolete | `size` |
 | `seconds` | секунды | stable |  |
-| `substeps` | подшагов физики на кадр - слово файла сцены | testing |  |
+| `substeps` | подшагов физики на кадр - слово файла сцены | stable |  |
 | `tags` | метки | stable |  |
 | `title` | заголовок панели, раздела или графика | stable |  |
 | `unit` | единица - для человека | stable |  |
