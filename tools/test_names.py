@@ -1,8 +1,10 @@
 """The names' contract (docs/contracts/names.md) held against the operations the editor has: tests/data/ops-list.json,
-the answer of ops_list recorded from the window by tools/record_window_transcript.py (whose --check keeps it current).
+the answer of ops_list recorded from the window by tools/record_window_transcript.py, and the answers that recording
+holds (tests/data/window-transcript.jsonl) - its --check keeps both current.
 
 The registry only grows: every operation the editor has is in it, every name in it (but reserved) is still there,
-names follow the grammar, and every argument word is a row of the dictionary in its type. A new operation or a new
+names follow the grammar, every argument word is a row of the dictionary in its type and every answer key a row of
+its own. A new operation or a new
 word fails here until its row is written - the name is decided once, on purpose, and never changed after.
 
     cd tools && python3 -m unittest test_names
@@ -15,6 +17,7 @@ import unittest
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "docs", "contracts", "names.md")
 OPS = os.path.join(ROOT, "tests", "data", "ops-list.json")
+TRANSCRIPT = os.path.join(ROOT, "tests", "data", "window-transcript.jsonl")
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 TIERS = ("stable", "testing", "obsolete", "reserved")
 
@@ -50,7 +53,7 @@ class Names(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with open(DOC, encoding="utf-8") as f:
-            text = f.read()
+            text = cls.text = f.read()
         cls.areas = {r[0].strip("`") for r in rows(section(text, "4"))}
         cls.verbs = set(re.findall(r"`([a-z]+)`", [p for p in section(text, "5").split("\n\n") if p.strip()][-1]))  # its last paragraph
         cls.words = {}
@@ -92,6 +95,37 @@ class Names(unittest.TestCase):
         unknown = sorted({f"{w} ({kind(s)}) in {n}" for n, o in self.ops.items() for w, s in o["schema"].get("properties", {}).items()
                           if (w, kind(s)) not in self.words})
         self.assertEqual(unknown, [], f"argument words not in {DOC} section 6: write the row - its meaning, unit, tier - first")
+
+    def test_every_answer_key_is_a_word_of_the_registry(self):
+        keys = {r[0].strip("`"): r for r in rows(section(self.text, "8"))}
+        found = {}
+
+        def walk(value, op):
+            if isinstance(value, dict):
+                for key, inner in value.items():
+                    if key.isdigit():  # an id as a key: {"7": {...}}
+                        walk(inner, op)
+                        continue
+                    found.setdefault(key, set()).add(op)
+                    if key not in ("schema", "values"):  # JSON Schema's words; a plugin's fields
+                        walk(inner, op)
+            elif isinstance(value, list):
+                for inner in value:
+                    walk(inner, op)
+
+        with open(TRANSCRIPT, encoding="utf-8") as f:
+            for line in list(f)[1:]:
+                row = json.loads(line)
+                if "request" in row and "answer" in row:
+                    walk(row["answer"], row["request"]["op"])
+        unknown = sorted(f"{k} (in {', '.join(sorted(ops))})" for k, ops in found.items() if k not in keys)
+        self.assertEqual(unknown, [], f"answer keys not in {DOC} section 8: write the row - its meaning, unit, tier - first")
+        for key, row in keys.items():
+            self.assertRegex(key, NAME)
+            self.assertEqual(len(row), 4, f"answer key «{key}»: a row is key | meaning | tier | instead")
+            self.assertIn(row[2], TIERS, f"answer key «{key}»: no tier «{row[2]}»")
+            if row[2] == "obsolete":
+                self.assertIn(row[3].strip("`"), keys, f"answer key «{key}» is obsolete: its «instead» is a key of section 8")
 
     def test_dictionary_rows_are_well_formed(self):
         words = {w for w, _ in self.words}
