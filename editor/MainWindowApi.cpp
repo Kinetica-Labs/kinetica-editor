@@ -8,6 +8,7 @@
 #include "EditorServer.h"
 #include "MagnetController.h"
 #include "SceneBuilder.h"
+#include "SequencerPanel.h"
 #include "Viewport.h"
 
 #include <QDockWidget>
@@ -20,7 +21,10 @@
 
 void MainWindow::buildOperators() {
     ops_ = new EditorOps(builder_, view_, ctrl_.get(), this);
-    ops_->onRecordingChanged([this] { syncRecord(); }); // ■ Stop ends a take too: the record button goes out with it
+    ops_->onRecordingChanged([this] { // ■ Stop ends a take too, and the run's end: both record buttons go out with it
+        syncRecord();
+        if (sequencer_) sequencer_->sync();
+    });
     builder_->setCodeReporter([this](const QString& op, const QJsonObject& args) { ops_->report("ui", op, args); });
     connect(qApp, &QCoreApplication::aboutToQuit, this, [this] { ops_->endSession(); }); // a clean end: no crash offered next time
     connect(builder_, &SceneBuilder::fireForceRequested, this, [this](uint32_t id) { // a refusal goes to the status bar

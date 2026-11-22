@@ -145,7 +145,7 @@ void SimController::loop() {
             if (quit_) break;
             cmds.swap(queue_);
             if (const double end = endTime_; running_ && end > 0) { // the play range's end: reached once, then ▶ goes on
-                if (double(sim_->time()) < end - 1e-6) endArmed_ = true;
+                if (double(sim_->time()) < end - 0.5 * double(sim_->frameDt)) endArmed_ = true; // half a frame: the summed time drifts
                 else if (endArmed_) running_ = false, rangeEnded_ = true, endArmed_ = false;
             }
             if (running_) doStep = true;

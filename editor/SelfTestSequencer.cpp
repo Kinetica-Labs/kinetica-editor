@@ -220,7 +220,7 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     pump(200); // would go on, were it not stopped
     const double stood = worldTime();
     std::printf("  «До» 0.5 s and ▶: the run %s at %.3f s\n", paused ? "paused" : "DID NOT PAUSE", stood);
-    c.check(set && paused && stood > 0.49 && stood < 0.52, "▶ runs to the play range's end and stays paused on that frame");
+    c.check(set && paused && stood > 0.49 && stood < 0.505, "▶ runs to the play range's end and stays paused on that frame, not one past it");
     const auto x = [&](double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width(), panel->atLeast()).x(t); };
     mouse(timeline, QEvent::MouseButtonPress, QPointF(x(0.2), 8)), mouse(timeline, QEvent::MouseButtonRelease, QPointF(x(0.2), 8));
     pump(60);
@@ -253,6 +253,8 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     pump(200);
     const QString said = w.statusBar()->currentMessage();
     const bool waits = !activeSequence(b.graph());
+    auto* panelRecord = panel->findChild<QToolButton*>("sequencerRecord");
+    c.check(panelRecord && !panelRecord->isChecked() && !panelRecord->text().contains("■"), "at «До» the Sequencer's record button goes out with the take");
     const QJsonObject second = ops->runNow("sim_record", {{"on", true}});
     std::printf("  «Запись» with «От» 0.3 s, «До» 0.5 s: %s at %.3f s - «%s»; another take: %s\n", closed ? "paused" : "DID NOT PAUSE", worldTime(),
                 qPrintable(said), qPrintable(second.value("error").toString()));
@@ -269,7 +271,7 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     const SequenceTrack* track = take ? trackOf(*take, cube) : nullptr;
     const double first = track && !track->keys.empty() ? double(track->keys.front().time) : -1, last = track && !track->keys.empty() ? double(track->keys.back().time) : -1;
     std::printf("  ■ Стоп: the take %s, the cube's keys %.3f..%.3f s\n", ended ? "came in" : "DID NOT COME", first, last);
-    c.check(ended && std::fabs(first - 0.3) < 0.01 && last > 0.45 && last < 0.52, "the take holds «От»..«До» only, at the world's time - not the run after it");
+    c.check(ended && std::fabs(first - 0.3) < 0.01 && last > 0.45 && last < 0.505, "the take holds «От»..«До» only, at the world's time - not the run after it");
     start->setValue(0);
     pump(60);
 
