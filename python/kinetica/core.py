@@ -30,7 +30,8 @@ def find_core(executable=None):
         return given
     here = os.path.dirname(os.path.abspath(__file__))
     beside = os.path.dirname(os.path.dirname(here))
-    places = [os.path.join(beside, EXE), os.path.join(beside, "build", EXE), os.path.join(beside, "build", "Release", EXE)]
+    places = [os.path.join(beside, EXE), os.path.join(beside, "build", EXE), os.path.join(beside, "build", "Release", EXE),
+              os.path.join(os.path.dirname(beside), "MacOS", EXE)]  # a macOS bundle: the package in Resources, the program in MacOS
     found = next((p for p in places if os.path.isfile(p)), None) or shutil.which(EXE)
     if not found:
         raise FileNotFoundError("kinetica-core is not built: run `cmake --build build --target kinetica-core`, or set "

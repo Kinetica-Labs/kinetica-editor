@@ -1,11 +1,13 @@
-# Сборка ядра и окна (Qt 6) на Linux (Ubuntu) и Windows, тесты ядра; на Linux - самотест окна под виртуальным экраном
-# и проверка абляции. Готовые программы для скачивания: Windows (kinetica.exe с Qt) и Linux - одна папка со всеми
-# библиотеками, собранная на Ubuntu 22.04 и запущенная на чистых 22.04 и 24.04 без Qt (снимок окна и вызов API).
+# Сборка ядра и окна (Qt 6) на Linux (Ubuntu), Windows и macOS, тесты ядра; на Linux - самотест окна под виртуальным
+# экраном и проверка абляции. Готовые программы для скачивания: Windows (kinetica.exe с Qt), Linux - одна папка со всеми
+# библиотеками, собранная на Ubuntu 22.04 и запущенная на чистых 22.04 и 24.04 без Qt (снимок окна и вызов API), и macOS -
+# kinetica.app. Тег v* - выпуск: когда всё зелёное, три архива уходят на страницу выпусков сами.
 name: CI
 
 on:
   push:
     branches: [main, dev]
+    tags: ["v*"]
   pull_request:
 
 jobs:
@@ -163,6 +165,72 @@ jobs:
         with:
           name: kinetica-linux-screenshot-${{ matrix.os }}
           path: ur5e-${{ matrix.os }}.png
+
+  macos:
+    name: macOS - программа kinetica.app
+    runs-on: macos-14 # Apple Silicon
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=ON -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+          cmake --build build --parallel 3 --target kinetica kinetica-core ke_tests
+      - name: Tests
+        run: build/ke_tests
+      - name: Python - ke.Scene() и kinetica-core
+        run: cd tools && python3 -m unittest test_scene_core test_examples
+      - name: Программа kinetica.app
+        run: |
+          version=$([[ "$GITHUB_REF" == refs/tags/v* ]] && echo "${GITHUB_REF_NAME#v}" || echo "0.0.0")
+          packaging/bundle-macos.sh build "${{ env.QT_ROOT_DIR }}/bin/macdeployqt" "$version"
+      - name: ke.Scene() из самой программы, без окна
+        run: python3 build/kinetica.app/Contents/Resources/examples/python/01_hello.py
+      - name: Снимок окна UR5e в игре (у машин CI бывает нет видеокарты - тогда шаг жёлтый, не красный)
+        continue-on-error: true
+        run: |
+          build/kinetica.app/Contents/MacOS/kinetica --scene build/kinetica.app/Contents/Resources/examples/ur5e.kscene \
+            --play --frames 120 --window --screenshot ur5e-macos.png
+          test -s ur5e-macos.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-macos
+          path: build/kinetica-macos.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kinetica-macos-screenshot
+          path: ur5e-macos.png
+          if-no-files-found: ignore
+
+  release:
+    name: Выпуск - архивы трёх систем
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, windows, linux-bundle, linux-clean, macos, ablation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Архивы
+        run: |
+          (cd artifacts && zip -qr ../kinetica-windows.zip kinetica-windows)
+          cp artifacts/kinetica-linux/kinetica-linux.tar.gz artifacts/kinetica-macos/kinetica-macos.zip .
+          ls -la kinetica-windows.zip kinetica-linux.tar.gz kinetica-macos.zip
+      - name: Выпуск на GitHub - слова выпуска из тега
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" kinetica-windows.zip kinetica-linux.tar.gz kinetica-macos.zip \
+            --repo "$GITHUB_REPOSITORY" --title "Kinetica Editor ${GITHUB_REF_NAME#v}" --notes-from-tag --verify-tag
 
   ablation:
     name: Только робототехника
