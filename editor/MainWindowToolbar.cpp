@@ -24,6 +24,7 @@
 #include <QLayout>
 #include <QMenu>
 #include <QMenuBar>
+#include <QProxyStyle>
 #include <QResizeEvent>
 #include <QStatusBar>
 #include <QToolBar>
@@ -274,6 +275,18 @@ void MainWindow::addSensorButton(QToolBar* tb) {
     createButtons_.push_back(sensors);
 }
 
+// A menu's icons at `size` px, not a menu's usual 16: a picture that differs from its neighbour by small marks.
+class MenuIcons : public QProxyStyle {
+public:
+    explicit MenuIcons(int size) : size_(size) {}
+    int pixelMetric(PixelMetric m, const QStyleOption* o, const QWidget* w) const override {
+        return m == PM_SmallIconSize ? size_ : QProxyStyle::pixelMetric(m, o, w);
+    }
+
+private:
+    int size_;
+};
+
 // "Сила ▾": the four forces, each added at once (over the selection, else at the scene's centre), like a sensor.
 void MainWindow::addForceButton(QToolBar* tb) {
     auto* forces = new QToolButton;
@@ -286,15 +299,19 @@ void MainWindow::addForceButton(QToolBar* tb) {
     forces->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(forces);
     menu->setToolTipsVisible(true);
+    auto* icons = new MenuIcons(28); // the four differ by small marks: at 16 px they are lost
+    icons->setParent(menu);
+    menu->setStyle(icons);
     struct Kind { const char* name; ke::ForceShape shape; ke::ForceMode mode; const char* text; };
     const Kind kinds[] = {
         {"addForcePush", ke::ForceShape::Directional, ke::ForceMode::Impulse, uiText("Kinetica", "Толчок")},
-        {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв")},
         {"addForceThrust", ke::ForceShape::Directional, ke::ForceMode::Constant, uiText("Kinetica", "Тяга")},
+        {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв")},
         {"addForcePull", ke::ForceShape::Radial, ke::ForceMode::Constant, uiText("Kinetica", "Притяжение")}};
-    const char* tips[] = {uiText("Kinetica", "Разовый импульс выбранному телу, Н·с"), uiText("Kinetica", "Разовый импульс от точки телам в радиусе, Н·с"),
-                          uiText("Kinetica", "Постоянная сила на выбранном теле, Н"), uiText("Kinetica", "Постоянная сила к точке на тела в радиусе, Н")};
-    for (int k = 0; k < 4; ++k) {
+    const char* tips[] = {uiText("Kinetica", "Разовый импульс выбранному телу, Н·с"), uiText("Kinetica", "Постоянная сила на выбранном теле, Н"),
+                          uiText("Kinetica", "Разовый импульс от точки телам в радиусе, Н·с"), uiText("Kinetica", "Постоянная сила к точке на тела в радиусе, Н")};
+    for (int k = 0; k < 4; ++k) { // on a body, then a field round a point
+        if (k == 2) menu->addSeparator();
         auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape, kinds[k].mode), 48), kinds[k].text);
         a->setObjectName(kinds[k].name);
         a->setToolTip(tips[k]);
