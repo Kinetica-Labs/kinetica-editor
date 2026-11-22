@@ -185,6 +185,7 @@ void ApiConsole::show(const QString& source, const QString& name, const QJsonObj
         return;
     }
     if (query && source != "console" && !queries_->isChecked()) return;
+    if (source == "api" && (name == "ui_pointer" || name == "ui_key" || name == "ui_type")) return; // an agent's hands: what they did has its own line
     if (EditorOps::wiring(name)) return; // a plugin's own wiring is no one's action
     const bool plugin = source.startsWith("plugin:");
     const QString who = source == "console" ? uiText("Kinetica", "вы") : source == "ui" ? uiText("Kinetica", "окно") : plugin ? uiText("Kinetica", "плагин ") + source.mid(7) : uiText("Kinetica", "агент");
