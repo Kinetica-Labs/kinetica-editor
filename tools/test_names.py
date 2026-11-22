@@ -3,8 +3,8 @@ the answer of ops_list recorded from the window by tools/record_window_transcrip
 holds (tests/data/window-transcript.jsonl) - its --check keeps both current.
 
 The registry only grows: every operation the editor has is in it, every name in it (but reserved) is still there,
-names follow the grammar, every argument word is a row of the dictionary in its type and every answer key a row of
-its own. A new operation or a new
+names follow the grammar, every argument word is a row of the dictionary in its type, every answer key a row of its
+own, and every word the scene file's reader knows (read off its code) a row of the scene's words. A new operation or a new
 word fails here until its row is written - the name is decided once, on purpose, and never changed after.
 
     cd tools && python3 -m unittest test_names
@@ -18,6 +18,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DOC = os.path.join(ROOT, "docs", "contracts", "names.md")
 OPS = os.path.join(ROOT, "tests", "data", "ops-list.json")
 TRANSCRIPT = os.path.join(ROOT, "tests", "data", "window-transcript.jsonl")
+READER = os.path.join(ROOT, "src", "scene", "SceneGraph.cpp")
+CONTROLS = os.path.join(ROOT, "src", "scene", "SceneOpsControllers.cpp")
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 TIERS = ("stable", "testing", "obsolete", "reserved")
 
@@ -126,6 +128,25 @@ class Names(unittest.TestCase):
             self.assertIn(row[2], TIERS, f"answer key «{key}»: no tier «{row[2]}»")
             if row[2] == "obsolete":
                 self.assertIn(row[3].strip("`"), keys, f"answer key «{key}» is obsolete: its «instead» is a key of section 8")
+
+    def test_every_word_the_scene_reader_knows_is_in_the_registry(self):
+        words = {r[0].strip("`"): r for r in rows(section(self.text, "9"))}
+        with open(READER, encoding="utf-8") as f:
+            code = re.sub(r"//[^\n]*", "", f.read())
+        known = set(re.findall(r'"([a-z][a-z0-9_]*)"', code))  # what it compares and the tables it reads and writes by
+        for literal in re.findall(r'<< "((?:[^"\\]|\\.)*)"', code):  # what it writes: "  collider kind "
+            known |= {w for w in literal.replace("\\n", " ").split() if NAME.match(w)}
+        with open(CONTROLS, encoding="utf-8") as f:  # the words of a controller's bindings: bind("gamepad", {"left_stick"})
+            for device, inputs in re.findall(r'bind\("([a-z0-9_]+)", \{([^}]*)\}', f.read()):
+                known |= {device} | {w for w in re.findall(r'"([a-z][a-z0-9_]*)"', inputs)}
+        unknown = sorted(known - set(words))
+        self.assertEqual(unknown, [], f"words of the scene file not in {DOC} section 9: write the row - where, meaning, tier - first")
+        for word, row in words.items():
+            self.assertRegex(word, NAME)
+            self.assertEqual(len(row), 5, f"scene word «{word}»: a row is word | where | meaning | tier | instead")
+            self.assertIn(row[3], TIERS, f"scene word «{word}»: no tier «{row[3]}»")
+            if row[3] == "obsolete":
+                self.assertIn(row[4].strip("`"), words, f"scene word «{word}» is obsolete: its «instead» is a word of section 9")
 
     def test_dictionary_rows_are_well_formed(self):
         words = {w for w, _ in self.words}

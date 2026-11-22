@@ -21,8 +21,8 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | 6. Расширения | имена плагинов | область плагина - его имя |
 
 Под замком - операции ядра и окна, слова их аргументов и ключи их ответов, какие держит запись окна
-(`tests/data/window-transcript.jsonl`). Слова файла сцены и имена пакета Python подчиняются тем же правилам и
-войдут в реестр следующими шагами.
+(`tests/data/window-transcript.jsonl`), и слова файла сцены. Имена пакета Python подчиняются тем же правилам и
+войдут в реестр следующим шагом.
 
 ## 0. Соглашения
 
@@ -388,3 +388,228 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `velocity` | скорость [x, y, z], м/с | stable |  |
 | `wheel` | колесо | stable |  |
 | `world` | правка изменила мир: тяжесть, физику | stable |  |
+
+## 9. Слова файла сцены
+
+Формат сцены - часть API ([operations](operations.md), «Гарантии»): строка на факт, первое слово - вид строки или
+её часть, дальше пары «ключ значения». Здесь каждое слово, которое знает чтение сцены (`src/scene/SceneGraph.cpp`), и
+слова привязок контроллера: вид строки, часть, ключ или слово-значение. Ключи паспорта датчика (`spec`) - столбцы
+таблиц `data/sensors/<вид>.csv` и живут по контракту [sensors](sensors.md); метки, имена действий и поля компонентов
+плагинов - слова пользователя и плагинов, не наши. Слово, которое в аргументах значит то же, пишется так же.
+
+| Слово | Где | Смысл, единица | Ступень | Вместо |
+|---|---|---|---|---|
+| `a` | link; bind | первое тело сустава; у привязки - кнопка A геймпада | stable |  |
+| `action` | часть | действие контроллера | stable |  |
+| `active` | lens, clip | у камеры - вид через неё; у секвенции - открыта в Секвенсоре | stable |  |
+| `against` | encoder | id тела, относительно которого считает | stable |  |
+| `anchor_a` | link | точка сустава в осях тела a, м | stable |  |
+| `anchor_b` | link | точка сустава в осях тела b, м | stable |  |
+| `angular_damping` | physics, rigid | затухание вращения, 1/с | stable |  |
+| `angular_velocity` | rigid | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | testing |  |
+| `array` | строка | массив копий шаблона | stable |  |
+| `auto` | collider | форма коллайдера по форме тела | stable |  |
+| `axis` | action | вид действия: одно число -1..1 | stable |  |
+| `b` | link | второе тело сустава - опора; 0 - мир | stable |  |
+| `baseline` | stereo | база стереокамеры, м | stable |  |
+| `battery` | строка; bridge | батарея; у драйвера - его батарея | stable |  |
+| `bind` | часть | привязка действия к устройству ввода | stable |  |
+| `box` | shape, collider | коробка | stable |  |
+| `brake` | bridge | торможение: обмотка замкнута | stable |  |
+| `bridge` | часть | мост драйвера: сустав, батарея, скважность | stable |  |
+| `bump` | texture | высота рельефа, м | stable |  |
+| `button` | action | вид действия: кнопка | stable |  |
+| `c1` | cells | ёмкость RC-звена, Ф | stable |  |
+| `camera` | строка; target | камера; у target - чья это цель | stable |  |
+| `capacity` | cells | ёмкость, А·ч | stable |  |
+| `capsule` | collider | капсула | stable |  |
+| `cells` | часть | банки батареи и их модель | stable |  |
+| `center_of_mass` | rigid | центр масс в осях тела, м | stable |  |
+| `checker` | texture | шахматка | stable |  |
+| `circle` | pattern | копии по кругу | stable |  |
+| `clip` | часть | секвенция целиком: время, круг, проигрывание | stable |  |
+| `coast` | bridge | выбег: мотор отпущен | stable |  |
+| `collide` | часть | тела сустава сталкиваются между собой | stable |  |
+| `collider` | часть | коллайдер: форма контакта | stable |  |
+| `color` | pose, shape | цвет [r, g, b], 0-1 | stable |  |
+| `component` | часть | компонент плагина `плагин.имя` и его поля - слова плагина | stable |  |
+| `cone` | shape; kind | конус; у прожектора - угол конуса, градусы | stable |  |
+| `constant` | effect; dcmotor | постоянная сила; у мотора - постоянная, Н·м/А | stable |  |
+| `contact_damping` | physics | демпфирование контакта, доля критического | stable |  |
+| `contact_hertz` | physics | жёсткость контакта, Гц | stable |  |
+| `continuous` | physics | непрерывный поиск столкновений | stable |  |
+| `controller` | строка | контроллер: действия и привязки к клавишам, мыши, геймпаду | stable |  |
+| `count` | pattern | копий по x, y, z | stable |  |
+| `cutoff` | cells | напряжение отсечки банки, В | stable |  |
+| `cylinder` | shape, collider | цилиндр | stable |  |
+| `damping` | drive, spring | демпфирование, Н·м·с/рад или Н·с/м | stable |  |
+| `dcmotor` | часть | мотор постоянного тока | stable |  |
+| `density` | rigid | плотность, кг/м³ | stable |  |
+| `directional` | effect | поле одного направления | stable |  |
+| `dof` | sensor, bridge, action | степень свободы: tx, ty, tz, rx, ry, rz | stable |  |
+| `drive` | часть; action | привод степени сустава; у действия - как оно ведёт привод | stable |  |
+| `driver` | строка | драйвер мотора (H-мост) | stable |  |
+| `duration` | world | время проигрывания, с; 0 - без конца | stable |  |
+| `duty` | bridge; action | скважность моста -1..1; у действия - оно ведёт скважность драйвера | stable |  |
+| `effect` | часть | действие силы: форма поля, режим, сила | stable |  |
+| `effector` | goal | id эффектора, чья это цель | stable |  |
+| `effort` | датчик | датчик усилия в суставе | stable |  |
+| `encoder` | датчик | энкодер | stable |  |
+| `end` | строка | конец блока | stable |  |
+| `entity` | строка | форма - тело, коллайдер, цель, путь | stable |  |
+| `falloff` | effect | спад силы с расстоянием | stable |  |
+| `far` | lens | дальше не видит, м | stable |  |
+| `file` | shape, texture | файл: сетка OBJ/STL, картинка текстуры | stable |  |
+| `fit` | collider | коллайдер по форме сетки | stable |  |
+| `fixed` | rigid | тело стоит на месте | stable |  |
+| `flip` | dcmotor | мотор колеса крутит в обратную сторону | stable |  |
+| `force` | строка; drive | сила сцены; у привода - предельная сила или момент, Н или Н·м | stable |  |
+| `fov` | lens, stereo | угол обзора по вертикали, градусы | stable |  |
+| `frame_a` | link | поворот осей сустава в теле a, градусы | stable |  |
+| `frame_b` | link | поворот осей сустава в теле b, градусы | stable |  |
+| `free` | часть | свободная степень сустава | stable |  |
+| `friction` | rigid, tyre | коэффициент трения | stable |  |
+| `gamepad` | bind | геймпад | stable |  |
+| `glued` | часть | группа склеена: двигается целиком | stable |  |
+| `goal` | часть | цель обратной кинематики: чей эффектор | stable |  |
+| `gravity` | world | ускорение тяжести [x, y, z], м/с² | stable |  |
+| `gravity_scale` | rigid | доля тяжести, что действует на тело | stable |  |
+| `grid` | pattern | копии сеткой | stable |  |
+| `grip` | action | открывает и закрывает схват | stable |  |
+| `group` | строка | группа объектов | stable |  |
+| `height` | stereo | высота кадра, пикселей | stable |  |
+| `height_file` | texture | файл карты высот | stable |  |
+| `hull` | collider | выпуклая оболочка сетки | stable |  |
+| `id` | object | id объекта | stable |  |
+| `ignores` | часть | метки того, с чем у коллайдера нет контакта | stable |  |
+| `image` | texture | картинка из файла | stable |  |
+| `impulse` | effect | толчок - один раз | stable |  |
+| `imu` | датчик | инерциальный: акселерометр и гироскоп | stable |  |
+| `inertia` | rigid | тензор инерции: диагональ и произведения, кг·м² | stable |  |
+| `instance` | object | копия чьего шаблона | stable |  |
+| `intensity` | kind | яркость света | stable |  |
+| `interp` | key | интерполяция: step, linear, smooth | stable |  |
+| `inverse_square` | effect | спад по обратному квадрату | stable |  |
+| `invert` | bind | обратное направление | stable |  |
+| `jitter` | pattern | случайный разброс положения, м | stable |  |
+| `jog` | action | привод сустава, пока держат | stable |  |
+| `joint` | строка; bridge | сустав; у драйвера - его сустав | stable |  |
+| `joint_damping` | physics | демпфирование суставов, доля критического | stable |  |
+| `joint_hertz` | physics | жёсткость суставов, Гц | stable |  |
+| `key` | часть | ключ дорожки: время, положение, поворот | stable |  |
+| `keys` | bind | клавиатура: имена клавиш Qt | stable |  |
+| `kind` | часть | вид: коллайдера, текстуры, света | stable |  |
+| `kinematic` | rigid | тело ведут ключи и код | stable |  |
+| `left` | bind | левая кнопка мыши | stable |  |
+| `left_stick` | bind | левый стик геймпада | stable |  |
+| `lens` | часть | объектив камеры | stable |  |
+| `lift` | action | ведёт цель вверх и вниз | stable |  |
+| `light` | строка | свет | stable |  |
+| `limit` | часть; bridge | ограниченная степень сустава; у драйвера - предел тока, А | stable |  |
+| `line` | pattern | копии в ряд | stable |  |
+| `linear` | effect | спад линейный | stable |  |
+| `linear_damping` | physics, rigid | затухание скорости, 1/с | stable |  |
+| `lines` | encoder | линий на оборот | stable |  |
+| `link` | часть | что сустав связывает: тела a, b и их точки | stable |  |
+| `locked` | object | заперт от правки мышью | stable |  |
+| `loop` | path, clip | по кругу | stable |  |
+| `lower` | limit | нижний предел, рад или м | stable |  |
+| `mass` | rigid, tyre | масса, кг | stable |  |
+| `mesh` | shape | сетка из файла | stable |  |
+| `mode` | effect | режим силы: impulse или constant | stable |  |
+| `model` | часть | модель датчика - строка его таблицы `data/sensors/<вид>.csv` | stable |  |
+| `mouse` | bind | мышь | stable |  |
+| `near` | lens | ближе не видит, м | stable |  |
+| `noise` | sensor | показания с шумом паспорта | stable |  |
+| `none` | texture; effect | без текстуры; у силы - без спада | stable |  |
+| `normal_file` | texture | файл карты нормалей, зелёный вверх | stable |  |
+| `object` | часть; target, track | id и флаги объекта; у target и track - id объекта | stable |  |
+| `offset` | collider | смещение от центра тела, м | stable |  |
+| `opacity` | shape | непрозрачность 0-1 | stable |  |
+| `parallel` | cells | банок параллельно | stable |  |
+| `parent` | object | id родителя | stable |  |
+| `path` | часть | путь цели: скорость, круг, сглаживание | stable |  |
+| `pattern` | часть | раскладка массива | stable |  |
+| `physics` | строка | настройки решателя физики | stable |  |
+| `plane` | shape; action | плоскость; у действия - ведёт цель по плоскости | stable |  |
+| `play` | clip | ▶ проигрывает секвенцию | stable |  |
+| `point` | kind | лампа - во все стороны | stable |  |
+| `pose` | часть | положение, поворот и цвет объекта | stable |  |
+| `position` | pose, shape, key | где, м | stable |  |
+| `projector` | stereo | у камеры проектор узора | stable |  |
+| `r0` | cells | внутреннее сопротивление, Ом | stable |  |
+| `r1` | cells | сопротивление RC-звена, Ом | stable |  |
+| `radial` | effect | поле от центра или к центру | stable |  |
+| `radius` | pattern, effect, tyre | радиус, м | stable |  |
+| `range` | kind | дальность света, м | stable |  |
+| `reference` | encoder | координата сустава при нулевом счёте, рад или м | stable |  |
+| `repeats` | texture | повторов на метр | stable |  |
+| `resistance` | dcmotor | сопротивление обмотки, Ом | stable |  |
+| `rest` | spring | длина пружины без нагрузки, м | stable |  |
+| `restitution` | rigid | упругость удара 0-1 | stable |  |
+| `right_trigger` | bind | правый курок | stable |  |
+| `right_x` | bind | правый стик по x | stable |  |
+| `right_y` | bind | правый стик по y | stable |  |
+| `rigid` | часть | твёрдое тело: масса, трение, скорость | stable |  |
+| `rolling` | tyre | коэффициент сопротивления качению | stable |  |
+| `rotation` | pose, shape, collider, key | поворот углами Эйлера, градусы | stable |  |
+| `rotation_step` | pattern | поворот от копии к копии, градусы | stable |  |
+| `rx` | степень | поворот вокруг x | stable |  |
+| `ry` | степень | поворот вокруг y | stable |  |
+| `rz` | степень | поворот вокруг z | stable |  |
+| `scene` | заголовок | первая строка файла: `# Kinetica scene` | stable |  |
+| `seed` | pattern, sensor | зерно случайности | stable |  |
+| `sensor` | строка | датчик | stable |  |
+| `sequence` | строка | секвенция - анимация по ключам | stable |  |
+| `series` | cells | банок последовательно | stable |  |
+| `shadows` | kind | свет отбрасывает тени | stable |  |
+| `shape` | часть; effect | форма и её размер; у силы - направленная или радиальная | stable |  |
+| `size` | world, shape, collider | полные размеры [x, y, z], м | stable |  |
+| `sleeping` | physics | тела засыпают | stable |  |
+| `smooth` | path; interp | сгладить путь; плавная интерполяция ключа | stable |  |
+| `soc` | cells | заряд 0-1 | stable |  |
+| `softness` | kind | мягкость края конуса, градусы | stable |  |
+| `sonar` | датчик | ультразвуковой дальномер | stable |  |
+| `spec` | часть | паспорт датчика - ключи столбцов его таблицы (контракт sensors) | stable |  |
+| `speckle` | texture | крапинка | stable |  |
+| `speed` | path; action | скорость: пути, м/с; действия, м/с или рад/с | stable |  |
+| `sphere` | shape, collider | шар | stable |  |
+| `spin` | rigid | угловая скорость [x, y, z], рад/с | obsolete | `angular_velocity` |
+| `spot` | kind | прожектор - конусом | stable |  |
+| `spring` | часть | пружина подвески | stable |  |
+| `start` | effect | когда толчок, с | stable |  |
+| `step` | pattern; interp | шаг между копиями, м; ступенчатая интерполяция ключа | stable |  |
+| `stereo` | датчик | стереокамера | stable |  |
+| `stiffness` | drive, spring | жёсткость, Н·м/рад или Н/м | stable |  |
+| `stone` | texture | камень | stable |  |
+| `stop` | bridge | как мост стоит при нуле: coast или brake | stable |  |
+| `strength` | effect | сила поля: м/с у толчка, м/с² у постоянной | stable |  |
+| `substeps` | physics | подшагов решателя на кадр | stable |  |
+| `sun` | kind | солнце - свет издалека | stable |  |
+| `switches` | bridge | сопротивление ключей моста, Ом | stable |  |
+| `tag` | effect | на тела с этой меткой; пусто - на все | stable |  |
+| `tags` | часть | метки объекта | stable |  |
+| `target` | часть; drive; action | у камеры - на что смотрит; у привода - уставка, рад или м; у действия - объект | stable |  |
+| `template` | pattern | id шаблона массива | stable |  |
+| `texture` | часть | текстура формы | stable |  |
+| `time` | clip, key | время, с | stable |  |
+| `toggle` | bind | нажатие переключает | stable |  |
+| `touch` | датчик | датчик касания | stable |  |
+| `track` | часть | дорожка секвенции - объект | stable |  |
+| `trigger` | collider | только замечает касание, не толкает | stable |  |
+| `turn` | path, waypoint; action | у пути - метров на радиан поворота; у точки - поворот, градусы; у действия - поворачивает цель | stable |  |
+| `tx` | степень | сдвиг по x | stable |  |
+| `ty` | степень | сдвиг по y | stable |  |
+| `tyre` | часть | шина колеса | stable |  |
+| `tz` | степень | сдвиг по z | stable |  |
+| `unsprung` | tyre | неподрессоренная масса, кг | stable |  |
+| `upper` | limit | верхний предел, рад или м | stable |  |
+| `vector2` | action | вид действия: два числа x, y | stable |  |
+| `velocity` | rigid, key; drive | скорость [x, y, z], м/с; у привода - уставка скорости, рад/с или м/с | stable |  |
+| `visible` | object | виден | stable |  |
+| `voltage` | dcmotor | напряжение, В | stable |  |
+| `waypoint` | часть | точка пути [x, y, z], м, и поворот | stable |  |
+| `wheel` | строка | колесо | stable |  |
+| `width` | stereo; tyre | ширина кадра, пикселей; у шины - ширина, м | stable |  |
+| `world` | строка | мир: тяжесть, размер, время проигрывания | stable |  |
+| `wrench` | датчик | датчик силы и момента | stable |  |
