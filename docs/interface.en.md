@@ -2,6 +2,10 @@
 
 [Русский](interface.md) · **English**
 
+<video src="images/showcase.mp4" autoplay muted loop playsinline controls width="100%">
+<img src="images/showcase.gif" alt="The UR5e twirls the queen and mates, a ball on a pendulum breaks a tower of blocks">
+</video>
+
 An editor of robots: you assemble a mechanism from bodies, joints, motors and sensors, press <img src="images/ui/icons/play.png" height="22" alt=""> Play - and physics shows how it behaves.
 
 ![The Kinetica window with a UR5e arm](images/ui/en/window.png)

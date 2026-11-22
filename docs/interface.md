@@ -2,6 +2,10 @@
 
 **Русский** · [English](interface.en.md)
 
+<video src="images/showcase.mp4" autoplay muted loop playsinline controls width="100%">
+<img src="images/showcase.gif" alt="Рука UR5e крутит ферзя и ставит мат, шар на маятнике сносит башню из брусков">
+</video>
+
 Редактор роботов: вы собираете механизм из тел, суставов, моторов и датчиков, нажимаете <img src="images/ui/icons/play.png" height="22" alt=""> «Пуск» — и физика показывает, как он себя поведёт.
 
 ![Окно Kinetica с рукой UR5e](images/ui/ru/window.png)

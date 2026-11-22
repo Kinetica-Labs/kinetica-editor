@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <img src="docs/images/showcase.gif" alt="Рука UR5e берёт куб, шар на маятнике сносит башню из брусков: формулы, текстуры и свет в одной сцене" width="640">
+  <img src="docs/images/showcase.gif" alt="Рука UR5e крутит ферзя кистью и ставит мат, шар на маятнике сносит башню из брусков: формулы, текстуры и свет в одной сцене" width="640">
 </p>
 
 # Kinetica Editor

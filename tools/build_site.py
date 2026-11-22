@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The guide as a site of plain files, ready for any static hosting (GitHub Pages): docs/site/guide.html made a whole
-page, the guide's Markdown it reads and the pictures beside it::
+page, the guide's Markdown it reads, the pictures beside it and the film at its head::
 
     python3 tools/build_site.py [folder]     # build/site by default
 
@@ -34,6 +34,8 @@ def build(out):
     for name in ("interface.md", "interface.en.md"):
         shutil.copy(os.path.join(DOCS, name), out)
     shutil.copytree(os.path.join(DOCS, "images", "ui"), os.path.join(out, "images", "ui"))
+    for name in ("showcase.mp4", "showcase.gif"):  # the film at the guide's head (tools/showcase_film.py) and its picture where no video plays
+        shutil.copy(os.path.join(DOCS, "images", name), os.path.join(out, "images"))
     open(os.path.join(out, ".nojekyll"), "w").close()
     walk = [(d, names) for d, _, names in os.walk(out) if os.sep + ".git" not in d + os.sep]
     files = sum(len(names) for _, names in walk)
