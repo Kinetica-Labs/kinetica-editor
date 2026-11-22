@@ -1,4 +1,4 @@
-"""The Python side of plugins (python/kinetica/plugin.py), without an editor: a command's fields become the schema the
+"""The Python side of plugins (clients/python/kinetica/plugin.py), without an editor: a command's fields become the schema the
 editor's form and MCP read (type, default, unit, range, choices, the label's words, in the function's order); a plain
 default is a field too; an error points at the author's file and line, not at the SDK's; the hooks of a run answer on
 their own wire (editor/RunHooks.h) - who the plugin is first, then play, every tick and stop in order, a tick's commands
@@ -10,7 +10,7 @@ import socket
 import sys
 import unittest
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "clients", "python"))
 from kinetica import plugin  # noqa: E402
 from kinetica.plugin import command, field, on_play, on_stop, on_tick, show, ui  # noqa: E402
 

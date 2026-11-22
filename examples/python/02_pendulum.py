@@ -9,7 +9,7 @@ import math
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "clients", "python"))
 import kinetica as ke  # noqa: E402
 
 LENGTH, ASIDE, HINGE = 1.0, math.radians(10), (0, 2, 0)

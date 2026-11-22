@@ -6,7 +6,7 @@
 
 Плагин — один файл `plugin.py` в своей папке. Без сборки, без манифеста, только стандартная библиотека Python 3.
 Плагины проекта живут в отдельном репозитории **kinetica-plugins**; в редакторе — только хост
-(`editor/PluginHost.cpp`) и SDK (`python/kinetica/plugin.py`).
+(`editor/PluginHost.cpp`) и SDK (`clients/python/kinetica/plugin.py`).
 Каждая функция с `@command` становится командой редактора:
 
 - кнопкой в подменю **«Плагины → <имя плагина>»** (клавиша — если дадите свою и она свободна);
@@ -95,7 +95,7 @@ def lift(scene, height: float = field(0.1, unit="м", range=(-1.0, 1.0), label="
 (`plugin_register`, `plugin_wait`, `plugin_reply`, `plugin_panel_set`) не видна в `ops_list`, консоли, журнале и MCP:
 это не действие человека. Хуки запуска (`@on_play`, `@on_tick`, `@on_stop`) отвечают по своему проводу и в своём потоке
 (`editor/RunHooks.h`): такт идёт от симуляции к плагину и обратно, не дожидаясь окна. Код: `editor/PluginHost.cpp`
-(окно), `python/kinetica/plugin.py` (SDK).
+(окно), `clients/python/kinetica/plugin.py` (SDK).
 
 ## 4. Каждый кадр «Пуска»: контроллер или физика
 

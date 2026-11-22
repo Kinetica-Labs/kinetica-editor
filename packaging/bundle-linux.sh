@@ -16,7 +16,7 @@ export APPIMAGE_EXTRACT_AND_RUN=1 QMAKE="$qmake" PATH="$tools:$PATH" # no FUSE n
 rm -rf "$out"
 linuxdeploy-x86_64.AppImage --appdir "$out" --executable "$build/kinetica" --executable "$build/kinetica-core" --desktop-file packaging/kinetica.desktop \
   --icon-file resources/icons/kinetica-256.png --icon-filename kinetica --plugin qt
-cp -r examples python data "$out/usr/bin/" # the program looks next to itself for them
+cp -r examples clients data "$out/usr/bin/" # the program looks next to itself for them
 for p in plugins/*/plugin.py; do # the plugins that ship with the editor (plugins/urdf): its host scans the folder next to it
     mkdir -p "$out/usr/bin/plugins" && cp -r "$(dirname "$p")" "$out/usr/bin/plugins/"
 done

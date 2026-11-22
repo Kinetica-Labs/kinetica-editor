@@ -1,5 +1,5 @@
 #pragma once
-// The plugins' hooks of a run - on_play, on_tick, on_stop (python/kinetica/plugin.py) - over a wire and a thread of their
+// The plugins' hooks of a run - on_play, on_tick, on_stop (clients/python/kinetica/plugin.py) - over a wire and a thread of their
 // own, apart from the window's. The lockstep is a loop of the simulation and the controllers: the simulation's thread
 // hands a stepped frame's packet here (SimController::setLockstep), this thread writes it to every plugin's wire and
 // reads the answers, and their merged commands go back to the simulation's thread. The window's thread is not in the

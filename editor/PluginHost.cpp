@@ -693,7 +693,7 @@ void PluginHost::setToolChecked(const QString& op) {
 
 void PluginHost::addOps() {
     ops_->addOp("plugin_register", "A plugin started by the editor: its commands made operations, buttons of «Плагины» and tools for agents "
-                                   "(python/kinetica/plugin.py sends it)",
+                                   "(clients/python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
                 "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), components?: [{}], events?: [str] (change: it has an @on_change)}",
                 [this](const QJsonObject& a, const EditorOps::Reply& reply) {

@@ -29,7 +29,7 @@ def find_core(executable=None):
             raise FileNotFoundError(f"kinetica-core: no such executable file {given!r}" + (f" (from {KE_CORE})" if not executable else ""))
         return given
     here = os.path.dirname(os.path.abspath(__file__))
-    beside = os.path.dirname(os.path.dirname(here))
+    beside = os.path.dirname(os.path.dirname(os.path.dirname(here)))  # <root>/clients/python/kinetica: the sources or the program's folder
     places = [os.path.join(beside, EXE), os.path.join(beside, "build", EXE), os.path.join(beside, "build", "Release", EXE),
               os.path.join(os.path.dirname(beside), "MacOS", EXE)]  # a macOS bundle: the package in Resources, the program in MacOS
     found = next((p for p in places if os.path.isfile(p)), None) or shutil.which(EXE)

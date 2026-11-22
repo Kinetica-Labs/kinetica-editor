@@ -25,7 +25,7 @@ import sys
 import time
 
 EDITOR_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(EDITOR_DIR, "python"))  # the kinetica package: next to tools/ in the sources and in a release
+sys.path.insert(0, os.path.join(EDITOR_DIR, "clients", "python"))  # the kinetica package: next to tools/ in the sources and in a release
 from kinetica.client import DEFAULT_PORT, Client, OperationError as EditorError  # noqa: E402,F401
 
 

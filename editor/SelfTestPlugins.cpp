@@ -1,4 +1,4 @@
-// Plugins by hand (see SelfTest.h; the host: PluginHost.h, the Python side: python/kinetica/plugin.py): a plugin.py in a
+// Plugins by hand (see SelfTest.h; the host: PluginHost.h, the Python side: clients/python/kinetica/plugin.py): a plugin.py in a
 // folder of KE_PLUGINS starts and its commands come - a button of «Плагины» with its key; called, it lifts two selected
 // cubes with two edits and one Ctrl+Z takes both back; its button opens the form of its field and runs with the value
 // given; its panel - a tab of the inspector - runs it with the panel's field and shows the value it set; an error in a command answers with the author's file and line; the file saved, the plugin is back within a
@@ -587,7 +587,7 @@ class Watcher:
     QDir(folder + "/picker").removeRecursively();
 
     // The controller's template, as plugin_new writes it: the joint follows 0.3 sin(t) by its encoder.
-    QFile source(resourceDir("python") + "/kinetica/plugin_template_controller.py");
+    QFile source(resourceDir("clients/python") + "/kinetica/plugin_template_controller.py");
     source.open(QIODevice::ReadOnly);
     QDir().mkpath(folder + "/wave");
     write(folder + "/wave/plugin.py", QString::fromUtf8(source.readAll()).replace("PLUGIN_NAME", "wave"));

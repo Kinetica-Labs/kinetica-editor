@@ -1,6 +1,6 @@
 #pragma once
 // The API console - the editor's Info and Python line: every action is echoed as code. A typed line runs in a
-// Python process of its own (kinetica.console of python/kinetica, a Python of the system): the whole object
+// Python process of its own (kinetica.console of clients/python/kinetica, a Python of the system): the whole object
 // model - scene, scene.objects["Куб 1"].move(...), loops on one line - connected to this window over its
 // API, so the window stays a client and needs no Python inside; with no Python, a line is one call. Every call of the operator registry (EditorOps)
 // shows up as the Python line that makes it, whoever made it - an agent or a script over the network,

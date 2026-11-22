@@ -14,7 +14,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "python"))
+sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
 import kinetica as ke  # noqa: E402
 from kinetica.client import OperationError  # noqa: E402
 from kinetica.core import Core, find_core  # noqa: E402
@@ -89,7 +89,7 @@ class SceneCore(unittest.TestCase):
     def test_parent_death_ends_the_child(self):
         code = textwrap.dedent(f"""
             import os, sys
-            sys.path.insert(0, {os.path.join(ROOT, "python")!r})
+            sys.path.insert(0, {os.path.join(ROOT, "clients", "python")!r})
             import kinetica as ke
             scene = ke.Scene()
             print(scene._client._proc.pid, flush=True)
@@ -224,7 +224,7 @@ class SceneCore(unittest.TestCase):
     def test_a_scene_left_open_ends_with_its_script(self):
         code = textwrap.dedent(f"""
             import sys
-            sys.path.insert(0, {os.path.join(ROOT, "python")!r})
+            sys.path.insert(0, {os.path.join(ROOT, "clients", "python")!r})
             import kinetica as ke
             scene = ke.Scene()
             scene.add("box")

@@ -10,7 +10,7 @@ from the repository's root:
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "clients", "python"))
 import kinetica as ke  # noqa: E402
 
 STOP_AT, GAIN = 0.40, 4.0  # m before the wall; duty per metre left (the duty is held within -1..1)

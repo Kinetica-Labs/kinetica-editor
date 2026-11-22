@@ -81,7 +81,7 @@ jobs:
           New-Item -ItemType Directory dist | Out-Null
           Copy-Item build/Release/kinetica.exe, build/Release/kinetica-core.exe dist/
           windeployqt --release --no-translations dist/kinetica.exe
-          Copy-Item -Recurse examples, python, data dist/
+          Copy-Item -Recurse examples, clients, data dist/
           # The plugins that ship with the editor (plugins/urdf): its host scans the folder next to the program
           New-Item -ItemType Directory dist/plugins | Out-Null
           Get-ChildItem plugins -Directory | Where-Object { Test-Path "$($_.FullName)/plugin.py" } | ForEach-Object { Copy-Item -Recurse $_.FullName dist/plugins/ }
@@ -154,7 +154,7 @@ jobs:
       - name: ke.Scene() из самой папки, без окна
         run: |
           cd kinetica-linux/usr/bin
-          python3 -c "import sys; sys.path.insert(0, 'python'); import kinetica as ke; s = ke.Scene(); print(s.add('box').id); s.close()"
+          python3 -c "import sys; sys.path.insert(0, 'clients/python'); import kinetica as ke; s = ke.Scene(); print(s.add('box').id); s.close()"
           python3 examples/python/01_hello.py
       - name: API для скриптов и агентов
         run: |
@@ -179,8 +179,11 @@ jobs:
           version: "6.7.3"
           cache: true
       - name: Build
+        # Qt 6.7's FindWrapOpenGL links the AGL framework on Apple, and the new SDKs have none ("framework 'AGL' not
+        # found"): it is told AGL is OpenGL itself, so it looks for nothing else.
         run: |
-          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=ON -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=ON -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" \
+            -DWrapOpenGL_AGL="-framework OpenGL"
           cmake --build build --parallel 3 --target kinetica kinetica-core ke_tests
       - name: Tests
         run: build/ke_tests
@@ -239,6 +242,6 @@ jobs:
       - uses: actions/checkout@v4
       - name: Нет нежёсткой физики, Box3D только в плагине, ядро без Qt
         run: |
-          ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools python examples CMakeLists.txt ':!tests/AblationTests.cpp'
+          ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools clients examples CMakeLists.txt ':!tests/AblationTests.cpp'
           ! git grep -lI 'box3d/' -- src editor tests
           ! git grep -nIE '#include <Q' -- src

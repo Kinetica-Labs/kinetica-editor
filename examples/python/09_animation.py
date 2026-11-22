@@ -12,7 +12,7 @@ it from the repository's root:
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "clients", "python"))
 import kinetica as ke  # noqa: E402
 
 with ke.Scene() as scene:

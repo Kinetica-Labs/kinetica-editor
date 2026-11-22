@@ -4,16 +4,19 @@
 //
 //     node examples/js/hello.mjs
 //
-// It starts kinetica-core (KE_CORE, else build/kinetica-core of this tree - cmake --build build --target kinetica-core)
+// It starts kinetica-core (KE_CORE, else build/kinetica-core of this tree, build/Release on Windows - cmake --build build --target kinetica-core)
 // and talks on its stdin and stdout: a request a line {"id", "op", "args"}, an answer a line {"id", "result"}. What the
 // operations are and what they take: ops_list; the scene file's lines and keys: schema_get.
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 import { createInterface } from "node:readline";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const program = process.env.KE_CORE || path.join(here, "..", "..", "build", "kinetica-core" + (process.platform === "win32" ? ".exe" : ""));
+const exe = "kinetica-core" + (process.platform === "win32" ? ".exe" : "");
+const program = process.env.KE_CORE || [path.join(here, "..", "..", "build", exe), path.join(here, "..", "..", "build", "Release", exe)].find(existsSync);
+if (!program) throw new Error(`${exe} is not built: cmake --build build --target kinetica-core, or set KE_CORE`);
 const core = spawn(program, [], { stdio: ["pipe", "pipe", "inherit"] });
 const answers = createInterface({ input: core.stdout })[Symbol.asyncIterator]();
 let next = 0;

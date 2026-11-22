@@ -11,7 +11,7 @@ import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-sys.path.insert(0, os.path.join(ROOT, "python"))
+sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
 from kinetica.core import find_core  # noqa: E402
 
 

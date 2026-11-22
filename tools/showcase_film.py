@@ -28,7 +28,7 @@ import tempfile
 import time
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.insert(0, os.path.join(ROOT, "python"))
+sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
 import kinetica as ke  # noqa: E402
 
 FPS = 60

@@ -14,7 +14,7 @@ import math
 import os
 import sys
 
-sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "python"))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "clients", "python"))
 import kinetica as ke  # noqa: E402
 
 ARM, SIZE = 0.15, (0.3, 0.06, 0.3)  # a rotor's distance from the centre; the frame, m

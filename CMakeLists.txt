@@ -227,7 +227,7 @@ if(Qt6_FOUND)
     target_sources(kinetica PRIVATE resources/kinetica.rc)
   endif()
   target_link_libraries(kinetica PRIVATE kecore Qt6::Core Qt6::Gui Qt6::GuiPrivate Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Network)
-  # examples/, data/ and python/ of the source tree when the program runs from the build (MainWindow::resourceDir).
+  # examples/, data/ and clients/python/ of the source tree when the program runs from the build (resourceDir).
   target_compile_definitions(kinetica PRIVATE KE_SOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}")
   if(MSVC)
     target_compile_options(kinetica PRIVATE /W4 /utf-8)

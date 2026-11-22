@@ -13,7 +13,7 @@ app="$build/kinetica.app"
 rm -rf "$app" "$build/kinetica.iconset"
 mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
 cp "$build/kinetica" "$build/kinetica-core" "$app/Contents/MacOS/"
-cp -R examples python data "$app/Contents/Resources/"
+cp -R examples clients data "$app/Contents/Resources/"
 for p in plugins/*/plugin.py; do # the plugins that ship with the editor (plugins/urdf): its host scans the folder
     mkdir -p "$app/Contents/Resources/plugins" && cp -R "$(dirname "$p")" "$app/Contents/Resources/plugins/"
 done

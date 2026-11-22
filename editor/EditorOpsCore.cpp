@@ -1,6 +1,6 @@
 // The core's operations (ke::sceneOps - the API's core in kecore, src/scene/SceneOps.h) registered as the
 // editor's own: the scene's queries, its edits, the actions and the assembly. One name means one thing in
-// the window, in the console's Python (python/kinetica) and for an agent. The editor adds only what a window has: objects a call does not
+// the window, in the console's Python (clients/python/kinetica) and for an agent. The editor adds only what a window has: objects a call does not
 // name are the selection (an action's `ids`), a light goes over the selected object, a camera stands at
 // the view's eye; after an action the window selects what it answered (the new shape, the copies) and
 // says on its status line what the action switched on besides. Each edit is one undo step (transact).

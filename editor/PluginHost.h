@@ -1,5 +1,5 @@
 #pragma once
-// Plugins as processes (docs/contracts/editor-plugin.md, «Плагин-процесс»; the Python side: python/kinetica/plugin.py).
+// Plugins as processes (docs/contracts/editor-plugin.md, «Плагин-процесс»; the Python side: clients/python/kinetica/plugin.py).
 // A folder with a plugin.py in a plugins' folder - a plugins' repository added once (the project's kinetica-plugins:
 // Плагины → Добавить папку плагинов…), the user's own (<app data>/plugins), KE_PLUGINS - is started as a Python process
 // of its own, given the API's port and a token; plugins/ of the editor itself holds the ones that come with it (URDF). It

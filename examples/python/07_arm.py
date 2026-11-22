@@ -10,7 +10,7 @@ import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-sys.path.insert(0, os.path.join(HERE, "..", "..", "python"))
+sys.path.insert(0, os.path.join(HERE, "..", "..", "clients", "python"))
 import kinetica as ke  # noqa: E402
 
 OVER, ONTO, UP = 0.25, 0.115, 0.30  # the hand's height over the floor: above the cube, around it, lifted; m

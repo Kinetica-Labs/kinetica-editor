@@ -22,7 +22,7 @@ OPS = os.path.join(ROOT, "tests", "data", "ops-list.json")
 TRANSCRIPT = os.path.join(ROOT, "tests", "data", "window-transcript.jsonl")
 READER = os.path.join(ROOT, "src", "scene", "SceneGraph.cpp")
 CONTROLS = os.path.join(ROOT, "src", "scene", "SceneOpsControllers.cpp")
-PACKAGE = ("scene", "objects", "plugin", "client", "core")  # the modules of python/kinetica whose names are its API
+PACKAGE = ("scene", "objects", "plugin", "client", "core")  # the modules of clients/python/kinetica whose names are its API
 NAME = re.compile(r"[a-z][a-z0-9_]*\Z")
 TIERS = ("stable", "testing", "obsolete", "reserved")
 
@@ -158,7 +158,7 @@ class Names(unittest.TestCase):
         own = {r[0].strip("`"): r for r in rows(words_text)}
         public, keywords = set(), {}
         for module in PACKAGE:
-            with open(os.path.join(ROOT, "python", "kinetica", module + ".py"), encoding="utf-8") as f:
+            with open(os.path.join(ROOT, "clients", "python", "kinetica", module + ".py"), encoding="utf-8") as f:
                 tree = ast.parse(f.read())
             for node in tree.body:
                 if not isinstance(node, (ast.FunctionDef, ast.ClassDef)) or (node.name.startswith("_") and node.name != "_Draw"):
