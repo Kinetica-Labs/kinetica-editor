@@ -378,8 +378,8 @@ void SceneBuilder::play() {
     const Mode was = doc_.mode;
     if (editing() && !loadIntoSimulation()) return;
     ctrl_->setEndTime(playEnd());
-    ctrl_->setRunning(true);
-    setMode(Mode::Playing, was);
+    setMode(Mode::Playing, was); // first: the plugins' lockstep is set on it (the frame the run starts from handed over
+    ctrl_->setRunning(true);     // first), so the simulation's thread steps no frame before the controllers have it
 }
 
 // The run's end reached (SimController::rangeEnded; the simulation has stopped itself on that frame): the scene stays

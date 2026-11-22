@@ -100,12 +100,14 @@ from kinetica.plugin import on_play, on_stop, on_tick
 
 ticks = 0
 last = 0  # when the last tick was answered, ms of the wall clock
+frames = []  # the frame each tick's encoder reading is of (the frame the run starts from, none yet: its -1 ns rounds to 0)
 
 
 @on_play
 def start(scene):
     global ticks
     ticks = 0
+    frames.clear()
 
 
 @on_tick(world=True)
@@ -118,6 +120,7 @@ def control(scene, dt, sensors):
     global ticks, last
     ticks += 1
     last = int(time.time() * 1000)
+    frames.extend(round(s["sample_ns"] * 60e-9) for s in sensors.values() if s["kind"] == "encoder")
     if ticks == 5:
         kinds = sorted(s["kind"] for s in sensors.values())
         print("seen", kinds, "truth" in str(sensors))
@@ -127,6 +130,7 @@ def control(scene, dt, sensors):
 @on_stop
 def stop(scene):
     print("ticks", ticks)
+    print("frames", frames[:6], frames == list(range(len(frames))) and len(frames) > 10)
     print("last", last)
 )py").replace("CUBE", QString::number(cube)).replace("JOINT", QString::number(joint)));
     QStringList printed;
@@ -152,7 +156,7 @@ def stop(scene):
     b.stop();
     const bool told = waitUntil([&] { return printed.filter("last ").size() > 0; }, 5000);
     QObject::disconnect(heard);
-    const QString seen = printed.filter("seen").value(0), counted = printed.filter("ticks").value(0);
+    const QString seen = printed.filter("seen").value(0), counted = printed.filter("ticks").value(0), frames = printed.filter("frames").value(0);
     const qint64 last = printed.filter("last ").value(0).mid(5).toLongLong();
     // The lines the run added - those after the last one seen before it (the journal shows its last 500, so their
     // number says nothing once it is full): the run's own time, the window's selection and the journal's own snapshot
@@ -172,6 +176,18 @@ def stop(scene):
     c.check(std::fabs(angle - 0.5f) < 0.05f && seen.contains("encoder") && seen.endsWith("False"),
             "a controller's on_tick sees its encoder's reading, not the truth, and turns the servo by its command");
     c.check(told && counted == "ticks 61", "the lockstep: one tick a frame - the starting one too -, before the next is stepped");
+    c.check(frames.endsWith("True"), "sim_step's run: the ticks see the frame it starts from, then each frame once, in order");
+    // ▶ as a person presses it: the same - the frame it starts from first, no frame twice, none passed (the lockstep is set
+    // before the simulation's thread is let run: a run repeats exactly)
+    printed.clear();
+    const auto heardPlay = QObject::connect(host, &PluginHost::output, [&printed](const QString&, const QString& line) { printed << line; });
+    b.play();
+    pump(500);
+    b.stop();
+    const bool toldPlay = waitUntil([&] { return printed.filter("frames").size() > 0; }, 5000);
+    QObject::disconnect(heardPlay);
+    std::printf("  ▶ with the run's hooks: %s\n", qPrintable(printed.filter("frames").value(0)));
+    c.check(toldPlay && printed.filter("frames").value(0).endsWith("True"), "▶: the ticks see the frame the run starts from, then each frame once, in order");
     c.check(last > 0 && last <= awake, "the lockstep does not pass through the window's thread: every tick answered while it slept");
     c.check(lines && std::fabs(after - authored) < 1e-6f, "Stop: the scene as authored, no journal line of what the ticks did");
     QDir(folder + "/ticker").removeRecursively();
