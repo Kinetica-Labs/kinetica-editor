@@ -48,6 +48,7 @@ void History::cut(size_t keep) {
 
 SceneGraph floorScene(uint32_t floorId) {
     SceneGraph g;
+    g.world.duration = 10; // a new scene's play range, seen on the ruler from its first minute: ▶ and a take end there
     Entity floor;
     floor.id = floorId;
     floor.name = "Пол";

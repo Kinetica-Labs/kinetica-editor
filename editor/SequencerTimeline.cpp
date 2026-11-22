@@ -283,7 +283,8 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
         p.drawLine(QPointF(x, 0), QPointF(x, height()));
         p.fillRect(QRectF(x - 9, 3, 9, 13), kEnd); // its handle on the ruler, a flag over the range: dragged, the end moves
     }
-    if (const double from = flagDrag_ >= 0 && dragFrom_ ? flagDrag_ : double(g.world.recordFrom); from > 0) { // the take's start: before it nothing is kept
+    { // the take's start, at 0 too - its flag is there to be dragged: before it nothing is kept
+        const double from = flagDrag_ >= 0 && dragFrom_ ? flagDrag_ : double(g.world.recordFrom);
         const double x = a.x(from), zero = a.x(0);
         p.fillRect(QRectF(zero, 0, x - zero, height()), QColor(0, 0, 0, 50));
         p.setPen(QPen(kEnd, 2));
@@ -355,11 +356,11 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
     if (e->button() != Qt::LeftButton) return;
     const QPointF at = e->position();
     const ke::SceneGraph& g = panel_->builder()->graph();
-    if (at.y() < kRuler) { // a flag taken by its handle: the end's left of its line, the start's right of it
-        const Axis a = axisOf(ke::activeSequence(g), width(), panel_->atLeast());
-        const double end = double(g.world.duration), from = double(g.world.recordFrom);
-        if (end > 0 && std::fabs(at.x() + 3 - a.x(end)) <= 8) return void((flagDrag_ = end, dragFrom_ = false));
-        if (from > 0 && std::fabs(at.x() - 3 - a.x(from)) <= 8) return void((flagDrag_ = from, dragFrom_ = true));
+    if (at.y() < kRuler) { // a flag taken by its box: the end's left of its line, the start's right of it - the line itself
+        const Axis a = axisOf(ke::activeSequence(g), width(), panel_->atLeast()); // and the ruler around it move the playhead
+        const double end = double(g.world.duration), from = double(g.world.recordFrom), xe = a.x(end), xf = a.x(from);
+        if (end > 0 && at.x() >= xe - 11 && at.x() < xe) return void((flagDrag_ = end, dragFrom_ = false));
+        if (at.x() > xf && at.x() <= xf + 11) return void((flagDrag_ = from, dragFrom_ = true));
     }
     const int r = rowAt(at.y());
     uint32_t object = 0;

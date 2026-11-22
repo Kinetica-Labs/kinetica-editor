@@ -34,7 +34,7 @@ private:
 };
 
 // The scene of a new document: the floor alone (a collider, locked: clicks on it select nothing).
-SceneGraph floorScene(uint32_t floorId);
+SceneGraph floorScene(uint32_t floorId); // the floor alone, the play range 0..10 s
 
 // What edit_undo / edit_redo answer, without "ok": undone / redone, the ids that changed (a joint gone with its link
 // too), whether the world did, and how many steps are left.

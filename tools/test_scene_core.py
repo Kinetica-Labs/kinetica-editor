@@ -316,9 +316,10 @@ class SceneCore(unittest.TestCase):
                 scene.ed.relation_list(kind="parent")
 
     def test_the_play_range_is_a_word_of_the_world_line(self):
-        # scene.world.duration: where a window's play and take end; this host has no clock, so it only keeps the number
+        # scene.world.duration: where a window's play and take end - a new scene's is 10 s; this host has no clock, so it
+        # only keeps the number
         with ke.Scene() as scene:
-            self.assertEqual(scene.world.duration, 0)
+            self.assertEqual(scene.world.duration, 10)
             scene.world.duration = 2.5
             self.assertEqual(scene.world.duration, 2.5)
             self.assertIn(" duration 2.5", scene.ed.world_get()["text"])

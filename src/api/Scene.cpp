@@ -79,7 +79,7 @@ std::string unknown(const std::string& name) {
 
 const std::vector<HostOp>& hostOps() {
     static const std::vector<HostOp> ops = {
-        {"scene_new", "A new scene: the floor and nothing else", "{}", "edit"},
+        {"scene_new", "A new scene: the floor and nothing else, the play range 0..10 s (the world's duration)", "{}", "edit"},
         {"scene_open", "A scene file opened (one undo step back to the scene before)", "{file: str}", "edit"},
         {"scene_save", "The scene saved to a file", "{file: str}", "action"},
         {"edit_undo", "Undo the last step. Answers what it changed: the objects' ids, whether the world did; undone false: nothing left to undo", "{}", "edit"},

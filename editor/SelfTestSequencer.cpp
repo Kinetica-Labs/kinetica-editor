@@ -41,7 +41,10 @@ void mouse(QWidget* w, QEvent::Type type, const QPointF& p) {
 }
 
 // Where the views draw time t (SequencerViews.h, the axis they share).
-double xAt(QWidget* timeline, const SceneBuilder& b, double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width()).x(t); }
+double xAt(QWidget* timeline, const SceneBuilder& b, double t) { // as the view has it: the play range's end in sight
+    const SequencerPanel* panel = timeline->window()->findChild<SequencerPanel*>();
+    return sequencer::axisOf(activeSequence(b.graph()), timeline->width(), panel ? panel->atLeast() : 0).x(t);
+}
 
 // ◈ Auto Key: a hand's move or turn keys the object at the playhead, in the same undo step; the API and the preview do not.
 void autoKeyTests(QMainWindow& w, SceneBuilder& b, Checker& c) {
@@ -202,6 +205,8 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     if (!play || !record || !stop || !end) return void(c.check(false, "the Sequencer has the play range's field «До»"));
     const auto worldTime = [v] { return v->snapshot() ? double(v->snapshot()->time) : -1.0; };
     b.newScene();
+    c.check(b.graph().world.duration == 10 && b.graph().world.recordFrom == 0 && end->value() == 10,
+            "a new scene has its play range from the start: «От» 0, «До» 10 s, on the ruler");
     const uint32_t cube = made(b, b.createActions()[0]);
     b.editEntity(cube, [](Entity& e) { e.position = Vector3(0.0f, 1.0f, 0.0f), e.rigid.enabled = e.collider.enabled = true; });
     end->setValue(0.5);
