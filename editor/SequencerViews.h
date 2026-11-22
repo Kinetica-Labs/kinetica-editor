@@ -95,6 +95,7 @@ public:
     uint32_t object() const;        // the track shown: the selected object's, else the picked key's, else the first
     QPointF pointOf(size_t key, int channel) const; // where a key's channel is drawn (the self-test's hands)
     void fitValues() { valuesHeld_ = false, update(); } // the values fitted to the curve in sight again (F)
+    QPointF handleOf(size_t key, int channel, bool out) const; // where a key's Bezier handle is drawn; (-1, -1): none
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -112,6 +113,9 @@ private:
     double vAt(double y) const;
     void fitRange(const std::vector<ke::AnimKey>& keys);
     bool dotAt(const QPointF& at, size_t& key, int& channel) const;
+    // A key's Bezier handle on the place's curve: a third of the way to the neighbour key along the key's velocity
+    // (ke::keyVelocity) - its time and value; false: no neighbour that side, or the turn's curves.
+    bool handle(const std::vector<ke::AnimKey>& keys, size_t k, int channel, bool out, double& t, double& v) const;
 
     SequencerPanel* panel_;
     bool turn_ = false;             // the turn's curves (degrees), not the place's (m)
@@ -124,5 +128,8 @@ private:
     long dragKey_ = -1;
     int dragChannel_ = 0;
     QPointF pressAt_;
-    enum class Drag { None, Value, Time } drag_ = Drag::None;
+    enum class Drag { None, Value, Time, Handle } drag_ = Drag::None;
+    bool handleOut_ = false;        // the handle dragged is the one toward the next key
+    long picked_ = -1;              // the key whose handles are shown (an index of the track's keys; -1: none)
+    uint32_t pickedOf_ = 0;         // the track it is of
 };

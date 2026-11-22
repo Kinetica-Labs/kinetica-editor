@@ -596,6 +596,40 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 "F over the Sequencer shows the whole sequence again, the values fitted");
     }
 
+    { // Bezier handles: a third key at 4 s; the middle key clicked shows its two handles; the one toward the key before
+      // dragged down 30 px turns the slope through the key - the other handle mirrors it, the key stays, the segment before
+      // goes smooth with it -; one undo takes it all back.
+        call("scene_move", {{"ids", QJsonArray{int(cubes[3])}}, {"by", QJsonArray{0.0, 0.3, 0.0}}});
+        call("sequence_key", {{"ids", QJsonArray{int(cubes[3])}}, {"time", 4.0}});
+        pump(80);
+        const auto keysNow = [&b, &cubes] { return trackOf(*activeSequence(b.graph()), cubes[3])->keys; };
+        const std::vector<AnimKey> before = keysNow();
+        const double autoSlope = double(keyVelocity(before, 1).y);
+        const QPointF dot = curves->pointOf(1, 1);
+        mouse(curves, QEvent::MouseButtonPress, dot), mouse(curves, QEvent::MouseButtonRelease, dot);
+        pump(30);
+        const QPointF in = curves->handleOf(1, 1, false), out = curves->handleOf(1, 1, true);
+        mouse(curves, QEvent::MouseButtonPress, in), mouse(curves, QEvent::MouseMove, in + QPointF(0, 15));
+        mouse(curves, QEvent::MouseMove, in + QPointF(0, 30)), mouse(curves, QEvent::MouseButtonRelease, in + QPointF(0, 30));
+        pump(60);
+        const std::vector<AnimKey> after = keysNow();
+        const QPointF dot2 = curves->pointOf(1, 1), in2 = curves->handleOf(1, 1, false), out2 = curves->handleOf(1, 1, true);
+        const double slopeIn = (dot2.y() - in2.y()) / (dot2.x() - in2.x()), slopeOut = (out2.y() - dot2.y()) / (out2.x() - dot2.x());
+        b.undoAction()->trigger();
+        pump(60);
+        const std::vector<AnimKey> undone = keysNow();
+        std::printf("  Bezier handles of the key at 2 s: in %s, out %s; the in handle dragged down 30 px: velocity y %.3f m/s (auto %.3f), x %.3f; the "
+                    "handles' slopes %.3f and %.3f px/px; the key at y %.3f (was %.3f); the segment before %s; one undo: velocity of its own %s\n",
+                    in.x() >= 0 ? "yes" : "no", out.x() >= 0 ? "yes" : "no", double(after[1].velocity.y), autoSlope, double(after[1].velocity.x),
+                    slopeIn, slopeOut, double(after[1].position.y), double(before[1].position.y), interpName(after[0].interp),
+                    undone[1].hasVelocity ? "STILL" : "gone");
+        c.check(in.x() >= 0 && out.x() >= 0, "a key clicked on the curves shows its two Bezier handles");
+        c.check(after[1].hasVelocity && double(after[1].velocity.y) > autoSlope + 0.05 && std::fabs(double(after[1].velocity.x)) < 1e-6 &&
+                    std::fabs(slopeIn - slopeOut) < 0.02 && after[1].position.y == before[1].position.y && after[0].interp == AnimInterp::Smooth,
+                "a handle dragged turns the slope through the key: the other mirrors it, the key stays, the segment before goes smooth");
+        c.check(!undone[1].hasVelocity && undone[0].interp == before[0].interp, "one undo takes the handle's turn back");
+    }
+
     if (curvesButton) curvesButton->click();
     std::printf("  the curves of «%s»: its key at 2 s, y %.3f m, dragged up 40 px: %.3f m; one undo: %.3f m\n", findObject(b.graph(), cubes[3])->name.c_str(),
                 double(before), double(raised), double(lowered));

@@ -36,16 +36,11 @@ bool interpOf(const std::string& name, AnimInterp& i) {
     return false;
 }
 
-namespace {
-
-// The velocity a smooth key goes through: its own (recorded), else the slope between its neighbours, none at the ends.
-Vector3 slopeAt(const std::vector<AnimKey>& k, size_t i) {
+Vector3 keyVelocity(const std::vector<AnimKey>& k, size_t i) {
     if (k[i].hasVelocity) return k[i].velocity;
     if (i == 0 || i + 1 >= k.size()) return Vector3(0.0_r);
     return (k[i + 1].position - k[i - 1].position) / (k[i + 1].time - k[i - 1].time);
 }
-
-} // namespace
 
 bool samplePose(const std::vector<AnimKey>& k, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation) {
     if (k.empty()) return false;
@@ -59,8 +54,8 @@ bool samplePose(const std::vector<AnimKey>& k, Real time, bool loop, Real length
     const Real h = b.time - a.time, s = (time - a.time) / h;
     if (a.interp == AnimInterp::Smooth) { // Hermite: the cubic with the keys' velocities at its ends
         const Real s2 = s * s, s3 = s2 * s;
-        position = a.position * (2 * s3 - 3 * s2 + 1) + slopeAt(k, i) * (h * (s3 - 2 * s2 + s)) + b.position * (3 * s2 - 2 * s3) +
-                   slopeAt(k, i + 1) * (h * (s3 - s2));
+        position = a.position * (2 * s3 - 3 * s2 + 1) + keyVelocity(k, i) * (h * (s3 - 2 * s2 + s)) + b.position * (3 * s2 - 2 * s3) +
+                   keyVelocity(k, i + 1) * (h * (s3 - s2));
     } else
         position = a.position + (b.position - a.position) * s;
     rotation = slerp(turnOf(a.rotationDeg), turnOf(b.rotationDeg), s);

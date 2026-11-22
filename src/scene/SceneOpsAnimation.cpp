@@ -94,9 +94,11 @@ std::vector<SceneOp> animationSceneOps() {
         return r.set("sequence", int(q->id)), r.set("time", double(t)), r.set("length", double(q->length())), true;
     }, true});
     ops.push_back({"sequence_key_set", "The object's key at `time` changed: moved to new_time, its place or turn on the parent, how it goes on to "
-                                       "the next key (interp: linear, smooth - the cubic through the keys -, step - held); the bound objects then "
-                                       "stand where the sequence has them at its playhead. The Sequencer's curves",
-                   "{id: int, time: s, sequence?: int, new_time?: s, position?: [x,y,z], rotation?: [x,y,z], interp?: str}", {},
+                                       "the next key (interp: linear, smooth - the cubic through the keys -, step - held), its velocity - the "
+                                       "place's slope a smooth key goes through, m/s on the parent; its Bezier handles in the curves, the key ± "
+                                       "velocity × a third of the time to the neighbour; given, the key goes on smooth unless interp says else; "
+                                       "the bound objects then stand where the sequence has them at its playhead. The Sequencer's curves",
+                   "{id: int, time: s, sequence?: int, new_time?: s, position?: [x,y,z], rotation?: [x,y,z], velocity?: [x,y,z], interp?: str}", {},
                    [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         SequenceObject* q = sequenceArg(g, a, e);
         Real t = 0;
@@ -109,7 +111,9 @@ std::vector<SceneOp> animationSceneOps() {
             if (x.size() == 3) v = Vector3(Real(x[0].number(0)), Real(x[1].number(0)), Real(x[2].number(0)));
             return !a.has(name) || x.size() == 3;
         };
-        if (!vec("position", k->position) || !vec("rotation", k->rotationDeg)) return e = "position and rotation: [x, y, z]", false;
+        if (!vec("position", k->position) || !vec("rotation", k->rotationDeg) || !vec("velocity", k->velocity))
+            return e = "position, rotation and velocity: [x, y, z]", false;
+        if (a.has("velocity")) k->hasVelocity = true, k->interp = AnimInterp::Smooth; // a slope of its own: the cubic through it
         if (a.has("interp") && !interpOf(a["interp"].text(""), k->interp)) return e = "interp: linear, smooth or step", false;
         if (a.has("new_time")) {
             Value moved = Value::map();

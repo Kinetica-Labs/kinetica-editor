@@ -326,6 +326,18 @@ class SceneCore(unittest.TestCase):
             scene.world.duration = 0
             self.assertNotIn("duration", scene.ed.world_get()["text"])
 
+    def test_a_key_takes_its_slope(self):
+        # sequence_key_set velocity: the slope a smooth key goes through - its Bezier handles in the window's curves
+        with ke.Scene() as scene:
+            box = scene.add("box", position=(0, 1, 0))
+            scene.ed.sequence_key(ids=[box.id], time=0)
+            scene.ed.scene_move(ids=[box.id], by=[0, 1, 0])
+            scene.ed.sequence_key(ids=[box.id], time=2)
+            scene.ed.sequence_key_set(id=box.id, time=2, velocity=[0, 0.5, 0])
+            self.assertIn("key time 2 position 0 2 0 rotation 0 0 0 velocity 0 0.5 0 interp smooth", scene.ed.scene_get()["text"])
+            with self.assertRaisesRegex(ke.OperationError, "velocity"):
+                scene.ed.sequence_key_set(id=box.id, time=2, velocity=[1, 2])
+
     def test_the_take_starts_before_the_play_range_ends(self):
         # scene.world.record_from: where the window's take starts; never at or after the end, the refusal names both
         with ke.Scene() as scene:

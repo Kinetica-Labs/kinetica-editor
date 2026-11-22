@@ -2458,7 +2458,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="435"/>
-        <location filename="../editor/SequencerCurves.cpp" line="154"/>
+        <location filename="../editor/SequencerCurves.cpp" line="174"/>
         <location filename="../editor/ObjectInspector.cpp" line="61"/>
         <source>Поворот, °</source>
         <translation>Rotation, °</translation>
@@ -5238,24 +5238,24 @@ Sample </translation>
         <translation>Play the scene to see the robot&apos;s sensor reading and ground truth side by side.</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="132"/>
+        <location filename="../editor/SequencerCurves.cpp" line="152"/>
         <source>Здесь кривые дорожки: выделите объект, у которого есть ключи</source>
         <translation>Here are curved paths: highlight an object that has keys</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="146"/>
+        <location filename="../editor/SequencerCurves.cpp" line="166"/>
         <source>потерян</source>
         <translation>lost</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="154"/>
+        <location filename="../editor/SequencerCurves.cpp" line="174"/>
         <source>Место, м</source>
         <translation>Position, m</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="167"/>
-        <source>Колесо — время, Shift+колесо — значения, средняя кнопка — сдвиг, F — всё</source>
-        <translation>Wheel - time, Shift+wheel - values, middle button - move, F - all</translation>
+        <location filename="../editor/SequencerCurves.cpp" line="187"/>
+        <source>Щелчок по ключу — его ручки наклона. Колесо — время, Shift+колесо — значения, средняя кнопка — сдвиг, F — всё</source>
+        <translation>Click a key - its slope handles. Wheel - time, Shift+wheel - values, middle button - move, F - all</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="50"/>

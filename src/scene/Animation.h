@@ -10,6 +10,10 @@ namespace ke {
 // Hermite cubic, or held) and the shortest turn (slerp); held
 // before the first key and after the last, or - `loop` - wrapped over `length`. False: no key.
 bool samplePose(const std::vector<AnimKey>& keys, Real time, bool loop, Real length, Vector3& position, Quaternion& rotation);
+// The velocity a smooth key's place goes through, m/s: its own (recorded, or set by its handle), else the slope between
+// its neighbours, none at the ends. Its Bezier handles are the same line: the key ± this velocity × a third of the time
+// to the neighbour key.
+Vector3 keyVelocity(const std::vector<AnimKey>& keys, size_t i);
 SceneObject* posedObject(SceneGraph& g, uint32_t id); // one a sequence can bind: an entity, a group, an array, a light, a camera
 SequenceObject* findSequence(SceneGraph& g, uint32_t id);       // 0: the active one
 const SequenceObject* activeSequence(const SceneGraph& g);      // the Sequencer's; none: nullptr

@@ -2,7 +2,10 @@
 // as x, y, z of its place (m) or its turn (degrees, the turn's own Euler angles) against time, sampled at every second
 // pixel the way the world plays it (scene/Animation.h: in a line, smooth, held). The left column switches the place and
 // the turn and shows or hides an axis. A key's dot dragged: up and down its value, along its time (whichever the hand
-// moves more first); released, one sequence_key_set. The values' range is fitted to the curve in sight, and held while
+// moves more first); released, one sequence_key_set. A key clicked shows its Bezier handles on the place's curves - the
+// key's velocity, a third of the way to each neighbour (ke::keyVelocity) -; a handle dragged up or down turns the slope
+// through the key, both sides at once, one sequence_key_set velocity (the segment before made smooth with it: one undo step,
+// scene_batch). The values' range is fitted to the curve in sight, and held while
 // dragging. The wheel zooms the time about the mouse (the tracks' too: one axis), Shift+wheel the values; the middle button
 // moves both; F shows the whole again - the 3D view's own words for the same.
 #include "SequencerViews.h"
@@ -92,6 +95,9 @@ void SequencerCurves::fitRange(const std::vector<ke::AnimKey>& keys) {
         }
         for (const ke::AnimKey& key : keys)
             if (double(key.time) >= a.from && double(key.time) <= a.from + a.span) lo = std::min(lo, valueOf(key, c)), hi = std::max(hi, valueOf(key, c));
+        for (bool out : {false, true}) // the picked key's handles in sight too: they are held by the hand
+            if (double t = 0, v = 0; picked_ >= 0 && track() && track()->object == pickedOf_ && handle(keys, size_t(picked_), c, out, t, v))
+                lo = std::min(lo, v), hi = std::max(hi, v);
     }
     if (lo > hi) lo = 0, hi = 1;
     const double pad = std::max((hi - lo) * 0.12, turn_ ? 5.0 : 0.05);
@@ -107,6 +113,20 @@ bool SequencerCurves::dotAt(const QPointF& at, size_t& key, int& channel) const 
         for (size_t k = 0; shown_[size_t(c)] && k < t->keys.size(); ++k)
             if (std::hypot(a.x(double(t->keys[k].time)) - at.x(), yOf(valueOf(t->keys[k], c)) - at.y()) <= 7) return key = k, channel = c, true;
     return false;
+}
+
+bool SequencerCurves::handle(const std::vector<ke::AnimKey>& keys, size_t k, int channel, bool out, double& t, double& v) const {
+    if (turn_ || k >= keys.size() || (out ? k + 1 >= keys.size() : k == 0)) return false;
+    const double third = (double(keys[out ? k + 1 : k - 1].time) - double(keys[k].time)) / 3; // negative toward the key before
+    t = double(keys[k].time) + third, v = double(keys[k].position[channel]) + double(ke::keyVelocity(keys, k)[channel]) * third;
+    return true;
+}
+
+QPointF SequencerCurves::handleOf(size_t key, int channel, bool out) const {
+    const ke::SequenceTrack* t = track();
+    double at = 0, v = 0;
+    if (!t || long(key) != picked_ || t->object != pickedOf_ || !handle(t->keys, key, channel, out, at, v)) return QPointF(-1, -1);
+    return QPointF(panel_->axis(width()).x(at), yOf(v));
 }
 
 QPointF SequencerCurves::pointOf(size_t key, int channel) const {
@@ -164,7 +184,7 @@ void SequencerCurves::paintEvent(QPaintEvent*) {
     if (const QRectF hint(8, kRuler + 84, kNames - 16, height() - kRuler - 88); hint.height() > 40) { // how to look closer
         p.setPen(pal.color(QPalette::PlaceholderText));
         p.drawText(hint, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
-                   uiText("Kinetica", "Колесо — время, Shift+колесо — значения, средняя кнопка — сдвиг, F — всё"));
+                   uiText("Kinetica", "Щелчок по ключу — его ручки наклона. Колесо — время, Shift+колесо — значения, средняя кнопка — сдвиг, F — всё"));
     }
     p.setClipRect(QRectF(kNames, kRuler, width() - kNames, height() - kRuler)); // zoomed: what is outside stays outside
 
@@ -187,9 +207,21 @@ void SequencerCurves::paintEvent(QPaintEvent*) {
         p.setPen(QPen(kAxes[c], 1.6));
         p.setBrush(Qt::NoBrush);
         p.drawPath(curve);
+        if (picked_ >= 0 && t->object == pickedOf_ && size_t(picked_) < keys.size()) // the picked key's handles: its slope
+            for (bool out : {false, true}) {
+                double ht = 0, hv = 0;
+                if (!handle(keys, size_t(picked_), c, out, ht, hv)) continue;
+                const QPointF from(a.x(double(keys[size_t(picked_)].time)), yOf(valueOf(keys[size_t(picked_)], c))), to(a.x(ht), yOf(hv));
+                p.setPen(QPen(kAxes[c], 1.2));
+                p.drawLine(from, to);
+                p.setPen(QPen(text, 1));
+                p.setBrush(kAxes[c]);
+                p.drawRect(QRectF(to.x() - 3.5, to.y() - 3.5, 7, 7));
+                p.setBrush(Qt::NoBrush);
+            }
         for (size_t k = 0; k < keys.size(); ++k)
             drawKey(p, QPointF(a.x(double(keys[k].time)), yOf(valueOf(keys[k], c))), keys[k].interp, kAxes[c],
-                    long(k) == dragKey_ && c == dragChannel_, text);
+                    (long(k) == dragKey_ && c == dragChannel_) || (long(k) == picked_ && t->object == pickedOf_), text);
     }
     p.setClipping(false);
     p.setPen(QPen(pal.color(QPalette::Mid), 1));
@@ -219,10 +251,20 @@ void SequencerCurves::mousePressEvent(QMouseEvent* e) {
         if (axisBox(c).contains(at)) return shown_[size_t(c)] = !shown_[size_t(c)], update();
     size_t key = 0;
     int channel = 0;
-    if (const ke::SequenceTrack* t = track(); t && dotAt(at, key, channel)) {
+    const ke::SequenceTrack* t = track();
+    if (t && t->object == pickedOf_ && picked_ >= 0) // a handle of the picked key, before the dots: it lies close to them
+        for (int c = 2; c >= 0; --c)
+            for (bool out : {false, true})
+                if (const QPointF h = handleOf(size_t(picked_), c, out); shown_[size_t(c)] && h.x() >= 0 && std::hypot(h.x() - at.x(), h.y() - at.y()) <= 7) {
+                    draft_ = t->keys, dragKey_ = picked_, dragChannel_ = c, handleOut_ = out, pressAt_ = at, drag_ = Drag::Handle;
+                    return update();
+                }
+    if (t && dotAt(at, key, channel)) {
         draft_ = t->keys, dragKey_ = long(key), dragChannel_ = channel, pressAt_ = at, drag_ = Drag::None;
+        picked_ = long(key), pickedOf_ = t->object; // its handles show
         return update();
     }
+    picked_ = -1;
     if (at.x() >= kNames) panel_->scrub(panel_->axis(width()).time(at.x()));
 }
 
@@ -247,6 +289,14 @@ void SequencerCurves::mouseMoveEvent(QMouseEvent* e) {
         drag_ = std::fabs(d.x()) > std::fabs(d.y()) ? Drag::Time : Drag::Value;
     }
     ke::AnimKey& k = draft_[size_t(dragKey_)];
+    if (drag_ == Drag::Handle) { // the slope through the key: the handle goes up and down at its time, the other mirrors it
+        const size_t i = size_t(dragKey_), n = handleOut_ ? i + 1 : i - 1;
+        if (!k.hasVelocity) k.velocity = ke::keyVelocity(t->keys, i), k.hasVelocity = true; // the other axes keep their slope
+        k.velocity[dragChannel_] = ke::Real((vAt(e->position().y()) - double(k.position[dragChannel_])) * 3 / (double(draft_[n].time) - double(k.time)));
+        k.interp = ke::AnimInterp::Smooth;
+        if (!handleOut_) draft_[n].interp = ke::AnimInterp::Smooth; // the segment before goes through the slope too
+        return update();
+    }
     if (drag_ == Drag::Value) {
         const ke::Real v = ke::Real(vAt(e->position().y()));
         if (turn_) {
@@ -274,6 +324,16 @@ void SequencerCurves::mouseReleaseEvent(QMouseEvent* e) {
     const ke::AnimKey &was = t->keys[size_t(dragKey_)], &now = draft_[size_t(dragKey_)];
     QJsonObject args{{"id", int(t->object)}, {"time", double(was.time)}};
     const auto list = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+    if (drag_ == Drag::Handle) {
+        args.insert("velocity", list(now.velocity));
+        const ke::AnimKey& before = t->keys[size_t(dragKey_) - (handleOut_ ? 0 : 1)];
+        const bool smoothBefore = !handleOut_ && before.interp != ke::AnimInterp::Smooth;
+        const QJsonObject also{{"id", int(t->object)}, {"time", double(before.time)}, {"interp", "smooth"}};
+        dragKey_ = -1, drag_ = Drag::None;
+        if (!smoothBefore) return panel_->run("sequence_key_set", args);
+        return panel_->run("scene_batch", QJsonObject{{"ops", QJsonArray{QJsonObject{{"op", "sequence_key_set"}, {"args", args}},
+                                                                         QJsonObject{{"op", "sequence_key_set"}, {"args", also}}}}});
+    }
     if (drag_ == Drag::Time) args.insert("new_time", double(now.time));
     else if (turn_) args.insert("rotation", list(now.rotationDeg));
     else args.insert("position", list(now.position));
