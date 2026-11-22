@@ -205,7 +205,8 @@ The mouse layout is chosen in Settings → Controls.
 ### Shapes
 
 <img src="images/ui/icons/shape.png" height="22" alt=""> Shape adds a cube, a sphere, a cylinder, a cone or a plane - in the air over a free spot. Model takes the shape from
-a file.
+a file. A whole scene or a robot comes through File → Import… (Ctrl+I): glTF (`.gltf`, `.glb`) - nodes, meshes, colours and
+animations, URDF - a robot with its joints.
 
 ![The five shapes](images/ui/en/shapes.png)
 

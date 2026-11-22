@@ -35,7 +35,7 @@ jobs:
       - name: Tests
         run: ctest --test-dir build --output-on-failure
       - name: Python - стенд испытателей, SDK плагинов, сервер MCP и ke.Scene()
-        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples test_names
+        run: cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples test_names test_gltf
       - name: Окно и kinetica-core отвечают одинаково
         timeout-minutes: 10
         env:
@@ -74,7 +74,7 @@ jobs:
       - name: Tests
         run: ctest --test-dir build -C Release --output-on-failure
       - name: Python - ke.Scene() и kinetica-core.exe
-        run: cd tools && python -m unittest test_scene_core test_examples
+        run: cd tools && python -m unittest test_scene_core test_examples test_gltf
       - name: Готовая программа
         shell: pwsh
         run: |
@@ -188,7 +188,7 @@ jobs:
       - name: Tests
         run: build/ke_tests
       - name: Python - ke.Scene() и kinetica-core
-        run: cd tools && python3 -m unittest test_scene_core test_examples
+        run: cd tools && python3 -m unittest test_scene_core test_examples test_gltf
       - name: Программа kinetica.app
         run: |
           version=$([[ "$GITHUB_REF" == refs/tags/v* ]] && echo "${GITHUB_REF_NAME#v}" || echo "0.0.0")

@@ -446,10 +446,6 @@ class Window:
             pass
         else:
             raise RuntimeError(f"port {self.port} already has a listener: a stale window would be taken for the fresh one")
-        conf = os.path.join(self.work, "config", "Kinetica")
-        os.makedirs(conf)
-        with open(os.path.join(conf, "Kinetica.conf"), "w") as f:
-            f.write("[hints]\nfirstMinuteDone=true\n")
         self.dir = os.path.join(self.work, "files")
         os.makedirs(self.dir)
         env = dict(os.environ, KE_JOURNAL=os.path.join(self.work, "journal.jsonl"),
@@ -634,10 +630,10 @@ ABOUT = {
                          "\"mask\" lists top-level answer keys masked in that line only (the operating system's text of a file error). "
                          "Nothing else is masked; the recording was repeated and compared without the masks to find these."},
     "plugins": "The window starts the plugins shipped in plugins/ a moment after it opens (a Python process registers its commands: "
-               "urdf_load). The recorder waits until they are up, and leaves their commands out of ops-list.json: the fixture is the "
+               "urdf_load, gltf_load). The recorder waits until they are up, and leaves their commands out of ops-list.json: the fixture is the "
                "window's own operations, the same whenever the plugin registers. The throwaway config (XDG_CONFIG_HOME, XDG_DATA_HOME) "
-               "keeps the person's own plugins and settings out; it also sets the first-minute hint as done: without it a window on a "
-               "machine that never showed it opens the UR5e instead of the floor (the agent-eval flag does not prevent that).",
+               "keeps the person's own plugins and language out; a window nobody watches keeps its other settings to itself and opens "
+               "on the floor alone.",
 }
 
 
