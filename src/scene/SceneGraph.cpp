@@ -1270,7 +1270,6 @@ static auto partOf(Graph& g, uint32_t id, Get get) -> decltype(get(g.entities.fr
 std::vector<std::string>* objectTags(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }
 const std::vector<std::string>* objectTags(const SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.tags; }); }
 std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.components; }); }
-const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id) { return partOf(g, id, [](auto& o) { return &o.components; }); }
 
 bool SceneGraph::load(const std::string& text, std::string& error) {
     SceneGraph g;

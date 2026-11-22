@@ -515,7 +515,6 @@ const std::vector<SchemaKind>& sceneSchema();
 std::string presentKey(const std::string& key);
 // The plugins' components of an object of any kind (nullptr: no such object).
 std::vector<PluginComponent>* objectComponents(SceneGraph& g, uint32_t id);
-const std::vector<PluginComponent>* objectComponents(const SceneGraph& g, uint32_t id);
 const Entity* findEntity(const SceneGraph& g, uint32_t id); // only an entity (null: none, or another kind)
 // Any object's orientation from its rotationDeg (Ry Rx Rz), and back: Euler degrees of a rotation.
 Quaternion objectRotation(const SceneObject& o);

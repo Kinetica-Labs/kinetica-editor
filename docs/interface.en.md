@@ -297,7 +297,7 @@ object.
 
 <img src="images/ui/icons/force.png" height="22" alt=""> Force ▾ puts what pushes bodies: once, or all the time. There are four kinds.
 
-![The Force menu: push, blast, thrust, pull](images/ui/en/force-menu.png)
+![The Force menu: push and thrust on a body, blast and pull round a point](images/ui/en/force-menu.png)
 
 | | Once - an impulse | All the time - a force |
 |---|---|---|
