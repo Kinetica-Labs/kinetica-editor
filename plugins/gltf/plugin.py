@@ -9,7 +9,7 @@ material's baseColorFactor; animation channels of translation and rotation (line
 metres, as the editor does. Each primitive is written as an OBJ beside the file (folder <name>-meshes; the temporary
 folder when that one cannot be written) - the editor draws a mesh from a file and fits it to its size. A scale is baked
 into the mesh and into the places under it. What it does not carry, said in the answer's note: textures laid by UV
-(the editor lays textures by the world, so many per metre), skins and morph targets (no soft bodies in Kinetica), the
+(the editor lays textures by the world, so many per metre), skins and morph targets (Kinetica's bodies are rigid), the
 animation of scale, points and lines. The shapes come as geometry: their roles - a rigid body, a collider - are given
 in the editor after.
 """

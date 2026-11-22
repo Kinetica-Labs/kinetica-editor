@@ -246,6 +246,7 @@ jobs:
       - uses: actions/checkout@v4
       - name: Нет нежёсткой физики, Box3D только в плагине, ядро без Qt
         run: |
-          ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools clients examples CMakeLists.txt ':!tests/AblationTests.cpp'
-          ! git grep -lI 'box3d/' -- src editor tests
-          ! git grep -nIE '#include <Q' -- src
+          # each line exits by itself: bash -e passes over a failed command under '!'
+          ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools clients examples CMakeLists.txt ':!tests/AblationTests.cpp' || exit 1
+          ! git grep -lI 'box3d/' -- src editor tests || exit 1
+          ! git grep -nIE '#include <Q' -- src || exit 1
