@@ -78,6 +78,8 @@ perf.data*
 .claude/settings.local.json
 CLAUDE.local.md
 
-# The guide's pictures: the editor photographs itself (tools/ui_guide_shots.py). They live in the guide's own
-# repository, kinetica-docs, where tools/build_site.py puts them - 11 MB that would grow with every retake.
+# The guide's pictures: the editor photographs itself (tools/ui_guide_shots.py), and its film (tools/showcase_film.py).
+# They live in the guide's own repository, kinetica-docs, where tools/build_site.py puts them - megabytes that would
+# grow with every retake. The README's GIF stays: GitHub shows it from here.
 /docs/images/ui/
+/docs/images/showcase.mp4
