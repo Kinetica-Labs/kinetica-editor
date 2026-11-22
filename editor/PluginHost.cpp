@@ -150,15 +150,16 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
     commandsEnd_ = menu_->addSeparator();
     connect(watcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) {
         QTimer::singleShot(150, this, [this, path] { // an editor writes in steps: the file as it stands a moment later
-            if (!QFileInfo::exists(path)) return forget(path); // its folder deleted: it was «запускается» for ever
-            watcher_->addPath(path); // a replaced file is a new one to watch
-            for (auto& p : plugins_)
-                if (p->file == path) {
-                    p->reloaded = true;
-                    p->since.start();
-                    if (p->process) p->restarting = true, stop(*p);
-                    else launch(*p);
-                }
+            if (QFileInfo::exists(path)) watcher_->addPath(path); // a replaced file is a new one to watch
+            const QString folder = QFileInfo(path).absolutePath(); // plugin.py or a module of it
+            for (auto& p : plugins_) {
+                if (QFileInfo(p->file).absolutePath() != folder) continue;
+                if (!QFileInfo::exists(p->file)) return forget(p->file); // its folder deleted: it was «запускается» for ever
+                p->reloaded = true;
+                p->since.start();
+                if (p->process) p->restarting = true, stop(*p);
+                else launch(*p);
+            }
         });
     });
     addOps();
@@ -219,7 +220,6 @@ void PluginHost::scan(const QString& folder) {
         if (!QFileInfo::exists(file) || find(name)) continue;
         auto p = std::make_unique<Plugin>();
         p->name = name, p->file = file;
-        watcher_->addPath(file);
         plugins_.push_back(std::move(p));
         launch(*plugins_.back());
     }
@@ -242,6 +242,8 @@ QString PluginHost::create(const QString& name, QString& error, const QString& k
 }
 
 void PluginHost::launch(Plugin& p) {
+    for (const QFileInfo& f : QFileInfo(p.file).dir().entryInfoList({"*.py"}, QDir::Files)) // saving any of its modules restarts it;
+        if (!watcher_->files().contains(f.absoluteFilePath())) watcher_->addPath(f.absoluteFilePath()); // a new one: from its next start
     const quint16 port = apiPort_();
     if (!port) {
         p.state = "нет API";

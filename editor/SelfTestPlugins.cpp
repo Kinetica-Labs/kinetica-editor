@@ -1086,13 +1086,19 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     c.check(named && heardIt, "a plugin in a folder named in Russian is moy_plagin; its print() reaches the API console as it comes");
     c.check(background.contains("KeyError") && forgotten, "a worker thread falling is said on the status bar; its folder deleted, the editor forgets the plugin");
 
-    // Saved: back with its new words.
+    // Saved: back with its new words - they come from a module of it, words.py; saved there, it is back with those.
     clock.restart();
-    write(file, QString(kLifter).replace("WORDS", "Поднять выше"));
+    const QString module = QFileInfo(file).absolutePath() + "/words.py";
+    write(module, "WORDS = 'Поднять выше'\n");
+    write(file, "import words\n" + QString(kLifter).replace("\"WORDS\"", "words.WORDS"));
     const bool reloaded = waitUntil([&] { QAction* x = action(w, "plugin:lifter_lift"); return x && x->text().startsWith("Поднять выше"); }, 8000);
     const qint64 reloadMs = clock.elapsed();
-    std::printf("  saved: the button «Поднять выше…» back in %lld ms\n", static_cast<long long>(reloadMs));
+    write(module, "WORDS = 'Поднять ещё'\n");
+    const bool moduleReloaded = waitUntil([&] { QAction* x = action(w, "plugin:lifter_lift"); return x && x->text().startsWith("Поднять ещё"); }, 8000);
+    std::printf("  saved: the button «Поднять выше…» back in %lld ms; its module saved: «Поднять ещё…» %s\n", static_cast<long long>(reloadMs),
+                moduleReloaded ? "back" : "not back");
     c.check(reloaded, "a saved plugin.py restarts its plugin with the new words");
+    c.check(moduleReloaded, "a saved module beside plugin.py restarts its plugin too");
 
     // Fallen over at its line 3: a banner says where; the editor goes on.
     write(file, "from kinetica.plugin import command\n\nraise RuntimeError(\"сломано\")\n");

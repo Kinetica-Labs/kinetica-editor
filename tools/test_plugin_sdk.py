@@ -3,11 +3,14 @@ editor's form and MCP read (type, default, unit, range, choices, the label's wor
 default is a field too; an error points at the author's file and line, not at the SDK's; the hooks of a run answer on
 their own wire (editor/RunHooks.h) - who the plugin is first, then play, every tick and stop in order, a tick's commands
 merged, the bodies' truth only to a hook of the physics, a hook's mistake with its line; a chart of the panel is data, and
-what a hook shows on the panel goes with its frame's answer."""
+what a hook shows on the panel goes with its frame's answer; a process pool of a plugin ends with the plugin."""
 import json
 import os
 import socket
+import subprocess
 import sys
+import tempfile
+import time
 import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "clients", "python"))
@@ -49,7 +52,37 @@ def row(scene, count: int = field(5, range=(1, 30), label="Сколько"), gap
     return {"made": count}
 
 
+def beat(path):
+    """A worker's job for ever: a dot a twentieth of a second, while it lives."""
+    while True:
+        with open(path, "ab") as f:
+            f.write(b".")
+        time.sleep(0.05)
+
+
 class PluginSdk(unittest.TestCase):
+    def test_a_pool_ends_with_its_plugin(self):
+        """process_pool: its worker beats while the plugin lives; the plugin's process killed (as the editor ends it),
+        the worker ends too - its beats stop."""
+        with tempfile.TemporaryDirectory() as folder:
+            beats = os.path.join(folder, "beats")
+            here = os.path.dirname(os.path.abspath(__file__))
+            code = (f"import sys, time; sys.path[:0] = [{here!r}]; import test_plugin_sdk as t; "
+                    f"pool = t.plugin.process_pool(1); pool.submit(t.beat, {beats!r}); time.sleep(60)")
+            parent = subprocess.Popen([sys.executable, "-c", code])
+            try:
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline and (not os.path.exists(beats) or os.path.getsize(beats) < 3):
+                    time.sleep(0.1)
+                self.assertGreaterEqual(os.path.getsize(beats) if os.path.exists(beats) else 0, 3, "the worker never beat")
+            finally:
+                parent.kill()
+                parent.wait()
+            time.sleep(1.0)  # the worker's guard ends it at once; a beat in flight lands
+            size = os.path.getsize(beats)
+            time.sleep(0.6)
+            self.assertEqual(os.path.getsize(beats), size, "the worker beats on after its plugin was killed")
+
     def test_command_registered(self):
         self.assertIn("row", plugin._commands)
         self.assertEqual(plugin._commands["row"]["label"], "Ряд")

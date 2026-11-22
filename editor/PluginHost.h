@@ -7,7 +7,8 @@
 // run - on_play, on_tick, on_stop - go over their own wire, apart from the window's thread (RunHooks.h). A command is then an operation of
 // the editor like any: a button in the «Плагины» menu with its key, a line in Ctrl+K, a call from the console and from a
 // script, a tool of an AI agent over MCP; its fields make the form the button opens. What it changes through the API
-// is one undo step. A saved plugin.py restarts its process - the loop of an edit, about a second; a plugin that falls
+// is one undo step. A saved plugin.py - or any .py beside it, its modules - restarts its process - the loop of an edit,
+// about a second; a plugin that falls
 // over shows its error with its file and line on a banner with «Перезапустить», and the editor goes on.
 #include <QElapsedTimer>
 #include <QJsonArray>

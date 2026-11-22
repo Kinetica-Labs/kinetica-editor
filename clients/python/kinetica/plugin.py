@@ -426,6 +426,37 @@ def show(**values):
         _link["client"].call("plugin_panel_set", name=_link["name"], token=_link["token"], values=values)
 
 
+def process_pool(max_workers=None, initializer=None, initargs=()):
+    """Worker processes for work a plugin's one core is too slow for (a training, a sweep): a
+    ``concurrent.futures.ProcessPoolExecutor`` whose processes end with the plugin's - stopped, restarted, the editor
+    closed - instead of computing on for no one (the editor ends the plugin's process, not what it started). Spawned,
+    not forked: the plugin has threads of its own, a fork would copy them half-way. Its jobs and their functions go to
+    the workers by pickle, so a job's function is a module's top-level one::
+
+        with process_pool(8) as pool:
+            scores = list(pool.map(score, genomes))
+    """
+    import multiprocessing
+    from concurrent.futures import ProcessPoolExecutor
+    return ProcessPoolExecutor(max_workers, mp_context=multiprocessing.get_context("spawn"), initializer=_pool_worker,
+                               initargs=(initializer, tuple(initargs)))
+
+
+def _pool_worker(initializer, initargs):
+    """A process_pool worker's start: a thread that ends the process when its parent's ends - the parent's sentinel (a
+    pipe or a process handle) is signalled then, on every system -, then the pool's own initializer."""
+    import multiprocessing
+    parent = multiprocessing.parent_process()
+
+    def orphaned():
+        parent.join()
+        os._exit(0)  # not exit(): the pool's own thread would wait for a parent that is gone
+
+    threading.Thread(target=orphaned, name="kinetica-orphan", daemon=True).start()
+    if initializer:
+        initializer(*initargs)
+
+
 def _args(fn):
     """The function's arguments after `scene`, as the editor's form and an operation's schema read them."""
     out = {}

@@ -733,6 +733,7 @@
 | `OperationError` | ошибка операции: `{ok: false, error}` | stable |
 | `Operations` | любая операция по имени: `ed.<операция>(**аргументы)` | stable |
 | `PointWheel` | колесо точкой своего тела | stable |
+| `process_pool` | пул рабочих процессов плагина (`ProcessPoolExecutor`), гаснущий вместе с плагином | stable |
 | `PROTOCOL_VERSION` | версия протокола, под которую собран пакет: при неизвестной операции он сверяет её с программой | stable |
 | `Roles` | роли: rigid, collider - `scene_role` | stable |
 | `Roles.add` | добавить роль | stable |
@@ -845,8 +846,11 @@ Python. Короткие имена параметров, которые дос�
 | `gravity` | тяжесть [x, y, z], м/с² - слово файла сцены | stable |  |
 | `help` | справка для человека | stable |  |
 | `host` | адрес машины окна | stable |  |
+| `initargs` | аргументы `initializer` (как у `ProcessPoolExecutor`) | stable |  |
+| `initializer` | функция, которую рабочий процесс пула зовёт при старте (как у `ProcessPoolExecutor`) | stable |  |
 | `keep_children` | убрать объект, оставив вложенные | stable |  |
 | `label` | подпись на кнопке или поле | stable |  |
+| `max_workers` | сколько рабочих процессов у пула; нет - по числу ядер (как у `ProcessPoolExecutor`) | stable |  |
 | `n` | подшагов физики на кадр | obsolete | `substeps` |
 | `obj` | объект сцены | stable |  |
 | `op` | имя операции | stable |  |
