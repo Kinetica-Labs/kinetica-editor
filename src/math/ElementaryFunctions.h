@@ -1,5 +1,5 @@
 #pragma once
-// The elementary functions of the core: ke::sin, cos, tan, asin, acos, atan2, exp, log, hypot - the same
+// The elementary functions of the core: ke::sin, cos, asin, acos, atan2, exp, log, hypot - the same
 // bits on every compiler, C runtime and CPU.
 //
 // The C++ standard does not say how exact std::sin must be, so MinGW, glibc, MSVC and Apple's libm
@@ -14,7 +14,6 @@ namespace ke {
 
 double sin(double x);
 double cos(double x);
-double tan(double x);
 double asin(double x);
 double acos(double x);
 double atan2(double y, double x);
@@ -23,7 +22,6 @@ double log(double x);
 
 inline float sin(float x) { return float(sin(double(x))); }
 inline float cos(float x) { return float(cos(double(x))); }
-inline float tan(float x) { return float(tan(double(x))); }
 inline float asin(float x) { return float(asin(double(x))); }
 inline float acos(float x) { return float(acos(double(x))); }
 inline float atan2(float y, float x) { return float(atan2(double(y), double(x))); }

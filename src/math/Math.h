@@ -2,8 +2,8 @@
 // All math types of the project. Include this, or a single header for just one type.
 //
 //   Real.h        Real (float, or double with KE_DOUBLE), the _r literal, kPi, kInf, clampv, sqr, lerp
-//   ElementaryFunctions.h  ke::sin, cos, tan, asin, acos, atan, atan2, exp, log, log2, pow, cbrt,
-//                 hypot: the same bits on every platform (one place for them)
+//   ElementaryFunctions.h  ke::sin, cos, asin, acos, atan2, exp, log, hypot: the same bits on every platform
+//                 (one place for them)
 //   Vector2.h     Vector2
 //   Vector3.h     Vector3
 //   Matrix3x3.h   Matrix3x3, symmetricEigen (3x3)

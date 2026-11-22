@@ -176,7 +176,7 @@ double logParts(double x, int& e, double& f) {
 
 } // namespace
 
-// Below 2^-27 sin x = x and tan x = x to the last bit, and the sign of -0 is kept.
+// Below 2^-27 sin x = x to the last bit, and the sign of -0 is kept.
 double sin(double x) {
     if (!std::isfinite(x)) return kNaN;
     if (std::fabs(x) < 0x1p-27) return x;
@@ -198,16 +198,6 @@ double cos(double x) {
     case 2: return -cosKernel(y0, y1);
     default: return sinKernel(y0, y1);
     }
-}
-
-// tan = sin / cos of the same reduced argument; in the odd quadrants tan = -cos / sin.
-double tan(double x) {
-    if (!std::isfinite(x)) return kNaN;
-    if (std::fabs(x) < 0x1p-27) return x;
-    double y0, y1;
-    const int q = reduceHalfPi(x, y0, y1);
-    const double s = sinKernel(y0, y1), c = cosKernel(y0, y1);
-    return q % 2 == 0 ? s / c : -c / s;
 }
 
 // atan2 by octants: atan(small / big) is atanUnit, the others are pi/2 - that and pi - that
