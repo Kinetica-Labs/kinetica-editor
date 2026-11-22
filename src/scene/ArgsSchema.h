@@ -19,6 +19,7 @@
 #include "core/Value.h"
 
 #include <string>
+#include <vector>
 
 namespace ke {
 
@@ -27,5 +28,9 @@ Value argsSchema(const std::string& argsLine);
 // its type, a word not of its list - every one, in key order, joined by "; ". Fields starting with '_' (the console's
 // `_py`) are the transport's, never refused.
 std::string argsProblem(const Value& args, const Value& schema);
+// The word of `choices` a typo of `word` most likely meant (empty: none near enough): the fewest letters changed, put
+// in, taken out or swapped - at most a third of the word, at least one; a word under three letters gets none. Every
+// «did you mean» of the API is this one.
+std::string nearestWord(const std::string& word, const std::vector<std::string>& choices);
 
 } // namespace ke

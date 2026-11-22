@@ -60,6 +60,7 @@
 #include "scene/SceneGraph.h"
 
 #include "core/Format.h"
+#include "scene/ArgsSchema.h"
 #include "scene/SensorSpec.h"
 
 #include <cstdlib>
@@ -598,12 +599,23 @@ static bool readDof(LineReader& r, int& dof) {
     return r.text(name) && oneOf(name, kDofNames, dof);
 }
 
-// The keys of a line from where the reader stands to its end, by the table.
+// What follows the word that could not be read, in `bad`: the hint load() says after it.
+constexpr char kHint = '\x1f';
+
+// The keys of a line from where the reader stands to its end, by the table. A word that is no key of the line is told
+// with the line's keys and the one it most likely meant: a typo is mended in one look, not by a guess.
 template <class T, size_t N>
 static bool readKeys(LineReader& r, T& t, const Key<T> (&keys)[N], std::string& bad) {
     while (!r.done()) {
         const std::string k = r.key();
         const Key<T>* key = std::find_if(std::begin(keys), std::end(keys), [&](const Key<T>& x) { return k == x.word; });
+        if (key == std::end(keys) && k.find(' ') == std::string::npos) { // not «<key> twice»: a key met again is no typo
+            std::vector<std::string> words;
+            std::string list;
+            for (const Key<T>& x : keys) words.push_back(x.word), list += (list.empty() ? "" : ", ") + std::string(x.word);
+            const std::string near = nearestWord(k, words);
+            return fail(bad, k + kHint + (near.empty() ? "" : "did you mean '" + near + "'? ") + "the keys here: " + list);
+        }
         std::string why;
         if (key == std::end(keys) || !key->read(r, t, why)) return fail(bad, why.empty() ? k : why);
     }
@@ -1264,7 +1276,9 @@ bool SceneGraph::load(const std::string& text, std::string& error) {
         const std::vector<std::string> w = words(line);
         if (w.empty() || w[0][0] == '#') continue;
         if (!readLine(w, g, block, bad)) {
-            error = "line " + std::to_string(number) + ": cannot read '" + bad + "'";
+            const size_t hint = bad.find(kHint);
+            error = "line " + std::to_string(number) + ": cannot read '" + bad.substr(0, hint) + "'" +
+                    (hint == std::string::npos ? std::string() : " - " + bad.substr(hint + 1));
             return false;
         }
     }

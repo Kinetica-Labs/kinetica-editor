@@ -190,7 +190,12 @@ Value Scene::call(const std::string& name, const Value& given) {
 
 Value Scene::run(const std::string& name, const Value& args) {
     const auto found = ops_.find(name);
-    if (found == ops_.end()) return failure(unknown(name));
+    if (found == ops_.end()) {
+        std::vector<std::string> names;
+        for (const auto& [n, op] : ops_) names.push_back(n);
+        const std::string near = nearestWord(name, names);
+        return failure(unknown(name) + (near.empty() ? std::string() : "; может, «" + near + "»?"));
+    }
     Op& op = found->second;
     if (const std::string why = argsProblem(args, schemaOf(op)); !why.empty()) return failure(why); // refused, not guessed
     const bool built = doc_.mode != PlayMode::Edit;

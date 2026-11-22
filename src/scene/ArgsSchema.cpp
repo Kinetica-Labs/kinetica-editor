@@ -489,7 +489,35 @@ Value argsSchema(const std::string& argsLine) {
     return schema;
 }
 
+std::string nearestWord(const std::string& word, const std::vector<std::string>& choices) {
+    // the edit distance with a swap of two neighbours as one step (a typo's commonest), row by row
+    const auto distance = [&](const std::string& b) {
+        const size_t n = word.size(), m = b.size();
+        std::vector<std::vector<size_t>> d(n + 1, std::vector<size_t>(m + 1));
+        for (size_t i = 0; i <= n; ++i) d[i][0] = i;
+        for (size_t j = 0; j <= m; ++j) d[0][j] = j;
+        for (size_t i = 1; i <= n; ++i)
+            for (size_t j = 1; j <= m; ++j) {
+                d[i][j] = std::min({d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (word[i - 1] == b[j - 1] ? 0 : 1)});
+                if (i > 1 && j > 1 && word[i - 1] == b[j - 2] && word[i - 2] == b[j - 1]) d[i][j] = std::min(d[i][j], d[i - 2][j - 2] + 1);
+            }
+        return d[n][m];
+    };
+    std::string best;
+    if (word.size() < 3) return best; // a word of one or two letters is a letter away from anything: no guess
+    size_t least = std::max<size_t>(1, word.size() / 3) + 1;
+    for (const std::string& c : choices)
+        if (const size_t k = distance(c); k > 0 && k < least) least = k, best = c;
+    return best;
+}
+
 namespace {
+
+// «, может, «x»?» when a word near enough to `word` is among `choices`, else nothing.
+std::string maybe(const std::string& word, const std::vector<std::string>& choices) {
+    const std::string near = nearestWord(word, choices);
+    return near.empty() ? std::string() : " (может, «" + near + "»?)";
+}
 
 // What is wrong with one field's value against the schema (empty: nothing).
 std::string fieldProblem(const std::string& key, const Value& v, const Value& properties) {
@@ -497,16 +525,18 @@ std::string fieldProblem(const std::string& key, const Value& v, const Value& pr
     if (!properties.contains(key)) {
         if (properties.size() == 0) return "аргументов нет, а дано «" + key + "»";
         std::string names;
-        for (const std::string& k : sortedKeys(properties)) names += (names.empty() ? "" : ", ") + k;
-        return "нет поля «" + key + "»; поля: " + names;
+        const Strings keys = sortedKeys(properties);
+        for (const std::string& k : keys) names += (names.empty() ? "" : ", ") + k;
+        return "нет поля «" + key + "»" + maybe(key, std::vector<std::string>(keys.begin(), keys.end())) + "; поля: " + names;
     }
     const Value& f = properties[key];
     const std::string type = f["type"].text("");
     if (!fits(v, type)) return key + ": ожидалось " + typeName(type) + (f.contains("description") ? " (" + f["description"].text("") + ")" : std::string());
     if (f.contains("enum") && !listHas(f["enum"], v)) {
         std::string allowed;
-        for (const Value& e : f["enum"].items()) allowed += (allowed.empty() ? "" : ", ") + wordOrNumber(e);
-        return key + ": «" + wordOrNumber(v) + "» не из списка: " + allowed;
+        std::vector<std::string> words;
+        for (const Value& e : f["enum"].items()) allowed += (allowed.empty() ? "" : ", ") + wordOrNumber(e), words.push_back(wordOrNumber(e));
+        return key + ": «" + wordOrNumber(v) + "» не из списка" + maybe(wordOrNumber(v), words) + ": " + allowed;
     }
     const bool low = f.contains("minimum"), high = f.contains("maximum");
     if (v.type() == Value::Type::Number && ((low && v.number() < f["minimum"].number()) || (high && v.number() > f["maximum"].number())))

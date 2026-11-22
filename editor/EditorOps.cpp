@@ -67,7 +67,11 @@ void EditorOps::addPluginOp(const QString& name, const QString& help, const QStr
 
 QString EditorOps::unknown(const QString& name) const {
     const QString hint = unknownHint_ ? unknownHint_(name) : QString();
-    return hint.isEmpty() ? "нет операции «" + name + "» (ops_list называет все)" : hint;
+    std::vector<std::string> names;
+    for (const auto& [opName, op] : ops_) names.push_back(opName.toStdString());
+    const std::string near = ke::nearestWord(name.toStdString(), names);
+    const QString maybe = near.empty() ? QString() : "; может, «" + QString::fromStdString(near) + "»?";
+    return (hint.isEmpty() ? "нет операции «" + name + "» (ops_list называет все)" : hint) + maybe;
 }
 
 void EditorOps::removePluginOp(const QString& name) {

@@ -270,6 +270,21 @@ class SceneCore(unittest.TestCase):
             push.shape = "radial"
             self.assertEqual(push.shape, "radial")
 
+    def test_a_typo_is_answered_with_what_it_meant(self):
+        with ke.Scene() as scene:
+            box = scene.add("box")
+            for op, args, said in [("scene_ad", {"shape": "box"}, "может, «scene_add»?"),
+                                   ("scene_add", {"shap": "box"}, "нет поля «shap» (может, «shape»?); поля: "),
+                                   ("scene_add", {"shape": "boxx"}, "«boxx» не из списка (может, «box»?): box, sphere"),
+                                   ("scene_set", {"id": box.id, "line": "rigid", "key": "mas", "values": [1]},
+                                    "cannot read 'mas' - did you mean 'mass'? the keys here: density, friction")]:
+                with self.assertRaises(ke.OperationError) as caught:
+                    getattr(scene.ed, op)(**args)
+                self.assertIn(said, str(caught.exception))
+            with self.assertRaises(ke.OperationError) as caught:  # nothing near: the line's keys, no guess
+                scene.ed.scene_set(id=box.id, line="rigid", key="zzzz", values=[1])
+            self.assertNotIn("did you mean", str(caught.exception))
+
     def test_the_format_tells_its_own_kinds_lines_and_keys(self):
         with ke.Scene() as scene:
             kinds = {k["kind"]: k["parts"] for k in scene.ed.schema_list()["kinds"]}
