@@ -54,6 +54,8 @@ int indexOf(void* user) { return int(reinterpret_cast<intptr_t>(user)) - 1; }
 
 struct RayContext {
     int ignore = -1;
+    const std::vector<uint64_t>* marks = nullptr; // the bodies' marks and ignores (by index): a ray from `ignore` passes
+    const std::vector<uint64_t>* ignores = nullptr; // through what that body does not touch
     b3ShapeId shape = b3_nullShapeId;
     b3Vec3 point{}, normal{};
     float fraction = 1;
@@ -61,7 +63,12 @@ struct RayContext {
 
 float closestNotIgnored(b3ShapeId shape, b3Pos point, b3Vec3 normal, float fraction, uint64_t, int, int, void* context) {
     auto* c = static_cast<RayContext*>(context);
-    if (indexOf(b3Body_GetUserData(b3Shape_GetBody(shape))) == c->ignore && c->ignore >= 0) return -1; // skip this shape
+    const int body = indexOf(b3Body_GetUserData(b3Shape_GetBody(shape)));
+    if (c->ignore >= 0 && body == c->ignore) return -1; // skip this shape
+    if (c->ignore >= 0 && body >= 0 && c->marks && size_t(std::max(body, c->ignore)) < c->marks->size()) {
+        const size_t a = size_t(c->ignore), b = size_t(body);
+        if (((*c->ignores)[a] & (*c->marks)[b]) || ((*c->ignores)[b] & (*c->marks)[a])) return -1; // a body it does not touch
+    }
     c->shape = shape, c->point = point, c->normal = normal, c->fraction = fraction;
     return fraction; // clip the ray here: only nearer hits follow
 }
@@ -316,7 +323,7 @@ public:
 
     bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore) const override {
         RayContext c;
-        c.ignore = ignore;
+        c.ignore = ignore, c.marks = &marks_, c.ignores = &ignores_;
         b3World_CastRay(world_, b3v(from), b3v(to - from), b3DefaultQueryFilter(), closestNotIgnored, &c);
         if (B3_IS_NULL(c.shape)) return false;
         hit.body = indexOf(b3Body_GetUserData(b3Shape_GetBody(c.shape)));

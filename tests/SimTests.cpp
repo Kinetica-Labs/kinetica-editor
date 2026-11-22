@@ -1001,6 +1001,26 @@ void testSimLidar() {
     CHECK(r.size() == 4 && std::fabs(r[0] - 1.05_r) < 2e-3_r && std::fabs(r[1] - 0.95_r) < 2e-3_r && std::fabs(r[2] - slanted) < 2e-3_r && r[3] == -1,
           "the ring of 4 does not read back, right, ahead and nothing");
     CHECK(b.count >= 10 && b.count <= 11 && b.sampleNs > 900000000, "%lld scans in a second at 10 a second", static_cast<long long>(b.count));
+
+    // Many cars in one world, each only with the track: tagged car, their colliders ignoring car - the lidar of the one
+    // behind sees the wall 3 m ahead through the car before it.
+    SceneGraph h;
+    h.world.physics.sleeping = false;
+    for (uint32_t id : {1u, 2u}) {
+        h.entities.push_back(solid(id, id == 1 ? "Машинка 1" : "Машинка 2", {0.4_r, 0.2_r, 0.3_r}, {id == 1 ? 0.0_r : 1.0_r, 0.1_r, 0}, false));
+        h.entities.back().tags = {"car"}, h.entities.back().collider.ignores = {"car"};
+    }
+    h.entities.push_back(solid(3, "Стена", {0.1_r, 1, 2}, {3.2_r, 0.5_r, 0}, true));
+    const uint32_t eye = attachSensor(h, 1, snapToFace(h, 1, BoxFace::PlusX, Vector3(0.0_r)), SensorKind::Lidar);
+    h.sensors.back().noise = false;
+    h.sensors.back().spec = {{"rays_h", 1}, {"fov_h_deg", 0}, {"rays_v", 1}, {"fov_v_deg", 0}, {"rate_hz", 30}};
+    Simulation cars;
+    cars.load(h);
+    for (int k = 0; k < 6; ++k) cars.stepFrame();
+    const std::vector<Real>& seen = cars.robot()->sensor(eye)->reading().ranges;
+    std::printf("  two cars that ignore each other: the lidar of the one behind reads %.3f m (the wall at 2.95, the other car at 0.8)\n",
+                seen.empty() ? -9.0 : double(seen[0]));
+    CHECK(seen.size() == 1 && std::fabs(seen[0] - 2.95_r) < 2e-3_r, "a lidar sees a car its body does not touch");
 }
 
 void testSimSensors() {

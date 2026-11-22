@@ -54,18 +54,23 @@ void sonarLines(SensorGlyphLines& out, const Vector3& o, const Vector3& x, const
 }
 
 // A lidar: its puck as a ring about z, and its rays - faint and a metre long before it scans (its pattern, not its
-// range: a ring of 12 m rays drawn through the walls is a grey fog), then to what each hit (none for a ray that hit
-// nothing). At most 256 of them are drawn, spread over the pattern.
+// range: a ring of 12 m rays drawn through the walls is a grey fog); scanning, bright to what each hit and faint on to
+// its full range (faint all the way: a ray that hit nothing). At most 256 of them are drawn, spread over the pattern.
 void lidarLines(SensorGlyphLines& out, const Vector3& o, const Vector3 axes[3], float s, const SensorVis& v) {
     circle(out.chip, o, axes[0], axes[1], 0.8f * s, 16);
     const std::vector<Vector3> rays = Lidar::directions(v.lidar);
     const bool scanned = v.ranges.size() == rays.size();
     const size_t stride = std::max<size_t>(rays.size() / 256, 1);
+    const float far = float(v.lidar.maxM);
     for (size_t k = 0; k < rays.size(); k += stride) {
-        const float d = scanned ? float(v.ranges[k]) : std::min(float(v.lidar.maxM), 1.0f);
-        if (d <= 0) continue;
         const Vector3 dir = axes[0] * rays[k].x + axes[1] * rays[k].y + axes[2] * rays[k].z;
-        segment(scanned ? out.beam : out.faint, o, o + dir * d);
+        if (!scanned) {
+            segment(out.faint, o, o + dir * std::min(far, 1.0f));
+            continue;
+        }
+        const float d = float(v.ranges[k]);
+        if (d > 0) segment(out.beam, o, o + dir * d);
+        segment(out.faint, o + dir * std::max(d, 0.0f), o + dir * far);
     }
 }
 

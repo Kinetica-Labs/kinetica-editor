@@ -137,7 +137,8 @@ public:
     virtual int addHand(const HandDesc& hand, std::string& error) = 0;
     virtual void moveHand(int joint, const Vector3& target, Real dt) = 0; // the target walks there over the next dt seconds
 
-    // The nearest body a ray from `from` to `to` meets, but `ignore`; false: none.
+    // The nearest body a ray from `from` to `to` meets, but `ignore` and the bodies it does not touch (a collider's
+    // ignores: a sensor sees what its body would bump into - a car not the other cars); false: none.
     virtual bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore = -1) const = 0;
     virtual std::vector<ContactPoint> contacts() const = 0;
     // The zones after the last step: (the body of a trigger shape, a body with a shape inside it), each pair once.
