@@ -49,11 +49,11 @@ Value tagsValue(const SceneGraph& g, uint32_t id) {
 bool objectList(const SceneGraph& g, const std::string& word, const std::string& tag, Value& out, std::string& error) {
     out = Value::list();
     bool known = word.empty() || std::any_of(std::begin(kListKinds), std::end(kListKinds), [&](const char* k) { return word == k; });
-    for (int k = 0; k <= int(SensorKind::Stereo) && !known; ++k) known = word == sensorKindKey(SensorKind(k));
+    for (int k = 0; k <= int(kLastSensorKind) && !known; ++k) known = word == sensorKindKey(SensorKind(k));
     if (!known) {
         error = "kind '" + word + "' is not one of:";
         for (const char* k : kListKinds) error += std::string(" ") + k;
-        for (int k = 0; k <= int(SensorKind::Stereo); ++k) error += std::string(" ") + sensorKindKey(SensorKind(k));
+        for (int k = 0; k <= int(kLastSensorKind); ++k) error += std::string(" ") + sensorKindKey(SensorKind(k));
         return false;
     }
     auto add = [&](const auto& objects) {

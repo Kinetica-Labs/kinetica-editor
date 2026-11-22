@@ -150,6 +150,14 @@ std::string sensors(const SceneGraph& g) {
                    direction(objectRotation(s).rotate(Vector3(1, 0, 0))) + "\n";
             continue;
         }
+        if (s.kind == SensorKind::Lidar) {
+            const SceneObject* on = findObject(g, s.parent);
+            const LidarSpec l = lidarSpec(s);
+            out += "лидар " + std::to_string(l.raysH) + "×" + std::to_string(l.raysV) + " лучей, поле " + format("%.0f×%.0f°", l.fovHDeg, l.fovVDeg) +
+                   ", до " + format("%.1f м", l.maxM) + (on ? " на " + quoted(on->name) : std::string(" в мире")) + ", смотрит " +
+                   direction(objectRotation(s).rotate(Vector3(1, 0, 0))) + "\n";
+            continue;
+        }
         if (s.kind == SensorKind::Touch) {
             const SceneObject* on = findObject(g, s.parent);
             out += "касание" + (on ? " на " + quoted(on->name) : std::string(" в мире")) + ", грань смотрит " +

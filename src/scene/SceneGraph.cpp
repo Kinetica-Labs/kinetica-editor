@@ -469,7 +469,7 @@ static void saveSpec(std::ostringstream& o, const SensorObject& s) {
 // A sensor: the object head (its parent and its pose on it), then what it is and reads, then its datasheet.
 static void saveSensor(std::ostringstream& o, const SensorObject& s) {
     saveObjectHead(o, "sensor", s);
-    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar || s.kind == SensorKind::Wrench) {
+    if (s.kind == SensorKind::Imu || s.kind == SensorKind::Sonar || s.kind == SensorKind::Wrench || s.kind == SensorKind::Lidar) {
         o << "  " << sensorKindKey(s.kind) << " noise " << (s.noise ? 1 : 0) << " seed " << s.seed << "\n";
         saveSpec(o, s);
         o << "end\n";
@@ -1035,6 +1035,7 @@ static const Part<SensorObject> kSensorParts[] = { // a sensor's kind is the fir
     {"wrench", "", [] { return described(kNoisyKeys); }, [](const std::vector<std::string>& w, SensorObject& s, std::string& bad) { return sensorLine<SensorKind::Wrench>(w, s, kNoisyKeys, bad); }},
     {"effort", "", [] { return described(kEffortKeys); }, [](const std::vector<std::string>& w, SensorObject& s, std::string& bad) { return sensorLine<SensorKind::Effort>(w, s, kEffortKeys, bad); }},
     {"stereo", "", [] { return described(kStereoKeys); }, [](const std::vector<std::string>& w, SensorObject& s, std::string& bad) { return sensorLine<SensorKind::Stereo>(w, s, kStereoKeys, bad); }},
+    {"lidar", "", [] { return described(kNoisyKeys); }, [](const std::vector<std::string>& w, SensorObject& s, std::string& bad) { return sensorLine<SensorKind::Lidar>(w, s, kNoisyKeys, bad); }},
     {"model", "text: a row of data/sensors/<kind>.csv", none, [](const std::vector<std::string>& w, SensorObject& s, std::string& bad) {
          return w.size() == 2 ? (s.model = w[1], true) : fail(bad, "model");
      }},

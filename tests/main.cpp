@@ -44,6 +44,7 @@ int main() {
     run("devices: an IMU's rate, full scale, counts and filter from its datasheet", testImuSpec);
     run("devices: an IMU's noise and offsets against the statistics they are drawn from", testImuNoise);
     run("devices: a sonar's jitter against the normal it is drawn from", testSonarNoise);
+    run("devices: a lidar's rays where its pattern puts them, a ray's range, millimetres and noise", testLidarPattern);
     run("devices: a sensor's datasheet from its model's table row, kept in the scene file, set by the API", testSensorDatasheet);
     run("physics: a falling ball's speed is g t, its height on the parabola within the integrator's error", testPhysicsFreeFall);
     run("physics: a torque spins a box at tau t / I - computed from its volume, and given", testPhysicsTorque);
@@ -84,6 +85,7 @@ int main() {
     run("world: a mesh's own collider takes its extremes along 120 directions, not its every point", testSimMeshColliderThinned);
     run("world: assembly_goal_pose puts the UR5e's goal at a pose at once - the arm gets there and settles", testSimGoalPoseSettles);
     run("world: the sensors read the physics through their probes and datasheets - 1 g at rest, none falling, a weight, a wall, a turn past pi", testSimSensors);
+    run("world: a lidar reads a wall at 45 degrees a sonar does not hear, a ring all round, a scan at its rate", testSimLidar);
     run("sim: the active sequence - a kinematic pusher on its track pushes a box ahead of it", testSimSequence);
     run("sim: a take - a run recorded, thinned to keys within 0.5 mm, replayed as the active sequence", testSimRecording);
     run("sim: a take records a robot's link its joint moves, and replays it kinematic", testSimRecordingArm);

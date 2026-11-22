@@ -53,6 +53,22 @@ void sonarLines(SensorGlyphLines& out, const Vector3& o, const Vector3& x, const
     }
 }
 
+// A lidar: its puck as a ring about z, and its rays - faint and a metre long before it scans (its pattern, not its
+// range: a ring of 12 m rays drawn through the walls is a grey fog), then to what each hit (none for a ray that hit
+// nothing). At most 256 of them are drawn, spread over the pattern.
+void lidarLines(SensorGlyphLines& out, const Vector3& o, const Vector3 axes[3], float s, const SensorVis& v) {
+    circle(out.chip, o, axes[0], axes[1], 0.8f * s, 16);
+    const std::vector<Vector3> rays = Lidar::directions(v.lidar);
+    const bool scanned = v.ranges.size() == rays.size();
+    const size_t stride = std::max<size_t>(rays.size() / 256, 1);
+    for (size_t k = 0; k < rays.size(); k += stride) {
+        const float d = scanned ? float(v.ranges[k]) : std::min(float(v.lidar.maxM), 1.0f);
+        if (d <= 0) continue;
+        const Vector3 dir = axes[0] * rays[k].x + axes[1] * rays[k].y + axes[2] * rays[k].z;
+        segment(scanned ? out.beam : out.faint, o, o + dir * d);
+    }
+}
+
 // A touch pad: its square on the face, and the force pressing it as an arrow into the face, 1 cm a newton.
 void touchLines(SensorGlyphLines& out, const Vector3& o, const Vector3 axes[3], float s, float force) {
     const float h = 0.8f * s;
@@ -88,6 +104,7 @@ void appendSensorGlyph(SensorGlyphLines& out, const SensorVis& v) {
     else if (v.kind == 2) sonarLines(out, v.position, axes[0], axes[1], axes[2], s, reading);
     else if (v.kind == 3) touchLines(out, v.position, axes, s, reading);
     else if (v.kind == 6) stereoLines(out, v.position, axes, s, v);
+    else if (v.kind == 7) lidarLines(out, v.position, axes, s, v);
     else encoderLines(out, v.position, axes[1], axes[2], s, v.kind == 5 ? 0.0f : reading); // an effort: the ring of its freedom
 }
 

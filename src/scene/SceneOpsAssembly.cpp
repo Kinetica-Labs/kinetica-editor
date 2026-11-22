@@ -447,9 +447,9 @@ static bool placeSensor(SceneGraph& g, const Value& a, Value& r, std::string& e)
         return r.set("id", id), id != 0 || (e = "no joint " + std::to_string(a["joint"].integer()), false);
     }
     const Entity* t = entityOf(g, a);
-    if (!t || (kind != "imu" && kind != "sonar" && kind != "touch" && kind != "stereo"))
-        return e = "needs a shape's id and kind imu, sonar, touch or stereo - or a joint's id and kind wrench or effort", false;
-    const SensorKind k = kind == "imu" ? SensorKind::Imu : kind == "sonar" ? SensorKind::Sonar : kind == "touch" ? SensorKind::Touch : SensorKind::Stereo;
+    if (!t || (kind != "imu" && kind != "sonar" && kind != "touch" && kind != "stereo" && kind != "lidar"))
+        return e = "needs a shape's id and kind imu, sonar, touch, stereo or lidar - or a joint's id and kind wrench or effort", false;
+    const SensorKind k = kind == "imu" ? SensorKind::Imu : kind == "sonar" ? SensorKind::Sonar : kind == "touch" ? SensorKind::Touch : kind == "lidar" ? SensorKind::Lidar : SensorKind::Stereo;
     const uint32_t id = attachSensor(g, t->id, placeFrom(g, a, Vector3(0.0_r)), k);
     return r.set("id", id), id != 0 || (e = "no place on the shape", false);
 }
@@ -545,16 +545,18 @@ std::vector<SceneOp> assemblySceneOps() {
                    "{kind?: rotary|linear, a: int, b?: int, axis?: [x,y,z], anchor?: [x,y,z]}", {}, actuatorOp});
     ops.push_back({"assembly_sensor", "A sensor put on a thing, no shape of its own: on a face of a shape a sonar looks out of it (x along the "
                                       "normal), an IMU lies flat on it (z out), a touch pad reads the contacts' normal force through it, a stereo "
-                                      "camera looks out of it (its two lenses across the face; sensor_capture takes its frame); on a joint "
+                                      "camera looks out of it (its two lenses across the face; sensor_capture takes its frame), a lidar "
+                                      "sends its pattern of rays out of it - a beam, a ring, a sphere, a narrow grid, by its spec's rays_h, "
+                                      "fov_h_deg, rays_v, fov_v_deg (its ring level on a side face); on a joint "
                                       "a wrench reads the force and torque it passes to its link, an effort its drive's force along a freedom",
-                   "{target: int, kind: 'imu'|'sonar'|'touch'|'stereo', face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z]} | "
-                   "{joint: int, kind: 'wrench'|'effort', dof?: 'tx'..'rz'}, and for an imu, a sonar or a wrench model?: str (a row of "
+                   "{target: int, kind: 'imu'|'sonar'|'touch'|'stereo'|'lidar', face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z]} | "
+                   "{joint: int, kind: 'wrench'|'effort', dof?: 'tx'..'rz'}, and for an imu, a sonar, a wrench or a lidar model?: str (a row of "
                    "its table, sensor_models; none: the table's first), spec?: {key: number} over it", {}, sensorOp});
     ops.push_back({"sensor_models", "The tables of sensor models (data/sensors/<kind>.csv, a row per model as its datasheet states it) "
                                     "and the fields of each kind's datasheet: key, words, unit, range, the value of a sensor no model gave one",
-                   "{kind?: 'imu'|'sonar'|'wrench'}", [](const SceneGraph&, const Value& a, Value& r, std::string& e) {
+                   "{kind?: 'imu'|'sonar'|'wrench'|'lidar'}", [](const SceneGraph&, const Value& a, Value& r, std::string& e) {
         Value kinds = Value::list();
-        for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}) {
+        for (SensorKind k : kTableKinds) {
             if (a.has("kind") && a["kind"].text("") != sensorKindKey(k)) continue;
             Value kind = Value::map(), fields = Value::list(), models = Value::list();
             for (const Field& f : specFields(k)) {

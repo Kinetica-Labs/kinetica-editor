@@ -61,6 +61,22 @@ class SceneCore(unittest.TestCase):
             self.assertTrue(answer["play_stopped"])
             self.assertEqual(scene.ed.sim_state()["mode"], "edit")
 
+    def test_lidar_reads_its_rays(self):
+        """A lidar on a cart's front: one beam reads the wall ahead; its pattern set to a ring of 4, four distances."""
+        with ke.Scene() as scene:
+            cart = scene.add("box", position=(0, 0.25, 0), size=(0.5, 0.5, 0.5), role="rigid")
+            scene.add("box", position=(3, 0.5, 0), size=(0.2, 1, 6), role="collider")
+            lidar = cart.add_lidar(face="+x")
+            self.assertIsInstance(lidar, ke.Lidar)
+            lidar.set_spec(rays_h=1, fov_h_deg=0, rays_v=1, fov_v_deg=0)
+            lidar.noise = False
+            scene.step(12)
+            self.assertEqual(len(lidar.ranges), 1)
+            self.assertAlmostEqual(lidar.ranges[0], 2.65, places=2)  # the wall's face at 2.9, the lidar on the cart's at 0.25
+            lidar.set_spec(rays_h=4, fov_h_deg=360)
+            scene.step(12)
+            self.assertEqual(len(lidar.ranges), 4)
+
     def test_relative_path_is_the_callers(self):
         here = os.getcwd()
         with tempfile.TemporaryDirectory() as folder:

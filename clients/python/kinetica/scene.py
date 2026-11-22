@@ -9,12 +9,12 @@ import json
 
 from .client import PROTOCOL_VERSION, Client, OperationError
 from .core import Core
-from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Light, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench,
+from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Lidar, Light, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench,
                       _axis,
                       _q, _t)
 
 _KINDS = {"entity": Body, "group": Group, "camera": Camera, "joint": Joint, "battery": Battery, "driver": Driver, "wheel": PointWheel, "controller": Controller, "force": Force, "light": Light}
-_SENSORS = {"encoder": Encoder, "imu": Imu, "sonar": Sonar, "touch": Touch, "wrench": Wrench, "effort": Effort, "stereo": Sensor}
+_SENSORS = {"encoder": Encoder, "imu": Imu, "sonar": Sonar, "touch": Touch, "wrench": Wrench, "effort": Effort, "stereo": Sensor, "lidar": Lidar}
 
 
 def connect(port=None, host="127.0.0.1"):

@@ -2,10 +2,12 @@
 // What a viewer draws of a robot besides its bodies: the joints as gizmos, the sensors as glyphs, the
 // IK goals on their paths. The graph gives them at its own poses while it is edited (Assembly.h:
 // jointVisuals, sensorVisuals); the running world at the poses its bodies have now (src/sim).
+#include "devices/Lidar.h"
 #include "math/Math.h"
 #include "scene/JointModel.h"
 
 #include <cstdint>
+#include <vector>
 
 namespace ke {
 
@@ -39,12 +41,14 @@ struct JointVis {
 // sonar's beam as long as its echo - where they are now, and what they read.
 struct SensorVis {
     uint32_t id = 0;
-    int kind = 0;               // SensorKind: 0 encoder, 1 IMU, 2 sonar, 3 touch, 4 wrench, 5 effort, 6 stereo
+    int kind = 0;               // SensorKind: 0 encoder, 1 IMU, 2 sonar, 3 touch, 4 wrench, 5 effort, 6 stereo, 7 lidar
     Vector3 position{0.0_r};
     Quaternion rotation{};      // the sensor's frame: its x the measured axis or the beam
     Real reading = 0;           // an encoder's turn [rad] or travel [m]; a sonar's distance (-1: no echo)
     Real size = 0.03_r;         // the glyph's scale [m]
     Real fovDeg = 0, baseline = 0, aspect = 0; // a stereo camera: its horizontal field of view, the distance between its lenses, height / width
+    LidarSpec lidar;            // a lidar: its pattern of rays and range
+    std::vector<Real> ranges;   // ... what its rays read in a running world, in their order (-1: nothing; none: not yet)
 };
 
 // An IK goal that walks a path (Entity::path), where the world has taken it now.

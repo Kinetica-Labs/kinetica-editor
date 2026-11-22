@@ -1,5 +1,5 @@
 // The editor's icons (see Icons.h), each painted on a 100 x 100 canvas that is scaled to the
-// requested size (the four forces are pictures laid on it). Light comes from the top left: faces turned to it are lighter, the others darker,
+// requested size (the four forces and the lidar are pictures laid on it). Light comes from the top left: faces turned to it are lighter, the others darker,
 // and a gentle shadow sits under every shape so it reads as a solid thing standing on a floor.
 #include "Icons.h"
 
@@ -931,6 +931,7 @@ void drawDeviceIcon(QPainter& p, DeviceIcon kind) {
     case DeviceIcon::Wrench: drawWrenchIcon(p); break;
     case DeviceIcon::Effort: drawEffortIcon(p); break;
     case DeviceIcon::Stereo: drawStereoIcon(p); break;
+    case DeviceIcon::Lidar: drawPicture(p, "lidar.png"); break;
     case DeviceIcon::Battery: drawBatteryIcon(p); break;
     case DeviceIcon::Driver: drawDriverIcon(p); break;
     case DeviceIcon::Joint: drawJointIcon(p); break;

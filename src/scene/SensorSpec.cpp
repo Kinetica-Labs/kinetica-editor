@@ -49,9 +49,21 @@ const std::vector<Field> kWrench = {
     num("force_accuracy_n", "N", 0, 1e4, 0.1, 3, 4, KE_UI_LABEL("Kinetica", "Смещение силы (3σ)")),
     num("torque_accuracy_n_m", "N.m", 0, 1e3, 0.01, 4, 0.3, KE_UI_LABEL("Kinetica", "Смещение момента (3σ)")),
     num("mass_kg", "kg", 0, 100, 0.01, 3, 0, KE_UI_LABEL("Kinetica", "Масса"))};
+// A lidar's pattern is its numbers: a beam 1 x 1, a ring 360 rays over 360 degrees in one layer, a sphere layers over
+// 180 degrees, a flashlight a grid in a narrow field.
+const std::vector<Field> kLidar = {
+    num("rays_h", "1", 1, 4096, 1, 0, 1, KE_UI_LABEL("Kinetica", "Лучей по горизонтали")),
+    num("fov_h_deg", "deg", 0, 360, 5, 1, 0, KE_UI_LABEL("Kinetica", "Поле по горизонтали")),
+    num("rays_v", "1", 1, 256, 1, 0, 1, KE_UI_LABEL("Kinetica", "Лучей по вертикали")),
+    num("fov_v_deg", "deg", 0, 180, 5, 1, 0, KE_UI_LABEL("Kinetica", "Поле по вертикали")),
+    num("min_m", "m", 0, 100, 0.01, 3, 0.05, KE_UI_LABEL("Kinetica", "Ближе не видит")),
+    num("max_m", "m", 0.01, 1000, 1, 2, 12, KE_UI_LABEL("Kinetica", "Дальше не видит")),
+    num("accuracy_mm", "mm", 0, 1000, 1, 1, 30, KE_UI_LABEL("Kinetica", "Точность (3σ)")),
+    num("rate_hz", "Hz", 0.1, 1000, 1, 1, 10, KE_UI_LABEL("Kinetica", "Сканов в секунду")),
+    num("mass_kg", "kg", 0, 100, 0.001, 4, 0, KE_UI_LABEL("Kinetica", "Масса"))};
 const std::vector<Field> kNone;
 
-const char* kKindKeys[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo"}; // SensorKind
+const char* kKindKeys[] = {"encoder", "imu", "sonar", "touch", "wrench", "effort", "stereo", "lidar"}; // SensorKind
 
 std::string trimmed(const std::string& s) {
     const size_t a = s.find_first_not_of(" \t\r"), b = s.find_last_not_of(" \t\r");
@@ -82,10 +94,10 @@ const Field* fieldOf(SensorKind kind, const std::string& key) {
 } // namespace
 
 const std::vector<Field>& specFields(SensorKind kind) {
-    return kind == SensorKind::Imu ? kImu : kind == SensorKind::Sonar ? kSonar : kind == SensorKind::Wrench ? kWrench : kNone;
+    return kind == SensorKind::Imu ? kImu : kind == SensorKind::Sonar ? kSonar : kind == SensorKind::Wrench ? kWrench : kind == SensorKind::Lidar ? kLidar : kNone;
 }
 
-const char* sensorKindKey(SensorKind kind) { return kKindKeys[std::clamp(int(kind), 0, 6)]; }
+const char* sensorKindKey(SensorKind kind) { return kKindKeys[std::clamp(int(kind), 0, int(kLastSensorKind))]; }
 
 Real specValue(const SensorObject& s, const std::string& key) {
     const auto at = s.spec.find(key);
@@ -105,6 +117,11 @@ SonarSpec sonarSpec(const SensorObject& s) {
     return {v("min_m"), v("max_m"), v("beam_deg"), v("accuracy_mm"), v("cycle_ms"), v("timeout_ms")};
 }
 
+LidarSpec lidarSpec(const SensorObject& s) {
+    const auto v = [&s](const char* key) { return double(specValue(s, key)); };
+    return {int(v("rays_h")), int(v("rays_v")), v("fov_h_deg"), v("fov_v_deg"), v("min_m"), v("max_m"), v("accuracy_mm"), v("rate_hz")};
+}
+
 ForceTorqueSpec wrenchSpec(const SensorObject& s) {
     const auto v = [&s](const char* key) { return double(specValue(s, key)); };
     return {v("rate_hz"), v("force_range_n"), v("torque_range_n_m"), v("force_precision_n"), v("torque_precision_n_m"), v("force_accuracy_n"),
@@ -117,7 +134,7 @@ std::string SensorCatalog::load(const std::vector<std::string>& directories) {
     clear();
     std::string problems;
     for (const std::string& dir : directories)
-        for (int k = 0; k < 7; ++k) {
+        for (int k = 0; k <= int(kLastSensorKind); ++k) {
             if (specFields(SensorKind(k)).empty()) continue;
             const std::string file = dir + "/" + kKindKeys[k] + ".csv";
             std::ifstream in(file, std::ios::binary);

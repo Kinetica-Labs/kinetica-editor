@@ -800,9 +800,11 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out, bool contacts) co
     }
     out.joints = jointVisuals(live_);
     out.sensors = sensorVisuals(live_);
-    for (SensorVis& v : out.sensors) // the glyph shows what the robot reads: a sonar's distance, an encoder's coordinate
-        if (const LiveSensor* x = sensor(v.id); x && (v.kind == int(SensorKind::Sonar) || v.kind == int(SensorKind::Encoder)))
-            v.reading = x->reading().value;
+    for (SensorVis& v : out.sensors) { // the glyph shows what the robot reads: a sonar's distance, an encoder's coordinate, a lidar's scan
+        const LiveSensor* x = sensor(v.id);
+        if (x && (v.kind == int(SensorKind::Sonar) || v.kind == int(SensorKind::Encoder))) v.reading = x->reading().value;
+        if (x && v.kind == int(SensorKind::Lidar)) v.ranges = x->reading().ranges;
+    }
     if (contacts || Probe::layerOn(DrawLayer::ContactPoints))
         for (const ContactPoint& c : contactsNow(physics)) out.contacts.push_back({c.point, c.normal, c.depth, c.normalImpulse, c.a, c.b});
     describeLights(live_, out);

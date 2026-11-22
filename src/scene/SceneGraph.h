@@ -358,7 +358,11 @@ struct ControllerObject {
 // fixed pattern of dots, as the D435's, so a plain surface still has something to match. It is read on
 // request (a frame rendered by rays, not every substep): the two images, lit by the scene's lights with their
 // shadows, and the true depth and body of every pixel for checking - the depth a robot gets it must match.
-enum class SensorKind { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo };
+// A lidar is a pattern of rays sent out of its x at once - a beam, a ring, a sphere, a narrow grid as a flashlight's
+// - by how many rays and how wide a field across each axis (devices/Lidar.h); each reads the distance to the first
+// surface at any angle, a scan `rate_hz` times a second.
+enum class SensorKind { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Lidar };
+inline constexpr SensorKind kLastSensorKind = SensorKind::Lidar;
 struct SensorObject : SceneObject {
     SensorKind kind = SensorKind::Encoder;
     std::string model;                  // the catalog's model the datasheet was copied from ("": its own numbers)

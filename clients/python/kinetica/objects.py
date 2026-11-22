@@ -271,6 +271,12 @@ class Body(SceneObject):
         +x, left -z) - looking out of it. `model`: a row of data/sensors/sonar.csv ("HC-SR04"); none: the table's first."""
         return self._add_sensor("sonar", face, model)
 
+    def add_lidar(self, face="+x", model=None):
+        """A lidar on a face (as add_sonar names them), its rays out of it - a beam, a ring, a sphere or a narrow grid as
+        its datasheet has them. `model`: a row of data/sensors/lidar.csv ("RPLIDAR A1"...); none: the table's first. Its
+        own pattern: ``lidar.set_spec(rays_h=5, fov_h_deg=120)``."""
+        return self._add_sensor("lidar", face, model)
+
     def add_imu(self, face="+y", model=None):
         """An IMU flat on a face (as add_sonar names them), its z out of it. `model`: a row of data/sensors/imu.csv
         ("MPU-6050", "ICM-42688-P"...); none: the table's first."""
@@ -474,6 +480,12 @@ class Sonar(Sensor):
     distance = property(lambda self: self._reading("distance"), doc="The echo's distance, m (-1: no echo)")
     noise = property(lambda self: self._get("sonar", "noise") == 1,
                      lambda self, v: self._set("sonar", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
+
+
+class Lidar(Sensor):
+    ranges = property(lambda self: self._reading("ranges"), doc="Its rays' distances, m, in their order (-1: nothing in range)")
+    noise = property(lambda self: self._get("lidar", "noise") == 1,
+                     lambda self, v: self._set("lidar", "noise", int(bool(v)), f"{self.ref}.noise = {bool(v)}"))
 
 
 class Touch(Sensor):

@@ -400,7 +400,7 @@ Attached attachToFace(SceneGraph& g, uint32_t target, BoxFace face, const Entity
 
 // "Сонар 2": the kind's word and one more than the sensors of that kind there are.
 static std::string sensorName(const SceneGraph& g, SensorKind kind) {
-    const char* words[] = {"Энкодер", "IMU", "Сонар", "Касание", "Сила-момент", "Усилие", "Стереокамера"}; // in the order of SensorKind
+    const char* words[] = {"Энкодер", "IMU", "Сонар", "Касание", "Сила-момент", "Усилие", "Стереокамера", "Лидар"}; // in the order of SensorKind
     const char* word = words[int(kind)];
     int n = 1;
     for (const SensorObject& s : g.sensors) n += s.kind == kind;
@@ -410,16 +410,16 @@ static std::string sensorName(const SceneGraph& g, SensorKind kind) {
 // The sensor's frame from the face's normal n and first direction across u, written in the target's
 // frame: a sonar (n, u, n x u), an IMU (u, n x u, n) - both right-handed. A stereo camera stands as a
 // camera does: its z the world's up off the normal, so its two lenses sit side by side (looking straight
-// up or down, the face's own direction across).
+// up or down, the face's own direction across); so does a lidar, so its ring lies level.
 uint32_t attachSensor(SceneGraph& g, uint32_t target, const FaceSnap& at, SensorKind kind) {
     const Entity* e = findEntity(g, target);
-    if (!e || !at.found || (kind != SensorKind::Imu && kind != SensorKind::Sonar && kind != SensorKind::Touch && kind != SensorKind::Stereo)) return 0;
+    if (!e || !at.found || (kind != SensorKind::Imu && kind != SensorKind::Sonar && kind != SensorKind::Touch && kind != SensorKind::Stereo && kind != SensorKind::Lidar)) return 0;
     Vector3 p;
     Quaternion q;
     worldPose(g, *e, p, q);
     const Vector3 n = normalize(at.normal), up = Vector3(0, 1, 0) - n * n.y;
     Vector3 u = normalize(at.across[0] - n * dot(at.across[0], n));
-    if (kind == SensorKind::Stereo && length(up) > 0.3_r) u = normalize(cross(up, n)); // then n x u = up
+    if ((kind == SensorKind::Stereo || kind == SensorKind::Lidar) && length(up) > 0.3_r) u = normalize(cross(up, n)); // then n x u = up
     const Vector3 w = cross(n, u);
     const Matrix3x3 frame = kind != SensorKind::Imu ? Matrix3x3::fromColumns(n, u, w) : Matrix3x3::fromColumns(u, w, n); // x out: a beam, a pad, a lens
     SensorObject s;
@@ -471,6 +471,7 @@ std::vector<SensorVis> sensorVisuals(const SceneGraph& g) {
         v.kind = int(s.kind);
         v.reading = s.kind == SensorKind::Sonar ? Real(sonarSpec(s).maxM) : 0.0_r;
         if (s.kind == SensorKind::Stereo) v.fovDeg = s.fovDeg, v.baseline = s.baseline, v.aspect = Real(s.height) / Real(s.width);
+        if (s.kind == SensorKind::Lidar) v.lidar = lidarSpec(s);
         if (const JointObject* j = findJoint(g, s.parent)) {
             Vector3 oa, ob;
             Quaternion qa, qb;

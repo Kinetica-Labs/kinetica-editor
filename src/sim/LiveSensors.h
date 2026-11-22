@@ -14,6 +14,7 @@
 
 #include <memory>
 #include <string>
+#include <vector>
 
 namespace ke {
 
@@ -27,6 +28,7 @@ struct SensorValues {
     Vector3 a{0.0_r}, b{0.0_r};
     Real value = 0;
     int64_t count = 0;
+    std::vector<Real> ranges; // a lidar's rays, in their order (devices/Lidar.h)
 };
 
 struct SensorReading : SensorValues {
@@ -40,7 +42,7 @@ struct SensorReading : SensorValues {
 class SensorProbe {
 public:
     virtual ~SensorProbe() = default;
-    virtual bool sense(const PhysicsWorld& physics, const RobotWorld& robot, Real h, SensorValues& truth, std::string& problem) = 0;
+    virtual bool sense(const PhysicsWorld& physics, const RobotWorld& robot, Real h, int64_t untilNs, SensorValues& truth, std::string& problem) = 0;
 };
 
 // The datasheet side: its clock on to `untilNs`, the truth holding since it last ran, into what a robot reads.

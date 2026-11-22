@@ -38,8 +38,9 @@ QString powerLiveText(const Simulation& sim, uint32_t id); // SceneBuilderDevice
 namespace {
 
 // SensorKind; a stereo camera of a scene file keeps its name, but none is offered: vision is a later stage.
-const char* kSensorNames[] = {QT_TRANSLATE_NOOP("Kinetica", "Энкодер"), "IMU", QT_TRANSLATE_NOOP("Kinetica", "Сонар"), QT_TRANSLATE_NOOP("Kinetica", "Касание"), QT_TRANSLATE_NOOP("Kinetica", "Сила-момент"), QT_TRANSLATE_NOOP("Kinetica", "Усилие привода"), QT_TRANSLATE_NOOP("Kinetica", "Стереокамера")};
-const int kSensorKinds = 6; // the kinds a person can put: up to the effort sensor
+const char* kSensorNames[] = {QT_TRANSLATE_NOOP("Kinetica", "Энкодер"), "IMU", QT_TRANSLATE_NOOP("Kinetica", "Сонар"), QT_TRANSLATE_NOOP("Kinetica", "Касание"), QT_TRANSLATE_NOOP("Kinetica", "Сила-момент"), QT_TRANSLATE_NOOP("Kinetica", "Усилие привода"), QT_TRANSLATE_NOOP("Kinetica", "Стереокамера"), QT_TRANSLATE_NOOP("Kinetica", "Лидар")};
+const SensorKind kOffered[] = {SensorKind::Encoder, SensorKind::Imu, SensorKind::Sonar, SensorKind::Touch, SensorKind::Wrench, SensorKind::Effort, SensorKind::Lidar}; // what a person can put
+bool onJointKind(SensorKind k) { return k == SensorKind::Encoder || k == SensorKind::Wrench || k == SensorKind::Effort; }
 const char* kDofWords[] = {QT_TRANSLATE_NOOP("Kinetica", "ход по x"), QT_TRANSLATE_NOOP("Kinetica", "ход по y"), QT_TRANSLATE_NOOP("Kinetica", "ход по z"), QT_TRANSLATE_NOOP("Kinetica", "поворот вокруг x"), QT_TRANSLATE_NOOP("Kinetica", "поворот вокруг y"), QT_TRANSLATE_NOOP("Kinetica", "поворот вокруг z")};
 
 // The face of the target whose world normal is nearest to `toward`.
@@ -80,6 +81,18 @@ QString sensorLiveText(const Simulation& s, uint32_t id) {
         text = uiText("Kinetica", "счёт ") + QString::number(r.count) + (r.referenced ? " · " + n(r.value, 5) : uiText("Kinetica", " · от старта ") + n(r.value, 5) + uiText("Kinetica", " (нуль не задан)")) +
                uiText("Kinetica", " · истина ") + n(t.value, 5);
         break;
+    case SensorKind::Lidar: {
+        const auto nearest = [](const std::vector<Real>& d) {
+            Real m = -1;
+            for (const Real x : d)
+                if (x >= 0 && (m < 0 || x < m)) m = x;
+            return m;
+        };
+        const Real seen = nearest(r.ranges), truly = nearest(t.ranges);
+        text = uiText("Kinetica", "лучей ") + QString::number(r.ranges.size()) + uiText("Kinetica", " · ближе всего ") + (seen < 0 ? QString("—") : n(seen, 3) + uiText("Kinetica", " м")) +
+               uiText("Kinetica", " · истина ") + (truly < 0 ? QString("—") : n(truly, 3) + uiText("Kinetica", " м"));
+        break;
+    }
     case SensorKind::Stereo: break;
     }
     return text + (r.saturated ? uiText("Kinetica", "\nна пределе диапазона") : QString()) + uiText("Kinetica", "\nотсчёт ") + n(double(r.sampleNs) * 1e-9, 4) + uiText("Kinetica", " с");
@@ -140,8 +153,9 @@ void SceneBuilder::addSensor(SensorKind kind) {
     const char* said[] = {uiText("Kinetica", "Энкодер сел на сочленение: считает его поворот"), uiText("Kinetica", "IMU лёг на верх тела: в покое покажет +g по z, как микросхема на столе"),
                           uiText("Kinetica", "Сонар смотрит из грани к виду; повернуть — гизмо вращения (E)"),
                           uiText("Kinetica", "Касание легло на грань, обращённую к виду: сила контактов через неё, Н"),
-                          uiText("Kinetica", "Сила-момент сел на сочленение тела: что оно передаёт телу, в его осях"), uiText("Kinetica", "Усилие привода сочленения: сила или момент его мотора")};
-    if (int(kind) < kSensorKinds) emit statusMessage(said[int(kind)]);
+                          uiText("Kinetica", "Сила-момент сел на сочленение тела: что оно передаёт телу, в его осях"), uiText("Kinetica", "Усилие привода сочленения: сила или момент его мотора"), nullptr,
+                          uiText("Kinetica", "Лидар смотрит из грани к виду: круг лучей лежит ровно; луч, сфера или фонарик — числами его паспорта")};
+    if (said[int(kind)]) emit statusMessage(said[int(kind)]);
 }
 
 QString SceneBuilder::sensorMisfit(SensorKind kind) const {
@@ -156,10 +170,11 @@ QString SceneBuilder::sensorMisfit(SensorKind kind) const {
 
 const std::vector<QAction*>& SceneBuilder::sensorActions() {
     if (!sensorActions_.empty()) return sensorActions_;
-    for (int k = 0; k < kSensorKinds; ++k) {
+    for (const SensorKind kind : kOffered) {
+        const int k = int(kind);
         auto* a = new QAction(deviceIcon(DeviceIcon(k), 24), uiText("Kinetica", kSensorNames[k]), this);
         a->setObjectName(QString("addSensor%1").arg(k));
-        const SensorKind kind = SensorKind(k);
+        a->setData(k);
         connect(a, &QAction::triggered, this, [this, kind] { addSensor(kind); });
         sensorActions_.push_back(a);
     }
@@ -170,11 +185,13 @@ void SceneBuilder::updateSensorActions() {
     const char* tips[] = {uiText("Kinetica", "Квадратурный энкодер на сочленение тела: фронты A/B/Z и счёт"), uiText("Kinetica", "Акселерометр и гироскоп на верх тела: модель из таблицы data/sensors/imu.csv"),
                           uiText("Kinetica", "Ультразвуковой дальномер из грани, обращённой к виду: модель из таблицы data/sensors/sonar.csv"), uiText("Kinetica", "Подушка касания на грани, обращённой к виду: сила контактов через неё"),
                           uiText("Kinetica", "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота"),
-                          uiText("Kinetica", "Сила или момент мотора сочленения тела, как датчик тока сервы")};
-    for (int k = 0; k < int(sensorActions().size()); ++k) {
+                          uiText("Kinetica", "Сила или момент мотора сочленения тела, как датчик тока сервы"), "",
+                          uiText("Kinetica", "Лидар из грани, обращённой к виду: луч, круг, сфера или фонарик — сколько лучей и в каком поле; модель из таблицы data/sensors/lidar.csv")};
+    for (QAction* a : sensorActions()) {
+        const int k = a->data().toInt();
         const QString misfit = sensorMisfit(SensorKind(k));
-        sensorActions_[size_t(k)]->setEnabled(misfit.isEmpty());
-        sensorActions_[size_t(k)]->setToolTip(misfit.isEmpty() ? tips[k] : misfit);
+        a->setEnabled(misfit.isEmpty());
+        a->setToolTip(misfit.isEmpty() ? tips[k] : misfit);
     }
 }
 
@@ -205,13 +222,14 @@ void SceneBuilder::fillSensorMenu(const Entity& e, QMenu* menu) {
                           uiText("Kinetica", "Ультразвуковой дальномер из грани, обращённой к виду: луч, дальность и точность — из паспорта модели"),
                           uiText("Kinetica", "Подушка на грани, обращённой к виду: нормальная сила контактов через неё — палец захвата, бампер, весы под ногой"),
                           uiText("Kinetica", "Шестиосевой датчик силы и момента на сочленении тела, как в запястье робота: вес груза, удар, касание стола"),
-                          uiText("Kinetica", "Сила или момент мотора сочленения, как датчик тока сервы: чем тело давит, сколько держит")};
-    for (int k = 0; k < kSensorKinds; ++k) { // SensorKind: an encoder, a wrench and an effort need the joint the body hangs on
-        const bool onJoint = k == 0 || k == 4 || k == 5;
+                          uiText("Kinetica", "Сила или момент мотора сочленения, как датчик тока сервы: чем тело давит, сколько держит"), "",
+                          uiText("Kinetica", "Лидар из грани, обращённой к виду: лучи по паспорту — луч, круг, сфера или фонарик; дальность каждого луча")};
+    for (const SensorKind kind : kOffered) { // an encoder, a wrench and an effort need the joint the body hangs on
+        const int k = int(kind);
+        const bool onJoint = onJointKind(kind);
         QAction* a = menu->addAction(deviceIcon(DeviceIcon(k), 24), uiText("Kinetica", kSensorNames[k]));
         a->setToolTip(onJoint && !joint ? uiText("Kinetica", "У тела нет сочленения: датчику нечего мерить") : tips[k]);
         a->setEnabled(!onJoint || joint);
-        const SensorKind kind = SensorKind(k);
         connect(a, &QAction::triggered, this, [this, kind] { addSensor(kind); });
     }
 }
@@ -225,7 +243,7 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
     sensorCard_->body()->addWidget(sensorMount_);
     SensorObject& s = sensorDraft_;
     const auto is = [&s](std::vector<SensorKind> kinds) { return [&s, kinds] { return std::count(kinds.begin(), kinds.end(), s.kind) > 0; }; };
-    const auto encoder = is({SensorKind::Encoder}), noisy = is({SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}); // a datasheet's
+    const auto encoder = is({SensorKind::Encoder}), noisy = is({SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench, SensorKind::Lidar}); // a datasheet's
     const auto rotary = [&s] { return s.dof >= DofRx; };
     sensorFields_ = new FieldForm([this](bool click) { commitDraft(sensorById(selectedId_), sensorDraft_, click); });
     FieldForm& f = *sensorFields_;
@@ -268,7 +286,7 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
         if (k >= 0 && size_t(k) < models().size()) applyModel(s, *models()[size_t(k)]);
     }).name("sensorModel").shown([&s] { return !specFields(s.kind).empty(); })
         .tip(uiText("Kinetica", "Модель — строка таблицы data/sensors/<вид>.csv: её числа из техописания переносятся в датчик, каждое можно поправить"));
-    for (SensorKind kind : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+    for (SensorKind kind : kTableKinds)
         for (const Field& field : specFields(kind)) {
             const std::string key = field.key;
             f.number(uiText("Kinetica", field.label.c_str()), field.min, field.max, field.step, field.decimals, [&s, key] { return double(specValue(s, key)); },
@@ -281,7 +299,7 @@ void SceneBuilder::buildSensorCard(QVBoxLayout* col) {
         return m && !m->source.empty() ? uiText("Kinetica", "Источник: ") + QString::fromStdString(m->source) : QString();
     }).name("roleRowLabel").shown([&s] { return !specFields(s.kind).empty(); });
     f.toggle(uiText("Kinetica", "Шум и смещения по паспорту"), [&s] { return s.noise; }, [&s](double on) { s.noise = on != 0; }).name("sensorNoise").shown(noisy)
-        .label([&s] { return s.kind == SensorKind::Sonar ? uiText("Kinetica", "Дрожание по паспорту") : uiText("Kinetica", "Шум и смещения по паспорту"); })
+        .label([&s] { return s.kind == SensorKind::Sonar ? uiText("Kinetica", "Дрожание по паспорту") : s.kind == SensorKind::Lidar ? uiText("Kinetica", "Шум по паспорту") : uiText("Kinetica", "Шум и смещения по паспорту"); })
         .tip(uiText("Kinetica", "Выключено — идеальный датчик: только для эталона и сравнения, управление робота так не читает"));
     f.number(uiText("Kinetica", "Зерно шума"), 0, 1e6, 1, 0, [&s] { return s.seed; }, [&s](double v) { s.seed = uint32_t(v); }).name("sensorSeed").shown(noisy)
         .tip(uiText("Kinetica", "Зерно шума: тот же номер — тот же экземпляр датчика. 0 — по id датчика"));

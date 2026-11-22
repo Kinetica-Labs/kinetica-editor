@@ -5,6 +5,7 @@
 #include "devices/Encoder.h"
 #include "devices/ForceTorque.h"
 #include "devices/Imu.h"
+#include "devices/Lidar.h"
 #include "devices/Sonar.h"
 #include "math/ElementaryFunctions.h"
 #include "scene/SensorSpec.h"
@@ -16,7 +17,7 @@ namespace ke {
 
 void LiveSensor::step(const PhysicsWorld& physics, const RobotWorld& robot, Real h, int64_t untilNs) {
     std::string problem;
-    if (!probe_->sense(physics, robot, h, truth_, problem)) {
+    if (!probe_->sense(physics, robot, h, untilNs, truth_, problem)) {
         reading_.problem = problem;
         return;
     }
@@ -62,7 +63,7 @@ struct Unwrap {
 class InertialProbe : public SensorProbe {
 public:
     InertialProbe(const Mount& m, const Vector3& gravity) : mount_(m), gravity_(gravity) {}
-    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real h, SensorValues& truth, std::string&) override {
+    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real h, int64_t, SensorValues& truth, std::string&) override {
         Vector3 p;
         Quaternion q;
         mount_.pose(physics, p, q);
@@ -95,7 +96,7 @@ private:
 class EchoProbe : public SensorProbe {
 public:
     EchoProbe(const Mount& m, const SonarSpec& spec) : mount_(m), spec_(spec) {}
-    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real, SensorValues& truth, std::string&) override {
+    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real, int64_t, SensorValues& truth, std::string&) override {
         Vector3 origin;
         Quaternion turn;
         mount_.pose(physics, origin, turn);
@@ -119,12 +120,40 @@ private:
     SonarSpec spec_;
 };
 
+// A lidar's scan: every ray of its pattern cast at once when a scan is due (every 1 / rate_hz from time 0), the
+// distance along it to the first surface at any angle, its carrier left out (-1: nothing within its range); between
+// scans the truth holds the last one. Its count is the scans taken - the device reads a new one by it.
+class ScanProbe : public SensorProbe {
+public:
+    ScanProbe(const Mount& m, const LidarSpec& spec) : mount_(m), maxM_(spec.maxM), rays_(Lidar::directions(spec)), periodNs_(Lidar(spec).periodNs()) {}
+    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real, int64_t untilNs, SensorValues& truth, std::string&) override {
+        if (untilNs < nextNs_) return true;
+        nextNs_ += periodNs_ * ((untilNs - nextNs_) / periodNs_ + 1);
+        Vector3 origin;
+        Quaternion turn;
+        mount_.pose(physics, origin, turn);
+        truth.ranges.resize(rays_.size());
+        for (size_t k = 0; k < rays_.size(); ++k) {
+            BodyHit hit;
+            truth.ranges[k] = physics.castRay(origin, origin + turn.rotate(rays_[k]) * Real(maxM_), hit, mount_.body) ? hit.distance : -1.0_r;
+        }
+        ++truth.count;
+        return true;
+    }
+
+private:
+    Mount mount_;
+    double maxM_;
+    std::vector<Vector3> rays_;
+    int64_t periodNs_, nextNs_ = 0;
+};
+
 // A joint's quantity: its coordinate along a freedom (unwrapped), the load it passes to its link, or what its drive put out.
 class JointProbe : public SensorProbe {
 public:
     enum class What { Coordinate, Wrench, Effort };
     JointProbe(uint32_t joint, int dof, What what) : joint_(joint), dof_(dof), what_(what) {}
-    bool sense(const PhysicsWorld& physics, const RobotWorld& robot, Real, SensorValues& truth, std::string& problem) override {
+    bool sense(const PhysicsWorld& physics, const RobotWorld& robot, Real, int64_t, SensorValues& truth, std::string& problem) override {
         if (what_ == What::Wrench) return robot.jointWrench(physics, joint_, truth.a, truth.b) || (problem = "its joint is not built", false);
         if (what_ == What::Effort) return truth.value = robot.jointEffort(physics, joint_), true;
         Real x[6];
@@ -146,7 +175,7 @@ private:
 class FrameProbe : public SensorProbe {
 public:
     FrameProbe(const Mount& m, const Mount& against, int dof) : mount_(m), against_(against), dof_(dof) {}
-    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real, SensorValues& truth, std::string& problem) override {
+    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real, int64_t, SensorValues& truth, std::string& problem) override {
         if (against_.body >= 0 && !physics.alive(against_.body)) return problem = "what it is measured against is gone", false;
         Vector3 p, o;
         Quaternion q, r;
@@ -175,7 +204,7 @@ private:
 class TouchProbe : public SensorProbe {
 public:
     explicit TouchProbe(const Mount& m) : mount_(m) {}
-    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real h, SensorValues& truth, std::string& problem) override {
+    bool sense(const PhysicsWorld& physics, const RobotWorld&, Real h, int64_t, SensorValues& truth, std::string& problem) override {
         if (mount_.body < 0) return problem = "a touch pad needs a body to lie on", false;
         Vector3 p;
         Quaternion q;
@@ -239,6 +268,21 @@ private:
     Sonar sonar_;
     int64_t next_ = 0;
     std::vector<PinEdge> edges_;
+};
+
+// A scan as the robot reads it: each ray's distance with its noise, rounded, out of range -1; taken when the probe's is.
+class LidarDevice : public SensorDevice {
+public:
+    LidarDevice(const LidarSpec& spec, uint32_t seed, bool noise) : lidar_(spec, seed, noise) {}
+    void run(int64_t untilNs, const SensorValues& truth, SensorReading& out) override {
+        if (truth.count == out.count) return;
+        out.ranges.resize(truth.ranges.size());
+        for (size_t k = 0; k < truth.ranges.size(); ++k) out.ranges[k] = Real(lidar_.read(double(truth.ranges[k])));
+        out.count = truth.count, out.sampleNs = untilNs;
+    }
+
+private:
+    Lidar lidar_;
 };
 
 // The quadrature encoder: its edges as the coordinate moves over the substep, the count a decoder keeps, and the
@@ -325,6 +369,10 @@ std::unique_ptr<LiveSensor> makeSensor(const SensorObject& s, const SceneGraph& 
             return why = "«" + s.name + "»: an encoder needs a joint or a body", nullptr;
         }
         device = std::make_unique<EncoderDevice>(s);
+        break;
+    case SensorKind::Lidar:
+        probe = std::make_unique<ScanProbe>(mountOf(s, g, robot), lidarSpec(s));
+        device = std::make_unique<LidarDevice>(lidarSpec(s), seed, s.noise);
         break;
     case SensorKind::Stereo:
         return why.clear(), nullptr; // its frame is taken on request (sensor_capture), not every substep

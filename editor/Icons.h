@@ -40,7 +40,7 @@ QIcon sceneIcon(SceneIcon kind, int size = 28);
 
 // The devices of mechatronics: the sensors (in the order of ke::SensorKind), the electrics, and Sensor - any sensor, the
 // toolbar's button that opens their list.
-enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Battery, Driver, Joint, Controller, Sensor, Count }; // ke::SensorKind first
+enum class DeviceIcon { Encoder, Imu, Sonar, Touch, Wrench, Effort, Stereo, Lidar, Battery, Driver, Joint, Controller, Sensor, Count }; // ke::SensorKind first
 QIcon deviceIcon(DeviceIcon kind, int size = 28);
 
 // The layout buttons of the window: the left side bar, the layout menu,

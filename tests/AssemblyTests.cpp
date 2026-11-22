@@ -683,7 +683,7 @@ void testSensorDatasheet() {
 
     problems = sensorCatalog().load({std::string(KE_DATA) + "/sensors"});
     int models = 0, outside = 0;
-    for (SensorKind k : {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench})
+    for (SensorKind k : kTableKinds)
         for (const SensorModel* m : sensorCatalog().models(k)) {
             ++models;
             for (const Field& f : specFields(k))
@@ -691,7 +691,7 @@ void testSensorDatasheet() {
         }
     std::printf("  the program's tables: %zu files, %d models, %d numbers out of range; problems: %s\n", sensorCatalog().files().size(), models, outside,
                 problems.empty() ? "none" : problems.c_str());
-    CHECK(problems.empty() && sensorCatalog().files().size() == 3 && models >= 3 && outside == 0, "the program's tables read clean");
+    CHECK(problems.empty() && sensorCatalog().files().size() == std::size(kTableKinds) && models >= 4 && outside == 0, "the program's tables read clean");
 
     const std::string first = sensorCatalog().models(SensorKind::Imu).front()->name;
     Value args = Value::map(), answer = Value::map(), spec2 = Value::map();

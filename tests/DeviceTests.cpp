@@ -8,6 +8,7 @@
 
 #include "devices/Encoder.h"
 #include "devices/Imu.h"
+#include "devices/Lidar.h"
 #include "devices/Sonar.h"
 
 #include <cmath>
@@ -116,6 +117,43 @@ void testImuNoise() {
     CHECK(std::fabs(gMean - gOffset) < 1.0 && std::fabs(aMean - aOffset) < 5.0, "the means %f %f are not the offsets %f %f", gMean, aMean, gOffset, aOffset);
     CHECK(same && other.gyroChannel().offset[0] != gyro.offset[0], "a seed does not give its own unit, the same each time");
     CHECK(within, "an offset lies outside the datasheet's tolerance");
+}
+
+// A lidar's pattern and what a ray reads: a ring of 4 over a full turn looks back, right, ahead and left (no ray
+// twice); a 2 x 2 grid over 90 degrees has its rays on the field's corners; one ray looks along x. A ray reads -1 out
+// of range and with no surface; without noise the distance to the millimetre; with noise 3 sigma of the accuracy,
+// rounded to whole millimetres, the same for one seed.
+void testLidarPattern() {
+    LidarSpec ring;
+    ring.raysH = 4, ring.fovHDeg = 360;
+    const std::vector<Vector3> r = Lidar::directions(ring);
+    const Vector3 want[] = {{-1, 0, 0}, {0, -1, 0}, {1, 0, 0}, {0, 1, 0}};
+    bool ringOk = r.size() == 4;
+    for (size_t k = 0; ringOk && k < 4; ++k) ringOk = length(r[k] - want[k]) < 1e-6_r;
+    LidarSpec grid;
+    grid.raysH = grid.raysV = 2, grid.fovHDeg = grid.fovVDeg = 90;
+    const std::vector<Vector3> c = Lidar::directions(grid);
+    const Real s = 0.5_r, h = Real(std::sqrt(0.5));
+    const bool gridOk = c.size() == 4 && length(c[0] - Vector3(s, -s, -h)) < 1e-6_r && length(c[3] - Vector3(s, s, h)) < 1e-6_r;
+    const bool beamOk = Lidar::directions(LidarSpec()).size() == 1 && length(Lidar::directions(LidarSpec())[0] - Vector3(1, 0, 0)) < 1e-6_r;
+    LidarSpec spec;
+    spec.minM = 0.1, spec.maxM = 5, spec.accuracyMm = 30;
+    Lidar exact(spec, 3, false), noisy(spec, 3, true), twin(spec, 3, true);
+    const bool limits = exact.read(-1) == -1 && exact.read(0.05) == -1 && exact.read(5.5) == -1 && exact.read(1.23456) == 1.235;
+    double sum = 0, sum2 = 0;
+    bool same = true, millimetres = true;
+    for (int k = 0; k < 4000; ++k) {
+        const double x = noisy.read(2), y = twin.read(2);
+        same = same && x == y;
+        millimetres = millimetres && std::fabs(x * 1000 - std::round(x * 1000)) < 1e-6;
+        sum += x, sum2 += x * x;
+    }
+    const double mean = sum / 4000, sd = std::sqrt(sum2 / 4000 - mean * mean);
+    std::printf("  lidar: ring of 4 %s, 2 x 2 grid on its corners %s, one beam along x %s; 4000 reads at 2 m: mean %.4f m, sd %.2f mm (10, "
+                "rounding adds 0.3); limits %s\n", ringOk ? "yes" : "no", gridOk ? "yes" : "no", beamOk ? "yes" : "no", mean, sd * 1e3, limits ? "yes" : "no");
+    CHECK(ringOk && gridOk && beamOk, "a lidar's rays are not where its pattern puts them");
+    CHECK(limits && same && millimetres, "a ray's range limits, its millimetres or its seed");
+    CHECK(std::fabs(mean - 2) < 1e-3 && std::fabs(sd * 1e3 - 10) < 0.6, "the lidar's noise: mean %f, sd %f mm", mean, sd * 1e3);
 }
 
 // The sonar's jitter against the normal it is drawn from: 4000 measurements of an echo at 1 m read 1 m on average,

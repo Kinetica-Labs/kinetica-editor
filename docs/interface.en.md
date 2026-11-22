@@ -388,7 +388,7 @@ The card shows the angle, the target and the torque after <img src="images/ui/ic
 
 ### Sensors
 
-Select a body or a joint and press <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor. On a body go an IMU, a sonar and a contact sensor; on a joint - an encoder,
+Select a body or a joint and press <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor. On a body go an IMU, a sonar, a lidar and a contact sensor; on a joint - an encoder,
 a force/torque sensor and an actuator effort sensor.
 
 ![The Sensor menu](images/ui/en/sensor-menu.png)
@@ -396,6 +396,11 @@ a force/torque sensor and an actuator effort sensor.
 A sensor has a datasheet: a model from the table and its numbers - range, beam angle, accuracy, noise.
 
 ![A sonar on a cart and its datasheet](images/ui/en/sensors.png)
+
+**Lidar** - one sensor whose rays are set by its numbers: Horizontal rays and Horizontal field, the same vertically.
+One ray is a range finder; 360 rays over 360° - a ring around the robot; layers over 180° - a sphere; an 8 x 8 grid
+in a narrow field - a flashlight. Each ray sees a surface at any angle, unlike a sonar, which a slanted wall does not
+answer. On a side face its ring lies level; in play the rays reach what they hit.
 
 > A robot's control reads only such sensors - with noise, quantisation and delay, as a real device has.
 

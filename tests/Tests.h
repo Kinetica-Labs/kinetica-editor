@@ -51,6 +51,7 @@ void testImuSpec();
 void testImuNoise();
 void testSensorDatasheet();
 void testSonarNoise();
+void testLidarPattern();
 // PhysicsTests.cpp
 void testPhysicsFreeFall();
 void testPhysicsTorque();
@@ -92,6 +93,7 @@ void testSimTugUr5e();
 void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
 void testSimSensors();
+void testSimLidar();
 void testSimSequence();
 void testSimRecording();
 void testSimRecordingArm();

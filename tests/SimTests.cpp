@@ -964,6 +964,45 @@ void testSimGoalPoseSettles() {
 // A servo holding an arm against gravity: the wrench sensor on its hinge reads the arm's weight, the effort sensor the
 // servo's torque m g d cos x. With its datasheet's noise an IMU reads other than the truth - the robot's input is never
 // the physics' number.
+// A lidar in a running world. A fixed box with a wall turned 45 degrees ahead of its +x face: the sonar on that face
+// hears nothing (its mirror blind spot), the lidar's one beam reads the wall at 0.829 m (the face plane 0.05 m before
+// the wall's middle at 1 m, along the beam 0.9 - 0.05 / cos 45). A ring of 4 rays over a full turn on the same face:
+// back to a wall 1.05 m away, right (+z, its z the world's up) to one 0.95 m away, ahead the turned wall, left nothing.
+// 10 scans a second: 10 or 11 scans in a second of the world, the last one taken in its last tenth.
+void testSimLidar() {
+    SceneGraph g;
+    g.world.physics.sleeping = false;
+    g.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 0.1_r, 0}, true));
+    g.entities.push_back(solid(2, "Косая стена", {0.1_r, 1, 2}, {1, 0.5_r, 0}, true));
+    g.entities.back().rotationDeg = {0, 45, 0};
+    g.entities.push_back(solid(3, "Стена сзади", {0.1_r, 1, 2}, {-1, 0.5_r, 0}, true));
+    g.entities.push_back(solid(4, "Стена справа", {2, 1, 0.1_r}, {0, 0.5_r, 1}, true));
+    const auto put = [&g](SensorKind kind, int rays) {
+        const uint32_t id = attachSensor(g, 1, snapToFace(g, 1, BoxFace::PlusX, Vector3(0.0_r)), kind);
+        SensorObject& s = g.sensors.back();
+        s.noise = false;
+        if (kind == SensorKind::Lidar) s.spec = {{"rays_h", Real(rays)}, {"fov_h_deg", rays > 1 ? 360.0_r : 0.0_r}, {"rays_v", 1}, {"fov_v_deg", 0}, {"rate_hz", 10}};
+        return id;
+    };
+    const uint32_t sonar = put(SensorKind::Sonar, 0), beam = put(SensorKind::Lidar, 1), ring = put(SensorKind::Lidar, 4);
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 60; ++k) s.stepFrame();
+    const RobotWorld& w = *s.robot();
+    const SensorReading& b = w.sensor(beam)->reading();
+    const std::vector<Real>& r = w.sensor(ring)->reading().ranges;
+    const Real slanted = 0.9_r - 0.05_r / Real(std::sqrt(0.5));
+    std::printf("  lidar: sonar before a 45° wall %.3f (none: -1); one beam %.4f m (%.4f); a ring of 4: %.3f %.3f %.3f %.3f m (1.05 0.95 %.3f -1); "
+                "%lld scans in 1 s, the last at %.3f s\n", double(w.sensor(sonar)->truth().value), b.ranges.empty() ? -9.0 : double(b.ranges[0]), double(slanted),
+                r.size() > 3 ? double(r[0]) : -9.0, r.size() > 3 ? double(r[1]) : -9.0, r.size() > 3 ? double(r[2]) : -9.0, r.size() > 3 ? double(r[3]) : -9.0,
+                double(slanted), static_cast<long long>(b.count), double(b.sampleNs) * 1e-9);
+    CHECK(w.sensor(sonar)->truth().value < 0, "the sonar hears a wall turned 45 degrees from its beam");
+    CHECK(b.ranges.size() == 1 && std::fabs(b.ranges[0] - slanted) < 2e-3_r, "the lidar's beam reads the turned wall at %f m, not %f", b.ranges.empty() ? -1.0 : double(b.ranges[0]), double(slanted));
+    CHECK(r.size() == 4 && std::fabs(r[0] - 1.05_r) < 2e-3_r && std::fabs(r[1] - 0.95_r) < 2e-3_r && std::fabs(r[2] - slanted) < 2e-3_r && r[3] == -1,
+          "the ring of 4 does not read back, right, ahead and nothing");
+    CHECK(b.count >= 10 && b.count <= 11 && b.sampleNs > 900000000, "%lld scans in a second at 10 a second", static_cast<long long>(b.count));
+}
+
 void testSimSensors() {
     SceneGraph g;
     g.world.physics.sleeping = false;

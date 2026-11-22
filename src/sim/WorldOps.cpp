@@ -122,7 +122,8 @@ Value jointState(const Simulation& s, const JointObject& j) {
 
 // A sensor's quantities by its kind's words (what Python's kinetica.Sensor reads): an IMU's accel and gyro, a wrench's
 // force and torque, a sonar's distance, a touch pad's force and points, an effort's effort, an encoder's count and the
-// coordinate it means (`reading`: with a known zero only). The truth has the quantities of the probe: no counts.
+// coordinate it means (`reading`: with a known zero only), a lidar's ranges - its rays in their order, -1 where nothing
+// is in range. The truth has the quantities of the probe: no counts.
 Value sensorValues(SensorKind kind, const SensorValues& v, bool referenced, bool truth) {
     Value r = Value::map();
     switch (kind) {
@@ -138,6 +139,12 @@ Value sensorValues(SensorKind kind, const SensorValues& v, bool referenced, bool
         if (!truth) r.set("count", double(v.count)), r.set("relative", double(v.value));
         r.set("reading", referenced ? Value(double(v.value)) : Value());
         break;
+    case SensorKind::Lidar: {
+        Value ranges = Value::list();
+        for (Real d : v.ranges) ranges.push(double(d));
+        r.set("ranges", ranges);
+        break;
+    }
     case SensorKind::Stereo: break;
     }
     return r;

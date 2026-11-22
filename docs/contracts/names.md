@@ -377,6 +377,7 @@
 | `problem` | неисправность датчика: текст, пусто - нет | stable |  |
 | `protocol_version` | версия протокола в ответе `ops_list`: клиент, собранный под N, работает с программой N и новее; нет поля - 0 | stable |  |
 | `range` | значения кривых секвенсора [низ, верх] | stable |  |
+| `ranges` | дальности лучей лидара по порядку, м (-1: ничего в пределах) | testing |  |
 | `reading` | показание датчика - в его единице | stable |  |
 | `redone` | повтор сделан | stable |  |
 | `relative` | показание относительно нуля датчика | stable |  |
@@ -528,6 +529,7 @@
 | `left` | bind | левая кнопка мыши | stable |  |
 | `left_stick` | bind | левый стик геймпада | stable |  |
 | `lens` | часть | объектив камеры | stable |  |
+| `lidar` | датчик | лидар: лучи по паспорту (`rays_h`, `fov_h_deg`, `rays_v`, `fov_v_deg`) - луч, круг, сфера, фонарик | testing |  |
 | `lift` | action | ведёт цель вверх и вниз | stable |  |
 | `light` | строка | свет | stable |  |
 | `limit` | часть; bridge | ограниченная степень сустава; у драйвера - предел тока, А | stable |  |
@@ -653,6 +655,7 @@
 | `Body.add_controller` | контроллер цели - `controller_add` | stable |
 | `Body.add_goal` | цель ИК для эффектора - `assembly_goal` | stable |
 | `Body.add_imu` | IMU на грань - `assembly_sensor` | stable |
+| `Body.add_lidar` | лидар на грань - `assembly_sensor` | testing |
 | `Body.add_sonar` | дальномер на грань - `assembly_sensor` | stable |
 | `Body.add_touch` | датчик касания на грань - `assembly_sensor` | stable |
 | `Body.add_wheel` | колесо - `assembly_wheel` | stable |
@@ -790,6 +793,7 @@
 | `Sensor.spec` | паспорт `{ключ: число}` | stable |
 | `show` | значения и слова панели из плагина - `plugin_panel_set` | stable |
 | `Sonar` | ультразвуковой дальномер | stable |
+| `Lidar` | лидар: лучи по паспорту, дальность каждого | testing |
 | `Touch` | датчик касания | stable |
 | `ui` | панель плагина как данные | stable |
 | `ui.button` | кнопка - команда | stable |

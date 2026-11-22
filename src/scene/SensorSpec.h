@@ -8,6 +8,7 @@
 #include "core/Field.h"
 #include "devices/ForceTorque.h"
 #include "devices/Imu.h"
+#include "devices/Lidar.h"
 #include "devices/Sonar.h"
 #include "scene/SceneGraph.h"
 
@@ -19,12 +20,13 @@ namespace ke {
 
 // The fields of a kind's datasheet (core/Field.h: key with its unit's suffix, UCUM unit, range, the value with no model).
 const std::vector<Field>& specFields(SensorKind kind); // empty: the kind has no datasheet (yet)
-inline constexpr SensorKind kTableKinds[] = {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench}; // the kinds that have a table file
+inline constexpr SensorKind kTableKinds[] = {SensorKind::Imu, SensorKind::Sonar, SensorKind::Wrench, SensorKind::Lidar}; // the kinds that have a table file
 const char* sensorKindKey(SensorKind kind);                // "imu", "sonar", "wrench"...: its table's name, its file word
 
 Real specValue(const SensorObject& s, const std::string& key); // the sensor's number, else its field's value
 ImuSpec imuSpec(const SensorObject& s);
 SonarSpec sonarSpec(const SensorObject& s);
+LidarSpec lidarSpec(const SensorObject& s);
 ForceTorqueSpec wrenchSpec(const SensorObject& s);
 Real sensorMass(const SensorObject& s); // kg
 

@@ -571,6 +571,22 @@ void testSensorCard(Checker& c, SceneBuilder& b) {
     const bool live = waitUntil([&] { return says("м/с²") && says("истина"); }, 5000);
     b.stop();
     pump(60);
+    // A lidar from the menu: its pattern's fields in its card, a ring of 8 typed; playing, the card reads its 8 rays.
+    b.select(23);
+    b.updateSensorActions();
+    QAction* lidarAct = nullptr;
+    for (QAction* a : b.sensorActions())
+        if (a->data().toInt() == int(SensorKind::Lidar)) lidarAct = a;
+    if (lidarAct) lidarAct->trigger();
+    pump(60);
+    const bool lidar = lidarAct && sensor() && sensor()->kind == SensorKind::Lidar && shows("spec_rays_h") && shows("spec_fov_v_deg") && !shows("spec_beam_deg");
+    number("spec_rays_h", 8);
+    const bool ring = sensor() && specValue(*sensor(), "rays_h") == 8;
+    b.play();
+    const bool scans = waitUntil([&] { return says("лучей 8"); }, 5000);
+    b.stop();
+    pump(60);
+    c.check(lidar && ring && scans, "a lidar from the sensor menu: its pattern's fields in the card, 8 rays typed, playing it reads 8 rays");
     std::printf("  the sensor card: an encoder %s, 1000 lines %s, its zero at 0.5 %s; an IMU %s, its model's datasheet %s, 200 Hz typed over it %s; "
                 "quiet %s, undone %s, seed 7 %s; playing, it reads %s\n", encoder ? "yes" : "no", lines ? "yes" : "no", zero ? "yes" : "no", imu ? "yes" : "no",
                 sheet ? "yes" : "no", typed ? "yes" : "no", quiet ? "yes" : "no", noisy ? "yes" : "no", seed ? "yes" : "no", live ? "yes" : "no");

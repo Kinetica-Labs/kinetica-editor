@@ -249,6 +249,18 @@ void MainWindow::addLightButtons(QToolBar* tb) {
     createButtons_.push_back(cameras);
 }
 
+// A menu's icons at `size` px, not a menu's usual 16: a picture that differs from its neighbour by small marks.
+class MenuIcons : public QProxyStyle {
+public:
+    explicit MenuIcons(int size) : size_(size) {}
+    int pixelMetric(PixelMetric m, const QStyleOption* o, const QWidget* w) const override {
+        return m == PM_SmallIconSize ? size_ : QProxyStyle::pixelMetric(m, o, w);
+    }
+
+private:
+    int size_;
+};
+
 // "Датчик ▾": a sensor has no shape of its own - it is put on the selected shape (a face toward the view) or on the
 // joint the shape hangs on, as a property.
 void MainWindow::addSensorButton(QToolBar* tb) {
@@ -262,9 +274,12 @@ void MainWindow::addSensorButton(QToolBar* tb) {
     sensors->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(sensors);
     menu->setToolTipsVisible(true);
+    auto* icons = new MenuIcons(28); // as the forces' menu: a picture at 16 px is a smudge
+    icons->setParent(menu);
+    menu->setStyle(icons);
     const std::vector<QAction*>& kinds = builder_->sensorActions();
     menu->addSection(uiText("Kinetica", "На тело"));
-    for (int k : {1, 2, 3}) // IMU, sonar, touch
+    for (int k : {1, 2, 6, 3}) // IMU, sonar, lidar, touch (SceneBuilder::sensorActions: the kinds, then the lidar)
         if (size_t(k) < kinds.size()) menu->addAction(kinds[size_t(k)]);
     menu->addSection(uiText("Kinetica", "На сочленение тела"));
     for (int k : {0, 4, 5}) // encoder, wrench, effort
@@ -274,18 +289,6 @@ void MainWindow::addSensorButton(QToolBar* tb) {
     tb->addWidget(sensors);
     createButtons_.push_back(sensors);
 }
-
-// A menu's icons at `size` px, not a menu's usual 16: a picture that differs from its neighbour by small marks.
-class MenuIcons : public QProxyStyle {
-public:
-    explicit MenuIcons(int size) : size_(size) {}
-    int pixelMetric(PixelMetric m, const QStyleOption* o, const QWidget* w) const override {
-        return m == PM_SmallIconSize ? size_ : QProxyStyle::pixelMetric(m, o, w);
-    }
-
-private:
-    int size_;
-};
 
 // "Сила ▾": the four forces, each added at once (over the selection, else at the scene's centre), like a sensor.
 void MainWindow::addForceButton(QToolBar* tb) {

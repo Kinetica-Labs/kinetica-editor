@@ -62,7 +62,7 @@ QString propertyLine(const SceneGraph& g, const GraphEdit& e) {
     if (has(g.drivers, e.id) && line == "bridge" && key == "duty") return r + ".duty = " + v;
     if (has(g.drivers, e.id) && line == "bridge" && key == "stop") return r + ".brake = " + (v == "brake" ? "True" : "False");
     if (has(g.sensors, e.id) && line == "encoder" && key == "lines") return r + ".lines = " + v;
-    if (has(g.sensors, e.id) && (line == "imu" || line == "sonar") && key == "noise") return r + ".noise = " + (v == "1" ? "True" : "False");
+    if (has(g.sensors, e.id) && (line == "imu" || line == "sonar" || line == "lidar") && key == "noise") return r + ".noise = " + (v == "1" ? "True" : "False");
     if (has(g.batteries, e.id) && line == "cells" && key == "series") return r + ".series = " + v;
     return {};
 }
