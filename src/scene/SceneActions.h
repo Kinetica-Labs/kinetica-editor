@@ -10,6 +10,8 @@
 // given out. Each function is one edit; undo is the client's (it keeps the graph from before).
 #include "scene/SceneGraph.h"
 
+#include <map>
+
 #include <functional>
 #include <string>
 #include <vector>
@@ -60,8 +62,13 @@ bool freeCamera(SceneGraph& g, uint32_t camera); // a free camera again, looking
 // array whose template goes; batteries and drivers named in `ids`.
 void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids);
 // A copy of the object and all under it (sensors go with their body) under `parent`; an instance copy
-// shares the master's geometry. Its id.
-uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent);
+// shares the master's geometry. Its id; `copied` (if given) gets each entity copied -> its copy, for copyJoints.
+uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent, std::map<uint32_t, uint32_t>* copied = nullptr);
+// The joints among copied links (`copied`: an entity -> its copy, the copies standing where they are to be): every
+// joint whose moving link was copied and whose other one was too, or is the world, again between the copies - with
+// the sensors on it and its motor's driver (on the same battery). A joint on the world hangs the copy as the original
+// hangs: its frame there moves as the copied link moved from the original. The joints' copies.
+std::vector<uint32_t> copyJoints(SceneGraph& g, const std::map<uint32_t, uint32_t>& copied);
 // Copies of `roots` (topmost) a little above them - a sensor's copy stays on its mount -, or each `by` from its original
 // in the world (zero: in its place): the copies.
 std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots, const Vector3* by = nullptr);

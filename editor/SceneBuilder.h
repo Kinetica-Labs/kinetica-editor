@@ -539,7 +539,7 @@ private:
         ke::Vector3 scale{1.0f};
         bool turns = false;
     };
-    uint32_t placeClone(uint32_t original, const CloneStep& step, int k, bool instance);
+    uint32_t placeClone(uint32_t original, const CloneStep& step, int k, bool instance, std::map<uint32_t, uint32_t>* copied);
     uint32_t cloneAsArray(uint32_t original, const CloneStep& step, int copies);
     void pruneSelection(); // drops what is no longer in the graph
 

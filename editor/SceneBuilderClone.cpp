@@ -44,9 +44,9 @@ bool SceneBuilder::cloneAllows(CloneKind kind) const {
 }
 
 // Copy k of an original: M^k applied to its start pose, M being the drag (from -> to) as a move and
-// a turn in the world; its size times the scale factors to the k-th power.
-uint32_t SceneBuilder::placeClone(uint32_t original, const CloneStep& step, int k, bool instance) {
-    const uint32_t c = coreEdit([&](SceneGraph& g) { return ke::copySubtree(g, original, instance, objectById(original)->parent); });
+// a turn in the world; its size times the scale factors to the k-th power. `copied`: its entities -> their copies.
+uint32_t SceneBuilder::placeClone(uint32_t original, const CloneStep& step, int k, bool instance, std::map<uint32_t, uint32_t>* copied) {
+    const uint32_t c = coreEdit([&](SceneGraph& g) { return ke::copySubtree(g, original, instance, objectById(original)->parent, copied); });
     SceneObject* o = objectById(c);
     o->name += " (" + std::to_string(k) + ")";
     const Quaternion turn = (step.toRotation * step.fromRotation.conjugate()).normalized();
@@ -94,6 +94,7 @@ void SceneBuilder::finishClone(int copies, CloneKind kind) {
     const SceneGraph dragged = graph_;
     graph_ = gizmoGraph_; // the scene as before the drag (the undo step already holds it)
     std::vector<uint32_t> made;
+    std::map<int, std::map<uint32_t, uint32_t>> steps; // copy k of every original: its entities, for the joints among them
     for (const auto& [original, preview] : cloneOf_) {
         CloneStep step;
         worldPose(gizmoGraph_, *findObject(gizmoGraph_, original), step.from, step.fromRotation);
@@ -104,8 +105,10 @@ void SceneBuilder::finishClone(int copies, CloneKind kind) {
             made.push_back(cloneAsArray(original, step, copies));
             continue;
         }
-        for (int k = 1; k <= copies; ++k) made.push_back(placeClone(original, step, k, kind == CloneKind::Instance && cloneAllows(kind)));
+        for (int k = 1; k <= copies; ++k) made.push_back(placeClone(original, step, k, kind == CloneKind::Instance && cloneAllows(kind), &steps[k]));
     }
+    if (lastPose_.mode != GizmoMode::Scale) // a scaled copy's joints would hang off its old sizes
+        for (const auto& [k, copied] : steps) coreEdit([&](SceneGraph& g) { return ke::copyJoints(g, copied); });
     cloneOf_.clear();
     refreshList();
     setSelection(made, made.empty() ? 0 : made.back());

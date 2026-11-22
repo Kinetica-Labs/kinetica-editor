@@ -82,6 +82,34 @@ void testActionsDeleteAndDuplicate() {
     CHECK(joint != 0 && sonar != 0, "the scene had a joint and a sensor to lose");
 }
 
+// A copy of a robot is a robot: the joints among its copied links come along - with the encoder on one and the
+// copied links in them -, one on the world hangs the copy where it was carried to; a link copied alone hangs on nothing.
+void testActionsDuplicateJoints() {
+    SceneGraph g;
+    const uint32_t base = addShape(g, ShapeKind::Box), arm = addShape(g, ShapeKind::Box);
+    g.entities.back().position = Vector3(0.6_r, 0, 0);
+    const uint32_t hinge = addJoint(g, JointType::Hinge, arm, base, Vector3(0.3_r, 0, 0), Vector3(0, 0, 1));
+    const uint32_t weld = addJoint(g, JointType::Fixed, base, 0, Vector3(0, -0.1_r, 0), Vector3(1, 0, 0));
+    const uint32_t encoder = attachEncoder(g, hinge, 500);
+    const uint32_t robot = groupObjects(g, {base, arm});
+    const Vector3 aside(2, 0, 0);
+    duplicateObjects(g, {robot}, &aside);
+    CHECK(g.joints.size() == 4 && g.sensors.size() == 2, "the group's copy has its two joints and the encoder (%d joints, %d sensors)", int(g.joints.size()),
+          int(g.sensors.size()));
+    if (g.joints.size() != 4 || g.sensors.size() != 2) return;
+    const JointObject &hinge2 = g.joints[2], &weld2 = g.joints[3];
+    CHECK(hinge2.a != arm && hinge2.b != base && findEntity(g, hinge2.a) && findEntity(g, hinge2.b) && gap(hinge2.anchorA, findJoint(g, hinge)->anchorA) == 0,
+          "the hinge joins the copies, its frames the same on them");
+    CHECK(g.sensors[1].parent == hinge2.id && g.sensors[0].parent == hinge && encoder != 0, "the encoder's copy is on the hinge's copy");
+    Vector3 anchor, axis, anchor2, axis2;
+    jointWorldFrame(g, *findJoint(g, weld), anchor, axis);
+    jointWorldFrame(g, weld2, anchor2, axis2);
+    CHECK(weld2.b == 0 && gap(anchor2, anchor + aside) < 1e-5_r && gap(axis2, axis) < 1e-5_r, "the weld on the world holds the copy 2 m aside");
+    const size_t joints = g.joints.size();
+    duplicateObjects(g, {arm});
+    CHECK(g.joints.size() == joints, "the arm copied alone: its hinge to the base stays the original's");
+}
+
 // The gizmo's effect: a move adds the step to the world position exactly and keeps the typed angles;
 // a quarter turn about y carries the object around the pivot; a scale of a group scales the members'
 // sizes and their places in it.

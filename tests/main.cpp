@@ -103,6 +103,7 @@ int main() {
     run("array: line, grid and circle copies where the pattern puts them, seeded jitter", testExpandArrayPatterns);
     run("actions: a group keeps its members' world poses, ungroup gives them back", testActionsGroupKeepsPoses);
     run("actions: delete takes the subtree, its joints and sensors; a copy carries its sensors", testActionsDeleteAndDuplicate);
+    run("actions: a copy of a robot has its joints, the encoders on them, its hold on the world", testActionsDuplicateJoints);
     run("actions: the gizmo's move, turn and scale; an array of a shape", testActionsTransforms);
     run("actions: the core's operations by name - questions, edits, answers, a batch", testSceneOpsRegistry);
     run("actions: scene_array - a row of copies by its count and step", testSceneArrayOp);

@@ -42,7 +42,7 @@ uint32_t copyPlain(SceneGraph& g, std::vector<T>& v, const T& original, uint32_t
 
 } // namespace
 
-uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent) {
+uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent, std::map<uint32_t, uint32_t>* copied) {
     if (const Entity* e = byId(g.entities, id)) {
         Entity c = instance ? *e : resolveInstance(g, *e); // a copy of an instance is a shape of its own
         c.id = nextId(g);
@@ -50,6 +50,7 @@ uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent)
         c.locked = false;
         c.instanceOf = instance ? masterOf(g, id) : 0;
         g.entities.push_back(c);
+        if (copied) (*copied)[id] = c.id;
         std::vector<SensorObject> sensors; // its sensors, forces and point wheels go with it, as a body's components do
         for (const SensorObject& x : g.sensors)
             if (x.parent == id) sensors.push_back(x);
@@ -76,7 +77,7 @@ uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent)
     if (const Group* o = byId(g.groups, id)) {
         const std::vector<uint32_t> kids = childrenOf(g, id); // before the copy joins the graph
         const uint32_t copy = copyPlain(g, g.groups, Group(*o), parent);
-        for (uint32_t kid : kids) copySubtree(g, kid, instance, copy);
+        for (uint32_t kid : kids) copySubtree(g, kid, instance, copy, copied);
         return copy;
     }
     if (const ArrayObject* a = byId(g.arrays, id)) return copyPlain(g, g.arrays, ArrayObject(*a), parent); // the copy shares the template
@@ -128,13 +129,46 @@ void deleteObjects(SceneGraph& g, const std::vector<uint32_t>& ids) {
     eraseDead(g.sequences, named); // a sequence named; an object gone leaves its track lost (skipped)
 }
 
+std::vector<uint32_t> copyJoints(SceneGraph& g, const std::map<uint32_t, uint32_t>& copied) {
+    std::vector<uint32_t> made;
+    const std::vector<JointObject> joints = g.joints; // the copies join the list as it is walked
+    for (const JointObject& j : joints) {
+        const auto a = copied.find(j.a), b = copied.find(j.b);
+        if (a == copied.end() || (j.b != 0 && b == copied.end())) continue;
+        JointObject c = j;
+        c.id = nextId(g), c.a = a->second, c.b = j.b ? b->second : 0, c.name += " копия";
+        if (!j.b) { // its frame in the world: carried as the moving link was, original -> copy
+            Vector3 originA, originB, pa, pc;
+            Quaternion frameA, frameB, qa, qc;
+            jointWorldFrames(g, j, originA, frameA, originB, frameB);
+            worldPose(g, *findObject(g, j.a), pa, qa);
+            worldPose(g, *findObject(g, c.a), pc, qc);
+            const Quaternion turn = (qc * qa.conjugate()).normalized();
+            c.anchorB = pc + turn.rotate(originB - pa);
+            c.frameB = eulerDegrees((turn * frameB).normalized());
+        }
+        g.joints.push_back(c);
+        made.push_back(c.id);
+        std::vector<SensorObject> sensors; // an encoder or an effort sensor on it
+        for (const SensorObject& x : g.sensors)
+            if (x.parent == j.id) sensors.push_back(x);
+        for (SensorObject x : sensors) x.id = nextId(g), x.parent = c.id, x.name += " копия", g.sensors.push_back(x);
+        std::vector<DriverObject> drivers; // its motor's bridge, on the same battery
+        for (const DriverObject& d : g.drivers)
+            if (d.joint == j.id) drivers.push_back(d);
+        for (DriverObject d : drivers) d.id = nextId(g), d.joint = c.id, d.name += " копия", g.drivers.push_back(d);
+    }
+    return made;
+}
+
 std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t>& roots, const Vector3* by) {
     std::vector<uint32_t> copies;
+    std::map<uint32_t, uint32_t> copied;
     for (uint32_t id : roots) {
         const SceneObject* original = findObject(g, id);
         if (!original) continue;
         const AABB box = objectBounds(g, id);
-        const uint32_t c = copySubtree(g, id, false, original->parent);
+        const uint32_t c = copySubtree(g, id, false, original->parent, &copied);
         SceneObject* o = objectIn(g, c);
         o->name += " копия";
         Vector3 p;
@@ -148,6 +182,7 @@ std::vector<uint32_t> duplicateObjects(SceneGraph& g, const std::vector<uint32_t
         o->rotationDeg = keep;
         copies.push_back(c);
     }
+    copyJoints(g, copied);
     return copies;
 }
 

@@ -115,6 +115,7 @@ void testExpandArrayPatterns();
 // SceneActionTests.cpp
 void testActionsGroupKeepsPoses();
 void testActionsDeleteAndDuplicate();
+void testActionsDuplicateJoints();
 void testActionsTransforms();
 void testSceneOpsRegistry();
 void testSceneArrayOp();
