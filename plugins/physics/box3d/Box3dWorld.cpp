@@ -6,12 +6,7 @@
 // angles keep their sign and the joint's force on B is the force on our a. A static body of no shapes
 // stands for the world in a joint to it. The mouse's hand is a motor joint from a kinematic body, as Box3D's
 // samples hold a body.
-//
-// A hinge without limits is re-zeroed before every step: its frame B turned back by the angle it has,
-// so the frames' relative turn stays near zero. Box3D (be8c731) prepares the revolute joint's warm start
-// from the relative quaternion without bringing it to s >= 0, as its solve does, and past half a turn
-// the warm start pumps energy into the off-axis turns - a spinning wheel flies apart
-// (docs/box3d-backend.md). Our joint angle is read from the bodies' poses, so it does not see this.
+
 #include "physics/HullPoints.h"
 #include "physics/PhysicsWorld.h"
 
@@ -202,12 +197,6 @@ public:
             b.bodyIdA = A, b.bodyIdB = B;
             b.localFrameA = b3t(j.anchorB, turned ? j.frameB * kZonX : j.frameB);
             b.localFrameB = b3t(j.anchorA, turned ? j.frameA * kZonX : j.frameA);
-            // q and -q are one turn, but Box3D's joints read the frames' relative quaternion with its sign: frames
-            // written as (0, 90, 90) and (-90, -180, 0) agree yet start 360 degrees apart, and the joint spins its
-            // links up out of nothing. Frame B is given the sign that makes the two agree in the world.
-            const b3Quat qa = b3MulQuat(b3Body_GetRotation(A), b.localFrameA.q), qb = b3MulQuat(b3Body_GetRotation(B), b.localFrameB.q);
-            if (qa.v.x * qb.v.x + qa.v.y * qb.v.y + qa.v.z * qb.v.z + qa.s * qb.s < 0)
-                b.localFrameB.q = {{-b.localFrameB.q.v.x, -b.localFrameB.q.v.y, -b.localFrameB.q.v.z}, -b.localFrameB.q.s};
             b.constraintHertz = float(settings_.jointHertz);
             b.constraintDampingRatio = float(settings_.jointDamping);
             b.collideConnected = j.collide;
@@ -248,7 +237,7 @@ public:
         }
         default: return error = "Box3D has no joint with this mix of free turns and travels", -1;
         }
-        joints_.push_back({id, j.type, j.type == JointType::Hinge && !j.limited});
+        joints_.push_back({id, j.type});
         return int(joints_.size()) - 1;
     }
 
@@ -281,7 +270,7 @@ public:
         d.linearDampingRatio = float(h.dampingRatio);
         d.maxSpringForce = float(h.maxForce);
         d.maxVelocityTorque = float(h.maxTorque);
-        joints_.push_back({b3CreateMotorJoint(world_, &d), JointType::Fixed, false, mouse, held});
+        joints_.push_back({b3CreateMotorJoint(world_, &d), JointType::Fixed, mouse, held});
         b3Body_EnableSleep(held, false);
         return int(joints_.size()) - 1;
     }
@@ -393,13 +382,6 @@ public:
 
     void setGravity(const Vector3& g) override { b3World_SetGravity(world_, b3v(g)); }
     void step(Real dt, int substeps) override {
-        for (const Joint& j : joints_)
-            if (j.rezero && b3Joint_IsValid(j.id)) {
-                b3Transform frame = b3Joint_GetLocalFrameB(j.id);
-                const b3Quat back = b3MakeQuatFromAxisAngle(b3Vec3{0, 0, 1}, -b3RevoluteJoint_GetAngle(j.id));
-                frame.q = b3NormalizeQuat(b3MulQuat(frame.q, back));
-                b3Joint_SetLocalFrameB(j.id, frame);
-            }
         b3World_Step(world_, float(dt), substeps > 0 ? substeps : settings_.substeps);
     }
 
@@ -456,7 +438,6 @@ private:
     struct Joint {
         b3JointId id;
         JointType type;
-        bool rezero = false;              // a hinge without limits: its frames' relative turn kept near zero
         b3BodyId hand = b3_nullBodyId;    // a mouse's hand: the kinematic body that carries its target,
         b3BodyId held = b3_nullBodyId;    // and the body it holds
     };
