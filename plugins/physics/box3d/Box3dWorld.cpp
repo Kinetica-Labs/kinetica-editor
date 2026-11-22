@@ -196,6 +196,9 @@ public:
     void applyImpulse(int body, const Vector3& j, const Vector3& p) override {
         if (alive(body)) b3Body_ApplyLinearImpulse(bodies_[size_t(body)], b3v(j), b3v(p), true);
     }
+    void applyAngularImpulse(int body, const Vector3& j) override {
+        if (alive(body)) b3Body_ApplyAngularImpulse(bodies_[size_t(body)], b3v(j), true);
+    }
 
     int addJoint(const JointDesc& j, std::string& error) override {
         if (!alive(j.a)) return error = "the joint's link a has no body", -1;

@@ -2337,8 +2337,8 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="301"/>
-        <source>Сила: толчок или взрыв разом, тяга или притяжение всё время. Действует на тела, пока идёт мир</source>
-        <translation>Force: a push or a blast all at once, a thrust or a pull all the time. It acts on bodies while the world runs</translation>
+        <source>Сила: толчок или взрыв разом, тяга или притяжение всё время, момент крутит тело. Действует на тела, пока идёт мир</source>
+        <translation>Force: a push or a blast at once, a thrust or a pull all the time, a torque turns a body. It acts on bodies while the world runs</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="314"/>
@@ -6793,8 +6793,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="138"/>
-        <source>Сила действует на центр масс твёрдых тел, пока мир идёт, и не крутит их. Цвет — в блоке «Объект»</source>
-        <translation>A force acts on the centre of mass of rigid bodies while the world runs and does not spin them. The colour is in the Object block</translation>
+        <source>Сила толкает твёрдые тела, пока мир идёт, момент крутит своё тело. Цвет — в блоке «Объект»</source>
+        <translation>A force pushes rigid bodies while the world runs; a torque turns its own body. The colour is in the «Object» block</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="142"/>
@@ -6808,8 +6808,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="147"/>
-        <source>Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная)</source>
-        <translation>A directional force pushes along its own +Y axis, a radial one away from its point (toward it when the strength is negative)</translation>
+        <source>Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная), момент крутит своё тело вокруг своей оси +Y</source>
+        <translation>Directional pushes along its own +Y axis, radial away from its point (towards it when the force is negative), a torque turns its own body about its own +Y axis</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="148"/>
@@ -6885,7 +6885,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderForces.cpp" line="162"/>
-        <source>Момент, с</source>
+        <source>Когда, с</source>
         <translation>Time, s</translation>
     </message>
     <message>
@@ -7032,6 +7032,46 @@ Sample </translation>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Выберите тело, за которым следить</source>
         <translation>Select the body to follow</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Момент</source>
+        <translation>Torque</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Вращающий момент выбранного тела вокруг оси +Y момента, Н·м</source>
+        <translation>A torque on the selected body about the torque's +Y axis, N·m</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="1"/>
+        <source>Момент крутит тело: выберите тело, потом «Сила ▾» → «Момент»</source>
+        <translation>A torque turns a body: select the body, then «Force ▾» → «Torque»</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="1"/>
+        <source>Импульс момента, Н·м·с</source>
+        <translation>Angular impulse, N·m·s</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="1"/>
+        <source>Момент, Н·м</source>
+        <translation>Torque, N·m</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="1"/>
+        <source>⚠ Момент ни на чём: он крутит тело, на котором стоит</source>
+        <translation>⚠ The torque is on nothing: it turns the body it stands on</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="1"/>
+        <source>Выберите тело и создайте момент: «Сила ▾» → «Момент»</source>
+        <translation>Select a body and make the torque: «Force ▾» → «Torque»</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderForces.cpp" line="1"/>
+        <source>Момент крутит это тело вокруг своей оси +Y, где бы на теле ни стоял; ось поворачивает гизмо</source>
+        <translation>The torque turns this body about its own +Y axis wherever on the body it stands; the gizmo turns the axis</translation>
     </message>
 </context>
 </TS>

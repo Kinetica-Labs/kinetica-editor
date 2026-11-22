@@ -296,7 +296,7 @@ object.
 
 ### Forces
 
-<img src="images/ui/icons/force.png" height="22" alt=""> Force ▾ puts what pushes bodies: once, or all the time. There are four kinds.
+<img src="images/ui/icons/force.png" height="22" alt=""> Force ▾ puts what pushes bodies, once or all the time, and a torque that turns a body. There are five kinds.
 
 ![The Force menu: push and thrust on a body, blast and pull round a point](images/ui/en/force-menu.png)
 
@@ -304,6 +304,11 @@ object.
 |---|---|---|
 | **On one body** - an arrow | Push | Thrust |
 | **A field around a point** - a sphere | Blast | Pull |
+
+**A torque on a body.** Select a body and press Torque: it turns the body about its own +Y axis wherever on the body
+it stands - a ring with an arrow shows which way; the gizmo turns the axis. Its strength is Torque, N·m; the Impulse
+mode in the card makes it a single Angular impulse, N·m·s. With no body selected no torque is made: it has nothing to
+turn.
 
 **A force on a body.** Select a body with the <img src="images/ui/icons/rigid.png" height="22" alt=""> Rigid Body role and press Push or Thrust. The arrow stands at the body's
 centre of mass; the force acts on that body alone and rides on it.
@@ -541,12 +546,12 @@ Settings → Language switches the window between Russian and English. The mouse
 | Find Command | `Ctrl+K` | | Delete | `Delete` |
 | Frame Selection | `F` | | Hide / Show Hidden | `H` / `Alt+H` |
 | Entire Scene | `Home` | | Select All | `Ctrl+A` |
+| Follow Selected | `Shift+F` | | | |
 | A Sequencer key | `I` | | New scene | `Ctrl+N` |
 | Plots | `F9` | | Open / Save | `Ctrl+O` / `Ctrl+S` |
 | Laboratory | `F8` | | 3D View Only | `F11` |
 | Performance | `F3` | | <img src="images/ui/icons/stop.png" height="22" alt=""> Stop / Deselect | `Esc` |
 
-| Follow Selected | `Shift+F` | | | |
 ## When something goes wrong
 
 | What you see | Why, and what to do |

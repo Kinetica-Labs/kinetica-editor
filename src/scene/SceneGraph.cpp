@@ -289,7 +289,7 @@ static void saveLight(std::ostringstream& o, const Light& l) {
     o << "end\n";
 }
 
-const char* kForceShapeNames[2] = {"directional", "radial"};
+const char* kForceShapeNames[3] = {"directional", "radial", "torque"};
 const char* kForceModeNames[2] = {"impulse", "constant"};
 static const char* kForceFalloffNames[] = {"none", "linear", "inverse_square"};
 
@@ -749,10 +749,10 @@ static bool wordOf(LineReader& r, const char* (&names)[N], E& out, std::string& 
 }
 static const Key<Force> kEffectKeys[] = {
     {"radius", "number", "m", number<Force, &Force::radius>},
-    {"strength", "number: m/s of a push, m/s² of a constant force", "", number<Force, &Force::strength>},
+    {"strength", "number: a field's m/s or m/s², a body's own N s or N, a torque's N m s or N m", "", number<Force, &Force::strength>},
     {"start", "number", "s", number<Force, &Force::start>},
     {"tag", "text: the bodies it acts on; none - every body", "", text<Force, &Force::tag>},
-    {"shape", "one of: directional radial", "", [](LineReader& r, Force& f, std::string& why) { return wordOf(r, kForceShapeNames, f.shape, why); }},
+    {"shape", "one of: directional radial torque", "", [](LineReader& r, Force& f, std::string& why) { return wordOf(r, kForceShapeNames, f.shape, why); }},
     {"mode", "one of: impulse constant", "", [](LineReader& r, Force& f, std::string& why) { return wordOf(r, kForceModeNames, f.mode, why); }},
     {"falloff", "one of: none linear inverse_square", "", [](LineReader& r, Force& f, std::string& why) { return wordOf(r, kForceFalloffNames, f.falloff, why); }},
 };

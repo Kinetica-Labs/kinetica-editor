@@ -9,6 +9,8 @@
 //               reaches only so far, a circle of that radius across it;
 //   Взрыв     - a sphere of three rings of its radius with short arrows on the axes, out of it (into it for a
 //               negative strength);
+//   Момент    - three quarters of a ring about the force's own +y axis, its arrowhead the way it turns (the right
+//               hand's, the thumb along +y; the other way for a negative strength), and the axis through it;
 //   Камера    - what it sees as a pyramid (the eye at the tip, the frame 0.35 m in front), with a
 //               triangle over the frame's top edge that says which way is up.
 // markersOf makes them from the scene graph; the viewport draws them and the window picks them.
@@ -21,7 +23,7 @@
 #include <vector>
 
 struct SceneMarker {
-    enum Kind { Sun, Point, Spot, Camera, Push, Burst };
+    enum Kind { Sun, Point, Spot, Camera, Push, Burst, Twist };
     uint32_t id = 0;
     Kind kind = Point;
     ke::Vector3 position;    // in the world

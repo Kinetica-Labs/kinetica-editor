@@ -642,6 +642,34 @@ void drawPicture(QPainter& p, const char* file) {
     p.drawImage(QRectF(0, 0, 100, 100), picture);
 }
 
+// A torque, on the 100 x 100 canvas of the force pictures and in their violets: a block with a thick ring round it,
+// the ring's back behind the block and its front, with the arrowhead, before it - the turn it gives.
+void drawTorqueIcon(QPainter& p) {
+    const QColor top(158, 118, 238), left(116, 76, 206), right(90, 54, 176), ring(136, 96, 232);
+    const QPointF c(50, 58);
+    const double s = 19;
+    const QRectF orbit(9, 37, 82, 30);
+    const auto at = [&](double degrees) { // a point of the ring, Qt's angles: counter-clockwise from 3 o'clock
+        const double a = degrees * 3.14159265 / 180;
+        return QPointF(orbit.center().x() + 0.5 * orbit.width() * std::cos(a), orbit.center().y() - 0.5 * orbit.height() * std::sin(a));
+    };
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(ring, 7, Qt::SolidLine, Qt::RoundCap));
+    p.drawArc(orbit, 0, 180 * 16);
+    p.setPen(Qt::NoPen);
+    p.setBrush(top), p.drawPolygon(QPolygonF{{c.x(), c.y() - s}, {c.x() + s, c.y() - s / 2}, {c.x(), c.y()}, {c.x() - s, c.y() - s / 2}});
+    p.setBrush(left), p.drawPolygon(QPolygonF{{c.x() - s, c.y() - s / 2}, {c.x(), c.y()}, {c.x(), c.y() + s}, {c.x() - s, c.y() + s / 2}});
+    p.setBrush(right), p.drawPolygon(QPolygonF{{c.x(), c.y()}, {c.x() + s, c.y() - s / 2}, {c.x() + s, c.y() + s / 2}, {c.x(), c.y() + s}});
+    p.setBrush(Qt::NoBrush);
+    p.setPen(QPen(ring, 7, Qt::SolidLine, Qt::RoundCap));
+    p.drawArc(orbit, 180 * 16, 140 * 16);
+    const QPointF tip = at(338), from = at(320), d = (tip - from) / std::hypot(tip.x() - from.x(), tip.y() - from.y()), n(-d.y(), d.x());
+    p.setPen(Qt::NoPen);
+    p.setBrush(ring);
+    p.drawPolygon(QPolygonF{tip + d * 9, tip - d * 5 + n * 9, tip - d * 5 - n * 9});
+}
+
 // An encoder: a code disc with its slots round the rim and the read head over them.
 void drawEncoderIcon(QPainter& p) {
     const QColor disc(190, 196, 206), dark(58, 62, 72);
@@ -963,6 +991,7 @@ void drawSceneIcon(QPainter& p, SceneIcon kind) {
     case SceneIcon::ForceThrust: drawPicture(p, "force-thrust.png"); break;
     case SceneIcon::ForceBlast: drawPicture(p, "force-blast.png"); break;
     case SceneIcon::ForcePull: drawPicture(p, "force-pull.png"); break;
+    case SceneIcon::ForceTorque: drawTorqueIcon(p); break;
     case SceneIcon::Count: break;
     }
 }

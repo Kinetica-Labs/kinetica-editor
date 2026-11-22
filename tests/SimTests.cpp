@@ -1803,4 +1803,30 @@ void testSimForceOnBody() {
     worldPose(g, made, p, q);
     CHECK(made.parent == 1 && near(p, centre + bodyTurn.rotate(Vector3(0, 0.05_r, 0))) && near(forceAxis(q), Vector3(0, 1, 0)) && near(Vector3(made.strength, 0, 0), Vector3(mass * 12, 0, 0)),
           "applyForceTo: the body's child at its centre of mass, upright in the world though the body is tilted, 1.2 m of arrow (12 m/s^2)");
+
+    // A torque of its own turns its body about its own +y, wherever on the body it stands, and moves it nowhere.
+    SceneGraph t = calm();
+    t.entities.push_back(solid(1, "Ящик", Vector3(0.2_r), {0, 2, 0}, false));
+    Force turn = forceOf(3, Vector3(0.05_r, 0, 0), ForceShape::Torque, ForceMode::Impulse, 0.2_r);
+    turn.parent = 1;
+    t.forces.push_back(turn);
+    Simulation kick;
+    kick.load(t);
+    kick.stepFrame();
+    const BodyState kicked = kick.physics()->state(kick.robot()->bodyOf(1));
+    const Real iy = kicked.mass * (0.04_r + 0.04_r) / 12, once = 0.2_r / iy;
+    t.forces[0].mode = ForceMode::Constant, t.forces[0].strength = 0.5_r;
+    Simulation turning;
+    turning.load(t);
+    for (int k = 0; k < 60; ++k) turning.stepFrame();
+    const BodyState spun = turning.physics()->state(turning.robot()->bodyOf(1));
+    std::printf("  a torque on a %.1f kg 20 cm box: 0.2 N m s - spin y %.3f rad/s (L / I = %.3f); 0.5 N m for 1 s - %.3f rad/s (%.3f)\n", double(kicked.mass),
+                double(kicked.angularVelocity.y), double(once), double(spun.angularVelocity.y), double(0.5_r / iy));
+    CHECK(std::fabs(kicked.angularVelocity.y - once) < 0.01_r * once && length(kicked.velocity) < 1e-6_r, "an impulse of 0.2 N m s: the spin L / I about y, no motion");
+    CHECK(std::fabs(spun.angularVelocity.y - 0.5_r / iy) < 0.01_r * 0.5_r / iy && length(spun.velocity) < 1e-6_r, "0.5 N m for a second: the spin tau t / I");
+    t.forces[0].parent = 0;
+    Simulation none;
+    none.load(t);
+    for (int k = 0; k < 10; ++k) none.stepFrame();
+    CHECK(length(none.physics()->state(none.robot()->bodyOf(1)).angularVelocity) < 1e-9_r, "a torque on no body turns nothing");
 }

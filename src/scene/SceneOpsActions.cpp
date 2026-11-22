@@ -94,7 +94,8 @@ bool addLightOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
 
 bool addForceOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     const int shape = wordIndex(a["shape"].text(""), kForceShapeNames), mode = wordIndex(a["mode"].text(""), kForceModeNames);
-    if (shape < 0 || mode < 0) return e = "shape is directional or radial, mode is impulse or constant", false;
+    if (shape < 0 || mode < 0) return e = "shape is directional, radial or torque, mode is impulse or constant", false;
+    if (ForceShape(shape) == ForceShape::Torque && !a.has("body")) return e = "a torque turns the body it stands on: body is the id of a shape", false;
     const AABB box = sceneBounds(g);
     Vector3 at = box.valid() ? box.center() : Vector3(0.0_r), given;
     bool there = false;
@@ -104,8 +105,8 @@ bool addForceOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     Force& made = g.forces.back();
     if (a.has("body")) { // that body's own force: its child at its centre of mass (or at `at`), sized by its mass
         const Entity* body = findEntity(g, uint32_t(a["body"].integer()));
-        if (!body || isHandle(*body) || ForceShape(shape) != ForceShape::Directional)
-            return g.forces.pop_back(), e = "body is the id of a shape, and only a directional force is applied to one body", false;
+        if (!body || isHandle(*body) || ForceShape(shape) == ForceShape::Radial)
+            return g.forces.pop_back(), e = "body is the id of a shape, and only a directional force or a torque is applied to one body", false;
         applyForceTo(g, made, *body);
         if (there) {
             Vector3 p;
@@ -445,7 +446,7 @@ std::vector<SceneOp> actionSceneOps() {
          "{kind: sun|point|spot, at?: [x,y,z], position?: [x,y,z], target?: [x,y,z]}", {}, addLightOp},
         {"scene_add_force", "A force as the menu adds it: a push along its own +Y axis or a radial burst or pull, once (impulse) or all the time "
                             "(constant). A force with no body is a field: it acts on the bodies whose centres are within its radius (a new directional one: 1.5 m; 0: every body) alike, whatever they weigh - strength: m/s of velocity for an impulse, m/s^2 of acceleration for a constant one; a new one stands at 'at' or in the scene centre. body: a directional force made that shape's own - its child at its centre of mass (or at 'at'), acting on it alone at the force's own point, so off the centre it turns the body; its strength is N s or N and, unless given, is sized by the body's mass (an impulse: 3 m/s of velocity; a constant one: 12 m/s^2)",
-         "{shape: 'directional'|'radial', mode: 'impulse'|'constant', at?: [x,y,z], strength?: number, radius?: m, body?: int}", {}, addForceOp},
+         "{shape: 'directional'|'radial'|'torque', mode: 'impulse'|'constant', at?: [x,y,z], strength?: number, radius?: m, body?: int}", {}, addForceOp},
         {"scene_add_camera", "A camera at `eye`, looking at `target` (else the scene's centre); kind target: a target camera that always "
                              "looks there - at object `at` (wherever it goes) or the point", "{eye?: [x,y,z], target?: [x,y,z], kind?: 'free'|'target', at?: int}",
          {}, addCameraOp},

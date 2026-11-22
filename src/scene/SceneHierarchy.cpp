@@ -277,7 +277,7 @@ uint32_t nextId(const SceneGraph& g) {
 Vector3 forceAxis(const Quaternion& q) { return normalize(q.rotate(Vector3(0, 1, 0))); }
 
 const Entity* forceBody(const SceneGraph& g, const Force& f) {
-    const Entity* e = f.shape == ForceShape::Directional && f.parent ? findEntity(g, f.parent) : nullptr;
+    const Entity* e = f.shape != ForceShape::Radial && f.parent ? findEntity(g, f.parent) : nullptr; // a push or a torque of its own
     return e && !isHandle(*e) ? e : nullptr;
 }
 
@@ -297,7 +297,7 @@ void applyForceTo(SceneGraph& g, Force& f, const Entity& body) {
     worldPose(g, body, p, q);
     f.parent = body.id;
     setWorldPose(g, f, p + q.rotate(body.rigid.centerGiven ? body.rigid.centerOfMass : Vector3(0.0_r)), Quaternion());
-    f.strength = forceUnitPerMetre(g, f) * (f.mode == ForceMode::Impulse ? 1_r : 1.2_r);
+    if (f.shape != ForceShape::Torque) f.strength = forceUnitPerMetre(g, f) * (f.mode == ForceMode::Impulse ? 1_r : 1.2_r); // a torque keeps its N m
 }
 
 Vector3 lightDirection(const SceneGraph& g, const Light& l) {

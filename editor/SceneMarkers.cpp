@@ -133,6 +133,18 @@ void burstLines(const SceneMarker& m, std::vector<float>& solid, std::vector<flo
     if (m.selected && m.range > 0.6f) rays(m.range - 0.26f, m.range, 0.12f);
 }
 
+// A torque: three quarters of a ring about its own axis, the arrowhead where it ends, the way it turns - a positive
+// strength turns z toward x about +y, as the right hand does -, and its axis through the ring.
+void twistLines(const SceneMarker& m, std::vector<float>& solid) {
+    const Vector3 y = forceAxis(m.rotation), u = m.rotation.rotate(Vector3(0, 0, 1)), w = m.rotation.rotate(Vector3(1, 0, 0)) * (m.reach < 0 ? -1.0f : 1.0f);
+    const float r = 0.18f, end = 4.712389f;
+    const auto on = [&](float a) { return m.position + (u * std::cos(a) + w * std::sin(a)) * r; };
+    for (int k = 0; k < 24; ++k) segment(solid, on(end * float(k) / 24.0f), on(end * float(k + 1) / 24.0f));
+    const Vector3 along = u * -std::sin(end) + w * std::cos(end);
+    arrow(solid, on(end) - along * 0.02f, on(end) + along * 0.08f, 0.09f);
+    segment(solid, m.position - y * 0.1f, m.position + y * 0.26f);
+}
+
 } // namespace
 
 void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, std::vector<float>& faint) {
@@ -142,6 +154,7 @@ void markerLines(const SceneMarker& m, float aspect, std::vector<float>& solid, 
     case SceneMarker::Spot: spotLines(m, solid, faint); break;
     case SceneMarker::Push: pushLines(m, solid, faint); break;
     case SceneMarker::Burst: burstLines(m, solid, faint); break;
+    case SceneMarker::Twist: twistLines(m, solid); break;
     case SceneMarker::Camera:
         cameraLines(m, aspect, solid);
         if (m.aimed) segment(faint, m.position, m.aim); // the line of sight to its target (the target is an object: drawn itself)
@@ -165,7 +178,7 @@ bool markerHit(const SceneMarker& m, const Ray& ray, float& t) {
     Vector3 centre = m.position;
     // A directional force: its whole arrow, not only the ring it stands on - the ring may be inside a body.
     if (m.kind == SceneMarker::Push && nearSegment(ray, m.position, m.position + forceAxis(m.rotation) * m.reach, 0.1f, t)) return true;
-    float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push ? 0.2f : m.kind == SceneMarker::Burst ? 0.34f : 0.16f;
+    float radius = m.kind == SceneMarker::Sun ? 0.25f : m.kind == SceneMarker::Push ? 0.2f : m.kind == SceneMarker::Burst ? 0.34f : m.kind == SceneMarker::Twist ? 0.26f : 0.16f;
     if (m.kind == SceneMarker::Camera) centre = m.position + m.rotation.rotate(Vector3(0, 0, -1)) * (0.5f * kCameraDepth), radius = 0.24f;
     const Vector3 oc = ray.origin - centre;
     const float b = dot(oc, ray.dir), c = dot(oc, oc) - radius * radius, disc = b * b - c;
@@ -182,10 +195,10 @@ float forceArrow(const SceneGraph& g, const Force& f) {
 // A directional force: its arrow's signed length in reach; a body's own force has no reach of a field to draw.
 SceneMarker forceMarker(const SceneGraph& g, const Force& f) {
     SceneMarker m;
-    m.kind = f.shape == ForceShape::Radial ? SceneMarker::Burst : SceneMarker::Push;
-    m.range = forceBody(g, f) ? 0.0f : float(f.radius);
-    m.idle = forceIdle(g, f);
-    m.reach = f.shape == ForceShape::Radial ? (f.strength < 0 ? -1.0f : 1.0f) : forceArrow(g, f);
+    m.kind = f.shape == ForceShape::Radial ? SceneMarker::Burst : f.shape == ForceShape::Torque ? SceneMarker::Twist : SceneMarker::Push;
+    m.range = forceBody(g, f) || f.shape == ForceShape::Torque ? 0.0f : float(f.radius);
+    m.idle = forceIdle(g, f) || (f.shape == ForceShape::Torque && !forceBody(g, f)); // a torque on no body turns nothing
+    m.reach = f.shape == ForceShape::Directional ? forceArrow(g, f) : (f.strength < 0 ? -1.0f : 1.0f);
     return m;
 }
 

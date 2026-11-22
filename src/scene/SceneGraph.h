@@ -124,12 +124,13 @@ struct Light : SceneObject {
 };
 
 // A force of the scene: a push along its own +y axis (directional) or a burst or pull from its origin (radial), once
-// (impulse, N s) or all the time (constant, N). It acts on the centre of mass of rigid bodies while the world runs
-// (src/sim/RobotWorld.cpp), never as a torque. A negative strength pushes along -y, or inward.
-enum class ForceShape { Directional, Radial };
+// (impulse, N s) or all the time (constant, N), on rigid bodies while the world runs (src/sim/RobotWorld.cpp); or a
+// torque - a turn about its own +y axis of the body it stands on (N m s once, N m all the time). A negative strength
+// pushes along -y, or inward, or turns the other way.
+enum class ForceShape { Directional, Radial, Torque };
 enum class ForceMode { Impulse, Constant };
 enum class ForceFalloff { None, Linear, InverseSquare };
-extern const char* kForceShapeNames[2]; // the words of the file and the API, by ForceShape
+extern const char* kForceShapeNames[3]; // the words of the file and the API, by ForceShape
 extern const char* kForceModeNames[2];  // by ForceMode
 // Single source of the bounds; the reader, scene_add_force and the editor's card use these numbers.
 constexpr Real kForceMaxStrength = 100000_r;  // |strength|, N s or N

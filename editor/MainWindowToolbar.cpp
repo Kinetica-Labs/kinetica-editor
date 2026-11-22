@@ -298,7 +298,7 @@ void MainWindow::addForceButton(QToolBar* tb) {
     forces->setIcon(sceneIcon(SceneIcon::Force, 48));
     forces->setIconSize(tb->iconSize());
     forces->setToolButtonStyle(Qt::ToolButtonTextUnderIcon);
-    forces->setToolTip(uiText("Kinetica", "Сила: толчок или взрыв разом, тяга или притяжение всё время. Действует на тела, пока идёт мир"));
+    forces->setToolTip(uiText("Kinetica", "Сила: толчок или взрыв разом, тяга или притяжение всё время, момент крутит тело. Действует на тела, пока идёт мир"));
     forces->setPopupMode(QToolButton::InstantPopup);
     auto* menu = new QMenu(forces);
     menu->setToolTipsVisible(true);
@@ -309,12 +309,14 @@ void MainWindow::addForceButton(QToolBar* tb) {
     const Kind kinds[] = {
         {"addForcePush", ke::ForceShape::Directional, ke::ForceMode::Impulse, uiText("Kinetica", "Толчок")},
         {"addForceThrust", ke::ForceShape::Directional, ke::ForceMode::Constant, uiText("Kinetica", "Тяга")},
+        {"addForceTorque", ke::ForceShape::Torque, ke::ForceMode::Constant, uiText("Kinetica", "Момент")},
         {"addForceBlast", ke::ForceShape::Radial, ke::ForceMode::Impulse, uiText("Kinetica", "Взрыв")},
         {"addForcePull", ke::ForceShape::Radial, ke::ForceMode::Constant, uiText("Kinetica", "Притяжение")}};
     const char* tips[] = {uiText("Kinetica", "Разовый импульс выбранному телу, Н·с"), uiText("Kinetica", "Постоянная сила на выбранном теле, Н"),
+                          uiText("Kinetica", "Вращающий момент выбранного тела вокруг оси +Y момента, Н·м"),
                           uiText("Kinetica", "Разовый импульс от точки телам в радиусе, Н·с"), uiText("Kinetica", "Постоянная сила к точке на тела в радиусе, Н")};
-    for (int k = 0; k < 4; ++k) { // on a body, then a field round a point
-        if (k == 2) menu->addSeparator();
+    for (int k = 0; k < 5; ++k) { // on a body, then a field round a point
+        if (k == 3) menu->addSeparator();
         auto* a = menu->addAction(sceneIcon(forceIcon(kinds[k].shape, kinds[k].mode), 48), kinds[k].text);
         a->setObjectName(kinds[k].name);
         a->setToolTip(tips[k]);

@@ -20,6 +20,7 @@ using namespace ke;
 
 SceneIcon forceIcon(ForceShape s, ForceMode m) {
     const bool once = m == ForceMode::Impulse;
+    if (s == ForceShape::Torque) return SceneIcon::ForceTorque;
     return s == ForceShape::Radial ? (once ? SceneIcon::ForceBlast : SceneIcon::ForcePull) : (once ? SceneIcon::ForcePush : SceneIcon::ForceThrust);
 }
 
@@ -32,8 +33,10 @@ Force* SceneBuilder::forceById(uint32_t id) {
 void SceneBuilder::addForce(ForceShape shape, ForceMode mode) {
     // With a shape selected a directional force is that shape's own: its child, at its centre of mass, acting on it
     // alone (on nothing while the shape has no physics: forceIdle). A radial one is a field: it stands at the shape's side (at its centre it has no direction to push in).
-    const Entity* body = shape == ForceShape::Directional && selection_.size() == 1 ? findEntity(graph_, selectedId_) : nullptr;
+    // A torque turns the body it stands on: with none chosen there is nothing to make.
+    const Entity* body = shape != ForceShape::Radial && selection_.size() == 1 ? findEntity(graph_, selectedId_) : nullptr;
     if (body && isHandle(*body)) body = nullptr;
+    if (shape == ForceShape::Torque && !body) return emit statusMessage(uiText("Kinetica", "Момент крутит тело: выберите тело, потом «Сила ▾» → «Момент»"));
     flushCode();
     Vector3 at = spawnTarget();
     if (const AABB box = !body && findObject(graph_, selectedId_) ? boundsOf(selectedId_) : AABB(); box.valid())
@@ -135,22 +138,23 @@ void SceneBuilder::onForceHandle(int index, Vector3 point, int phase) {
 void SceneBuilder::buildForceCard(QVBoxLayout* col) {
     forceCard_ = new ComponentCard(uiText("Kinetica", "Сила"), sceneIcon(SceneIcon::Force, 22));
     forceCard_->setObjectName("forceCard");
-    forceCard_->setToolTip(uiText("Kinetica", "Сила действует на центр масс твёрдых тел, пока мир идёт, и не крутит их. Цвет — в блоке «Объект»"));
+    forceCard_->setToolTip(uiText("Kinetica", "Сила толкает твёрдые тела, пока мир идёт, момент крутит своё тело. Цвет — в блоке «Объект»"));
     Force* d = &forceDraft_;
     const auto impulse = [d] { return d->mode == ForceMode::Impulse; };
     forceFields_ = new FieldForm([this](bool click) { commitSelected(forceFields_, forceDraft_, [this](uint32_t id) { return forceById(id); }, click); });
-    forceFields_->choice(uiText("Kinetica", "Форма"), QStringList{uiText("Kinetica", "Направленная"), uiText("Kinetica", "Радиальная")},
+    forceFields_->choice(uiText("Kinetica", "Форма"), QStringList{uiText("Kinetica", "Направленная"), uiText("Kinetica", "Радиальная"), uiText("Kinetica", "Момент")},
                          [d] { return double(int(d->shape)); }, [d](double v) {
                              d->shape = ForceShape(int(v));
                              if (d->shape == ForceShape::Radial && d->radius < 0.01f) d->radius = 3.0f; // a radial force needs a reach
                          }).name("forceShape")
-        .tip(uiText("Kinetica", "Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная)"));
+        .tip(uiText("Kinetica", "Направленная толкает вдоль своей оси +Y, радиальная — от своей точки (к ней, если сила отрицательная), момент крутит своё тело вокруг своей оси +Y"));
     forceFields_->choice(uiText("Kinetica", "Режим"), QStringList{uiText("Kinetica", "Импульс"), uiText("Kinetica", "Постоянная")},
                          [d] { return double(int(d->mode)); }, [d](double v) { d->mode = ForceMode(int(v)); }).name("forceMode")
         .tip(uiText("Kinetica", "Импульс срабатывает один раз, в заданный момент или кнопкой; постоянная действует всё время"));
     forceFields_->number(uiText("Kinetica", "Импульс, Н·с"), -double(kForceMaxStrength), double(kForceMaxStrength), 1, 2, d->strength)
         .label([this, d] { // a body's own force in N s or N; a field in what it gives every body: m/s or m/s^2
             const bool impulse = d->mode == ForceMode::Impulse;
+            if (d->shape == ForceShape::Torque) return QString(impulse ? uiText("Kinetica", "Импульс момента, Н·м·с") : uiText("Kinetica", "Момент, Н·м"));
             if (forceBody(graph_, *d)) return QString(impulse ? uiText("Kinetica", "Импульс, Н·с") : uiText("Kinetica", "Сила, Н"));
             return QString(impulse ? uiText("Kinetica", "Скорость, м/с") : uiText("Kinetica", "Ускорение, м/с²"));
         }).name("forceStrength");
@@ -159,7 +163,7 @@ void SceneBuilder::buildForceCard(QVBoxLayout* col) {
         .tip(uiText("Kinetica", "Сила действует на тела, чьи центры внутри радиуса; 0 у направленной — на все тела"));
     forceFields_->choice(uiText("Kinetica", "Спад"), QStringList{uiText("Kinetica", "Нет"), uiText("Kinetica", "Линейный"), uiText("Kinetica", "Обратный квадрат")},
                          [d] { return double(int(d->falloff)); }, [d](double v) { d->falloff = ForceFalloff(int(v)); }).shown(field).name("forceFalloff");
-    forceFields_->number(uiText("Kinetica", "Момент, с"), 0, double(kForceMaxStart), 0.1, 2, d->start).shown(impulse).name("forceStart")
+    forceFields_->number(uiText("Kinetica", "Когда, с"), 0, double(kForceMaxStart), 0.1, 2, d->start).shown(impulse).name("forceStart")
         .tip(uiText("Kinetica", "Время мира от пуска, когда импульс срабатывает сам"));
     forceFields_->choice(uiText("Kinetica", "Действует на"), [this] {
         std::vector<FieldForm::Option> out;
@@ -208,7 +212,13 @@ void SceneBuilder::fillForceCard(const SceneObject& o) {
     const Entity* body = forceBody(graph_, *f);
     const QString name = body ? QString::fromStdString(body->name) : QString();
     const bool idle = forceIdle(graph_, *f);
-    forceOwner_->setVisible(f->shape == ForceShape::Directional);
+    forceOwner_->setVisible(f->shape != ForceShape::Radial);
+    if (f->shape == ForceShape::Torque && !body) {
+        forceOwner_->setStyleSheet("color: #e2b448;");
+        forceOwner_->setText(uiText("Kinetica", "⚠ Момент ни на чём: он крутит тело, на котором стоит"));
+        forceOwner_->setToolTip(uiText("Kinetica", "Выберите тело и создайте момент: «Сила ▾» → «Момент»"));
+        return;
+    }
     forceOwner_->setStyleSheet(idle ? "color: #e2b448;" : "");
     forceOwner_->setText(!body ? QString(uiText("Kinetica", "Поле: все тела в радиусе, лёгкие и тяжёлые одинаково"))
                          : !resolveInstance(graph_, *body).rigid.enabled ? QString(uiText("Kinetica", "⚠ У «%1» нет физики")).arg(name)
@@ -216,5 +226,6 @@ void SceneBuilder::fillForceCard(const SceneObject& o) {
                          : QString(uiText("Kinetica", "Тело: %1")).arg(name));
     forceOwner_->setToolTip(!body ? QString(uiText("Kinetica", "Поле действует на тела внутри своей сферы. Чтобы приложить силу к одному телу, выберите его и создайте силу"))
                             : idle ? QString(uiText("Kinetica", "Сила ничего не толкает, пока у фигуры нет роли «Твёрдое тело» или тело закреплено"))
+                            : f->shape == ForceShape::Torque ? QString(uiText("Kinetica", "Момент крутит это тело вокруг своей оси +Y, где бы на теле ни стоял; ось поворачивает гизмо"))
                             : QString(uiText("Kinetica", "Сила приложена к этому телу в своей точке: вне центра масс закручивает его. Конец стрелки — направление и величина")));
 }

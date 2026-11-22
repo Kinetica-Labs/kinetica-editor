@@ -36,7 +36,7 @@ const Force* forceOf(const SceneBuilder& b, uint32_t id) {
 }
 
 QAction* addAction(QMainWindow& w, int kind) {
-    static const char* names[] = {"addForcePush", "addForceBlast", "addForceThrust", "addForcePull"};
+    static const char* names[] = {"addForcePush", "addForceBlast", "addForceThrust", "addForcePull", "addForceTorque"};
     return w.findChild<QAction*>(names[kind]);
 }
 
@@ -48,7 +48,7 @@ bool listed(QMainWindow& w, const std::string& name) {
 void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     auto* button = w.findChild<QToolButton*>("forcesButton");
     bool four = button && button->menu();
-    for (int k = 0; k < 4; ++k) four = four && addAction(w, k) && button->menu()->actions().contains(addAction(w, k));
+    for (int k = 0; k < 5; ++k) four = four && addAction(w, k) && button->menu()->actions().contains(addAction(w, k));
     QMenu* sub = nullptr;
     for (QAction* top : w.menuBar()->actions())
         for (QAction* item : top->menu() ? top->menu()->actions() : QList<QAction*>())
@@ -56,7 +56,7 @@ void testButtonAndDefaults(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport
     if (sub) emit sub->aboutToShow();
     const QList<QAction*> subItems = sub ? sub->actions() : QList<QAction*>();
     const auto items = std::count_if(subItems.begin(), subItems.end(), [](QAction* a) { return !a->isSeparator(); });
-    c.check(four && items == 4, "«Сила ▾» holds Толчок, Тяга, Взрыв and Притяжение, and so does «Сцена» → «Добавить» → «Сила»");
+    c.check(four && items == 5, "«Сила ▾» holds Толчок, Тяга, Момент, Взрыв and Притяжение, and so does «Сцена» → «Добавить» → «Сила»");
 
     struct Expect { ForceShape shape; ForceMode mode; float strength, radius; ForceFalloff falloff; };
     const Expect table[] = {{ForceShape::Directional, ForceMode::Impulse, 3, 1.5f, ForceFalloff::None}, // fields: m/s and m/s^2
@@ -368,6 +368,41 @@ void testIdle(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
             "the rigid role given, the force is live and its card names the body; the body fixed, it is idle again");
 }
 
+// «Момент»: with nothing chosen it makes nothing; on a chosen cube it is the cube's own (3 N m, a ring in the view), and
+// in play, with no gravity and turned down to 0.05 N m, it spins the floating cube about y.
+void testTorque(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    EditorOps& ops = *dynamic_cast<MainWindow&>(w).operators();
+    b.newScene();
+    pump(100);
+    ops.runNow("world_set", {{"line", "world"}, {"key", "gravity"}, {"values", QJsonArray{0, 0, 0}}});
+    const uint32_t box = made(b, b.createActions()[0]);
+    b.editEntity(box, [](Entity& e) { e.position = Vector3(0, 2, 0), e.rigid.enabled = e.collider.enabled = true; });
+    const size_t before = b.graph().forces.size();
+    b.select(0);
+    addAction(w, 4)->trigger();
+    pump(60);
+    const bool refused = b.graph().forces.size() == before;
+    b.select(box);
+    addAction(w, 4)->trigger();
+    pump(60);
+    const Force* f = b.graph().forces.size() == before + 1 ? &b.graph().forces.back() : nullptr;
+    const bool own = f && f->shape == ForceShape::Torque && f->parent == box && f->strength == 3 && b.selectedId() == f->id;
+    const auto& marks = v->sceneMarkers();
+    const bool ring = f && std::any_of(marks.begin(), marks.end(), [&](const SceneMarker& m) { return m.id == f->id && m.kind == SceneMarker::Twist; });
+    if (f) ops.runNow("scene_set", {{"id", int(f->id)}, {"line", "effect"}, {"key", "strength"}, {"values", QJsonArray{0.05}}});
+    b.play();
+    waitFrames(v, 60, 30000);
+    Quaternion q;
+    if (auto s = v->snapshot(); s && b.bodyOfEntity(box) >= 0) q = s->bodies[size_t(b.bodyOfEntity(box))].rot;
+    b.stop();
+    pump(200);
+    const float turned = 2 * std::acos(std::min(1.0f, std::fabs(float(q.w))));
+    std::printf("  «Момент»: refused with nothing chosen %s; on the cube %s, its ring %s; 0.05 N m turned the cube %.2f rad (axis %.2f %.2f %.2f)\n",
+                refused ? "yes" : "no", own ? "yes" : "no", ring ? "yes" : "no", turned, double(q.x), double(q.y), double(q.z));
+    c.check(refused && own && ring, "«Момент» with nothing chosen makes nothing; on the cube it is the cube's own, 3 N m, a ring in the view");
+    c.check(turned > 0.1f && std::fabs(float(q.y)) > 10 * (std::fabs(float(q.x)) + std::fabs(float(q.z)) + 1e-4f), "in play it spins the cube about y");
+}
+
 int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     testButtonAndDefaults(c, w, b, v);
@@ -376,5 +411,6 @@ int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) 
     testIdle(c, w, b, v);
     testCard(c, w, b);
     testFirePlayStop(c, w, b, v);
+    testTorque(c, w, b, v);
     return c.failures;
 }

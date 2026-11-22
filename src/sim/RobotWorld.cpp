@@ -590,8 +590,9 @@ void RobotWorld::markFired(uint32_t id) {
     firedIds_.insert(std::lower_bound(firedIds_.begin(), firedIds_.end(), id), id);
 }
 
-// A body's own force (forceBody: a directional force whose parent is a shape) acts on that body alone, at the
-// force's own point as the body stands now - off the centre of mass it turns the body; its strength is N s or N. A
+// A body's own force (forceBody: a directional force or a torque whose parent is a shape) acts on that body alone, at the
+// force's own point as the body stands now - off the centre of mass it turns the body; its strength is N s or N (a
+// torque: about the force's own +y, N m s or N m). A
 // field acts on each rigid body of its reach alike, light or heavy, at the centre of mass (no torque): its strength
 // is the velocity (m/s) or the acceleration (m/s^2) it gives, times the falloff's weight, along the axis or away from
 // the force's origin; its poses are the end of the last frame's.
@@ -603,10 +604,14 @@ void RobotWorld::actForce(PhysicsWorld& physics, const Force& f) {
         const BodyState s = physics.state(own);
         if (s.mass <= 0) return; // fixed or led: nothing pushes it
         const Vector3 at = s.position + s.rotation.rotate(f.position), push = forceAxis(s.rotation * objectRotation(f)) * f.strength;
-        if (f.mode == ForceMode::Constant) physics.applyForce(own, push, at);
+        if (f.shape == ForceShape::Torque) { // about its own +y, wherever on the body it stands
+            if (f.mode == ForceMode::Constant) physics.applyTorque(own, push);
+            else physics.applyAngularImpulse(own, push);
+        } else if (f.mode == ForceMode::Constant) physics.applyForce(own, push, at);
         else physics.applyImpulse(own, push, at);
         return;
     }
+    if (f.shape == ForceShape::Torque) return; // a torque on no body turns nothing
     Vector3 p;
     Quaternion q;
     worldPose(live_, f, p, q);

@@ -294,9 +294,9 @@ class Scene:
 
     def add_force(self, shape="directional", mode="impulse", at=None, strength=None, radius=None, body=None):
         """A force as the menu adds it, with its kind's own strength and radius unless given: it stands at `at`, else
-        at the scene's centre. A directional one pushes along its +Y, a radial one outward from its place. `body`: a
-        directional force made that body's own - at its centre of mass (or at `at`), acting on it alone at its own
-        point, its strength sized by the body's mass."""
+        at the scene's centre. A directional one pushes along its +Y, a radial one outward from its place, a torque
+        turns its body about its +Y. `body`: a directional force made that body's own - at its centre of mass (or at
+        `at`), acting on it alone at its own point, its strength sized by the body's mass; a torque must have one."""
         args = {k: v for k, v in (("strength", strength), ("radius", radius)) if v is not None}
         shown = "".join(f", {k}={v!r}" for k, v in args.items())
         if body is not None:

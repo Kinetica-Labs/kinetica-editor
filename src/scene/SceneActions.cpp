@@ -65,7 +65,7 @@ const char* shapeTitle(ShapeKind k) {
 
 const char* forceTitle(ForceShape shape, ForceMode mode) {
     static const char* names[] = {KE_UI_LABEL("Kinetica", "Толчок"), KE_UI_LABEL("Kinetica", "Тяга"), KE_UI_LABEL("Kinetica", "Взрыв"),
-                                  KE_UI_LABEL("Kinetica", "Притяжение")};
+                                  KE_UI_LABEL("Kinetica", "Притяжение"), KE_UI_LABEL("Kinetica", "Момент"), KE_UI_LABEL("Kinetica", "Момент")};
     return names[int(shape) * 2 + int(mode)];
 }
 
@@ -215,9 +215,13 @@ uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3
     // A field's strength is what it gives every body in its reach, whatever the body weighs: m/s (an impulse), m/s^2 (a
     // constant one). A blast throws at 6 m/s, fading to its edge; a pull draws in at 15 m/s^2 - more than the floor's
     // friction holds; a push gives 3 m/s and a thrust 12 m/s^2, which lifts.
+    // A torque turns the body it stands on: 0.5 N m s spins a 20 cm cube half a turn on the floor, 3 N m beats its
+    // friction there and spins it ever faster.
     if (shape == ForceShape::Radial) f.radius = mode == ForceMode::Impulse ? 3.0_r : 5.0_r, f.falloff = mode == ForceMode::Impulse ? ForceFalloff::Linear : ForceFalloff::None;
-    else f.radius = 1.5_r; // it pushes what stands near it (radius 0: every body)
-    f.strength = shape == ForceShape::Directional ? (mode == ForceMode::Impulse ? 3.0_r : 12.0_r) : (mode == ForceMode::Impulse ? 6.0_r : -15.0_r);
+    else if (shape == ForceShape::Directional) f.radius = 1.5_r; // it pushes what stands near it (radius 0: every body)
+    f.strength = shape == ForceShape::Torque      ? (mode == ForceMode::Impulse ? 0.5_r : 3.0_r)
+                 : shape == ForceShape::Directional ? (mode == ForceMode::Impulse ? 3.0_r : 12.0_r)
+                                                    : (mode == ForceMode::Impulse ? 6.0_r : -15.0_r);
     g.forces.push_back(f);
     return f.id;
 }

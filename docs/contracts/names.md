@@ -623,6 +623,7 @@
 | `texture` | часть | текстура формы | stable |  |
 | `time` | clip, key | время, с | stable |  |
 | `toggle` | bind | нажатие переключает | stable |  |
+| `torque` | effect | момент: крутит тело, на котором стоит, вокруг своей оси +Y | testing |  |
 | `touch` | датчик | датчик касания | stable |  |
 | `track` | часть | дорожка секвенции - объект | stable |  |
 | `trigger` | collider | только замечает касание, не толкает | stable |  |

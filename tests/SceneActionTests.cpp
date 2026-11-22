@@ -736,4 +736,14 @@ void testSceneForces() {
     SceneGraph later = g;
     later.forces.push_back(far);
     CHECK(nextId(later) == 901, "nextId counts the forces");
+    CHECK(!go("scene_add_force", R"({"shape": "torque", "mode": "constant"})") && error.find("turns the body") != std::string::npos,
+          "a torque with no body is refused: %s", error.c_str());
+    const uint32_t box = go("scene_add", R"({"shape": "box", "role": "rigid"})") ? uint32_t(answer["id"].integer()) : 0;
+    const bool made = box && go("scene_add_force", R"({"shape": "torque", "mode": "constant", "body": )" + std::to_string(box) + "}");
+    CHECK(made &&
+              d.graph.forces.back().shape == ForceShape::Torque && d.graph.forces.back().strength == 3 && d.graph.forces.back().parent == box &&
+              d.graph.forces.back().name == "Момент 1",
+          "on a body (%u): «Момент 1», 3 N m, the body's child - %s", box, made ? d.graph.forces.back().name.c_str() : error.c_str());
+    SceneGraph back;
+    CHECK(back.load(d.graph.save(), error) && back.forces.back().shape == ForceShape::Torque, "its file says shape torque and reads back: %s", error.c_str());
 }

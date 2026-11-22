@@ -589,16 +589,17 @@ class Light(SceneObject):
 class Force(SceneObject):
     """A force in the scene: a push along its own +Y axis (shape "directional") or outward from it, inward when the
     strength is negative ("radial"), once at `start` ("impulse", N s) or all the time ("constant", N), on the rigid
-    bodies in its reach. The core refuses a bad value: set `radius` before shape="radial"."""
+    bodies in its reach; or a turn of the body it stands on about its own +Y ("torque", N m s or N m). The core refuses
+    a bad value: set `radius` before shape="radial"."""
     kind = "force"
 
     def _effect(key, doc):
         return property(lambda self: self._get("effect", key),
                         lambda self, v: self._set("effect", key, v, f"{self.ref}.{key} = {v!r}"), doc=doc)
 
-    shape = _effect("shape", "directional or radial")
+    shape = _effect("shape", "directional, radial or torque")
     mode = _effect("mode", "impulse or constant")
-    strength = _effect("strength", "A field: m/s (impulse) or m/s^2 (constant), the same for every body; a body's own force: N s or N. Negative: along -Y, inward")
+    strength = _effect("strength", "A field: m/s (impulse) or m/s^2 (constant), the same for every body; a body's own force: N s or N; a torque: N m s or N m. Negative: along -Y, inward, the other way round")
     radius = _effect("radius", "Reach, m: the bodies whose centres are within it; 0: every body (directional only)")
     falloff = _effect("falloff", "none, linear or inverse_square")
     start = _effect("start", "Impulse only: the second of the run it fires at")
