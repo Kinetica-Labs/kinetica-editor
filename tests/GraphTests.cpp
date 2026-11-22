@@ -122,10 +122,10 @@ void testSceneFormatOnlyGrows() {
     std::string error;
     // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
     // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores; 8: the force block;
-    // 9: the world line's play range end, duration; 10: a texture's normal map; 11: the take's start, record_from; 12: a lidar
+    // 9: the world line's play range end, duration; 10: a texture's normal map; 11: the take's start, record_from; 12: a lidar; 13: a mesh collider
     for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
                              "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene", "scene-format-8.kscene",
-                             "scene-format-9.kscene", "scene-format-10.kscene", "scene-format-11.kscene", "scene-format-12.kscene"}) {
+                             "scene-format-9.kscene", "scene-format-10.kscene", "scene-format-11.kscene", "scene-format-12.kscene", "scene-format-13.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();

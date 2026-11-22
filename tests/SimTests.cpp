@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstring>
 #include <sstream>
+#include <filesystem>
 #include <fstream>
 #include <cstdio>
 
@@ -1021,6 +1022,48 @@ void testSimLidar() {
     std::printf("  two cars that ignore each other: the lidar of the one behind reads %.3f m (the wall at 2.95, the other car at 0.8)\n",
                 seen.empty() ? -9.0 : double(seen[0]));
     CHECK(seen.size() == 1 && std::fabs(seen[0] - 2.95_r) < 2e-3_r, "a lidar sees a car its body does not touch");
+}
+
+// A collider of the geometry's own triangles keeps its hollows: a ball dropped into a U-shaped channel - one model of
+// three slabs, a floor and two walls - comes to rest on the channel's floor (0.25 m up); the convex hull of the same
+// model is a solid block, and the ball rests on its top (0.8 m up).
+void testSimMeshCollider() {
+    const std::string obj = (std::filesystem::temp_directory_path() / "ke-channel-test.obj").string();
+    {
+        std::ofstream out(obj);
+        int base = 1;
+        const auto slab = [&out, &base](Vector3 lo, Vector3 hi) { // a box, its faces counter-clockwise from outside
+            for (int k = 0; k < 8; ++k)
+                out << "v " << (k & 1 ? hi.x : lo.x) << " " << (k & 2 ? hi.y : lo.y) << " " << (k & 4 ? hi.z : lo.z) << "\n";
+            const int f[12][3] = {{0, 2, 3}, {0, 3, 1}, {4, 5, 7}, {4, 7, 6}, {0, 1, 5}, {0, 5, 4}, {2, 6, 7}, {2, 7, 3}, {0, 4, 6}, {0, 6, 2}, {1, 3, 7}, {1, 7, 5}};
+            for (const auto& t : f) out << "f " << base + t[0] << " " << base + t[1] << " " << base + t[2] << "\n";
+            base += 8;
+        };
+        slab({-1, 0, -0.5_r}, {1, 0.1_r, 0.5_r});
+        slab({-1, 0.1_r, -0.5_r}, {-0.9_r, 0.65_r, 0.5_r});
+        slab({0.9_r, 0.1_r, -0.5_r}, {1, 0.65_r, 0.5_r});
+    }
+    const auto rest = [&obj](ColliderKind kind) {
+        SceneGraph g;
+        g.world.physics.sleeping = false;
+        Entity channel;
+        channel.id = 1, channel.name = "Желоб", channel.shape = ShapeKind::Mesh, channel.meshFile = obj;
+        channel.size = {2, 0.65_r, 1}, channel.position = {0, 0.325_r, 0}; // the model fitted to its own extent: as it is
+        channel.collider.enabled = true, channel.collider.kind = kind;
+        g.entities.push_back(channel);
+        Entity ball = solid(2, "Шар", Vector3(0.3_r), {0, 1.2_r, 0}, false);
+        ball.shape = ShapeKind::Sphere;
+        g.entities.push_back(ball);
+        Simulation s;
+        s.load(g);
+        for (int k = 0; k < 150; ++k) s.stepFrame();
+        return s.physics()->state(s.robot()->bodyOf(2)).position.y;
+    };
+    const Real inside = rest(ColliderKind::Mesh), onTop = rest(ColliderKind::ConvexHull);
+    std::filesystem::remove(obj);
+    std::printf("  a ball in a U channel: a mesh collider %.3f m up (0.25, its floor), its hull %.3f m (0.8, the top)\n", double(inside), double(onTop));
+    CHECK(std::fabs(inside - 0.25_r) < 0.02_r, "a mesh collider: the ball rests %f m up, not on the channel's floor", double(inside));
+    CHECK(std::fabs(onTop - 0.8_r) < 0.02_r, "the hull of the same model: the ball rests %f m up, not on its top", double(onTop));
 }
 
 void testSimSensors() {

@@ -79,6 +79,13 @@ std::vector<ShapeDesc> colliderShapes(const Entity& e, const TriMesh& local) {
         s = hullOf(round.positions);
         break;
     }
+    case ColliderKind::Mesh:
+        if (e.rigid.enabled && !e.rigid.fixed) { // a moving body: its hull (a mesh has no inside to weigh)
+            s = hullOf(local.positions);
+            break;
+        }
+        s.kind = ShapeDesc::Kind::Mesh, s.points = local.positions, s.triangles = local.triangles;
+        break;
     default: s = hullOf(local.positions); break; // a hull: the geometry's own
     }
     if (sizedByNumbers(c.kind)) s.position = c.offset, s.rotation = colliderTurn(c);

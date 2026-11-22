@@ -94,6 +94,7 @@ void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
 void testSimSensors();
 void testSimLidar();
+void testSimMeshCollider();
 void testSimSequence();
 void testSimRecording();
 void testSimRecordingArm();

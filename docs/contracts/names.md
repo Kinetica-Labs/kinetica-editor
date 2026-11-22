@@ -543,7 +543,7 @@
 | `loop` | path, clip | по кругу | stable |  |
 | `lower` | limit | нижний предел, рад или м | stable |  |
 | `mass` | rigid, tyre | масса, кг | stable |  |
-| `mesh` | shape | сетка из файла | stable |  |
+| `mesh` | shape; collider | сетка из файла; коллайдер из её треугольников, со впадинами (неподвижное тело) | stable |  |
 | `mode` | effect | режим силы: impulse или constant | stable |  |
 | `model` | часть | модель датчика - строка его таблицы `data/sensors/<вид>.csv` | stable |  |
 | `mouse` | bind | мышь | stable |  |

@@ -27,7 +27,7 @@ QIcon shapeIcon(ke::ShapeKind shape, int size = 48);
 QIcon roleIcon(RoleIcon role, int size = 40);
 QIcon controlIcon(ControlIcon control, int size = 32);
 QPixmap rolePixmap(RoleIcon role, int size); // for small chips next to a name
-// The kinds of collider as small wireframe glyphs: Авто, Коробка, Сфера, Капсула, Оболочка, Цилиндр.
+// The kinds of collider as small wireframe glyphs: Авто, Коробка, Сфера, Капсула, Оболочка, Цилиндр, Сетка.
 QIcon colliderIcon(ke::ColliderKind kind, int size = 28);
 // Many objects at once: a group (three cubes held together) and the patterns of an array - a row, a
 // grid, a circle of small cubes.

@@ -441,6 +441,16 @@ void drawWireHull(QPainter& p) {
     });
 }
 
+// Сетка: a dished surface of triangles - the geometry's own, hollows kept.
+void drawWireMesh(QPainter& p) {
+    guideStroke(p, [&p] {
+        const QPointF a[] = {{10, 40}, {36, 58}, {64, 58}, {90, 40}}, b[] = {{14, 76}, {38, 88}, {62, 88}, {86, 76}};
+        p.drawPolyline(a, 4), p.drawPolyline(b, 4);
+        for (int k = 0; k < 4; ++k) p.drawLine(a[k], b[k]);
+        for (int k = 0; k < 3; ++k) p.drawLine(a[k], b[k + 1]);
+    });
+}
+
 // Авто: the collider follows the shape - a wire cube with a small spark in its corner.
 void drawWireAuto(QPainter& p) {
     drawWireCube(p);
@@ -458,6 +468,7 @@ Draw colliderDraw(ke::ColliderKind k) {
     case ke::ColliderKind::Capsule: return drawWireCapsule;
     case ke::ColliderKind::ConvexHull: return drawWireHull;
     case ke::ColliderKind::Cylinder: return drawWireCylinder;
+    case ke::ColliderKind::Mesh: return drawWireMesh;
     }
     return [](QPainter&) {};
 }

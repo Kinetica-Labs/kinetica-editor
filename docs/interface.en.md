@@ -231,7 +231,7 @@ The two large buttons of the card are the shape's roles.
 | Role | What it means |
 |---|---|
 | **<img src="images/ui/icons/rigid.png" height="22" alt=""> Rigid Body** | a body: density or a mass of its own, friction, restitution. The Body field chooses how it moves - see below |
-| **<img src="images/ui/icons/collider.png" height="22" alt=""> Collider** | what the body collides with; drawn as a green frame. Auto takes the shape's own form |
+| **<img src="images/ui/icons/collider.png" height="22" alt=""> Collider** | what the body collides with; drawn as a green frame. Auto takes the shape's own form; Mesh - the model's own triangles with all their hollows (a track, a terrain, a room), on a body that stands only |
 | neither | geometry only: it is seen, but physics does not know it |
 
 ### Three kinds of body

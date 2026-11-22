@@ -74,7 +74,7 @@ namespace {
 
 const char* kShapeNames[] = {"box", "sphere", "cylinder", "cone", "plane", "mesh"};
 const int kShapeCount = 6;
-const char* kColliderNames[] = {"auto", "box", "sphere", "capsule", "hull", "cylinder"};
+const char* kColliderNames[] = {"auto", "box", "sphere", "capsule", "hull", "cylinder", "mesh"};
 const int kColliderCount = 6;
 // A joint's six freedoms, by JointDof.
 const char* kDofNames[] = {"tx", "ty", "tz", "rx", "ry", "rz"};

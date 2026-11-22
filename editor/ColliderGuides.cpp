@@ -169,6 +169,12 @@ std::vector<Vector3> shapeGuide(const ShapeDesc& s) {
     case ShapeDesc::Kind::Sphere: local = sphereGuide(float(s.radius)); break;
     case ShapeDesc::Kind::Capsule: local = capsuleGuide(float(s.radius), float(s.halfHeight)); break;
     case ShapeDesc::Kind::Hull: local = hullGuide(s.points); break;
+    case ShapeDesc::Kind::Mesh: {
+        TriMesh mesh;
+        mesh.positions = s.points, mesh.triangles = s.triangles;
+        local = meshEdgeGuide(mesh);
+        break;
+    }
     }
     const Matrix3x3 R = s.rotation.toMatrix3x3();
     for (Vector3& p : local) p = s.position + R * p;

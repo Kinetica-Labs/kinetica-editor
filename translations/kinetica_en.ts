@@ -167,7 +167,7 @@
         <translation>Instance</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="266"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="268"/>
         <location filename="../editor/ClonePopover.cpp" line="34"/>
         <source>Массив</source>
         <translation>Array</translation>
@@ -939,7 +939,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="328"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="673"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="675"/>
         <source>Выбрано: </source>
         <translation>Selected: </translation>
     </message>
@@ -951,14 +951,14 @@ The picture is being prepared…</translation>
     <message>
         <location filename="../editor/MainWindow.cpp" line="330"/>
         <location filename="../editor/MainWindowControls.cpp" line="58"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="153"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="155"/>
         <source>Дублировать</source>
         <translation>Duplicate</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="331"/>
         <location filename="../editor/MainWindowControls.cpp" line="56"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="154"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="156"/>
         <source>Удалить</source>
         <translation>Delete</translation>
     </message>
@@ -1334,7 +1334,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowControls.cpp" line="53"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="115"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="117"/>
         <source>Снять выделение</source>
         <translation>Deselect All</translation>
     </message>
@@ -1389,7 +1389,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowControls.cpp" line="96"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="269"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="271"/>
         <source>Разобрать на объекты</source>
         <translation>Convert to Separate Objects</translation>
     </message>
@@ -1768,7 +1768,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowLab.cpp" line="251"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="394"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="396"/>
         <source>Тело</source>
         <translation>Body</translation>
     </message>
@@ -2311,75 +2311,75 @@ The picture is being prepared…</translation>
         <translation>Target camera: your third click sets the target to an object or point. The camera keeps looking at the target as either one moves.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="257"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="269"/>
         <source>Датчик ▾</source>
         <translation>Sensor ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="261"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="273"/>
         <source>Датчик на выбранное тело или на его сочленение: без своей формы, накидывается как свойство</source>
         <translation>Attach a sensor to the selected body or its joint. Sensors are components without their own geometry.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="266"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="281"/>
         <source>На тело</source>
         <translation>On the Body</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="269"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="284"/>
         <source>На сочленение тела</source>
         <translation>On the Body&apos;s Joint</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="294"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="297"/>
         <source>Сила ▾</source>
         <translation>Force ▾</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="298"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="301"/>
         <source>Сила: толчок или взрыв разом, тяга или притяжение всё время. Действует на тела, пока идёт мир</source>
         <translation>Force: a push or a blast all at once, a thrust or a pull all the time. It acts on bodies while the world runs</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="311"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="314"/>
         <source>Разовый импульс выбранному телу, Н·с</source>
         <translation>One impulse to the selected body, N s</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="312"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="315"/>
         <source>Разовый импульс от точки телам в радиусе, Н·с</source>
         <translation>One impulse from a point to the bodies in the radius, N s</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="311"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="314"/>
         <source>Постоянная сила на выбранном теле, Н</source>
         <translation>A constant force on the selected body, N</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="312"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="315"/>
         <source>Постоянная сила к точке на тела в радиусе, Н</source>
         <translation>A constant force toward a point on the bodies in the radius, N</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="307"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="310"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Толчок</source>
         <translation>Push</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="309"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="312"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Взрыв</source>
         <translation>Blast</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="308"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="311"/>
         <location filename="../src/scene/SceneActions.cpp" line="67"/>
         <source>Тяга</source>
         <translation>Thrust</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="310"/>
+        <location filename="../editor/MainWindowToolbar.cpp" line="313"/>
         <location filename="../src/scene/SceneActions.cpp" line="68"/>
         <source>Притяжение</source>
         <translation>Pull</translation>
@@ -2458,7 +2458,7 @@ The picture is being prepared…</translation>
         <translation>Position, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="437"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="439"/>
         <location filename="../editor/SequencerCurves.cpp" line="179"/>
         <location filename="../editor/ObjectInspector.cpp" line="61"/>
         <source>Поворот, °</source>
@@ -2529,7 +2529,7 @@ The picture is being prepared…</translation>
         <translation>N</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="258"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="260"/>
         <location filename="../editor/PlotChannels.cpp" line="104"/>
         <source>Группа</source>
         <translation>Group</translation>
@@ -2545,13 +2545,13 @@ The picture is being prepared…</translation>
         <translation>Scene Energy — Kinetic, Potential, Total (J)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="435"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="437"/>
         <location filename="../editor/PlotPanel.cpp" line="46"/>
         <source>Высота, м</source>
         <translation>Height, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="399"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="401"/>
         <location filename="../editor/SceneBuilderForces.cpp" line="155"/>
         <location filename="../editor/PlotPanel.cpp" line="46"/>
         <source>Скорость, м/с</source>
@@ -4250,479 +4250,494 @@ motor strength %1 N</translation>
         <translation>Cylinder: round cylinder on the y axis (polyhedron of 24 faces) - wheels, shafts, glasses</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="78"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
         <source>Авто</source>
         <translation>Auto</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="78"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
         <source>Коробка</source>
         <translation>Box</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="78"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
         <location filename="../src/scene/SceneActions.cpp" line="62"/>
         <source>Сфера</source>
         <translation>Sphere</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="78"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
         <source>Капсула</source>
         <translation>Capsule</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="78"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
         <source>Выпуклая оболочка</source>
         <translation>Convex Hull</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="78"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
         <location filename="../src/scene/SceneActions.cpp" line="62"/>
         <source>Цилиндр</source>
         <translation>Cylinder</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="84"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="79"/>
+        <source>Сетка треугольников</source>
+        <translation>Triangle mesh</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="85"/>
         <source>коробка</source>
         <translation>box</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="85"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="86"/>
         <source>сфера</source>
         <translation>sphere</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="86"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="87"/>
         <source>капсула</source>
         <translation>capsule</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="87"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="88"/>
         <source>выпуклая оболочка</source>
         <translation>convex hull</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="98"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="100"/>
         <source>Куб 20 см: появится в воздухе; только форма — компоненты справа</source>
         <translation>Cube 20 cm: will appear in the air; only shape - components on the right</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="98"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="100"/>
         <source>Шар 20 см в воздухе</source>
         <translation>Ball 20cm in the air</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="98"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="100"/>
         <source>Цилиндр в воздухе</source>
         <translation>The cylinder in the air</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="99"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="101"/>
         <source>Конус в воздухе</source>
         <translation>Cone in the air</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="99"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="101"/>
         <source>Плоскость 3 × 3 м: пол, стол, наклонная плоскость</source>
         <translation>Plane 3 × 3 m: floor, table, inclined plane</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="107"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="109"/>
         <source>Отменить</source>
         <translation>Undo</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="110"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="112"/>
         <source>Повторить</source>
         <translation>Redo</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="140"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="142"/>
         <source>Всё, что есть в сцене. Глаз — видимость, замок — мышь не трогает. Delete — удалить. ⧉ — экземпляр: правка одного меняет все</source>
         <translation>Everything in the scene. The eye is the appearance, the lock doesn&apos;t touch the mouse. Delete - delete.   - copy: editing one changes everything</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="185"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="187"/>
         <source>Выберите объект в сцене
 или создайте новый кнопкой сверху.</source>
         <translation>Select an object in the scene
 or create one from the toolbar.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="203"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="205"/>
         <source>Компоненты</source>
         <translation>Components</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="243"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="433"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="245"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="435"/>
         <source>Размер, м</source>
         <translation>Size, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="271"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="273"/>
         <source>Каждая копия станет отдельным объектом на своём месте</source>
         <translation>Each copy will become a separate object in its place</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="285"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="287"/>
         <source>Ряд</source>
         <translation>Row</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="285"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="287"/>
         <source>Сетка</source>
         <translation>Grid</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="286"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="288"/>
         <source>Круг</source>
         <translation>Circle</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="291"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="292"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="293"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="294"/>
         <source>Сколько</source>
         <translation>Count</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="294"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="296"/>
         <source>Шаг, м</source>
         <translation>Spacing, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="294"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="296"/>
         <source>Расстояние, м</source>
         <translation>Distance, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="296"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="298"/>
         <location filename="../editor/SceneBuilderForces.cpp" line="158"/>
         <source>Радиус, м</source>
         <translation>Radius, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="297"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="299"/>
         <source>Поворот каждой, °</source>
         <translation>Rotation per Copy, °</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="298"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="300"/>
         <source>Разброс, м</source>
         <translation>Scatter, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="298"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="300"/>
         <source>Каждая копия сдвинута на случайное расстояние до этого (одно и то же при каждом запуске)</source>
         <translation>Each copy is shifted by a random distance before that (the same at each run)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="301"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="303"/>
         <source>Копии формы «</source>
         <translation>Copies of the form “</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="301"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="303"/>
         <source>» (она скрыта: правьте её в списке — изменятся все копии)</source>
         <translation>”(It&apos;s hidden: edit it in the list - all copies will change)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="308"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="310"/>
         <source>Геометрия</source>
         <translation>Geometry</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="309"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="311"/>
         <source>форма объекта: из неё физика берёт массу и коллайдер «Авто»</source>
         <translation>shape of the object: from it physics takes mass and collider &quot;Auto ”</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="314"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="316"/>
         <source>Форма — то, что видно. Чем объект сталкивается, задаёт компонент «Коллайдер»</source>
         <translation>Shape is what you can see. What the object collides with is what the Collider component defines ”</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="317"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="319"/>
         <location filename="../editor/SceneBuilderForces.cpp" line="142"/>
         <source>Форма</source>
         <translation>Shape</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="318"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="320"/>
         <source>Цель IK — рука тянется сюда</source>
         <translation>IK Target — the Arm Reaches Here</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="324"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="326"/>
         <source>Пальцы схвата этой цели: сжать — каждый палец едет до упора в предмет и жмёт с силой 2 Н, разжать — назад. Работает и в правке, и в «Пуске»</source>
         <translation>The fingers of this target are compressed -- each finger goes all the way into an object and presses with a force of 2 N, open back. Works both in editing and in Start ”</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="331"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="341"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="333"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="343"/>
         <source>Подробно: решатель IK ▸</source>
         <translation>IK Solver Details ▸</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="341"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="343"/>
         <source>Подробно: решатель IK ▾</source>
         <translation>IK Solver Details ▾</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="353"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="355"/>
         <source>Текстура</source>
         <translation>Texture</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="389"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="391"/>
         <source>Плотность, кг/м³</source>
         <translation>Density, kg/m3</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="392"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="394"/>
         <source>Трение</source>
         <translation>Friction</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="393"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="395"/>
         <source>Упругость удара</source>
         <translation>Restitution</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="394"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="396"/>
         <source>динамическое</source>
         <translation>Dynamic</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="394"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="396"/>
         <source>статическое</source>
         <translation>Static</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="397"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="399"/>
         <source>Динамическое двигает физика: оно падает и сталкивается. Кинематическое движется как задано — своей скоростью или секвенцией — и толкает других, а его не толкает ничто. Статическое стоит: стена, стол.</source>
         <translation>Dynamic: physics moves it - it falls and collides. Kinematic: it moves as it is set, by its velocity or by a sequence, and pushes others while nothing pushes it. Static: it stands still - a wall, a table.</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="48"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="394"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="396"/>
         <source>кинематическое</source>
         <translation>Kinematic</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="390"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="392"/>
         <source>Масса, кг</source>
         <translation>Mass, kg</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="249"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="251"/>
         <source>Непрозрачность</source>
         <translation>Opacity</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="438"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="440"/>
         <source>зона: ничего не толкает, замечает, что внутри</source>
         <translation>Zone: pushes nothing, notices what is inside</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="439"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="441"/>
         <source>Зона пропускает тела сквозь себя и сообщает, кто в ней стоит: корзина, куда должна попасть деталь, область ограждения. Кто внутри — в ответе sim_state (triggers) и в Python: zone.inside.</source>
         <translation>A zone lets bodies pass through it and tells who stands inside: a bin a part is to reach, a guarded area. Who is inside - in the answer of sim_state (triggers) and in Python: zone.inside.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="247"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="249"/>
         <source>1 — сплошное; меньше — просвечивает: стекло, экран, ограждение. Только вид: физика этого не знает.</source>
         <translation>1: solid; less: see-through - glass, a screen, a guard. Its look only: physics does not know it.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="391"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="75"/>
+        <source>Сетка: сами треугольники геометрии, со впадинами — трасса, рельеф, комната; только у неподвижного тела (движущееся сталкивается выпуклой оболочкой)</source>
+        <translation>Mesh: the geometry&apos;s own triangles, hollows kept - a track, a terrain, a room; a body that stands only (a moving one collides by its convex hull)</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="89"/>
+        <source>сетка треугольников</source>
+        <translation>triangle mesh</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="393"/>
         <source>0 — масса из плотности и объёма формы. Своё число — тело весит столько, какой бы ни была форма.</source>
         <translation>0: the mass comes from the density and the shape&apos;s volume. Your own number: the body weighs that much, whatever its shape.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="400"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="402"/>
         <source>Вращение, рад/с</source>
         <translation>Angular Velocity, rad/s</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="413"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="415"/>
         <source>чем тело сталкивается; виден зелёным каркасом</source>
         <translation>where the body collides; visible by a green frame</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="414"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="416"/>
         <source>Геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.
 Физика двигает и поворачивает геометрию вместе с коллайдером, но саму геометрию не меняет.</source>
         <translation>Geometry is what you see; the collider is how your body hits others. Physics moves and rotates geometry with the collider, but it doesn&apos;t change the geometry itself.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="420"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="422"/>
         <source>Авто — по форме геометрии</source>
         <translation>Auto — Match the Geometry</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="420"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="422"/>
         <source>Авто → </source>
         <translation>Auto → </translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="423"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="425"/>
         <source>Подогнать под геометрию</source>
         <translation>Fit to Geometry</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="431"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="433"/>
         <source>Размер коллайдера берётся из размеров формы; снимите, чтобы задать его руками — или «Править в виде»: точки и гизмо</source>
         <translation>The size of the collider is taken from the shape dimensions; remove to ask it with your hands - or &quot;Edit in form&quot;: dots and gizmo</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="434"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="436"/>
         <source>Диаметр, м</source>
         <translation>Diameter, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="436"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="438"/>
         <source>Сдвиг, м</source>
         <translation>Shift, m</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="442"/>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="454"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="444"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="456"/>
         <source>Править коллайдер в виде</source>
         <translation>Edit Collider in the Viewport</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="448"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="450"/>
         <source>Гизмо и точки в виде двигают, вращают и растягивают коллайдер, а не модель: точка на грани тянет грань, точка на круге — диаметр, на торце — высоту. Esc — назад к телу</source>
         <translation>Gizmos and dots in the form move, rotate and stretch the collider, not the model: a point on the edge pulls the edge, a point on the circle is diameter, at the end is height. Esc is back to the body</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="454"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="456"/>
         <source>Готово: назад к телу (Esc)</source>
         <translation>Done: Back to the Body (Esc)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="464"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="466"/>
         <source>+ Добавить компонент</source>
         <translation>+ Add a component</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="526"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="528"/>
         <source>Файл: </source>
         <translation>File: </translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="560"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="562"/>
         <source>Экземпляр: связан с «</source>
         <translation>Instance linked to “</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="561"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="563"/>
         <source>» — форма и компоненты общие</source>
         <translation>” — shared shape and components</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="561"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="563"/>
         <source>Отвязать</source>
         <translation>Unlink</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="563"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="565"/>
         <source>Образец для </source>
         <translation>Source for </translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="564"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="566"/>
         <source>: правка формы и компонентов меняет все</source>
         <translation>. Changes to the shape or components affect every instance.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="614"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="616"/>
         <source>Видимость</source>
         <translation>Visibility</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="615"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="617"/>
         <source>Замок: мышь не выделяет и не двигает</source>
         <translation>Lock: prevent mouse selection and movement</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="620"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="622"/>
         <source> — склеено</source>
         <translation> — fixed together</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="627"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="629"/>
         <source> (образец массива)</source>
         <translation> (array source)</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="637"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="639"/>
         <source> — вид через неё</source>
         <translation> — current view</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="637"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="639"/>
         <source> — активная</source>
         <translation> — active</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="660"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="662"/>
         <source>Без коллайдера тело провалится сквозь всё.</source>
         <translation>Without a collider, the body would fall through everything.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="660"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="662"/>
         <source>Добавить коллайдер</source>
         <translation>Add a collider</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="686"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="688"/>
         <source>общих компонентов нет — правка идёт всем сразу</source>
         <translation>There are no common components - editing goes all at once</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="687"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="689"/>
         <source>только геометрия — добавьте компонент</source>
         <translation>geometry only – add a component</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="689"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="691"/>
         <source>группа</source>
         <translation>group</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="690"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="692"/>
         <source>массив копий</source>
         <translation>array of copies</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="691"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="693"/>
         <source>свет — для глаза, физика его не видит</source>
         <translation>Light is for the eye, physics cannot see it</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="692"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="694"/>
         <source>камера — через неё вид и скриншоты</source>
         <translation>camera - through it view and screenshots</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="693"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="695"/>
         <source>сила — толкает тела мира</source>
         <translation>force: pushes the world&apos;s bodies</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="694"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="696"/>
         <source>датчик — на сочленении, считает его ход</source>
         <translation>sensor - on the joint, considers its course</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="695"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="697"/>
         <source>датчик — едет на своём теле, читает мир как плата</source>
         <translation>Sensor - rides on your body, reads the world like a board</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilderPanels.cpp" line="696"/>
+        <location filename="../editor/SceneBuilderPanels.cpp" line="698"/>
         <source>разные объекты</source>
         <translation>mixed object types</translation>
     </message>

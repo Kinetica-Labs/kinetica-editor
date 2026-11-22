@@ -71,11 +71,12 @@ const char* kColliderTips[] = {
     QT_TRANSLATE_NOOP("Kinetica", "Сфера: катится; мячи, камни, всё круглое"),
     QT_TRANSLATE_NOOP("Kinetica", "Капсула: цилиндр с полусферами на концах; персонажи, бочки, бутылки, звенья руки"),
     QT_TRANSLATE_NOOP("Kinetica", "Выпуклая оболочка: форма, натянутая как плёнка на геометрию, без вмятин"),
-    QT_TRANSLATE_NOOP("Kinetica", "Цилиндр: круглый цилиндр по оси y (многогранник из 24 граней) — колёса, валы, стаканы")};
-static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::Cylinder) + 1, "a tip for every collider kind");
+    QT_TRANSLATE_NOOP("Kinetica", "Цилиндр: круглый цилиндр по оси y (многогранник из 24 граней) — колёса, валы, стаканы"),
+    QT_TRANSLATE_NOOP("Kinetica", "Сетка: сами треугольники геометрии, со впадинами — трасса, рельеф, комната; только у неподвижного тела (движущееся сталкивается выпуклой оболочкой)")};
+static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::Mesh) + 1, "a tip for every collider kind");
 
 QString colliderName(ColliderKind k) {
-    static const char* names[] = {uiText("Kinetica", "Авто"), uiText("Kinetica", "Коробка"), uiText("Kinetica", "Сфера"), uiText("Kinetica", "Капсула"), uiText("Kinetica", "Выпуклая оболочка"), uiText("Kinetica", "Цилиндр")};
+    static const char* names[] = {uiText("Kinetica", "Авто"), uiText("Kinetica", "Коробка"), uiText("Kinetica", "Сфера"), uiText("Kinetica", "Капсула"), uiText("Kinetica", "Выпуклая оболочка"), uiText("Kinetica", "Цилиндр"), uiText("Kinetica", "Сетка треугольников")};
     return names[int(k)];
 }
 
@@ -85,6 +86,7 @@ QString collisionShapeName(ShapeDesc::Kind k) {
     case ShapeDesc::Kind::Sphere: return uiText("Kinetica", "сфера");
     case ShapeDesc::Kind::Capsule: return uiText("Kinetica", "капсула");
     case ShapeDesc::Kind::Hull: return uiText("Kinetica", "выпуклая оболочка");
+    case ShapeDesc::Kind::Mesh: return uiText("Kinetica", "сетка треугольников");
     }
     return "?";
 }
@@ -408,7 +410,7 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
     const auto round = [c] { return c->kind == ColliderKind::Sphere || c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
     const auto tall = [c] { return c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
     std::vector<FieldForm::Tile> kinds;
-    for (int k = 0; k <= int(ColliderKind::Cylinder); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, uiText("Kinetica", kColliderTips[k])});
+    for (int k = 0; k <= int(ColliderKind::Mesh); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, uiText("Kinetica", kColliderTips[k])});
     ComponentCard* card = componentCard(col, RoleIcon::Collider);
     shapeFields(card, &SceneBuilder::colliderFields_)->note([] { return QString(uiText("Kinetica", "чем тело сталкивается; виден зелёным каркасом")); }).name("roleRowLabel")
         .tip(uiText("Kinetica", "Геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"

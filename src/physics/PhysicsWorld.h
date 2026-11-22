@@ -13,6 +13,7 @@
 #include "physics/PhysicsSettings.h"
 #include "scene/JointModel.h"
 
+#include <array>
 #include <memory>
 #include <string>
 #include <vector>
@@ -23,11 +24,12 @@ namespace ke {
 // along the shape's y and the cylinder between; Hull: the convex hull of the points (the engine may
 // thin them to its own limit of vertices).
 struct ShapeDesc {
-    enum class Kind { Box, Sphere, Capsule, Hull };
+    enum class Kind { Box, Sphere, Capsule, Hull, Mesh }; // a mesh: triangles, hollows kept - on a static body only
     Kind kind = Kind::Box;
     Vector3 halfExtents{0.5_r};
     Real radius = 0.5_r, halfHeight = 0;
-    std::vector<Vector3> points;
+    std::vector<Vector3> points;                       // a hull's points; a mesh's vertices, the body's frame
+    std::vector<std::array<uint32_t, 3>> triangles;    // a mesh's, counter-clockwise seen from outside
     Vector3 position{0.0_r};
     Quaternion rotation;
     Real friction = 0.5_r, restitution = 0;

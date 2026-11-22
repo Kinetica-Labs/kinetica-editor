@@ -97,7 +97,10 @@ public:
         b3BodyDef ground = b3DefaultBodyDef();
         ground_ = b3CreateBody(world_, &ground);
     }
-    ~Box3dWorld() override { b3DestroyWorld(world_); }
+    ~Box3dWorld() override {
+        b3DestroyWorld(world_);
+        for (b3MeshData* m : meshes_) b3DestroyMesh(m); // a mesh shape reads its data as long as it lives
+    }
 
     std::string engine() const override {
         const b3Version v = b3GetVersion();
@@ -429,6 +432,25 @@ private:
             b3DestroyHull(hull);
             break;
         }
+        case ShapeDesc::Kind::Mesh: { // the triangles as they are, hollows kept: a static body's (Box3D's mesh shape)
+            if (b3Body_GetType(id) != b3_staticBody) return error = "a mesh collider is a static body's", false;
+            std::vector<b3Vec3> vertices;
+            for (const Vector3& p : s.points) vertices.push_back(b3v(s.position + s.rotation.rotate(p)));
+            std::vector<int32_t> indices;
+            for (const auto& t : s.triangles)
+                for (uint32_t i : t) indices.push_back(int32_t(i));
+            if (vertices.size() < 3 || indices.empty()) return error = "the mesh has no triangles", false;
+            b3MeshDef m{};
+            m.vertices = vertices.data(), m.indices = indices.data();
+            m.vertexCount = int(vertices.size()), m.triangleCount = int(indices.size() / 3);
+            m.weldVertices = true, m.weldTolerance = 0.001f; // a model's split vertices joined: its edges shared, no seams to snag on
+            m.identifyEdges = true;
+            b3MeshData* data = b3CreateMesh(&m, nullptr, 0);
+            if (!data) return error = "the triangles make no mesh", false;
+            meshes_.push_back(data);
+            shape = b3CreateMeshShape(id, &d, data, b3Vec3{1, 1, 1});
+            break;
+        }
         }
         if (s.trigger) triggers_.push_back({index, shape});
         return true;
@@ -461,6 +483,7 @@ private:
     std::vector<uint64_t> marks_, ignores_;            // by the body's index, as its BodyDesc gave them
     std::vector<std::pair<int, b3ShapeId>> triggers_; // the zones: the body's index and its trigger shape
     std::vector<Joint> joints_;
+    std::vector<b3MeshData*> meshes_; // the mesh shapes' data, freed with the world
 };
 
 } // namespace
