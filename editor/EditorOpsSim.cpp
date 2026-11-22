@@ -20,10 +20,12 @@
 #include <QDir>
 #include <QImage>
 #include <QJsonArray>
+#include <QMenu>
 #include <QMetaObject>
 #include <QPainter>
 #include <QPointer>
 #include <QTabBar>
+#include <QToolButton>
 #include <QWidget>
 
 using namespace ke;
@@ -116,6 +118,18 @@ static QImage wholeWindow(QWidget* window) {
     return image;
 }
 
+// The window's parts a picture can be of (view_screenshot part), by the words a person calls them.
+static const std::pair<const char*, const char*> kParts[] = {
+    {"view", ""}, {"toolbar", "createBar"}, {"tools", "toolShelf"}, {"inspector", "inspectorDock"}, {"sequencer", "sequencerDock"},
+    {"plots", "resultsDock"}, {"console", "consoleDock"}, {"laboratory", "labDock"}};
+
+// Where a widget stands in the window's picture, in its pixels (what ui_pointer space window takes).
+static QJsonObject placeIn(QWidget* window, QWidget* w, const QRect& r) {
+    const double k = window->devicePixelRatioF();
+    const QPoint at = w->mapTo(window, r.topLeft());
+    return QJsonObject{{"x", at.x() * k}, {"y", at.y() * k}, {"width", r.width() * k}, {"height", r.height() * k}};
+}
+
 static QImage seenWindow(QWidget* window) {
     QImage image = wholeWindow(window);
     QPainter painter(&image);
@@ -131,8 +145,10 @@ void EditorOps::addViewOps() {
                                "width: scaled to so many pixels across, smoothly; clean: without the text and the navigation cube over the view - "
                                "a picture for the documentation; marks: false - without the editor's own marks in the scene either (joints and their ties, "
                                "sensors, lights, cameras, the gizmo, the selection's outline): what a camera would film - what a plugin or an agent drew (view_draw) stays in both; view_frame {id} first puts an object in the middle of it; file: where to save it - none, a new file in the temporary folder, "
-                               "named in the answer; a picture of the window answers where the view stands in it, `view` in its pixels)",
-            "{file?: str, window?: bool, screen?: bool, width?: int, clean?: bool, marks?: bool}",
+                               "named in the answer; a picture of the window answers where the view stands in it, `view` in its pixels; "
+                               "part: one part of the window - the 3D view, the top bar, the tool shelf, a panel -, cut out of the window's picture)",
+            "{file?: str, window?: bool, screen?: bool, width?: int, clean?: bool, marks?: bool, "
+            "part?: 'view'|'toolbar'|'tools'|'inspector'|'sequencer'|'plots'|'console'|'laboratory'}",
             [this](const QJsonObject& a) {
         static int shots = 0;
         const QString file = a.contains("file") ? a.value("file").toString()
@@ -146,8 +162,23 @@ void EditorOps::addViewOps() {
         if (clean) view_->setOverlayVisible(false);
         if (!marks) view_->setMarksVisible(false);
         for (QWidget* w : over) w->hide();
-        const bool whole = a.value("screen").toBool() || a.value("window").toBool();
+        QWidget* part = nullptr; // one part of the window: cut out of its picture, the 3D view in it as it is drawn
+        if (const QString want = a.value("part").toString(); !want.isEmpty()) {
+            for (const auto& [word, name] : kParts)
+                if (want == word) part = *name ? window_->findChild<QWidget*>(name) : static_cast<QWidget*>(view_);
+            if (!part || !part->isVisible()) {
+                for (QWidget* w : over) w->show();
+                if (clean) view_->setOverlayVisible(true);
+                if (!marks) view_->setMarksVisible(true);
+                return error("the " + want + " is not shown now: open it first (ui_trigger its tab or button)");
+            }
+        }
+        const bool whole = a.value("screen").toBool() || a.value("window").toBool() || part;
         QImage image = a.value("screen").toBool() ? seenWindow(window_) : whole ? wholeWindow(window_) : view_->grabFramebuffer();
+        if (part) {
+            const QJsonObject r = placeIn(window_, part, part->rect());
+            image = image.copy(QRect(int(r["x"].toDouble()), int(r["y"].toDouble()), int(r["width"].toDouble()), int(r["height"].toDouble())));
+        }
         if (clean) view_->setOverlayVisible(true);
         if (!marks) view_->setMarksVisible(true);
         for (QWidget* w : over) w->show();
@@ -156,7 +187,7 @@ void EditorOps::addViewOps() {
             image = image.scaledToWidth(width, Qt::SmoothTransformation);
         if (file.isEmpty() || !image.save(file)) return error("cannot save '" + file + "'");
         QJsonObject answer{{"file", file}, {"width", image.width()}, {"height", image.height()}};
-        if (whole && view_->isVisible()) { // where the 3D view stands in the picture, in its pixels
+        if (whole && !part && view_->isVisible()) { // where the 3D view stands in the picture, in its pixels
             const double k = image.width() / logical;
             const QPoint at = view_->mapTo(window_, QPoint(0, 0));
             answer["view"] = QJsonObject{{"x", at.x() * k}, {"y", at.y() * k}, {"width", view_->width() * k}, {"height", view_->height() * k}};
@@ -200,12 +231,39 @@ void EditorOps::addViewOps() {
                    {"gpu_ms", double(view_->gpuMs())}, {"gpu_shadow_ms", double(view_->gpuShadowMs())},
                    {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
     });
-    addSync("ui_actions", "Every button and menu item of the window: text, name, on/off", "{}", [this](const QJsonObject&) {
+    addSync("ui_actions", "Every button and menu item of the window, a panel's own buttons and the visible tabs: text, name, on/off, and "
+            "for what is shown where it stands - x, y, width, height in the window's picture (the pixels view_screenshot window gives "
+            "and ui_pointer space window takes): a hand finds it by its name, not by its looks; ui_trigger presses any of them by its text",
+            "{}", [this](const QJsonObject&) {
         QJsonArray out;
-        for (const QAction* act : window_->findChildren<QAction*>())
-            if (!act->text().isEmpty() && !act->isSeparator())
-                out.append(QJsonObject{{"text", act->text().remove('&')}, {"name", act->objectName()}, {"enabled", act->isEnabled()},
-                                       {"checked", act->isCheckable() ? QJsonValue(act->isChecked()) : QJsonValue()}});
+        const auto entry = [](const QString& text, const QString& name, bool enabled, QJsonValue checked) {
+            return QJsonObject{{"text", QString(text).remove('&')}, {"name", name}, {"enabled", enabled}, {"checked", checked}};
+        };
+        const auto placed = [this](QJsonObject e, QWidget* w, const QRect& r) {
+            const QJsonObject at = placeIn(window_, w, r);
+            for (auto it = at.begin(); it != at.end(); ++it) e.insert(it.key(), it.value());
+            return e;
+        };
+        for (QAction* act : window_->findChildren<QAction*>()) {
+            if (act->text().isEmpty() || act->isSeparator()) continue;
+            QJsonObject e = entry(act->text(), act->objectName(), act->isEnabled(), act->isCheckable() ? QJsonValue(act->isChecked()) : QJsonValue());
+            for (QObject* o : act->associatedObjects()) // its button on a bar, when one shows
+                if (auto* w = qobject_cast<QWidget*>(o); w && !qobject_cast<QMenu*>(w) && w->isVisible() && w->window() == window_) {
+                    e = placed(e, w, w->rect());
+                    break;
+                }
+            out.append(e);
+        }
+        for (QAbstractButton* b : window_->findChildren<QAbstractButton*>()) { // a panel's own: no action behind it
+            const auto* tool = qobject_cast<QToolButton*>(b);
+            if ((tool && tool->defaultAction()) || !b->isVisible() || b->window() != window_ || (b->text().isEmpty() && b->toolTip().isEmpty())) continue;
+            out.append(placed(entry(b->text().isEmpty() ? b->toolTip() : b->text(), b->objectName(), b->isEnabled(),
+                                    b->isCheckable() ? QJsonValue(b->isChecked()) : QJsonValue()), b, b->rect()));
+        }
+        for (QTabBar* bar : window_->findChildren<QTabBar*>()) // the visible tabs: a panel's, the docks'
+            for (int k = 0; bar->isVisible() && k < bar->count(); ++k)
+                if (bar->isTabVisible(k))
+                    out.append(placed(entry(bar->tabText(k), bar->objectName(), bar->isTabEnabled(k), QJsonValue(bar->currentIndex() == k)), bar, bar->tabRect(k)));
         return ok({{"actions", out}});
     });
     addSync("ui_trigger", "Press a button or a menu item by its text or name (as ui_actions lists them), a plain panel button "

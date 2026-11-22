@@ -159,8 +159,9 @@ void MainWindow::startBuilder(bool interactive) {
                              error + "\n" + QDir::toNativeSeparators(restartFile_));
         error.clear();
     }
+    const bool person = qApp->property("keInteractive").toBool(); // a run nobody watches meets a newcomer only when told to
     const bool firstMinute = interactive && restartFile_.isEmpty() && startScene_.isEmpty() &&
-                             (forceFirstStart_ || !QSettings().value(kFirstMinuteDone, false).toBool());
+                             (forceFirstStart_ || (person && !QSettings().value(kFirstMinuteDone, false).toBool()));
     const QString scene = firstMinute ? examplesDir() + "/ur5e.kscene" : startScene_; // a robotics editor opens with a robot
     if (!resumed) {
         if (!scene.isEmpty() && !builder_->openFile(scene, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);

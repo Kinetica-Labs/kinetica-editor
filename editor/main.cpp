@@ -410,11 +410,23 @@ int main(int argc, char** argv) {
         return 2;
     }
     // A test's edits are not the person's history: their journal is a file of this run alone, removed when the run ends
-    // (left, 68 of them - 33 MB - were found in the temporary folder). One the caller named in KE_JOURNAL is its own.
-    struct RunJournal { QString file; ~RunJournal() { if (!file.isEmpty()) QFile::remove(file); } } runJournal;
-    if (unattended(cli, o) && qEnvironmentVariableIsEmpty("KE_JOURNAL")) {
-        runJournal.file = QDir::tempPath() + "/kinetica-journal-" + QString::number(QCoreApplication::applicationPid()) + ".jsonl";
-        qputenv("KE_JOURNAL", runJournal.file.toUtf8());
+    // (left, 68 of them - 33 MB - were found in the temporary folder). One the caller named in KE_JOURNAL is its own. Nor
+    // are its settings the person's: it reads and writes its own, in a folder of this run alone (a self-test's press of
+    // ⇔ was found left in the person's layout) - the language above is read from the person's still.
+    struct RunFiles {
+        QString journal, settings;
+        ~RunFiles() {
+            if (!journal.isEmpty()) QFile::remove(journal);
+            if (!settings.isEmpty()) QDir(settings).removeRecursively();
+        }
+    } runFiles;
+    if (unattended(cli, o)) {
+        const QString pid = QString::number(QCoreApplication::applicationPid());
+        if (qEnvironmentVariableIsEmpty("KE_JOURNAL"))
+            runFiles.journal = QDir::tempPath() + "/kinetica-journal-" + pid + ".jsonl", qputenv("KE_JOURNAL", runFiles.journal.toUtf8());
+        runFiles.settings = QDir::tempPath() + "/kinetica-settings-" + pid;
+        for (const QSettings::Format format : {QSettings::NativeFormat, QSettings::IniFormat})
+            QSettings::setPath(format, QSettings::UserScope, runFiles.settings);
     }
 
     app.setProperty("keAgentEval", cli.isSet(o.agentEval));

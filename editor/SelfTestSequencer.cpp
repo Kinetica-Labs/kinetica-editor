@@ -20,11 +20,14 @@
 
 #include <QAction>
 #include <QDockWidget>
+#include <QFile>
+#include <QDir>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QSettings>
 #include <QStatusBar>
 #include <QToolButton>
 #include <QWheelEvent>
@@ -651,6 +654,36 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 "sequence_frame fit shows the whole, as F; a time backwards is refused and says why");
     }
 
+    { // A model's eyes and hands without guessing pixels: ui_actions says where «Кривые» stands, a click there turns the curves
+      // off and back on; view_screenshot part cuts the Sequencer out of the window's picture; a misspelt part says the right word.
+        const QJsonArray all = ops->runNow("ui_actions", {}).value("actions").toArray();
+        QJsonObject button;
+        for (const QJsonValue& e : all)
+            if (e.toObject().value("name").toString() == "sequencerCurvesButton") button = e.toObject();
+        const QPointF centre(button.value("x").toDouble() + button.value("width").toDouble() / 2, button.value("y").toDouble() + button.value("height").toDouble() / 2);
+        const bool before = panel->curvesShown();
+        ops->runNow("ui_pointer", {{"action", "click"}, {"x", centre.x()}, {"y", centre.y()}, {"space", "window"}});
+        pump(60);
+        const bool flipped = panel->curvesShown() != before;
+        ops->runNow("ui_pointer", {{"action", "click"}, {"x", centre.x()}, {"y", centre.y()}, {"space", "window"}}); // the same spot: the
+        pump(60);                                                                                                  // button did not move
+        const QString file = QDir::temp().filePath("kinetica-selftest-sequencer.png");
+        const QJsonObject shot = ops->runNow("view_screenshot", {{"part", "sequencer"}, {"file", file}});
+        auto* dock = w.findChild<QWidget*>("sequencerDock");
+        const double k = w.devicePixelRatioF();
+        const QJsonObject misspelt = ops->runNow("view_screenshot", {{"part", "sequencr"}});
+        QFile::remove(file);
+        std::printf("  ui_actions: «Кривые» at %.0f,%.0f %.0fx%.0f px; clicked there - the curves %s, again - back %s; the Sequencer's picture "
+                    "%dx%d px (the panel %dx%d); «sequencr» - «%s»\n", button.value("x").toDouble(), button.value("y").toDouble(),
+                    button.value("width").toDouble(), button.value("height").toDouble(), flipped ? "switched" : "DID NOT SWITCH",
+                    panel->curvesShown() == before ? "yes" : "no", shot.value("width").toInt(), shot.value("height").toInt(), int(dock->width() * k),
+                    int(dock->height() * k), qPrintable(misspelt.value("error").toString()));
+        c.check(button.contains("x") && flipped && panel->curvesShown() == before, "ui_actions says where a panel's button stands: a click there presses it");
+        c.check(shot.value("ok").toBool() && shot.value("width").toInt() == int(dock->width() * k) && shot.value("height").toInt() == int(dock->height() * k) &&
+                    misspelt.value("error").toString().contains("sequencer"),
+                "view_screenshot part is the picture of one panel; a misspelt part says the right word");
+    }
+
     if (curvesButton) curvesButton->click();
     std::printf("  the curves of «%s»: its key at 2 s, y %.3f m, dragged up 40 px: %.3f m; one undo: %.3f m\n", findObject(b.graph(), cubes[3])->name.c_str(),
                 double(before), double(raised), double(lowered));
@@ -703,6 +736,9 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 dock->width());
     c.check(wide && widened > narrow + 100 && reach >= w.width() - 12 && std::abs(dock->width() - narrow) <= 2,
             "⇔ spreads the bottom panel the window's whole width and back");
+    const QString kept = QSettings().fileName(); // where ⇔ was written: this run's own settings, not the person's
+    std::printf("  this run's settings: %s\n", qPrintable(kept));
+    c.check(kept.startsWith(QDir::tempPath() + "/kinetica-settings-"), "a run nobody watches keeps its settings to itself, not in the person's");
     autoKeyTests(w, b, c);
     keyedCameraTests(w, b, v, c);
     playRangeTests(w, b, v, panel, timeline, c);

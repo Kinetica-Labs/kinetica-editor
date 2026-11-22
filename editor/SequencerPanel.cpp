@@ -71,6 +71,11 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     curves_ = button(uiText("Kinetica", "〰 Кривые"), uiText("Kinetica", "Кривые дорожки выделенного объекта: место и поворот от времени. Ключ тянется вверх-вниз (значение) и "
                                  "вдоль (время); правый щелчок — как ключ переходит к следующему: линейно, плавно, ступенькой"), "sequencerCurvesButton", true);
     filter_ = new QLineEdit(this);
+    { // hidden with the curves, it keeps its place: the buttons do not jump under the hand
+        QSizePolicy keep = filter_->sizePolicy();
+        keep.setRetainSizeWhenHidden(true);
+        filter_->setSizePolicy(keep);
+    }
     filter_->setObjectName("sequencerFilter");
     filter_->setPlaceholderText(uiText("Kinetica", "Фильтр дорожек"));
     filter_->setClearButtonEnabled(true);
