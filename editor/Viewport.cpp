@@ -704,6 +704,11 @@ void Viewport::drawOverlay() {
     f.setBold(true);
     p.setFont(f);
     if (marksVisible_) drawJointTies(p);
+    if (runFrame_.isValid()) { // the run's colour round the view: which mode, at a glance
+        p.setPen(QPen(runFrame_, 3.0));
+        p.setBrush(Qt::NoBrush);
+        p.drawRect(QRectF(1.5, 1.5, width() - 3.0, height() - 3.0));
+    }
     drawOverlayFills(p); // under the view's own words
     p.setPen(QColor(235, 238, 245));
     p.drawText(14, 24, QString::fromStdString(snap_->sceneName));

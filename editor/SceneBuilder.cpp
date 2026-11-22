@@ -9,6 +9,7 @@
 #include "scene/Animation.h"
 #include "scene/Assembly.h"
 #include "scene/SceneActions.h"
+#include "scene/SceneEdits.h"
 #include "WorldPanel.h"
 
 #include "InspectorWidgets.h"
@@ -426,18 +427,38 @@ void SceneBuilder::returnToEdit(bool keepEdits) {
     const Mode was = doc_.mode;
     if (!keepEdits) {
         const bool edited = doc_.backup.save() != graph_.save();
+        const SceneGraph before = graph_; // what the run had made of the scene, for Stop to name what it takes back
         doc_.endPlay(false, hasKeptBefore_ ? &keptBefore_ : nullptr);
         pruneSelection();
         fillWorld();
         refreshList();
         fillInspector();
         updateHistoryActions();
-        if (edited) emit statusMessage(uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶ (правки во время игры не сохраняются)"));
+        if (edited) emit statusMessage(stopNote(before));
     } else {
         doc_.endPlay(true);
     }
     hasKeptBefore_ = false;
     setMode(Mode::Edit, was);
+}
+
+// What Stop took back, named: the objects edited while the scene ran, the first few by name - a run's edit lost without a
+// word was the commonest surprise of play modes; what keeps them (K, Сохранить положения) is said with it.
+QString SceneBuilder::stopNote(const SceneGraph& ran) const {
+    QStringList names;
+    bool world = false;
+    for (const ke::GraphEdit& e : ke::diffEdits(graph_, ran)) {
+        if (e.kind == ke::GraphEdit::Kind::World) { world = true; continue; }
+        const ke::SceneObject* o = ke::findObject(ran, e.id) ? ke::findObject(ran, e.id) : ke::findObject(graph_, e.id);
+        const QString name = "«" + QString::fromStdString(o ? o->name : "#" + std::to_string(e.id)) + "»";
+        if (!names.contains(name)) names << name;
+    }
+    if (world) names << uiText("Kinetica", "мир");
+    const int shown = 3;
+    QString which = names.mid(0, shown).join(", ");
+    if (names.size() > shown) which += QString(uiText("Kinetica", " и ещё %1")).arg(names.size() - shown);
+    return names.isEmpty() ? uiText("Kinetica", "Стоп: сцена вернулась к той, что была до ▶")
+                           : QString(uiText("Kinetica", "Стоп: сцена как до ▶ - правки во время игры не сохранились: %1. Положения тел оставляет K до Стопа")).arg(which);
 }
 
 // The robot's world built from the graph on the simulation's thread; which drawn body is which object

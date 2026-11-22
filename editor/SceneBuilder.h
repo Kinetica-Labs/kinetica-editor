@@ -484,7 +484,8 @@ private:
 
     // What the viewport shows
     void setMode(Mode m, Mode was); // was: what the buttons last showed; the document is already in the new mode after beginPlay / endPlay
-    void returnToEdit(bool keepEdits); // throw the simulation away, show the scene (as before Play unless kept)
+    void returnToEdit(bool keepEdits);
+    QString stopNote(const ke::SceneGraph& ran) const; // what Stop took back, named // throw the simulation away, show the scene (as before Play unless kept)
     bool loadIntoSimulation();  // build the simulation from the graph (play, or a step from edit)
     void refreshView();         // edit mode: draw the graph as it is now
     std::string displayName() const;

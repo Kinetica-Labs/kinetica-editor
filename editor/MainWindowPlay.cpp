@@ -30,6 +30,9 @@
 #include <QMessageBox>
 #include <QProcess>
 #include <QPushButton>
+#include <QStatusBar>
+#include <QStyle>
+#include <QToolBar>
 #include <QSettings>
 #include <QStatusBar>
 #include <QTimer>
@@ -151,6 +154,13 @@ void MainWindow::buildRecordAction() {
 
 void MainWindow::syncRecord() {
     const bool on = ops_ && ops_->recording();
+    // The window's colour while the scene runs - green playing, amber paused, red recording - on the top bar, the status
+    // line and a frame round the 3D view: the mode seen at a glance, as the mode errors of every editor teach; Stop takes it off.
+    const SceneBuilder::Mode m = builder_->mode();
+    const QString run = m == SceneBuilder::Mode::Edit ? "" : on ? "record" : m == SceneBuilder::Mode::Playing ? "play" : "pause";
+    for (QWidget* bar : {static_cast<QWidget*>(createBar_), static_cast<QWidget*>(statusBar())})
+        if (bar && bar->property("run").toString() != run) bar->setProperty("run", run), bar->style()->unpolish(bar), bar->style()->polish(bar);
+    view_->setRunFrame(run == "play" ? QColor(88, 200, 110) : run == "pause" ? QColor(240, 190, 80) : run == "record" ? QColor(226, 72, 72) : QColor());
     if (on == recordBlink_->isActive()) return;
     recordAct_->setChecked(on);
     recordAct_->setText(on ? uiText("Kinetica", "Пишется") : uiText("Kinetica", "Запись"));

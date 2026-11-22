@@ -80,6 +80,9 @@ static QString windowStyle() {
            "QHeaderView::section { background: #2c3038; padding: 4px; border: none; }"
            // The big toolbar: airy, 8 px rhythm, readable contrast.
            "QToolBar#createBar { spacing: 4px; padding: 6px 8px; background: #2a2e36; border-bottom: 1px solid #3a3f48; }"
+           "QToolBar#createBar[run=\"play\"], QStatusBar[run=\"play\"] { background: #1f3428; }" // the run's colour (MainWindow::syncRecord)
+           "QToolBar#createBar[run=\"pause\"], QStatusBar[run=\"pause\"] { background: #3a3220; }"
+           "QToolBar#createBar[run=\"record\"], QStatusBar[run=\"record\"] { background: #3b2224; }"
            "QToolBar#createBar QToolButton { padding: 4px 10px; border-radius: 8px; min-width: 64px; }"
            "QToolBar#createBar QToolButton:hover { background: #394150; }"
            "QToolBar#createBar QToolButton:pressed { background: #2d5c99; }"

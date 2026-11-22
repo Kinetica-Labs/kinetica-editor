@@ -8,6 +8,8 @@
 #include "scene/SceneEdits.h"
 
 #include <QJsonArray>
+#include <QToolBar>
+#include <QStatusBar>
 #include <QJsonDocument>
 
 #include "Gizmo.h"
@@ -239,9 +241,27 @@ void testEditPlayStop(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
         if (body.movable) y = body.pos.y;
     std::printf("  after 60 frames of play the cube is at y = %.3f m\n", double(y));
     c.check(ran && y < 0.3f, "play: the cube falls onto the floor");
+    auto* bar = w.findChild<QToolBar*>("createBar");
+    const bool green = bar && bar->property("run").toString() == "play" && v->runFrame() == QColor(88, 200, 110);
     b.stop();
     pump(300);
     c.check(b.editing() && last(b).position.y == 1.0f && v->snapshot()->bodies[1].pos.y == 1.0f, "stop: the cube is back where it was authored");
+    c.check(green && bar->property("run").toString().isEmpty() && !v->runFrame().isValid(),
+            "the run's colour: the top bar and a frame round the view green while it plays, gone at Stop");
+
+    // An edit the running world takes until Stop - a lamp turned up - is named when Stop takes it back.
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    const int lamp = ops->runNow("scene_add_light", {{"kind", "point"}, {"at", QJsonArray{0, 2, 0}}}).value("id").toInt();
+    const QString lampName = QString::fromStdString(b.object(uint32_t(lamp)) ? b.object(uint32_t(lamp))->name : std::string());
+    b.play();
+    waitFrames(v, 5, 5000);
+    ops->runNow("scene_set", {{"id", lamp}, {"line", "kind"}, {"key", "intensity"}, {"values", QJsonArray{3}}});
+    pump(100);
+    b.stop();
+    pump(300);
+    const QString said = w.statusBar()->currentMessage();
+    std::printf("  a lamp turned up while playing, then Stop: «%s»\n", qPrintable(said));
+    c.check(!lampName.isEmpty() && said.contains("«" + lampName + "»"), "Stop names what it took back: the lamp edited while the scene ran");
 }
 
 // Undo and redo of a component, and ids never given out twice in a session.

@@ -237,7 +237,7 @@ private:
     QAction* bottomWideAct_ = nullptr; // the bottom panel the window's whole width (MainWindowLayout.cpp)
     qint64 recordSince_ = 0;       // when the take started: a second press within 0.5 s is a double click's, not a stop
     void buildRecordAction();
-    void syncRecord();             // the button as the take is: on, blinking, or off
+    void syncRecord();             // the button as the take is: on, blinking, or off; the window's run colour
     QAction* pauseAct_ = nullptr;
     QAction* stopAct_ = nullptr;
     QAction* stepAct_ = nullptr;

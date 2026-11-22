@@ -155,6 +155,9 @@ public:
     QPolygonF fillBox(const QString& key) const; // where the last paint drew the key's filled picture: its box's corners (empty: not in the view)
     // Where an object that is no body of the frame is now (a light, a group): the scene builder's answer.
     void setObjectPose(std::function<bool(uint32_t, ke::Vector3&, ke::Quaternion&)> pose) { objectPose_ = std::move(pose); }
+    // The frame round the view in the colour of the run (MainWindow::syncRecord): an editor's mark - no clean picture has it.
+    void setRunFrame(const QColor& c) { if (c != runFrame_) runFrame_ = c, update(); }
+    QColor runFrame() const { return runFrame_; }
     void setDrawing(const QString& key, Drawing d);
     int clearDrawings(const QString& prefix); // every key that starts so ("": all); how many went
     void clearPlayDrawings();                 // Stop: what was drawn while the scene ran goes with the run
@@ -444,6 +447,7 @@ private:
     std::vector<int> highlight_;   // bodies outlined as selected
     std::vector<int> hoverBodies_, ghostBodies_;
     bool overlayVisible_ = true, marksVisible_ = true, agentDriving_ = false;
+    QColor runFrame_;                   // the frame round the view while the scene runs (invalid: none)
     std::vector<char> unpickable_;          // per body: the mouse passes through
     std::vector<float> colliderGuides_;     // x y z state per point, two points a segment
     std::vector<ShapeHandle> handles_;      // the collider mode's points
