@@ -375,6 +375,7 @@
 | `position` | где стоит, м | stable |  |
 | `power` | мощность мотора, Вт | stable |  |
 | `problem` | неисправность датчика: текст, пусто - нет | stable |  |
+| `protocol_version` | версия протокола в ответе `ops_list`: клиент, собранный под N, работает с программой N и новее; нет поля - 0 | testing |  |
 | `range` | значения кривых секвенсора [низ, верх] | stable |  |
 | `reading` | показание датчика - в его единице | stable |  |
 | `redone` | повтор сделан | stable |  |
@@ -728,6 +729,7 @@
 | `OperationError` | ошибка операции: `{ok: false, error}` | stable |
 | `Operations` | любая операция по имени: `ed.<операция>(**аргументы)` | stable |
 | `PointWheel` | колесо точкой своего тела | stable |
+| `PROTOCOL_VERSION` | версия протокола, под которую собран пакет: при неизвестной операции он сверяет её с программой | testing |
 | `Roles` | роли: rigid, collider - `scene_role` | stable |
 | `Roles.add` | добавить роль | stable |
 | `Roles.remove` | снять роль | stable |

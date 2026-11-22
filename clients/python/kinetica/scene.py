@@ -7,7 +7,7 @@
 """
 import json
 
-from .client import Client
+from .client import PROTOCOL_VERSION, Client, OperationError
 from .core import Core
 from .objects import (Battery, Body, Camera, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Light, PointWheel, SceneObject, Sensor, Sonar, Touch, Wrench,
                       _axis,
@@ -211,7 +211,22 @@ class Scene:
         self.close()
 
     def _call(self, op, py=None, **args):
-        return self._client.call(op, py, **args)
+        try:
+            return self._client.call(op, py, **args)
+        except OperationError as e:
+            note = self._older_program() if "нет операции «" in str(e) else ""
+            if not note:
+                raise
+            raise OperationError(f"{e} - {note}") from None
+
+    def _older_program(self):
+        """An operation unknown to the program: whether the program is older than this package - its protocol_version
+        from ops_list's smallest answer (a program before the field: 0) - said in words, or "" (then it is a typo)."""
+        got = self._client.call("ops_list", None, families=["ops"]).get("protocol_version", 0)
+        if got >= PROTOCOL_VERSION:
+            return ""
+        return (f"the program speaks protocol {got}, this kinetica package {PROTOCOL_VERSION}: the program is older - "
+                "use the package that came with it, or a newer program")
 
     def _live(self, part, id):
         state = self._call("sim_state")

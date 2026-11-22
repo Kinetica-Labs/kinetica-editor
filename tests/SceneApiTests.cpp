@@ -196,6 +196,7 @@ void testSceneApiOperationsList() {
     Scene scene(KE_DATA);
     const Value all = call(scene, "ops_list");
     CHECK(all["ok"].truth(), "ops_list answers");
+    CHECK(all["protocol_version"].integer() == kProtocolVersion, "ops_list says the protocol's version: what a client built for it may call");
     std::map<std::string, Value> window;
     const Value recorded = fixture("ops-list.json");
     for (const Value& op : recorded["ops"].items()) window[op["name"].text()] = op;

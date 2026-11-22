@@ -34,6 +34,11 @@
 
 namespace ke {
 
+// The protocol's version, in ops_list's answer (protocol_version): what a client built for it may call. It grows by one
+// with each release whose names grew - names only grow (docs/contracts/names.md) - so a client built for N works with
+// every program of N and later; a program before the field is 0.
+constexpr int kProtocolVersion = 1;
+
 // An operation of the host itself, with its help, arguments and kind as ops_list shows them: written once, here; the
 // window registers its own handlers under these lines.
 struct HostOp {

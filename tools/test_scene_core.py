@@ -338,6 +338,20 @@ class SceneCore(unittest.TestCase):
             with self.assertRaisesRegex(ke.OperationError, "velocity"):
                 scene.ed.sequence_key_set(id=box.id, time=2, velocity=[1, 2])
 
+    def test_an_older_program_is_named_when_an_operation_is_unknown(self):
+        # protocol_version: a client built for N works with every program of N and later; an operation the program does
+        # not know is a typo when the versions agree, and «the program is older» when it is behind the package
+        with ke.Scene() as scene:
+            self.assertEqual(scene.ed.ops_list(families=["ops"])["protocol_version"], ke.PROTOCOL_VERSION)
+            with self.assertRaises(ke.OperationError) as same:
+                scene.ed.scene_ad(shape="box")
+            self.assertNotIn("protocol", str(same.exception))
+            real = scene._client.call
+            scene._client.call = lambda op, py=None, **a: {k: v for k, v in real(op, py, **a).items() if k != "protocol_version"}
+            with self.assertRaisesRegex(ke.OperationError, "the program speaks protocol 0, this kinetica package 1: the program is older"):
+                scene.ed.scene_ad(shape="box")
+            scene._client.call = real
+
     def test_the_take_starts_before_the_play_range_ends(self):
         # scene.world.record_from: where the window's take starts; never at or after the end, the refusal names both
         with ke.Scene() as scene:

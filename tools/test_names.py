@@ -157,10 +157,16 @@ class Names(unittest.TestCase):
         names = {r[0].strip("`"): r for r in rows(names_text)}
         own = {r[0].strip("`"): r for r in rows(words_text)}
         public, keywords = set(), {}
+        with open(os.path.join(ROOT, "clients", "python", "kinetica", "__init__.py"), encoding="utf-8") as f:
+            exported = next(ast.literal_eval(n.value) for n in ast.parse(f.read()).body
+                            if isinstance(n, ast.Assign) and any(getattr(t, "id", "") == "__all__" for t in n.targets))
         for module in PACKAGE:
             with open(os.path.join(ROOT, "clients", "python", "kinetica", module + ".py"), encoding="utf-8") as f:
                 tree = ast.parse(f.read())
             for node in tree.body:
+                if isinstance(node, ast.Assign):  # a constant the package gives out (__all__): a name of it, as a function is
+                    public.update(t.id for t in node.targets if isinstance(t, ast.Name) and t.id.isupper() and t.id in exported)
+                    continue
                 if not isinstance(node, (ast.FunctionDef, ast.ClassDef)) or (node.name.startswith("_") and node.name != "_Draw"):
                     continue
                 owner = "draw" if node.name == "_Draw" else node.name  # draw = _Draw(): its methods are draw.<name>

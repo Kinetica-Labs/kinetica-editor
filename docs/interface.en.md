@@ -14,7 +14,7 @@ An editor of robots: you assemble a mechanism from bodies, joints, motors and se
 
 | For whom | What you need | Checked on |
 |---|---|---|
-| for those who open the editor for the first time; no 3D experience needed | a running Kinetica editor | Kinetica 0.1.0, November 2026 |
+| for those who open the editor for the first time; no 3D experience needed | a running Kinetica editor | Kinetica 0.2.0, November 2026 |
 
 ## How to read this guide
 

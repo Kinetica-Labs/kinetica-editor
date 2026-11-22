@@ -20,6 +20,9 @@ DEFAULT_PORT = int(os.environ.get("KE_EDITOR_PORT", "47801"))
 WAITS = {"plugin_wait"}  # held by the editor until it has something to say: no time limit
 
 
+PROTOCOL_VERSION = 1  # the protocol this package is built for: every program of it and later answers what it calls
+
+
 class OperationError(RuntimeError):
     """An operation answered ``{"ok": false, "error": ...}``."""
 

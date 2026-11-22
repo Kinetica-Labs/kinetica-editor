@@ -21,11 +21,11 @@
 Underneath, every call is one of the server's operations (EditorOps), journaled, undoable and shown in
 the editor's API console as the line above that made it. Only the Python standard library is used.
 """
-from .client import Client, OperationError
+from .client import PROTOCOL_VERSION, Client, OperationError
 from .objects import (Battery, Body, Controller, Driver, Effort, Encoder, Force, Group, Imu, Joint, Light, Link, PointWheel, Roles, SceneObject, Sensor,
                       Sonar, Touch, WheelModule, Wrench)
 from .scene import Editor, Gizmo, Scene, View, World, connect
 
-__all__ = ["connect", "Scene", "World", "Client", "OperationError", "SceneObject", "Body", "Link", "Joint", "Sensor", "Encoder", "Imu",
+__all__ = ["connect", "Scene", "World", "Client", "OperationError", "PROTOCOL_VERSION", "SceneObject", "Body", "Link", "Joint", "Sensor", "Encoder", "Imu",
            "Sonar", "Touch", "Wrench", "Effort", "Battery", "Driver", "Controller", "Group", "Force", "Light", "Roles", "Editor", "Gizmo", "View",
            "WheelModule", "PointWheel"]

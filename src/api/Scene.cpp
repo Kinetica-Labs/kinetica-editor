@@ -101,7 +101,8 @@ const std::vector<HostOp>& hostOps() {
         {"ops_list", "Every operation of the editor: name, help, arguments, their JSON Schema, and kind - query (reads), edit (the "
                      "scene, one undo step), window (the selection, the view, play and pause: never the authored scene) or "
                      "action (files, plugins, the program). families: only the operations whose names begin so - "
-                     "[\"scene\", \"sim\"] gives scene_* and sim_*", "{families?: [str]}", "query"},
+                     "[\"scene\", \"sim\"] gives scene_* and sim_*; protocol_version - what a client built for it may call: a "
+                     "client of N works with every program of N and later", "{families?: [str]}", "query"},
     };
     return ops;
 }
@@ -232,6 +233,7 @@ bool Scene::hostCall(const std::string& name, const Value& args, Value& answer, 
         for (auto& [opName, op] : ops_)
             if (inFamilies(opName, args["families"])) list.push(opsListEntry(opName, op.help, op.args, op.kind, schemaOf(op)));
         answer.set("ops", list);
+        answer.set("protocol_version", int64_t(kProtocolVersion));
     } else if (name == "scene_new") {
         if (doc_.mode != PlayMode::Edit) stopWorld(false);
         doc_.newScene();
