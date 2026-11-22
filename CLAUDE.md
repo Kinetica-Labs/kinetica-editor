@@ -14,7 +14,7 @@ cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=$HOM
 cmake --build build -j
 build/ke_tests                                   # ядро; KE_TEST=<подстрока> — выборочно
 build/kinetica --self-test                       # окно: жмёт кнопки, тащит гизмо; KE_EDITOR_TEST=<группа>
-cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples test_hosts_agree   # стенд испытателей, SDK, MCP, ke.Scene() - без окна; test_hosts_agree поднимает одно скрытое окно
+cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples test_names test_hosts_agree   # стенд испытателей, SDK, MCP, ke.Scene() - без окна; test_hosts_agree поднимает одно скрытое окно
 build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; без --agent-eval - человеку; к --api ходят клиент и MCP ke-editor (.mcp.json)
 build/kinetica-core --version; python3 examples/python/01_hello.py          # без окна: ke.Scene()
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
@@ -53,7 +53,8 @@ CI проверяет абляцию тремя `git grep` (задача `ablati
 - **Операция.** Ядра — `SceneOp` в `src/scene/SceneOps*.cpp`: видит только граф; выделение, время, отмена и файлы —
   у клиента. Окна — `add`/`addSync` в `editor/EditorOps*.cpp`. Строка `args` — и справка, и схема
   (`src/scene/ArgsSchema.h`): поле, которое код читает, обязано в ней быть, вызов с лишним полем отвергается.
-  Имена операций не переименовываются — это контракт с агентами и MCP.
+  Имена не переименовываются и не исчезают: реестр, словарь слов и грамматика - `docs/contracts/names.md`, только
+  дополняется; новое имя или слово - сначала его строка (замок `test_names`).
 - **Правка и Пуск.** В «Правке» окно рисует граф сцены как он написан (`EditView`) и ничего не считает: роль только
   помечает объект. «Пуск» один раз строит из графа `RobotWorld`, «Стоп» выбрасывает его — сцена снова как до пуска,
   правки в игре не сохраняются.
