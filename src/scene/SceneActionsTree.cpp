@@ -50,10 +50,14 @@ uint32_t copySubtree(SceneGraph& g, uint32_t id, bool instance, uint32_t parent)
         c.locked = false;
         c.instanceOf = instance ? masterOf(g, id) : 0;
         g.entities.push_back(c);
-        std::vector<SensorObject> sensors; // its sensors and point wheels go with it, as a body's components do
+        std::vector<SensorObject> sensors; // its sensors, forces and point wheels go with it, as a body's components do
         for (const SensorObject& x : g.sensors)
             if (x.parent == id) sensors.push_back(x);
         for (SensorObject x : sensors) x.id = nextId(g), x.parent = c.id, x.name += " копия", g.sensors.push_back(x);
+        std::vector<Force> forces; // a thrust of its own pushes the copy as it pushes the original
+        for (const Force& f : g.forces)
+            if (f.parent == id) forces.push_back(f);
+        for (Force f : forces) f.id = nextId(g), f.parent = c.id, f.name += " копия", g.forces.push_back(f);
         std::vector<WheelObject> wheels;
         for (const WheelObject& w : g.wheels)
             if (w.parent == id) wheels.push_back(w);

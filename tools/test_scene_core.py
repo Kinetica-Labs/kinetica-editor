@@ -77,6 +77,16 @@ class SceneCore(unittest.TestCase):
             scene.step(12)
             self.assertEqual(len(lidar.ranges), 4)
 
+    def test_a_quiet_step(self):
+        """sim_step state false: the time, the frame and the frames stepped - none of the live state."""
+        with ke.Scene() as scene:
+            falling(scene)
+            before = scene.ed.sim_state()["frame"]
+            quiet = scene.ed.sim_step(frames=3, state=False)
+            self.assertEqual(sorted(k for k in quiet if k != "ok"), ["cancelled", "completed_frames", "frame", "requested_frames", "time"])
+            self.assertEqual((quiet["frame"] - before, quiet["completed_frames"]), (3, 3))
+            self.assertIn("shapes", scene.ed.sim_step(frames=1))
+
     def test_relative_path_is_the_callers(self):
         here = os.getcwd()
         with tempfile.TemporaryDirectory() as folder:

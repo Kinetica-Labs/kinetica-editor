@@ -37,7 +37,7 @@ int framesArg(const Value& args);
 // contacts, triggers, grips and what the world could not build. {time, frame} alone when no world is built.
 Value liveState(const Simulation& s);
 // liveState and what sim_step did: the frames asked, the frames stepped, whether it stopped short.
-Value stepAnswer(const Simulation& s, int requested, int completed);
+Value stepAnswer(const Simulation& s, int requested, int completed, bool state = true);
 
 // What every sensor reads as the robot reads it (a list): no truth. Also what a plugin's tick gets.
 Value sensorReadings(const Simulation& s);

@@ -308,15 +308,16 @@ void EditorOps::addStepOp() {
         if (builder_->editing() && !builder_->loadPaused()) return reply(error("the scene cannot be built"));
         if (builder_->mode() == SceneBuilder::Mode::Playing) builder_->pause();
         const int frames = framesArg(coreValue(a)); // 0: built, not stepped
+        const bool state = coreValue(a)["state"].truth(true);
         const auto cancellation = runtime_->cancellationEpoch();
         const auto epoch = cancellation->load();
         // Through the simulation's loop, frame by frame: a plugin's on_tick answers each before the next (the lockstep).
         ctrl_->stepFrames(frames, [cancellation, epoch] { return cancellation->load() != epoch; },
-                          [this, reply, frames](Simulation& after, int completed) {
-            const QJsonObject state = coreAnswerJson(stepAnswer(after, frames, completed));
-            QMetaObject::invokeMethod(this, [this, reply, state] {
+                          [this, reply, frames, state](Simulation& after, int completed) {
+            const QJsonObject answer = coreAnswerJson(stepAnswer(after, frames, completed, state));
+            QMetaObject::invokeMethod(this, [this, reply, answer] {
                 if (refresh_) refresh_();
-                reply(state);
+                reply(answer);
             }, Qt::QueuedConnection);
         });
     });

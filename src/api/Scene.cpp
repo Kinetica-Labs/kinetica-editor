@@ -86,7 +86,8 @@ const std::vector<HostOp>& hostOps() {
         {"edit_redo", "Redo the step undone last. Answers what it changed, as edit_undo", "{}", "edit"},
         {"sim_stop", "Stop: the scene as it was before play", "{}", "window"},
         {"sim_step", "Step N frames (1/60 s each) on pause and answer the live state, as sim_state gives it (frames 0: the scene built as play "
-                     "builds it, its state at time 0)", "{frames?: int}", "window"},
+                     "builds it, its state at time 0); state false: only the time, the frame and the frames stepped - for a client that "
+                     "steps often and reads what it needs by sensor_read or sim_measure", "{frames?: int, state?: bool (true)}", "window"},
         {"sim_state",
          "The live state: time and frame, every body's pose (position of its frame, rotation: Euler degrees [x, y, z], the "
          "turn R = Ry Rx Rz - as the scene file), velocity and spin (asleep: at rest, put to sleep; fixed: a static body; kinematic: one led by its own velocity or by a sequence), every "
@@ -258,7 +259,7 @@ bool Scene::hostCall(const std::string& name, const Value& args, Value& answer, 
         }
         const int frames = framesArg(args);
         for (int k = 0; k < frames; ++k) sim_->stepFrame();
-        answer = stepAnswer(*sim_, frames, frames);
+        answer = stepAnswer(*sim_, frames, frames, args["state"].truth(true));
     } else if (name == "sim_stop") {
         if (doc_.mode != PlayMode::Edit) stopWorld(false);
         answer.set("mode", modeWord(doc_.mode));

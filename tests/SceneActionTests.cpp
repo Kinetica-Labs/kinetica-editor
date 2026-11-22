@@ -54,18 +54,22 @@ void testActionsGroupKeepsPoses() {
 }
 
 // Deleting a group takes its member, the member's sensor and the joint it held; the other link stays.
-// A duplicate carries the body's sensor; a sensor's own copy stays on its mount.
+// A duplicate carries the body's sensor and its own thrust; a sensor's own copy stays on its mount.
 void testActionsDeleteAndDuplicate() {
     SceneGraph g;
     const uint32_t a = addShape(g, ShapeKind::Box), b = addShape(g, ShapeKind::Box);
     const uint32_t joint = addJoint(g, JointType::Hinge, a, b, worldAt(g, a), Vector3(0, 0, 1));
     const uint32_t sonar = attachSensor(g, a, snapToFace(g, a, BoxFace::PlusX, Vector3(0.02_r)), SensorKind::Sonar);
+    Force thrust;
+    thrust.id = nextId(g), thrust.parent = a, thrust.name = "Тяга 1", thrust.mode = ForceMode::Constant, thrust.strength = 3;
+    g.forces.push_back(thrust);
     const uint32_t group = groupObjects(g, {a});
     const SceneGraph before = g;
     const std::vector<uint32_t> copies = duplicateObjects(g, {a});
     const Entity& copy = entity(g, copies[0]);
     CHECK(copy.name == "Куб 1 копия" && worldAt(g, copies[0]).y > worldAt(g, a).y + 0.2_r && g.sensors.size() == 2 && g.sensors[1].parent == copies[0],
           "a copy above the original carries its sensor");
+    CHECK(g.forces.size() == 2 && g.forces[1].parent == copies[0] && g.forces[1].strength == 3 && g.forces[0].parent == a, "...and its own thrust");
     const std::vector<uint32_t> sensorCopy = duplicateObjects(g, {sonar});
     CHECK(gap(worldAt(g, sensorCopy[0]), worldAt(g, sonar)) == 0 && findObject(g, sensorCopy[0])->parent == a, "a sensor's copy stays on its mount");
     g = before;

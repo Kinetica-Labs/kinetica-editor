@@ -451,8 +451,9 @@ Value liveState(const Simulation& s) {
     return out;
 }
 
-Value stepAnswer(const Simulation& s, int requested, int completed) {
-    Value out = liveState(s);
+Value stepAnswer(const Simulation& s, int requested, int completed, bool state) {
+    Value out = state ? liveState(s) : Value::map(); // state false: what the steps did, no more (a client stepping often)
+    if (!state) out.set("time", double(s.time())), out.set("frame", double(s.frame()));
     out.set("requested_frames", requested), out.set("completed_frames", completed), out.set("cancelled", completed != requested);
     return out;
 }
