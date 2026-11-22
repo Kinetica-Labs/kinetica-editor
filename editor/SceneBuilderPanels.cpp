@@ -105,8 +105,10 @@ void SceneBuilder::buildActions() {
         createActions_.push_back(a);
     }
     undoAct_ = new QAction(controlIcon(ControlIcon::Undo, 48), uiText("Kinetica", "Отменить"), this);
+    undoAct_->setObjectName("actionUndo"); // a name for ui_trigger and ui_actions, as every button of the bar has
     undoAct_->setShortcut(QKeySequence::Undo);
     redoAct_ = new QAction(controlIcon(ControlIcon::Redo, 48), uiText("Kinetica", "Повторить"), this);
+    redoAct_->setObjectName("actionRedo");
     redoAct_->setShortcuts({QKeySequence("Ctrl+Shift+Z"), QKeySequence("Ctrl+Y")});
     connect(undoAct_, &QAction::triggered, this, &SceneBuilder::undo);
     connect(redoAct_, &QAction::triggered, this, &SceneBuilder::redo);

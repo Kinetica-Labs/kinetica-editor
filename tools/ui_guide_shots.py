@@ -330,8 +330,12 @@ def first(s):
 
 # The window's own icons, cut out of it - what stands beside a button's name in the guide's text, so a reader knows the
 # button by sight. No words on them: one set for both languages. Centres in the window's pixels.
-BAR_ICONS = {"shape": 46, "light": 140, "camera": 233, "magnet": 326, "sensor": 419, "force": 512, "play": 617, "record": 710, "undo": 1001, "redo": 1096}
-RUN_ICONS = {"pause": 803, "stop": 896}       # these two are alive only while the scene plays
+# The toolbar's buttons by their names: where each stands is asked of the window (ui_actions), so a new order of the bar
+# does not cut one icon under another's name.
+BAR_ICONS = {"shape": "shapesButton", "light": "lightsButton", "camera": "camerasButton", "magnet": "magnetTool",
+             "sensor": "sensorsButton", "force": "forcesButton", "play": "actionPlay", "record": "actionRecord",
+             "undo": "actionUndo", "redo": "actionRedo"}
+RUN_ICONS = {"pause": "actionPause", "stop": "actionStop"}  # these two are alive only while the scene plays
 TOOL_ICONS = {"select": 132, "move": 177, "rotate": 222, "scale": 267}
 ROLE_ICONS = {"rigid": 1321, "collider": 1491}
 
@@ -346,7 +350,8 @@ def icons(s):
         s.ed.view_screenshot(file=s.whole, window=True)
         for name, at in names.items():
             crop(s.whole, os.path.join(out, name + ".png"), box(at))
-    bar = lambda x: (x - 28, 28, x + 28, 84)
+    places = {a.get("name"): a["x"] + a["width"] / 2 for a in s.ed.ui_actions()["actions"] if "x" in a and a.get("name")}
+    bar = lambda name: (round(places[name]) - 28, 28, round(places[name]) + 28, 84)
     tool = lambda y: (10, y - 20, 50, y + 20)
     s.new(EYE, TARGET)
     body = s.add("box", "brick", position=[0, 0.25, 0], size=[0.5, 0.5, 0.5], role="rigid")
