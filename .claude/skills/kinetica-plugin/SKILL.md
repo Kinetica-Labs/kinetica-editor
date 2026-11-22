@@ -46,7 +46,7 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `clients/python/kinetica/plugi
    `scene_list {kind}` (`joint`, `body`, `encoder`, `sensor`, `camera`...). It has no default: the call must say it.
    Labels and words people see are Russian; code and comments English. Every other argument after `scene` needs a
    default (a `field` or a plain value). Return a dict.
-4. **Saving restarts it** (about 0.2 s). Check `plugin_list`: its state must be `работает`; otherwise `error`
+4. **Saving restarts it** (about 0.2 s) - `plugin.py` or any `.py` beside it. Check `plugin_list`: its state must be `работает`; otherwise `error`
    says `plugin.py:<line>: <exception>` - fix that line.
 5. **Call it**: the operation is `<plugin>_<function>`; arguments are checked against the fields before the call
    (out of range or unknown: refused with the reason). An error inside answers `plugin.py:<line>: ...`.
@@ -58,3 +58,5 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `clients/python/kinetica/plugi
 - A robot's controller sees sensors, not the truth (CLAUDE.md, «Контракт наблюдаемости»): write it as `@on_tick` (or
   read `sensor_read`); `sim_state` is the engine's truth, for checking only.
 - No third-party packages: the standard library only.
+- Work for every core (a training, a sweep): `process_pool(n)` from `kinetica.plugin`, never a bare
+  `ProcessPoolExecutor` - its workers end with the plugin instead of computing on for no one.
