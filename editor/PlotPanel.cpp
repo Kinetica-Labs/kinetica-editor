@@ -87,6 +87,9 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     repaint_->setSingleShot(true);
     repaint_->setInterval(40);
     connect(repaint_, &QTimer::timeout, this, &PlotPanel::refreshCharts);
+    pluginTick_ = new QTimer(this);
+    pluginTick_->setInterval(40);
+    connect(pluginTick_, &QTimer::timeout, this, &PlotPanel::refreshPluginCharts);
     for (const std::string& id : defaultChannels()) catalog_.pin(id); // blue, orange, green: always the same
     charts_ = defaultCharts();
     rebuildCharts();
@@ -551,6 +554,7 @@ void PlotPanel::rebuildCharts() {
     if (QWidget* old = scroll_->takeWidget()) old->deleteLater();
     views_.clear();
     viewChart_.clear();
+    for (PluginSection& s : plugins_) s.views.clear();
     auto* host = new QWidget;
     host->setObjectName("plotHost");
     const bool lanes = arrangement_ == Arrangement::Lanes;
@@ -565,6 +569,7 @@ void PlotPanel::rebuildCharts() {
         const bool headers = !object.empty();
         box->addWidget(section(headers ? QString(uiText("Kinetica", "Сцена")) : QString(), scene, true), std::max(1, int(scene.size())));
         if (!object.empty()) box->addWidget(section(objectTitle(), object, false), int(object.size()));
+        for (size_t i = 0; i < plugins_.size(); ++i) box->addWidget(pluginSection(i), std::max(1, int(plugins_[i].charts.size())));
     }
     scroll_->setWidget(host);
     refreshCharts();
@@ -632,6 +637,72 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& chart
     return w;
 }
 
+// A plugin panel's charts as a part of the plots: its header, its charts the way the scene's are laid out, no «+».
+QWidget* PlotPanel::pluginSection(size_t i) {
+    PluginSection& s = plugins_[i];
+    auto* w = new QWidget;
+    auto* col = new QVBoxLayout(w);
+    col->setContentsMargins(0, 0, 0, 0);
+    col->setSpacing(3);
+    auto* title = new QLabel(s.title);
+    title->setObjectName("plotSection");
+    title->setStyleSheet("color: #8fc1ff; font-weight: 600; padding-left: 4px;");
+    col->addWidget(title);
+    auto* grid = new QGridLayout;
+    grid->setSpacing(6);
+    const bool lanes = arrangement_ == Arrangement::Lanes;
+    const int columns = lanes ? 1 : std::clamp(int(s.charts.size()), 1, 3);
+    for (size_t k = 0; k < s.charts.size(); ++k) {
+        const SharedChart& c = s.charts[k];
+        auto* v = new TrackChart;
+        v->setObjectName("pluginPlotChart");
+        v->setTitle(c.title, false);
+        v->setAxisWords(c.xWords);
+        v->setEmptyText(c.xWords.isEmpty() ? uiText("Kinetica", "линии появятся после ▶") : uiText("Kinetica", "точки появятся по ходу обучения"));
+        v->setTracks(c.tracks);
+        connect(v, &TrackChart::hovered, this, [this, v, i](double x, QPoint at, int track) {
+            for (TrackChart* o : plugins_[i].views) o->setHoverTime(o->axisWords() == v->axisWords() ? x : std::nan(""));
+            const QString text = track >= 0 && track < int(v->tracks().size()) ? plotHoverText(v->tracks()[size_t(track)], x, v->axisWords()) : QString();
+            if (text.isEmpty()) QToolTip::hideText();
+            else QToolTip::showText(at + QPoint(14, 12), text, v);
+        });
+        connect(v, &TrackChart::hoverLeft, this, [this, i] {
+            for (TrackChart* o : plugins_[i].views) o->setHoverTime(std::nan(""));
+            QToolTip::hideText();
+        });
+        if (lanes) v->setMinimumHeight(96);
+        s.views.push_back(v);
+        grid->addWidget(v, int(k) / columns, int(k) % columns);
+    }
+    col->addLayout(grid, 1);
+    return w;
+}
+
+void PlotPanel::refreshPluginCharts() {
+    for (PluginSection& s : plugins_)
+        for (size_t k = 0; k < s.views.size() && k < s.charts.size(); ++k) {
+            const auto [t0, t1] = s.charts[k].window();
+            s.views[k]->setWindow(t0, t1);
+            s.views[k]->refresh();
+        }
+}
+
+void PlotPanel::showPluginCharts(const QString& key, const QString& title, std::vector<SharedChart> charts) {
+    const size_t had = plugins_.size();
+    plugins_.erase(std::remove_if(plugins_.begin(), plugins_.end(), [&](const PluginSection& s) { return s.key == key; }), plugins_.end());
+    if (charts.empty() && plugins_.size() == had) return; // a panel without charts: nothing to show, nothing to take away
+    if (!charts.empty()) plugins_.push_back({key, title, std::move(charts), {}});
+    if (plugins_.empty()) pluginTick_->stop();
+    else pluginTick_->start();
+    rebuildCharts();
+}
+
+std::vector<std::pair<QString, std::vector<TrackChart*>>> PlotPanel::pluginSections() const {
+    std::vector<std::pair<QString, std::vector<TrackChart*>>> out;
+    for (const PluginSection& s : plugins_) out.push_back({s.title, s.views});
+    return out;
+}
+
 // The span of time on the charts: the whole run while it is short (or when asked for), else the
 // last minute, sliding with the run.
 std::pair<double, double> PlotPanel::timeWindow() const {
@@ -668,8 +739,9 @@ void PlotPanel::refreshCharts() {
 
 // Before the first frame: one quiet line instead of the charts - nothing to press, nothing to choose.
 void PlotPanel::showHint() {
-    scroll_->setVisible(frames_ > 0);
-    placeholder_->setVisible(frames_ == 0);
+    const bool shown = frames_ > 0 || !plugins_.empty(); // a plugin's chart needs no run
+    scroll_->setVisible(shown);
+    placeholder_->setVisible(!shown);
 }
 
 // --- The cursor and the hover ---------------------------------------------------------------------

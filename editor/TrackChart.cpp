@@ -147,6 +147,14 @@ void TrackChart::setTracks(std::vector<PlotTrack> tracks) {
     refresh();
 }
 
+QString plotHoverText(const PlotTrack& line, double x, const QString& xWords) {
+    const double v = line.series ? line.series->valueAt(x) : std::nan("");
+    if (!std::isfinite(v)) return QString();
+    const QString value = numberText(v) + (line.unit.isEmpty() ? QString() : " " + line.unit);
+    if (!xWords.isEmpty()) return QString(uiText("Kinetica", "%1: %2, %3 %4")).arg(line.name, value, xWords, numberText(x, 6));
+    return QString(uiText("Kinetica", "%1: %2 в %3 с")).arg(line.name, value, QString::number(x, 'f', 2).replace('.', ','));
+}
+
 void TrackChart::setWindow(double t0, double t1) {
     t0_ = t0;
     t1_ = t1 > t0 ? t1 : t0 + 1e-3;
@@ -160,6 +168,7 @@ void TrackChart::refresh() {
 void TrackChart::setTitle(const QString& title, bool menu) { title_ = title, menu_ = menu, update(); }
 void TrackChart::setEmptyText(const QString& text) { emptyText_ = text, update(); }
 void TrackChart::setNormalized(bool on) { normalized_ = on, refresh(); }
+void TrackChart::setAxisWords(const QString& words) { axisWords_ = words, update(); }
 void TrackChart::setTimeAxisVisible(bool on) { timeAxis_ = on, update(); }
 void TrackChart::setHoverTime(double t) { hover_ = t, update(); }
 void TrackChart::setSharedMargins(int left, int right) { sharedLeft_ = left, sharedRight_ = right, update(); }
@@ -359,7 +368,8 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
         p.drawText(QRectF(x - 40, r.bottom() + 5, 80, 14), Qt::AlignHCenter | Qt::AlignTop, formatNumber(t, tStep));
     }
     p.setPen(kMuted);
-    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop, uiText("Kinetica", "t, с"));
+    p.drawText(QRectF(0, r.bottom() + 5, r.left() - 12, 14), Qt::AlignRight | Qt::AlignTop,
+               axisWords_.isEmpty() ? QString(uiText("Kinetica", "t, с")) : axisWords_);
 }
 
 // One line: the samples inside the window, as a 2 px line when they are sparse and as a ribbon when

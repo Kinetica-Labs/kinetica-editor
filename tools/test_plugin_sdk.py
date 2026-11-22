@@ -116,6 +116,11 @@ class PluginSdk(unittest.TestCase):
     def test_chart_is_data(self):
         self.assertEqual(plugin._panel["children"], [{"kind": "chart", "title": "Сила", "lines": [{"name": "pushed", "label": "по x"}], "unit": "Н"}])
         self.assertEqual(ui.chart("Углы", ["a", "b"])["lines"], [{"name": "a", "label": "a"}, {"name": "b", "label": "b"}])
+        steps = ui.chart("Обучение", {"best": "лучший", "mean": "средний"}, unit="м", x="generation")  # a step, not the run's time
+        self.assertEqual((steps["x"], steps["x_label"], steps["unit"]), ("generation", "generation", "м"))
+        words = ui.chart("Обучение", ["best"], x={"generation": "поколение"})
+        self.assertEqual((words["x"], words["x_label"], words["lines"]), ("generation", "поколение", [{"name": "best", "label": "best"}]))
+        self.assertNotIn("x", ui.chart("Время", ["a"]))  # without x everything stays as it was
         show(pushed=1.0)  # no editor and no hook running: nowhere to say it, and no mistake
 
     def test_error_points_at_author(self):

@@ -6998,5 +6998,15 @@ Sample </translation>
         <source>Дубль записан: %1 с — войдёт в секвенсор с ■ Стоп. ▶ — смотреть дальше без записи</source>
         <translation>Take recorded: %1 s - it comes into the Sequencer with ■ Stop. ▶ - watch on, not recording</translation>
     </message>
+    <message>
+        <location filename="../editor/TrackChart.cpp" line="153"/>
+        <source>%1: %2, %3 %4</source>
+        <translation>%1: %2, %3 %4</translation>
+    </message>
+    <message>
+        <location filename="../editor/PluginPanel.cpp" line="118"/>
+        <source>точки появятся по ходу обучения</source>
+        <translation>The points will appear as the training goes</translation>
+    </message>
 </context>
 </TS>

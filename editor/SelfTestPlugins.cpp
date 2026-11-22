@@ -9,6 +9,7 @@
 
 #include "EditorOps.h"
 #include "MainWindow.h"
+#include "PlotPanel.h"
 #include "PluginHost.h"
 #include "Resources.h"
 #include "TrackChart.h"
@@ -443,6 +444,54 @@ def count(scene, dt, sensors):
     b.stop();
     QDir(folder + "/meter").removeRecursively();
     c.check(waitUntil([&] { return w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000), "the plugin gone, its chart goes with its panel");
+}
+
+// A training's chart (ui.chart(..., x="step")): the axis is a step, not the run's time, and the points come from a thread
+// of the plugin through show() - no run, no on_tick. They are in the panel's chart and in the bottom plots' section of
+// the plugin, the same series; a step going back is a new training; the plugin gone, the section goes with its panel.
+void testStepChart(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/trainer");
+    write(folder + "/trainer/plugin.py", R"py(import threading
+
+from kinetica.plugin import command, show, ui
+
+ui.panel("Обучение", ui.chart("Награда", {"best": "лучший", "mean": "средний"}, unit="м", x={"step": "поколение"}), place="bottom")
+
+
+@command(label="Учить")
+def train(scene, generations: int = 5):
+    def loop():
+        for g in range(generations):
+            show(step=g, best=10.0 * g, mean=g)
+    threading.Thread(target=loop).start()
+)py");
+    host->start(true);
+    TrackChart* chart = nullptr;
+    waitUntil([&] { return (chart = w.findChild<TrackChart*>("pluginChart")) != nullptr && action(w, "plugin:trainer_train") != nullptr; }, 10000);
+    auto* plots = w.findChild<PlotPanel*>();
+    if (!chart || !plots) return c.check(false, "a step chart comes with its panel"), void();
+    const auto train = [&](int n, size_t points) {
+        ops->run("trainer_train", {{"generations", n}}, [](const QJsonObject&) {}, "ui");
+        waitUntil([&] { return chart->tracks()[0].series->size() == points; }, 5000);
+        pump(150);
+    };
+    train(5, 5);
+    const PlotSeries* best = chart->tracks().size() == 2 ? chart->tracks()[0].series : nullptr;
+    bool stepped = best && best->size() == 5 && chart->axisWords() == "поколение";
+    for (size_t k = 0; stepped && k < best->size(); ++k) stepped = best->time(k) == double(k) && best->value(k) == 10.0 * double(k);
+    const auto sections = plots->pluginSections();
+    const TrackChart* below = sections.size() == 1 && sections[0].first == "Обучение" && sections[0].second.size() == 1 ? sections[0].second[0] : nullptr;
+    const bool shared = below && below->tracks().size() == 2 && below->tracks()[0].series == best && below->axisWords() == "поколение" &&
+                        below->title() == chart->title() && below->timeRange().second == 4;
+    std::printf("  a step chart «%s»: %zu points by generation from a thread's show(); the plots' section «%s» %s\n", qPrintable(chart->title()),
+                best ? best->size() : 0, sections.empty() ? "-" : qPrintable(sections[0].first), shared ? "shares them" : "does not");
+    c.check(stepped, "a step chart takes a point per line whenever one show() carries the x and the line's value, from any thread");
+    c.check(shared, "the plugin's chart is also in the bottom plots, in a section headed with the panel's title, the same lines and points");
+    train(3, 3); // the step went back: a new training, a new history
+    c.check(best && best->size() == 3 && best->time(0) == 0, "the step going back starts a new history");
+    QDir(folder + "/trainer").removeRecursively();
+    c.check(waitUntil([&] { return plots->pluginSections().empty() && w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000),
+            "the plugin gone, its section of the plots goes with its panel");
 }
 
 // A robot from URDF (plugins/urdf, the editor's own plugin; examples/robot-arm.urdf): «Импорт…» lists the format, the
@@ -994,6 +1043,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testComponents(c, w, b, v, ops, host, dir.path());
     testDrawAndTool(c, w, b, v, ops, host, dir.path());
     testChart(c, w, b, ops, host, dir.path());
+    testStepChart(c, w, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
     testGizmos(c, w, b, v, ops, host, dir.path());

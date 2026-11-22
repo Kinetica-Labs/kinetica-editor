@@ -85,6 +85,11 @@ public:
     // the prefixes of the channels that are its own - an arm's goal: a chart for each motor and its miss.
     void showSection(const QString& key, const QString& title, const std::vector<Chart>& charts, const std::vector<std::string>& prefixes);
 
+    // A plugin panel's charts (a training's best and mean by generation, a controller's error): a section of their own
+    // after the scene's, headed with the panel's title, the same lines over the same series, live. `key` names the panel;
+    // no charts - the panel is gone: its section goes (the series are shared, so nothing it points to is gone before).
+    void showPluginCharts(const QString& key, const QString& title, std::vector<SharedChart> charts);
+
     // --- What the reader may choose (never needed) ---
     QWidget* moreButton() const;       // «Ещё величины…»
     QWidget* arrangementSwitch() const { return switch_; }
@@ -113,6 +118,8 @@ public:
     ChannelList* chartList() const { return chartList_; }
     QLabel* placeholder() const { return placeholder_; }
     const PlotSeries* series(const std::string& id) const;
+    // The plugins' charts on screen: their header and views (the self-test reads them).
+    std::vector<std::pair<QString, std::vector<TrackChart*>>> pluginSections() const;
     PlotCatalog& catalog() { return catalog_; }
     QString tooltipText(const TrackChart* view, double t, int track) const;
 
@@ -142,6 +149,8 @@ private:
     void alignLanes();
     void onHover(TrackChart* view, double t, QPoint globalPos, int track);
     void onHoverLeft();
+    QWidget* pluginSection(size_t i);
+    void refreshPluginCharts();
     void showHint(); // before the first frame: one quiet line instead of the charts
 
     // The bar and the lists.
@@ -155,6 +164,13 @@ private:
     QScrollArea* scroll_ = nullptr;
     QLabel* placeholder_ = nullptr;
     QTimer* repaint_ = nullptr;
+    struct PluginSection {
+        QString key, title;
+        std::vector<SharedChart> charts;
+        std::vector<TrackChart*> views;
+    };
+    std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
+    QTimer* pluginTick_ = nullptr;       // their series are filled from outside the frames: repaint at 25 a second while there are any
     std::vector<TrackChart*> views_;
     std::vector<int> viewChart_; // the chart each view shows (-1: the normalised one)
     // What is drawn.

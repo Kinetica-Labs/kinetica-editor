@@ -5,17 +5,22 @@
 // button calls its command with those of them the command has (a panel is a form that stays). The plugin changes them
 // while it runs (plugin_panel_set, or show() in a hook of the run): its words, a measured number.
 //
-// A chart is lines over the run's time (TrackChart.h): each line is one of the panel's values, and takes a point
-// whenever the plugin shows that value from a frame of the run - at the frame's time. The history is kept here, the
-// last minute of it; the time going back is a new run and a new history. Qt lives here only: a plugin does not know it.
+// A chart is lines (TrackChart.h): each line is one of the panel's values. Over the run's time (the default), it takes a
+// point whenever the plugin shows that value from a frame of the run - at the frame's time; the history is kept here, the
+// last minute of it; the time going back is a new run and a new history. With `x` (a training: a generation, an
+// iteration) the horizontal axis is another value of the panel: a line takes a point whenever one show() or
+// plugin_panel_set carries both the `x` and the line's value, from any thread, and the chart keeps every point from the
+// first to the last; `x` going back is a new training and a new history. The series are shared (sharedCharts()): the bottom
+// plots draw the same ones. Qt lives here only: a plugin does not know it.
 #include "PlotSeries.h"
+#include "TrackChart.h"
 
 #include <QJsonObject>
 #include <QWidget>
 
 #include <cmath>
 #include <functional>
-#include <map>
+#include <memory>
 #include <vector>
 
 class FieldForm;
@@ -23,7 +28,6 @@ class QBoxLayout;
 class QLabel;
 class QLineEdit;
 class QTimer;
-class TrackChart;
 
 class PluginPanel : public QWidget {
 public:
@@ -35,6 +39,8 @@ public:
     // Fields and words: what the plugin says, or the last session's. `time`: the frame of the run they were shown
     // from (NaN: none) - the charts' lines among them take a point there.
     void setValues(const QJsonObject& values, double time = std::nan(""));
+    // Its charts for the bottom plots: the same lines over the same series, owned jointly.
+    std::vector<SharedChart> sharedCharts() const;
 
 private:
     void build(const QJsonObject& node, QBoxLayout* into);
@@ -49,8 +55,13 @@ private:
     std::vector<std::pair<QString, QLabel*>> words_;    // value(name)
     std::vector<std::pair<QString, QLineEdit*>> texts_; // text(name)
     FieldForm* open_ = nullptr;                         // the form fields go into until another kind of element
-    std::map<QString, PlotSeries> lines_;               // a chart's line by its value's name
-    std::vector<TrackChart*> charts_;
+    struct Chart {
+        TrackChart* view = nullptr;
+        QString title, x, xWords;                                          // x: the value that is the axis (empty: the run's time)
+        std::vector<std::pair<QString, std::shared_ptr<PlotSeries>>> lines; // a line by its value's name
+        double lastX = std::nan("");
+    };
+    std::vector<Chart> charts_;
     QTimer* soon_ = nullptr;                            // a run shows sixty times a second: the panel follows at 25
     double now_ = 0;                                    // the latest frame shown from
 };

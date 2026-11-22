@@ -26,7 +26,9 @@
 #include <QPoint>
 #include <QWidget>
 
+#include <algorithm>
 #include <cmath>
+#include <memory>
 #include <string>
 #include <utility>
 #include <vector>
@@ -53,6 +55,30 @@ struct PlotTrack {
     bool hidden = false;                   // switched off in the legend
 };
 
+// A chart a plugin's panel draws, as the bottom plots show it too: the same lines over the same series. `keep` shares
+// their ownership, so the plots' copy outlives nothing it points to; `xWords`: the horizontal axis when it is a step (a
+// generation, an iteration) and not the run's time - empty: the time.
+struct SharedChart {
+    QString title, xWords;
+    std::vector<PlotTrack> tracks;
+    std::vector<std::shared_ptr<const PlotSeries>> keep;
+    // The span of the horizontal axis a step chart shows: from the first point to the last.
+    std::pair<double, double> span() const {
+        double lo = INFINITY, hi = -INFINITY;
+        for (const PlotTrack& t : tracks)
+            if (t.series && t.series->size() > 0) lo = std::min(lo, t.series->time(0)), hi = std::max(hi, t.series->time(t.series->size() - 1));
+        return lo <= hi ? std::pair<double, double>{lo, hi > lo ? hi : lo + 1} : std::pair<double, double>{0, 1};
+    }
+    // What the chart shows: the step chart all of it, the time chart the last minute up to its latest point.
+    std::pair<double, double> window() const {
+        const auto [lo, hi] = span();
+        return xWords.isEmpty() ? std::pair<double, double>{std::max(0.0, hi - 60.0), hi} : std::pair<double, double>{lo, hi};
+    }
+};
+
+// «лучший: 849 м, поколение 12» - a line's value at x of a step chart; «Ошибка: 0,02 рад в 2,40 с» when the axis is time.
+QString plotHoverText(const PlotTrack& line, double x, const QString& xWords);
+
 class TrackChart : public QWidget {
     Q_OBJECT
 public:
@@ -64,6 +90,7 @@ public:
     void setTitle(const QString& title, bool menu = true); // menu: the title ends in ▾ and opens a list
     void setEmptyText(const QString& text);                // what an empty chart says
     void setNormalized(bool on);          // each line scaled to 0 … 1 over the window
+    void setAxisWords(const QString& words);  // what the horizontal axis is called (empty: the time, «t, с»)
     void setTimeAxisVisible(bool on);     // lanes label the time once, under the lowest lane
     void setHoverTime(double t);          // where the mouse is, on every chart of the panel (NaN: none)
     // Margins shared by stacked lanes, so their time axes line up (0: the chart's own).
@@ -73,6 +100,7 @@ public:
 
     const std::vector<PlotTrack>& tracks() const { return tracks_; }
     QString title() const { return title_; }
+    QString axisWords() const { return axisWords_; }
     bool normalized() const { return normalized_; }
     std::pair<double, double> timeRange() const { return {t0_, t1_}; }
     // The value the chart draws for line k at time t (normalised when it is), NaN when there is none.
@@ -119,7 +147,7 @@ private:
 
     std::vector<PlotTrack> tracks_;
     std::vector<std::pair<double, double>> own_; // each line's lowest and highest value in the window
-    QString title_, emptyText_ = uiText("Kinetica", "нет данных");
+    QString title_, axisWords_, emptyText_ = uiText("Kinetica", "нет данных");
     bool menu_ = true;
     bool normalized_ = false;
     bool timeAxis_ = true;

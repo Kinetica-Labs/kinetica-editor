@@ -346,13 +346,22 @@ class ui:
         return {"kind": "value", "name": name, "default": default, **({"label": label} if label else {})}
 
     @staticmethod
-    def chart(title, lines, unit=None):
-        """Lines over the run's time, drawn by the editor. A line is one of the panel's values: show(error=0.02) from
-        on_tick adds a point at that frame's time. `lines`: the values' names, or {name: the line's words}::
+    def chart(title, lines, unit=None, x=None):
+        """Lines drawn by the editor, in the panel and in the bottom «Графики». A line is one of the panel's values.
+        `lines`: the values' names, or {name: the line's words}. By default the axis is the run's time: show(error=0.02)
+        from on_tick adds a point at that frame's time::
 
-            ui.chart("Ошибка привода", {"error": "ошибка", "trim": "поправка"}, unit="рад")"""
+            ui.chart("Ошибка привода", {"error": "ошибка", "trim": "поправка"}, unit="рад")
+
+        With `x` (a value's name, or {name: words}) the axis is a step - a generation, an iteration - and a point comes
+        whenever one show() carries the `x` and a line's value, from any thread, not only on_tick; the chart keeps all of
+        them, and `x` going back starts a new history::
+
+            ui.chart("Обучение", {"best": "лучший", "mean": "средний"}, unit="м", x={"generation": "поколение"})
+            show(generation=g, best=849.0, mean=27.0)"""
         lines = lines if isinstance(lines, dict) else {name: name for name in lines}
-        return {"kind": "chart", "title": title, "lines": [{"name": n, "label": l} for n, l in lines.items()], **({"unit": unit} if unit else {})}
+        axis = {} if x is None else {"x": next(iter(x)), "x_label": next(iter(x.values()))} if isinstance(x, dict) else {"x": x, "x_label": x}
+        return {"kind": "chart", "title": title, "lines": [{"name": n, "label": l} for n, l in lines.items()], **({"unit": unit} if unit else {}), **axis}
 
     @staticmethod
     def button(command, label=None, help=None):
@@ -397,7 +406,8 @@ class ui:
 
 def show(**values):
     """The panel's words and fields set from the plugin: a measured value, a state, a count. From a hook of the run
-    (on_tick) they go with the frame's answer, no call of their own, and a chart's lines take a point at that frame."""
+    (on_tick) they go with the frame's answer, no call of their own, and a chart's lines take a point at that frame. From
+    any other thread they go in a call of their own - a step chart (ui.chart(..., x=...)) takes its points from them."""
     batch = getattr(_frame, "shown", None)
     if batch is not None:
         if _panel is None:

@@ -109,23 +109,32 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
         connect(line, &QLineEdit::textEdited, this, [this, name](const QString& t) { values_.insert(name, t); });
         into->addWidget(line);
     } else if (kind == "chart") {
-        auto* chart = new TrackChart(this);
-        chart->setObjectName("pluginChart");
+        auto* view = new TrackChart(this);
+        view->setObjectName("pluginChart");
         const QString unit = n.value("unit").toString();
-        chart->setTitle(n.value("title").toString() + (unit.isEmpty() ? QString() : ", " + unit), false); // «Ошибка привода, рад»
-        chart->setEmptyText(uiText("Kinetica", "линии появятся после ▶"));
+        Chart chart;
+        chart.view = view;
+        chart.title = n.value("title").toString() + (unit.isEmpty() ? QString() : ", " + unit); // «Ошибка привода, рад»
+        chart.x = n.value("x").toString();
+        chart.xWords = chart.x.isEmpty() ? QString() : n.value("x_label").toString(chart.x);
+        view->setTitle(chart.title, false);
+        view->setAxisWords(chart.xWords);
+        view->setEmptyText(chart.x.isEmpty() ? uiText("Kinetica", "линии появятся после ▶") : uiText("Kinetica", "точки появятся по ходу обучения"));
         std::vector<PlotTrack> tracks;
         for (const QJsonValue& v : n.value("lines").toArray()) {
             const QString line = v.toObject().value("name").toString();
             const int slot = int(tracks.size());
+            auto series = std::make_shared<PlotSeries>();
+            series->setKeep(!chart.x.isEmpty()); // a step chart keeps its whole history, not the last minute
+            chart.lines.push_back({line, series});
             tracks.push_back({line.toStdString(), v.toObject().value("label").toString(line), unit, plotSlotColor(slot), plotSlotStyle(slot),
-                              &lines_[line], false});
+                              series.get(), false});
         }
-        chart->setTracks(std::move(tracks));
-        connect(chart, &TrackChart::hovered, this, [this, chart](double t, QPoint at, int track) { hover(chart, t, at, track); });
-        connect(chart, &TrackChart::hoverLeft, this, [this] { hover(nullptr, std::nan(""), {}, -1); });
-        charts_.push_back(chart);
-        into->addWidget(chart, 1);
+        view->setTracks(std::move(tracks));
+        connect(view, &TrackChart::hovered, this, [this, view](double t, QPoint at, int track) { hover(view, t, at, track); });
+        connect(view, &TrackChart::hoverLeft, this, [this] { hover(nullptr, std::nan(""), {}, -1); });
+        charts_.push_back(std::move(chart));
+        into->addWidget(view, 1);
     } else if (kind == "button") {
         auto* b = new QPushButton(n.value("label").toString(n.value("command").toString()), this);
         b->setObjectName("pluginButton_" + n.value("command").toString());
@@ -137,24 +146,46 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
 
 void PluginPanel::setValues(const QJsonObject& values, double time) {
     for (auto it = values.begin(); it != values.end(); ++it) values_.insert(it.key(), it.value());
+    for (Chart& c : charts_) {
+        if (c.x.isEmpty() || !values.value(c.x).isDouble()) continue;
+        const double x = values.value(c.x).toDouble();
+        if (x < c.lastX) // the step went back: a new training, a new history
+            for (auto& [name, line] : c.lines) line->clear();
+        c.lastX = x;
+        for (auto& [name, line] : c.lines)
+            if (const QJsonValue v = values.value(name); v.isDouble()) line->add(x, v.toDouble());
+    }
     if (!std::isfinite(time)) return refresh();
     if (time < now_) // the time went back: a new run, a new history
-        for (auto& [name, line] : lines_) line.clear();
+        for (Chart& c : charts_)
+            if (c.x.isEmpty())
+                for (auto& [name, line] : c.lines) line->clear();
     now_ = time;
-    for (auto& [name, line] : lines_)
-        if (const QJsonValue v = values.value(name); v.isDouble()) line.add(time, v.toDouble());
+    for (Chart& c : charts_)
+        if (c.x.isEmpty())
+            for (auto& [name, line] : c.lines)
+                if (const QJsonValue v = values.value(name); v.isDouble()) line->add(time, v.toDouble());
     if (!soon_->isActive()) soon_->start();
 }
 
+std::vector<SharedChart> PluginPanel::sharedCharts() const {
+    std::vector<SharedChart> out;
+    for (const Chart& c : charts_) {
+        SharedChart s{c.title, c.xWords, c.view->tracks(), {}};
+        for (const auto& [name, line] : c.lines) s.keep.push_back(line);
+        out.push_back(std::move(s));
+    }
+    return out;
+}
+
 // The mouse over a chart: the dashed line and the dots on every chart of the panel, the line under it in words -
-// «Ошибка: 0,02 рад в 2,40 с». Off the charts (no chart): gone.
+// «Ошибка: 0,02 рад в 2,40 с», or «лучший: 849 м, поколение 12». Off the charts (no chart): gone.
 void PluginPanel::hover(TrackChart* chart, double t, QPoint at, int track) {
-    for (TrackChart* c : charts_) c->setHoverTime(t);
+    for (Chart& c : charts_) c.view->setHoverTime(chart && c.view->axisWords() == chart->axisWords() ? t : std::nan("")); // one axis, one cursor
     const PlotTrack* line = chart && track >= 0 && track < int(chart->tracks().size()) ? &chart->tracks()[size_t(track)] : nullptr;
-    const double v = line ? line->series->valueAt(t) : std::nan("");
-    if (!std::isfinite(v)) return QToolTip::hideText();
-    const QString value = numberText(v) + (line->unit.isEmpty() ? QString() : " " + line->unit);
-    QToolTip::showText(at + QPoint(14, 12), QString(uiText("Kinetica", "%1: %2 в %3 с")).arg(line->name, value, QString::number(t, 'f', 2).replace('.', ',')), chart);
+    const QString text = line ? plotHoverText(*line, t, chart->axisWords()) : QString();
+    if (text.isEmpty()) return QToolTip::hideText();
+    QToolTip::showText(at + QPoint(14, 12), text, chart);
 }
 
 void PluginPanel::refresh() {
@@ -168,8 +199,10 @@ void PluginPanel::refresh() {
     for (auto& [name, line] : texts_)
         if (line->text() != values_.value(name).toString()) line->setText(values_.value(name).toString());
     const double from = std::max(0.0, now_ - kLiveSeconds);
-    for (TrackChart* c : charts_) {
-        c->setWindow(from, std::max(now_, from + 1e-3));
-        c->refresh();
+    for (Chart& c : charts_) {
+        const SharedChart own{c.title, c.xWords, c.view->tracks(), {}};
+        if (c.x.isEmpty()) c.view->setWindow(from, std::max(now_, from + 1e-3));
+        else c.view->setWindow(own.span().first, own.span().second);
+        c.view->refresh();
     }
 }

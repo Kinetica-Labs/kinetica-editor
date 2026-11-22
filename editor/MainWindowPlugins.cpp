@@ -11,6 +11,7 @@
 #include "ScriptRunner.h"
 #include "Viewport.h"
 #include "PluginPanel.h"
+#include "PlotPanel.h"
 #include "RunHooks.h"
 #include "sim/WorldOps.h"
 #include <QPointer>
@@ -91,6 +92,8 @@ void MainWindow::buildPlugins() {
     runHooks_ = std::make_unique<RunHooks>();
     plugins_ = new PluginHost(ops_, builder_, this, menu, runHooks_.get(), [this] { return apiPort(); }, [this](PluginPanel* panel, bool add) {
         // A plugin's panel: a tab of the inspector (right) or of the bottom panel; taken out when the plugin stops.
+        // Its charts are also a section of the bottom plots, and leave them before the panel goes.
+        if (plots_) plots_->showPluginCharts(QString::number(quintptr(panel)), panel->title(), add ? panel->sharedCharts() : std::vector<SharedChart>());
         if (panel->place() == "bottom") {
             if (!add) return panel->parentWidget()->deleteLater(); // its dock, the panel in it: the host lets go of the panel after this
             auto* dock = new QDockWidget(panel->title(), this);
