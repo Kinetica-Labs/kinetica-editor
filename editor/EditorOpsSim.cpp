@@ -25,6 +25,7 @@
 #include <QPainter>
 #include <QPointer>
 #include <QTabBar>
+#include <QToolBar>
 #include <QToolButton>
 #include <QWidget>
 
@@ -130,17 +131,27 @@ static QJsonObject placeIn(QWidget* window, QWidget* w, const QRect& r) {
     return QJsonObject{{"x", at.x() * k}, {"y", at.y() * k}, {"width", r.width() * k}, {"height", r.height() * k}};
 }
 
-static QImage seenWindow(QWidget* window) {
+// The window as a person sees it: its open menus and tooltips, and the hand where ui_pointer left it - an arrow.
+static QImage seenWindow(QWidget* window, const QPoint& pointer) {
     QImage image = wholeWindow(window);
     QPainter painter(&image);
     const QPoint corner = window->mapToGlobal(QPoint(0, 0));
     for (QWidget* w : uiWindowLayers(window)) painter.drawPixmap(uiWindowOrigin(w) - corner, w->grab());
+    if (pointer.x() >= 0) {
+        const QPointF tip(pointer);
+        const QPointF arrow[] = {tip, tip + QPointF(0, 17), tip + QPointF(4, 13), tip + QPointF(7, 20), tip + QPointF(10, 19),
+                                 tip + QPointF(7, 12), tip + QPointF(12, 12)};
+        painter.setRenderHint(QPainter::Antialiasing);
+        painter.setPen(QPen(Qt::black, 1.2));
+        painter.setBrush(Qt::white);
+        painter.drawPolygon(arrow, 7);
+    }
     return image;
 }
 
 void EditorOps::addViewOps() {
     addSync("view_screenshot", "A PNG of the 3D view (window: the whole window, panels too; screen: the window as a person sees it, its open "
-                               "menus and tooltips painted where they stand - drawn by the editor, never read from the screen, so no other "
+                               "menus and tooltips painted where they stand and the hand where ui_pointer left it - drawn by the editor, never read from the screen, so no other "
                                "program's window is in it; "
                                "width: scaled to so many pixels across, smoothly; clean: without the text and the navigation cube over the view - "
                                "a picture for the documentation; marks: false - without the editor's own marks in the scene either (joints and their ties, "
@@ -174,7 +185,7 @@ void EditorOps::addViewOps() {
             }
         }
         const bool whole = a.value("screen").toBool() || a.value("window").toBool() || part;
-        QImage image = a.value("screen").toBool() ? seenWindow(window_) : whole ? wholeWindow(window_) : view_->grabFramebuffer();
+        QImage image = a.value("screen").toBool() ? seenWindow(window_, pointer_) : whole ? wholeWindow(window_) : view_->grabFramebuffer();
         if (part) {
             const QJsonObject r = placeIn(window_, part, part->rect());
             image = image.copy(QRect(int(r["x"].toDouble()), int(r["y"].toDouble()), int(r["width"].toDouble()), int(r["height"].toDouble())));
@@ -232,7 +243,7 @@ void EditorOps::addViewOps() {
                    {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
     });
     addSync("ui_actions", "Every button and menu item of the window, a panel's own buttons and the visible tabs: text, name, on/off, and "
-            "for what is shown where it stands - x, y, width, height in the window's picture (the pixels view_screenshot window gives "
+            "for what is shown - an open menu's items too - where it stands: x, y, width, height in the window's picture (the pixels view_screenshot window gives "
             "and ui_pointer space window takes): a hand finds it by its name, not by its looks; ui_trigger presses any of them by its text",
             "{}", [this](const QJsonObject&) {
         QJsonArray out;
@@ -247,11 +258,22 @@ void EditorOps::addViewOps() {
         for (QAction* act : window_->findChildren<QAction*>()) {
             if (act->text().isEmpty() || act->isSeparator()) continue;
             QJsonObject e = entry(act->text(), act->objectName(), act->isEnabled(), act->isCheckable() ? QJsonValue(act->isChecked()) : QJsonValue());
-            for (QObject* o : act->associatedObjects()) // its button on a bar, when one shows
-                if (auto* w = qobject_cast<QWidget*>(o); w && !qobject_cast<QMenu*>(w) && w->isVisible() && w->window() == window_) {
+            for (QObject* o : act->associatedObjects()) { // its button on a bar, when one shows - the bar's button, not the bar
+                QWidget* w = qobject_cast<QWidget*>(o);
+                if (auto* menu = qobject_cast<QMenu*>(o); menu && menu->isVisible() && !act->menu()) { // an item of an open menu: where it is
+                    const QPoint at = uiWindowOrigin(menu) - window_->mapToGlobal(QPoint()) + menu->actionGeometry(act).topLeft();
+                    const double k = window_->devicePixelRatioF();
+                    const QRect r = menu->actionGeometry(act);
+                    for (const auto& [key, v] : {std::pair<const char*, double>{"x", at.x() * k}, {"y", at.y() * k}, {"width", r.width() * k}, {"height", r.height() * k}})
+                        e.insert(key, v);
+                    break;
+                }
+                if (auto* bar = qobject_cast<QToolBar*>(o)) w = bar->widgetForAction(act);
+                if (w && !qobject_cast<QMenu*>(w) && !qobject_cast<QToolBar*>(w) && w->isVisible() && w->window() == window_) {
                     e = placed(e, w, w->rect());
                     break;
                 }
+            }
             out.append(e);
         }
         for (QAbstractButton* b : window_->findChildren<QAbstractButton*>()) { // a panel's own: no action behind it

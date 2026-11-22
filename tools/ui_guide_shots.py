@@ -167,8 +167,8 @@ def animate(frames, target, seconds):
 
 
 class Studio:
-    """A hidden editor and its camera. After a call that changes something the window says for 4 s that an agent
-    drives it and hides the gizmo from the hand: a picture waits that out."""
+    """A hidden editor and its camera. A window nobody watches shows no «an agent drives» plate and keeps the gizmo:
+    a picture waits only for the last edit to be painted."""
 
     def __init__(self, language):
         self.language, self.words = language, WORDS[language]
@@ -233,7 +233,7 @@ class Studio:
             self.ed.ui_trigger(text=action)
 
     def take(self, name, width, **what):
-        time.sleep(4.4)
+        time.sleep(0.5)  # the last edit painted
         answer = self.ed.view_screenshot(file=os.path.join(self.out, name + ".png"), width=width, **what)
         print(f"  {self.language}/{name}.png  {answer['width']}x{answer['height']}")
 
@@ -250,7 +250,7 @@ class Studio:
     def part(self, name, box, screen=False, marks=()):
         """A part of the window in its own pixels: sharp letters, a small file. screen: with an open menu over it.
         marks - frames with numbers, in the window's pixels as well."""
-        time.sleep(4.4)
+        time.sleep(0.5)  # the last edit painted
         self.ed.view_screenshot(file=self.whole, **({"screen": True} if screen else {"window": True}))
         crop(self.whole, os.path.join(self.out, name + ".png"), box)
         if marks:
@@ -342,7 +342,7 @@ def icons(s):
     out = os.path.join(EDITOR_DIR, "docs", "images", "ui", "icons")
     os.makedirs(out, exist_ok=True)
     def cut(names, box):
-        time.sleep(4.4)
+        time.sleep(0.5)  # the last edit painted
         s.ed.view_screenshot(file=s.whole, window=True)
         for name, at in names.items():
             crop(s.whole, os.path.join(out, name + ".png"), box(at))
@@ -616,7 +616,7 @@ def language(s):
     s.open("ur5e.kscene", [1.5, 1.15, 1.5], [0.15, 0.4, -0.1])
     s.ed.selection_set(ids=[s.ids()["Кубик жёлтый"]])
     s.tab("object")
-    time.sleep(4.4)
+    time.sleep(0.5)
     other = os.path.join(EDITOR_DIR, "docs", "images", "ui", s.words["other"])
     os.makedirs(other, exist_ok=True)
     s.ed.view_screenshot(file=os.path.join(other, "language.png"), width=WINDOW, window=True)

@@ -661,6 +661,11 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
         for (const QJsonValue& e : all)
             if (e.toObject().value("name").toString() == "sequencerCurvesButton") button = e.toObject();
         const QPointF centre(button.value("x").toDouble() + button.value("width").toDouble() / 2, button.value("y").toDouble() + button.value("height").toDouble() / 2);
+        QJsonObject play;
+        for (const QJsonValue& e : all)
+            if (e.toObject().value("name").toString() == "actionPlay") play = e.toObject();
+        c.check(play.value("width").toDouble() > 20 && play.value("width").toDouble() < 200 && play.value("y").toDouble() < 120,
+                "ui_actions places a top bar's action at its own button, not at the whole bar");
         const bool before = panel->curvesShown();
         ops->runNow("ui_pointer", {{"action", "click"}, {"x", centre.x()}, {"y", centre.y()}, {"space", "window"}});
         pump(60);

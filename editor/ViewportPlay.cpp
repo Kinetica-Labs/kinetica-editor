@@ -1,6 +1,6 @@
 // What the viewport draws on top of its picture while it is used, and where it looks (see Viewport.h):
-//   - the play mode's frame: an amber border round the view while the scene plays, so nobody edits
-//     a running scene thinking it is the one that will be kept;
+//   - the play mode's frame: a border round the view while the scene runs, in the run's colour - green playing, amber
+//     paused, red recording (MainWindow::syncRecord) -, so nobody edits a running scene thinking it is the one kept;
 //   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around -
 //     the turn is no longer a mystery when the point is far away;
 //   - following a body: the camera keeps its own orbit about a moving body of the frame.
@@ -25,7 +25,7 @@ void Viewport::drawPlayFrame(QPainter& p) {
     if (!playFrame_) return;
     p.save();
     p.setRenderHint(QPainter::Antialiasing, false);
-    p.setPen(QPen(QColor(240, 160, 32), 4.0));
+    p.setPen(QPen(runFrame_.isValid() ? runFrame_ : QColor(240, 160, 32), 4.0));
     p.setBrush(Qt::NoBrush);
     p.drawRect(QRectF(rect()).adjusted(2, 2, -2, -2));
     p.restore();

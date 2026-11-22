@@ -321,6 +321,7 @@ void EditorOps::addInputOps() {
             at = to == top ? QPointF(local) : QPointF(to->mapFrom(top, local));
             if (a.value("cursor").toBool()) QCursor::setPos(global); // the real cursor only when asked: it is the user's
         }
+        pointer_ = inWindow ? QPoint(int(a.value("x").toDouble()), int(a.value("y").toDouble())) : view_->mapTo(window_, at.toPoint()); // for the screen picture
         const QString action = a.value("action").toString("move");
         const Qt::MouseButton b = button(a.value("button").toString());
         const Qt::KeyboardModifiers m = modifiers(a.value("modifiers").toArray());

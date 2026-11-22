@@ -155,7 +155,7 @@ public:
     QPolygonF fillBox(const QString& key) const; // where the last paint drew the key's filled picture: its box's corners (empty: not in the view)
     // Where an object that is no body of the frame is now (a light, a group): the scene builder's answer.
     void setObjectPose(std::function<bool(uint32_t, ke::Vector3&, ke::Quaternion&)> pose) { objectPose_ = std::move(pose); }
-    // The frame round the view in the colour of the run (MainWindow::syncRecord): an editor's mark - no clean picture has it.
+    // The play frame's colour (drawPlayFrame), the run's: green playing, amber paused, red recording (MainWindow::syncRecord).
     void setRunFrame(const QColor& c) { if (c != runFrame_) runFrame_ = c, update(); }
     QColor runFrame() const { return runFrame_; }
     void setDrawing(const QString& key, Drawing d);

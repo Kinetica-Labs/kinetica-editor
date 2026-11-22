@@ -116,7 +116,9 @@ bool MainWindow::startApi(quint16 port) {
         delete server;
         return false;
     }
-    server->setOnActivity([this] { showDrivenByApi(); });
+    server->setOnActivity([this] { // the plate warns a person at the computer; a window nobody watches has nobody to warn
+        if (qApp->property("keInteractive").toBool()) showDrivenByApi();
+    });
     apiServer_ = server;
     statusBar()->showMessage(QString(uiText("Kinetica", "API редактора: 127.0.0.1:%1")).arg(server->port()), 8000);
     return true;

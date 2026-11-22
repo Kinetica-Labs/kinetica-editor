@@ -18,6 +18,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QObject>
+#include <QPoint>
 #include <QString>
 
 #include <deque>
@@ -159,6 +160,7 @@ private:
     std::function<QString(const QString&)> unknownHint_;
     QString unknown(const QString& name) const;
     std::function<void()> refresh_;
+    QPoint pointer_{-1, -1}; // where ui_pointer last put the hand, in the window's own pixels: the screen picture draws it
     bool recording_ = false;
     std::function<void()> recordingChanged_;
     void setRecording(bool on) {
