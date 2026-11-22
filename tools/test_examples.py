@@ -1,8 +1,10 @@
 """The ladder of examples (examples/python/NN_*.py): each is run as a newcomer runs it - from the repository's root,
 by its file - and the numbers it prints are held to what its lesson says (a period to the formula, a velocity to the
-force, a sensor's reading to the truth within its datasheet). No window; needs build/kinetica-core."""
+force, a sensor's reading to the truth within its datasheet). The first rung in other languages (examples/js) prints
+the same words. No window; needs build/kinetica-core."""
 import os
 import re
+import shutil
 import subprocess
 import sys
 import unittest
@@ -35,6 +37,12 @@ class Examples(unittest.TestCase):
         lines, numbers = said("01_hello.py")
         self.assertIn("m high", lines[0])
         self.assertAlmostEqual(numbers[0][-1], 0.12, delta=0.005)  # a 0.2 m box resting on the floor
+
+    @unittest.skipUnless(shutil.which("node"), "node is not installed: examples/js/hello.mjs is not run")
+    def test_01_hello_in_javascript(self):
+        out = subprocess.run(["node", os.path.join("examples", "js", "hello.mjs")], cwd=ROOT, capture_output=True, text=True, timeout=120)
+        self.assertEqual(out.returncode, 0, out.stderr)
+        self.assertEqual(out.stdout.strip(), said("01_hello.py")[0][0])  # the same scene, the same words
 
     def test_02_pendulum(self):
         _, numbers = said("02_pendulum.py")

@@ -9,7 +9,7 @@
 
 | Хочу | Первый результат | Сколько | Дальше |
 |---|---|---|---|
-| Сцену кодом, без окна | `python3 examples/python/01_hello.py` печатает `after 1 s the box's centre is 0.120 m high` | минута | [scripts.md](docs/scripts.md) — девять ступеней, от куба до дрона |
+| Сцену кодом, без окна | `python3 examples/python/01_hello.py` печатает `after 1 s the box's centre is 0.120 m high`; то же на JavaScript — `node examples/js/hello.mjs`: API — строки JSON, на нём говорит любой язык | минута | [scripts.md](docs/scripts.md) — девять ступеней, от куба до дрона |
 | Новое умение редактора | файл `plugin.py` с одной функцией — и у редактора новая кнопка, команда консоли и инструмент для ИИ-агента | 5 минут | [plugins.md](docs/plugins.md), готовые плагины — [kinetica-plugins](https://github.com/Kinetica-Labs/kinetica-plugins) |
 | ИИ-агента в сцене | сервер MCP `tools/ke_editor_mcp.py`: агент видит все операции редактора как инструменты | минуты | [README](README.md), «Запуск и проверка» |
 | Поправить ядро или окно | сборка и `build/kinetica --self-test` — окно само нажимает свои кнопки и проверяет итог | время сборки | [README](README.md), «Сборка из исходников»; [контракты](docs/contracts/README.md) |
