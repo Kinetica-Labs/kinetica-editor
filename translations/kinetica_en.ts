@@ -2914,8 +2914,8 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/PluginPanel.cpp" line="30"/>
-        <source>Колесо — приблизить, перетащить — сдвинуть, двойной щелчок — целиком</source>
-        <translation>Wheel: zoom in; drag: move; double click: the whole picture</translation>
+        <source>Колесо — приблизить, зажатое колесо или левая кнопка — сдвинуть, двойной щелчок — целиком</source>
+        <translation>Wheel: zoom in; wheel or left button held: move; double click: the whole picture</translation>
     </message>
     <message>
         <location filename="../editor/PluginPanel.cpp" line="80"/>

@@ -485,10 +485,18 @@ def draw(scene, good: bool = True):
     QWheelEvent wheel(middle, view->mapToGlobal(middle), {}, {0, 480}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
     QApplication::sendEvent(view, &wheel);
     const double zoomed = view->zoom();
+    const QPointF dragTo = middle + QPointF(40, 0);
+    QMouseEvent press(QEvent::MouseButtonPress, middle, view->mapToGlobal(middle), Qt::MiddleButton, Qt::MiddleButton, Qt::NoModifier);
+    QMouseEvent move(QEvent::MouseMove, dragTo, view->mapToGlobal(dragTo), Qt::NoButton, Qt::MiddleButton, Qt::NoModifier);
+    QMouseEvent release(QEvent::MouseButtonRelease, dragTo, view->mapToGlobal(dragTo), Qt::MiddleButton, Qt::NoButton, Qt::NoModifier);
+    const QPointF before = view->pan();
+    QApplication::sendEvent(view, &press), QApplication::sendEvent(view, &move), QApplication::sendEvent(view, &release);
+    const bool moved = std::abs(view->pan().x() - before.x() - 40) < 0.5;
     QMouseEvent twice(QEvent::MouseButtonDblClick, middle, view->mapToGlobal(middle), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
     QApplication::sendEvent(view, &twice);
     std::printf("  the wheel over it: zoom %.2f; a double click: %.2f\n", zoomed, view->zoom());
     c.check(zoomed > 1.5 && view->zoom() == 1.0, "the wheel zooms the picture in, a double click shows it whole again");
+    c.check(moved, "the wheel held moves the zoomed picture, as in the 3D view");
     look(false);
     const QImage placeholder = view->grab().toImage();
     c.check(!view->valid() && placeholder.width() > 0, "an invalid SVG does not crash: the quiet placeholder");

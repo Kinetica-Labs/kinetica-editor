@@ -28,7 +28,7 @@ constexpr double kLiveSeconds = 60.0; // a chart shows the run's last minute, sl
 SvgView::SvgView(int maxHeight, QWidget* parent) : QWidget(parent), maxHeight_(maxHeight > 0 ? maxHeight : 240) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     setCursor(Qt::OpenHandCursor);
-    setToolTip(uiText("Kinetica", "Колесо — приблизить, перетащить — сдвинуть, двойной щелчок — целиком"));
+    setToolTip(uiText("Kinetica", "Колесо — приблизить, зажатое колесо или левая кнопка — сдвинуть, двойной щелчок — целиком"));
 }
 
 void SvgView::wheelEvent(QWheelEvent* e) {
@@ -42,7 +42,7 @@ void SvgView::wheelEvent(QWheelEvent* e) {
 }
 
 void SvgView::mousePressEvent(QMouseEvent* e) {
-    if (e->button() != Qt::LeftButton) return QWidget::mousePressEvent(e);
+    if (e->button() != Qt::LeftButton && e->button() != Qt::MiddleButton) return QWidget::mousePressEvent(e); // the middle: as in the 3D view
     dragging_ = true, dragFrom_ = e->position();
     setCursor(Qt::ClosedHandCursor);
 }
