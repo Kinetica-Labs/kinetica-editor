@@ -131,7 +131,7 @@ Value sensorValues(SensorKind kind, const SensorValues& v, bool referenced, bool
     case SensorKind::Sonar: r.set("distance", double(v.value)); break;
     case SensorKind::Touch:
         r.set("force", double(v.value));
-        if (!truth) r.set("points", double(v.count));
+        if (!truth) r.set("points", double(v.count)), r.set("count", double(v.count)); // points: the first name, kept
         break;
     case SensorKind::Effort: r.set("effort", double(v.value)); break;
     case SensorKind::Encoder:
@@ -363,7 +363,8 @@ Value bodyStates(const Simulation& s) {
         if (st.mass <= 0) continue; // a fixed body: nothing a plugin pushes
         Value body = Value::map();
         body.set("position", listOf(st.centre)), body.set("velocity", listOf(st.velocity));
-        body.set("spin", listOf(st.angularVelocity)), body.set("mass", double(st.mass));
+        body.set("spin", listOf(st.angularVelocity)), body.set("angular_velocity", listOf(st.angularVelocity)); // spin: the first name, kept
+        body.set("mass", double(st.mass));
         out.set(std::to_string(e.id), body);
     }
     return out;
@@ -386,6 +387,7 @@ Value liveState(const Simulation& s) {
         Value shape = Value::map();
         shape.set("id", e.id), shape.set("name", e.name), shape.set("position", listOf(st.position));
         shape.set("rotation", listOf(eulerDegrees(st.rotation))), shape.set("velocity", listOf(st.velocity)), shape.set("spin", listOf(st.angularVelocity));
+        shape.set("angular_velocity", listOf(st.angularVelocity)); // the word of every 3D standard; spin, the first name, stays
         if (!st.awake) shape.set("asleep", true); // at rest: its velocity is 0 because it sleeps, not by chance
         if (robot->stands(b)) shape.set("fixed", true);
         else if (st.mass <= 0) shape.set("kinematic", true); // led - by its own velocity or by a sequence: it moves, forces do not move it
@@ -407,7 +409,7 @@ Value liveState(const Simulation& s) {
     }
     for (const auto& [pair, t] : touches) {
         Value c = Value::map();
-        c.set("a", pair.first), c.set("b", pair.second), c.set("points", t.points), c.set("force", t.force), c.set("depth", t.depth);
+        c.set("a", pair.first), c.set("b", pair.second), c.set("points", t.points), c.set("count", t.points), c.set("force", t.force), c.set("depth", t.depth);
         contacts.push(c);
     }
     for (const std::string& n : robot->notes()) notes.push(n);

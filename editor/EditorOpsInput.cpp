@@ -158,9 +158,9 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
 void EditorOps::addInputOps() {
     addSync("view_draw", "Lines, points and words over the 3D view in world metres - a plugin's or an agent's picture (a planned "
                          "path, a force, a sensor's ray, a label), by key: the same key again replaces it, clear takes it off (a key ending "
-                         "in / - all under it; none - all). circle {centre: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
-                         "about the axis; box {centre: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
-                         "ring and bounds. size: a point's width, px (6) - and a label's letters, pt, when larger than plain ones. "
+                         "in / - all under it; none - all). circle {center: [x,y,z], radius: m, axis?: [x,y,z] (y if none)} - a ring "
+                         "about the axis; box {center: [x,y,z], size: [x,y,z]} - its twelve edges along the world's axes: a gizmo's "
+                         "ring and bounds (centre reads as center, colour as color: the first names, kept). size: a point's width, px (6) - and a label's letters, pt, when larger than plain ones. "
                          "fill: a flat picture, filled - closed outlines, each a row 'M x y L x y C x1 y1 x2 y2 x y Z' in its own units (x right, "
                          "y up), painted over the scene. space world (the default): on its own plane at `at`, turned by `turn` (Euler degrees), a "
                          "unit `scale` metres (1); label: on the screen at the world's point `at`, facing the viewer; screen: in the frame at "
@@ -170,7 +170,7 @@ void EditorOps::addInputOps() {
                          "stroke: an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - letters read on any background. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
-            "colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
+            "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
             "object?: int, stroke?: [r,g,b], stroke_width?: number, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
@@ -193,15 +193,17 @@ void EditorOps::addInputOps() {
             }
         }
         if (many > 200000) return error("at most 200000 points a drawing");
+        // center: the word of every 3D standard (docs/contracts/names.md); centre, the first one, reads the same
+        const auto centreOf = [](const QJsonObject& o) { return o.contains("center") ? o.value("center") : o.value("centre"); };
         if (a.contains("circle")) { // a ring: 48 sides, closed
             const QJsonObject c = a.value("circle").toObject();
             const float radius = float(c.value("radius").toDouble());
             ke::Vector3 about = c.contains("axis") ? point(c.value("axis")) : ke::Vector3(0.0f, 1.0f, 0.0f);
-            if (c.value("centre").toArray().size() != 3 || !(radius > 0) || ke::length(about) < 1e-6f)
-                return error("circle: {centre: [x, y, z], radius: metres, axis?: [x, y, z]}");
+            if (centreOf(c).toArray().size() != 3 || !(radius > 0) || ke::length(about) < 1e-6f)
+                return error("circle: {center: [x, y, z], radius: metres, axis?: [x, y, z]}");
             if (!d.strip.empty()) return error("circle or line: one line a drawing");
             about = ke::normalize(about);
-            const ke::Vector3 centre = point(c.value("centre"));
+            const ke::Vector3 centre = point(centreOf(c));
             const ke::Vector3 u = ke::normalize(ke::cross(about, std::fabs(about.x) < 0.9f ? ke::Vector3(1.0f, 0.0f, 0.0f) : ke::Vector3(0.0f, 1.0f, 0.0f)));
             const ke::Vector3 w = ke::cross(about, u);
             for (int k = 0; k <= 48; ++k) {
@@ -212,9 +214,9 @@ void EditorOps::addInputOps() {
         }
         if (a.contains("box")) { // the twelve edges: from each corner along each axis it is the low end of
             const QJsonObject b = a.value("box").toObject();
-            if (b.value("centre").toArray().size() != 3 || b.value("size").toArray().size() != 3)
-                return error("box: {centre: [x, y, z], size: [x, y, z]}");
-            const ke::Vector3 centre = point(b.value("centre")), half = point(b.value("size")) * 0.5f;
+            if (centreOf(b).toArray().size() != 3 || b.value("size").toArray().size() != 3)
+                return error("box: {center: [x, y, z], size: [x, y, z]}");
+            const ke::Vector3 centre = point(centreOf(b)), half = point(b.value("size")) * 0.5f;
             for (int corner = 0; corner < 8; ++corner)
                 for (int axis = 0; axis < 3; ++axis) {
                     if (corner >> axis & 1) continue;
@@ -229,8 +231,8 @@ void EditorOps::addInputOps() {
         if (d.segments.size() % 8 != 0) return error("segments: points in pairs - a start and an end each");
         d.text = a.value("text").toString();
         if (a.contains("at")) d.at = point(a.value("at"));
-        if (a.contains("colour")) {
-            const QJsonArray c = a.value("colour").toArray();
+        if (a.contains("color") || a.contains("colour")) { // color: the word of every 3D standard; colour, the first one, reads the same
+            const QJsonArray c = a.value(a.contains("color") ? "color" : "colour").toArray();
             d.colour = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
                                         float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
         }

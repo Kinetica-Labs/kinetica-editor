@@ -142,32 +142,39 @@ class _Draw:
         draw.fill("знак", ["M 0 0 L 1 0 L 0.5 1 Z"], object=cube, at=(0, 0.4, 0), space="label", scale=0.05)  # a filled picture
         draw.clear("путь")                                             # draw.clear(): all of this plugin's
 
-    A colour is "#rrggbb" or (r, g, b) from 0 to 1; orange if none."""
+    A color is "#rrggbb" or (r, g, b) from 0 to 1; orange if none. `color` and `center` are the words of every 3D
+    standard; `colour` and `centre`, the first ones, are taken the same."""
 
-    def line(self, key, points, colour=None):
-        self._send(key, line=_xyz(points), colour=colour)
+    def line(self, key, points, colour=None, color=None):
+        self._send(key, line=_xyz(points), colour=_either(color, colour))
 
-    def segments(self, key, points, colour=None):
-        self._send(key, segments=_xyz(points), colour=colour)
+    def segments(self, key, points, colour=None, color=None):
+        self._send(key, segments=_xyz(points), colour=_either(color, colour))
 
-    def points(self, key, points, colour=None, size=6):
-        self._send(key, points=_xyz(points), colour=colour, size=size)
+    def points(self, key, points, colour=None, size=6, color=None):
+        self._send(key, points=_xyz(points), colour=_either(color, colour), size=size)
 
-    def label(self, key, at, text, colour=None, size=None):
+    def label(self, key, at, text, colour=None, size=None, color=None):
         """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own."""
-        self._send(key, at=_xyz([at])[0], text=str(text), colour=colour, **({"size": size} if size else {}))
+        self._send(key, at=_xyz([at])[0], text=str(text), colour=_either(color, colour), **({"size": size} if size else {}))
 
-    def circle(self, key, centre, radius, axis="y", colour=None):
-        """A circle around `centre`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
+    def circle(self, key, centre=None, radius=None, axis="y", colour=None, color=None, center=None):
+        """A circle around `center`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
+        middle = _either(center, centre)
+        if middle is None or radius is None:
+            raise TypeError("draw.circle(key, center, radius, axis='y')")
         about = {"x": (1, 0, 0), "y": (0, 1, 0), "z": (0, 0, 1)}.get(axis, axis)
-        self._send(key, circle={"centre": _xyz([centre])[0], "radius": float(radius), "axis": _xyz([about])[0]}, colour=colour)
+        self._send(key, circle={"center": _xyz([middle])[0], "radius": float(radius), "axis": _xyz([about])[0]}, colour=_either(color, colour))
 
-    def box(self, key, centre, size, colour=None):
-        """The twelve edges of a box of `size` (x, y, z) around `centre`, along the world's axes."""
-        self._send(key, box={"centre": _xyz([centre])[0], "size": _xyz([size])[0]}, colour=colour)
+    def box(self, key, centre=None, size=None, colour=None, color=None, center=None):
+        """The twelve edges of a box of `size` (x, y, z) around `center`, along the world's axes."""
+        middle = _either(center, centre)
+        if middle is None or size is None:
+            raise TypeError("draw.box(key, center, size)")
+        self._send(key, box={"center": _xyz([middle])[0], "size": _xyz([size])[0]}, colour=_either(color, colour))
 
     def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None, stroke=None,
-             stroke_width=None):
+             stroke_width=None, color=None):
         """A flat picture, filled, painted over the scene: `outlines` are rows "M x y L x y C x1 y1 x2 y2 x y Z" in the
         picture's own units, x right and y up. space "world": on its own plane at `at`, turned by `turn` (Euler degrees),
         a unit `scale` metres; "label": on the screen at the world's point `at`, facing the viewer; "screen": in the frame
@@ -186,7 +193,7 @@ class _Draw:
             what["stroke"] = [int(stroke[i:i + 2], 16) / 255 for i in (1, 3, 5)] if isinstance(stroke, str) else [float(c) for c in stroke]
             if stroke_width is not None:
                 what["stroke_width"] = float(stroke_width)
-        self._send(key, colour=colour, **what)
+        self._send(key, colour=_either(color, colour), **what)
 
     def clear(self, key=None):
         self._send(key, clear=True)
@@ -197,12 +204,17 @@ class _Draw:
             raise RuntimeError("draw: only in a plugin the editor started (the console has ed.view_draw)")
         what["key"] = f"{name}/" + ("" if key is None else str(key))
         if colour is not None:
-            what["colour"] = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)] if isinstance(colour, str) else [float(c) for c in colour]
+            what["color"] = [int(colour[i:i + 2], 16) / 255 for i in (1, 3, 5)] if isinstance(colour, str) else [float(c) for c in colour]
         batch = getattr(_frame, "draws", None)
         if batch is not None:  # inside a hook: with the frame's answer, no call of its own
             batch.append(what)
         else:
             _link["client"].call("view_draw", **what)
+
+
+def _either(new, first):
+    """The value under the canonical word, else under its first name (docs/contracts/names.md: names only grow)."""
+    return new if new is not None else first
 
 
 def _xyz(points):

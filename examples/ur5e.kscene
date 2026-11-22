@@ -9,89 +9,89 @@ end
 entity "UR5e основание"
   object id 3 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/base.coloured.obj" size 0.151024 0.151024 0.151024 position 0.067165606 -0.27424634 0.22999582 rotation -90 0 0 color 0.278 0.278 0.278
-  rigid density 1000 friction 0.8 restitution 0.1 fixed 1 velocity 0 0 0 spin 0 0 0
+  rigid density 1000 friction 0.8 restitution 0.1 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
   collider kind cylinder fit 0 size 0.151 0.0991 0.151 offset 0 0 0.04955 rotation 90 0 0
 end
 entity "UR5e плечо"
   object id 4 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/shoulder_link.coloured.obj" size 0.135425 0.135425 0.135425 position 0.060017105 -0.15698484 0.22999978 rotation -90 0 90 color 0.49 0.678 0.8
-  rigid density 1635.76 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 1635.76 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind capsule fit 0 size 0.12 0.24 0.12 offset -9e-06 -0.0071485 -0.0438115 rotation 90 0 0
 end
 entity "UR5e рука"
   object id 6 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/upper_arm_link.coloured.obj" size 0.545193 0.545193 0.545193 position -0.06785039 0.051199168 0.2300091 rotation -89.98021 89.99979 0 color 0.49 0.678 0.8
-  rigid density 2289.92 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 2289.92 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind capsule fit 0 size 0.1 0.5 0.1 offset 0 0.002984 -0.0119955 rotation 90 0 0
 end
 entity "UR5e предплечье"
   object id 8 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/forearm_link.coloured.obj" size 0.489424 0.489424 0.489424 position 0.061667286 0.2640822 0.043652818 rotation 0 -179.99998 -90.00001 color 0.49 0.678 0.8
-  rigid density 1164.46 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 1164.46 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind capsule fit 0 size 0.076 0.456 0.076 offset -0.0001215 0.001501 0.013642 rotation 90 0 0
 end
 entity "UR5e кисть 1"
   object id 10 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/wrist_1_link.coloured.obj" size 0.112175 0.112175 0.112175 position -0.049369395 0.26419818 -0.1606372 rotation -0.00021045902 -179.99998 -90.00001 color 0.49 0.678 0.8
-  rigid density 1254.37 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 1254.37 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind capsule fit 0 size 0.08 0.22 0.08 offset -6e-06 -0.0595365 0.001353 rotation 2.54444e-14 180 180
 end
 entity "UR5e кисть 2"
   object id 12 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/wrist_2_link.coloured.obj" size 0.10988 0.10988 0.10988 position -0.06683139 0.26599616 -0.25817418 rotation -0.00021045898 -179.99998 -179.99998 color 0.278 0.278 0.278
-  rigid density 1399.11 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 1399.11 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind capsule fit 0 size 0.08 0.2 0.08 offset -1e-06 0.001792 -0.0561845 rotation 90 0 0
 end
 entity "UR5e фланец"
   object id 14 visible 1 locked 0 parent 54
   shape mesh file "models/ur5e/wrist_3_link.coloured.obj" size 0.081571 0.081571 0.081571 position -0.0668344 0.18816316 -0.2647222 rotation -0.00021045898 -179.99998 -179.99998 color 0.82 0.82 0.82
-  rigid density 939.512 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 939.512 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind cylinder fit 0 size 0.08 0.04 0.08 offset 2.5e-06 0.003959 -0.0027315 rotation 2.54444e-14 180 180
 end
 entity "Схват"
   object id 16 visible 1 locked 0 parent 54
   shape box size 0.09 0.04 0.05 position -0.0668324 0.14420417 -0.2619902 rotation -0.00021045898 -179.99998 -179.99998 color 0.15 0.15 0.17
-  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Палец левый"
   object id 18 visible 1 locked 0 parent 54
   shape box size 0.012 0.06 0.03 position -0.1018324 0.09420416 -0.2619912 rotation -0.00021045898 -179.99998 -179.99998 color 0.25 0.25 0.28
-  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Палец правый"
   object id 20 visible 1 locked 0 parent 54
   shape box size 0.012 0.06 0.03 position -0.031831995 0.09420416 -0.2619902 rotation -0.00021045898 -179.99998 -179.99998 color 0.25 0.25 0.28
-  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 800 friction 1 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Кубик жёлтый"
   object id 23 visible 1 locked 0
   shape box size 0.04 0.04 0.04 position 0.115368985 0.041 -0.5958319 rotation 0 -27.349384 0 color 0.9 0.85 0.1
   texture kind stone repeats 25 file ""
-  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Кубик зелёный"
   object id 24 visible 1 locked 0
   shape box size 0.04 0.04 0.04 position -0.32684985 0.041 -0.45027238 rotation 0 -23.18466 0 color 0.15 0.8 0.2
   texture kind stone repeats 25 file ""
-  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Кубик пурпурный"
   object id 27 visible 1 locked 0
   shape box size 0.04 0.04 0.04 position 0.3823263 0.041 -0.44459137 rotation 0 -20.833721 0 color 0.85 0.15 0.8
   texture kind stone repeats 25 file ""
-  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 500 friction 0.8 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Площадка"
   object id 28 visible 1 locked 0
   shape box size 0.18 0.004 0.18 position -0.18407468 0.022 -0.27204892 rotation 0 0 0 color 0.92 0.9 0.86
   texture kind stone repeats 20 file ""
-  rigid density 500 friction 0.8 restitution 0.1 fixed 1 velocity 0 0 0 spin 0 0 0
+  rigid density 500 friction 0.8 restitution 0.1 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Цель «Схват»"

@@ -76,13 +76,21 @@ class PluginSdk(unittest.TestCase):
         send, plugin._Draw._send = plugin._Draw._send, lambda self, key, colour=None, **what: drawn.append(what)
         try:
             plugin.draw.circle("ring", (0, 1, 0), 2)
-            plugin.draw.circle("tilted", (0, 0, 0), 1.0, axis=(1, 1, 0))
-            plugin.draw.box("edges", (0, 0.5, 0), (1, 1, 2))
+            plugin.draw.circle("tilted", center=(0, 0, 0), radius=1.0, axis=(1, 1, 0))
+            plugin.draw.box("edges", centre=(0, 0.5, 0), size=(1, 1, 2))  # centre: the first name, taken as center
         finally:
             plugin._Draw._send = send
-        self.assertEqual(drawn, [{"circle": {"centre": [0.0, 1.0, 0.0], "radius": 2.0, "axis": [0.0, 1.0, 0.0]}},
-                                 {"circle": {"centre": [0.0, 0.0, 0.0], "radius": 1.0, "axis": [1.0, 1.0, 0.0]}},
-                                 {"box": {"centre": [0.0, 0.5, 0.0], "size": [1.0, 1.0, 2.0]}}])
+        self.assertEqual(drawn, [{"circle": {"center": [0.0, 1.0, 0.0], "radius": 2.0, "axis": [0.0, 1.0, 0.0]}},
+                                 {"circle": {"center": [0.0, 0.0, 0.0], "radius": 1.0, "axis": [1.0, 1.0, 0.0]}},
+                                 {"box": {"center": [0.0, 0.5, 0.0], "size": [1.0, 1.0, 2.0]}}])
+        coloured = []  # color, the word of every 3D standard, and colour, the first name, are one
+        send, plugin._Draw._send = plugin._Draw._send, lambda self, key, colour=None, **what: coloured.append(colour)
+        try:
+            plugin.draw.line("a", [(0, 0, 0), (1, 0, 0)], color=(1, 0, 0))
+            plugin.draw.line("b", [(0, 0, 0), (1, 0, 0)], colour=(0, 1, 0))
+        finally:
+            plugin._Draw._send = send
+        self.assertEqual(coloured, [(1, 0, 0), (0, 1, 0)])
 
     def test_a_filled_picture_and_the_change_hook(self):
         drawn = []  # the outlines, the space and the object are the editor's to draw (view_draw): the SDK passes the words on

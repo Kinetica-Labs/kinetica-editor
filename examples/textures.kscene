@@ -9,7 +9,7 @@ entity "Шахматная — настройте масштаб"
   object id 2 visible 1 locked 0
   shape box size 0.6 0.6 0.6 position -0.65 0.35 0 rotation 0 20 0 color 0.8 0.8 0.8
   texture kind checker repeats 4 file ""
-  rigid density 1000 friction 0.5 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 1000 friction 0.5 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end
 entity "Ваше фото — Текстура → Изображение → Выбрать"
@@ -21,6 +21,6 @@ entity "Шахматная сфера"
   object id 4 visible 1 locked 0
   shape sphere size 0.36 0.36 0.36 position 0.2 0.3 0.5 rotation 0 0 0 color 0.8 0.8 0.8
   texture kind checker repeats 5 file ""
-  rigid density 1000 friction 0.5 restitution 0.1 fixed 0 velocity 0 0 0 spin 0 0 0
+  rigid density 1000 friction 0.5 restitution 0.1 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
   collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 end

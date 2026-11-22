@@ -7,12 +7,12 @@
 //   entity "Base"
 //     object id 3 visible 1 locked 0
 //     shape box size 0.3 0.1 0.3 position 0 0.05 0 rotation 0 0 0 color 0.6 0.6 0.6
-//     rigid density 1000 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 spin 0 0 0
+//     rigid density 1000 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
 //     collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
 //   end
 //   entity "Gripper"
 //     shape mesh file "models/gripper.obj" size 0.1 0.1 0.1 position 0 0.6 0 rotation 0 90 0 color 0.6 0.4 0.3
-//     rigid density 600 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 spin 0 0 0
+//     rigid density 600 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
 //     collider kind capsule fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 90
 //   end
 //   joint "Elbow"
@@ -107,7 +107,8 @@ std::string renamed(const std::string& key) {
         {"anchorA", "anchor_a"}, {"anchorB", "anchor_b"}, {"frameA", "frame_a"}, {"frameB", "frame_b"},
         {"contactHertz", "contact_hertz"}, {"contactDamping", "contact_damping"}, {"jointHertz", "joint_hertz"},
         {"jointDamping", "joint_damping"}, {"linearDamping", "linear_damping"}, {"angularDamping", "angular_damping"},
-        {"heightFile", "height_file"}, {"rotationStep", "rotation_step"}};
+        {"heightFile", "height_file"}, {"rotationStep", "rotation_step"},
+        {"spin", "angular_velocity"}}; // the word of every 3D standard (docs/contracts/names.md)
     for (const auto& [was, now] : kRenamed)
         if (key == was) return now;
     return key;
@@ -367,7 +368,7 @@ static void saveEntity(std::ostringstream& o, const Entity& e) {
     if (e.rigid.enabled) {
         o << "  rigid density " << num(e.rigid.density) << " friction " << num(e.rigid.friction) << " restitution "
           << num(e.rigid.restitution) << " fixed " << (e.rigid.fixed ? 1 : 0) << " velocity " << vec(e.rigid.velocity)
-          << " spin " << vec(e.rigid.angularVelocity) << (e.rigid.kinematic ? " kinematic 1" : ""); // written when set: a file
+          << " angular_velocity " << vec(e.rigid.angularVelocity) << (e.rigid.kinematic ? " kinematic 1" : ""); // written when set: a file
                                                                                   // without one reads everywhere - as the next three
         if (e.rigid.mass > 0) o << " mass " << num(e.rigid.mass);
         if (e.rigid.centerGiven) o << " center_of_mass " << vec(e.rigid.centerOfMass);
@@ -623,7 +624,7 @@ static bool readRoleKey(const std::string& role, const std::string& k, LineReade
     if (role == "rigid") {
         return k == "density" ? r.number(e.rigid.density) : k == "friction" ? r.number(e.rigid.friction)
              : k == "restitution" ? r.number(e.rigid.restitution) : k == "fixed" ? r.flag(e.rigid.fixed)
-             : k == "velocity" ? r.vector(e.rigid.velocity) : k == "spin" ? r.vector(e.rigid.angularVelocity)
+             : k == "velocity" ? r.vector(e.rigid.velocity) : k == "angular_velocity" ? r.vector(e.rigid.angularVelocity)
              : k == "kinematic" ? r.flag(e.rigid.kinematic)
              : k == "mass" ? r.number(e.rigid.mass) && std::isfinite(e.rigid.mass) && e.rigid.mass >= 0
              : k == "center_of_mass" ? (e.rigid.centerGiven = r.vector(e.rigid.centerOfMass))

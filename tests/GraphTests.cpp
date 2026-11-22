@@ -134,7 +134,7 @@ void testSceneFormatOnlyGrows() {
         CHECK(loaded, "the format's sample %s does not load: %s", name, error.c_str());
         std::map<std::string, int> left;
         size_t words = 0;
-        for (std::string w; sample >> w; ++words) ++left[w];
+        for (std::string w; sample >> w; ++words) ++left[presentKey(w)]; // a key under its present name: spin is angular_velocity
         std::istringstream saved(loaded ? g.save() : std::string());
         for (std::string w; saved >> w;) --left[w];
         std::string lost;

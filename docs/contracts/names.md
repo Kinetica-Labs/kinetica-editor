@@ -573,7 +573,7 @@ userspace»), поля protobuf, расширения glTF и Vulkan. Замок
 | `speckle` | texture | крапинка | stable |  |
 | `speed` | path; action | скорость: пути, м/с; действия, м/с или рад/с | stable |  |
 | `sphere` | shape, collider | шар | stable |  |
-| `spin` | rigid | угловая скорость [x, y, z], рад/с | obsolete | `angular_velocity` |
+| `spin` | rigid | угловая скорость [x, y, z], рад/с - первое имя: читается, пишется `angular_velocity` | obsolete | `angular_velocity` |
 | `spot` | kind | прожектор - конусом | stable |  |
 | `spring` | часть | пружина подвески | stable |  |
 | `start` | effect | когда толчок, с | stable |  |
