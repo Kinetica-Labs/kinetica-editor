@@ -320,7 +320,7 @@ async function load(to) {
   document.getElementById("subtitle").textContent = WORDS[to].subtitle;
   for (const l of Object.keys(FILES)) document.getElementById("lang-" + l).setAttribute("aria-pressed", String(l === to));
   try {
-    const answer = await fetch(FILES[to]);
+    const answer = await fetch(FILES[to], { cache: "no-cache" }); // asked of the server each time: a new guide is seen at once, not after the cache runs out
     if (!answer.ok) throw new Error(answer.status);
     marked.setOptions({ headerIds: false, mangle: false });
     const whole = make("div");
