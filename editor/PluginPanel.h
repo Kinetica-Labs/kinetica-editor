@@ -51,6 +51,7 @@ public:
 
 protected:
     void paintEvent(QPaintEvent*) override;
+    void resizeEvent(QResizeEvent* e) override;
     void wheelEvent(QWheelEvent* e) override;
     void mousePressEvent(QMouseEvent* e) override;
     void mouseMoveEvent(QMouseEvent* e) override;
@@ -58,6 +59,7 @@ protected:
     void mouseDoubleClickEvent(QMouseEvent* e) override;
 
 private:
+    void fit();
     QSvgRenderer renderer_;
     QByteArray data_;
     int maxHeight_;

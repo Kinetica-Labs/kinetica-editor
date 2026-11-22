@@ -68,8 +68,20 @@ void SvgView::setSvg(const QByteArray& data) {
     if (data == data_) return;
     data_ = data;
     renderer_.load(data); // an invalid one leaves the renderer invalid: the placeholder
-    updateGeometry();
+    fit();
     update();
+}
+
+// Its height from its width, set: a layout in a group box or a scrolled panel asks the size hint, not heightForWidth,
+// and would keep the picture small in a wide panel.
+void SvgView::fit() {
+    const int h = heightForWidth(width());
+    if (h != height()) setFixedHeight(h);
+}
+
+void SvgView::resizeEvent(QResizeEvent* e) {
+    QWidget::resizeEvent(e);
+    fit();
 }
 
 int SvgView::heightForWidth(int w) const {
@@ -89,9 +101,10 @@ void SvgView::paintEvent(QPaintEvent*) {
     }
     const double k = std::min(width() / s.width(), height() / s.height());
     const QSizeF to(s.width() * k, s.height() * k);
-    p.translate(pan_);
-    p.scale(zoom_, zoom_);
-    renderer_.render(&p, QRectF((width() - to.width()) / 2, (height() - to.height()) / 2, to.width(), to.height()));
+    const QRectF whole((width() - to.width()) / 2, (height() - to.height()) / 2, to.width(), to.height());
+    // the zoomed frame itself to the renderer: it clips to the frame it is given, so a frame scaled by the painter would
+    // cut the picture at the unzoomed one's edges
+    renderer_.render(&p, QRectF(pan_ + whole.topLeft() * zoom_, whole.size() * zoom_));
 }
 
 PluginPanel::PluginPanel(const QJsonObject& d, std::function<void(const QString&, const QJsonObject&)> press, QWidget* parent)
