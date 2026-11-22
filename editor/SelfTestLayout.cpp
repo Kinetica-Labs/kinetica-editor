@@ -72,6 +72,7 @@ void testMenuAndOnlyView(Checker& c, QMainWindow& w, const QString& dir) {
     std::printf("  layout menu: %s\n", qPrintable(items.join(" | ")));
     c.check(items.contains("Инспектор") && items.contains("Лаборатория") && items.contains("Графики") && items.contains("Полка инструментов") && items.contains("Только 3D-вид"),
             "the layout menu lists the panels one by one and the 3D-only mode");
+    c.check(items.contains("Нижняя панель во всю ширину"), "the layout menu has the bottom panel in the window's whole width");
     QAction* only = action(w, "actionOnlyViewport");
     if (!only) return;
     auto* shelf = w.findChild<QToolBar*>("toolShelf");

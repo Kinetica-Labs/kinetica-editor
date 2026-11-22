@@ -2,8 +2,8 @@
 // of the menu line - where they take no room from the
 // top bar - close and open the left, the bottom and the right dock area together with whatever
 // was open in them (Ctrl+B, Ctrl+J, Ctrl+Alt+B), and a fourth opens the layout
-// menu - the three areas, every panel on its own, the status line, the tool shelf and "only the 3D
-// view" (F11). An area opened with nothing remembered shows its main panel:
+// menu - the three areas, the bottom one in the window's whole width, every panel on its own, the status line, the
+// tool shelf and "only the 3D view" (F11). An area opened with nothing remembered shows its main panel:
 // the Laboratory on the left, the graphs at the bottom, the inspector on the right. The buttons follow
 // the panels however they open and close (their ✕, F8, F9).
 #include "MainWindow.h"
@@ -124,6 +124,7 @@ void MainWindow::addLayoutButtons() {
 void MainWindow::buildLayoutMenu(QMenu* menu) {
     menu->addSection(uiText("Kinetica", "Области"));
     for (QAction* a : {leftBarAct_, bottomPanelAct_, rightBarAct_}) menu->addAction(a);
+    menu->addAction(bottomWideAct_); // the bottom panel under the side panels too - the window's whole width
     auto* status = menu->addAction(uiText("Kinetica", "Строка состояния"));
     status->setCheckable(true);
     status->setChecked(true);
