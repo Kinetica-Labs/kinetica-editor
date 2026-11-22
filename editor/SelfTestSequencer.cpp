@@ -632,6 +632,25 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
         c.check(!undone[1].hasVelocity && undone[0].interp == before[0].interp, "one undo takes the handle's turn back");
     }
 
+    { // The same view as an operation, for a script or a model: sequence_frame sets what the wheel and F set and answers it.
+        const QJsonObject set = ops->runNow("sequence_frame", {{"from", 1.0}, {"to", 3.0}, {"curves", true}, {"range", QJsonArray{0.0, 2.0}}});
+        const sequencer::Axis in = panel->axis(curves->width());
+        const QJsonObject asked = ops->runNow("sequence_frame", {});
+        const QJsonObject whole = ops->runNow("sequence_frame", {{"fit", true}});
+        const QJsonObject wrong = ops->runNow("sequence_frame", {{"from", 2.0}, {"to", 1.0}});
+        const QJsonArray range = set.value("range").toArray();
+        std::printf("  sequence_frame from 1 to 3 s, the curves, values 0..2: in sight %.2f..%.2f s, curves %s, values %.2f..%.2f; asked again the "
+                    "same %s; fit - %.2f..%.2f s; from 2 to 1 - «%s»\n", in.from, in.from + in.span, set.value("curves").toBool() ? "yes" : "no",
+                    range.size() == 2 ? range[0].toDouble() : -1, range.size() == 2 ? range[1].toDouble() : -1, asked == set ? "yes" : "no",
+                    whole.value("from").toDouble(), whole.value("to").toDouble(), qPrintable(wrong.value("error").toString()));
+        c.check(set.value("ok").toBool() && in.from == 1 && std::fabs(in.span - 2) < 1e-9 && set.value("to").toDouble() == 3 && set.value("curves").toBool() &&
+                    range.size() == 2 && range[0].toDouble() == 0 && range[1].toDouble() == 2 && asked == set,
+                "sequence_frame puts the time and the values in the curves' sight and answers what is shown");
+        c.check(whole.value("from").toDouble() == 0 && whole.value("to").toDouble() == panel->axis(curves->width()).span && !wrong.value("ok").toBool() &&
+                    wrong.value("error").toString().contains("from < to"),
+                "sequence_frame fit shows the whole, as F; a time backwards is refused and says why");
+    }
+
     if (curvesButton) curvesButton->click();
     std::printf("  the curves of «%s»: its key at 2 s, y %.3f m, dragged up 40 px: %.3f m; one undo: %.3f m\n", findObject(b.graph(), cubes[3])->name.c_str(),
                 double(before), double(raised), double(lowered));

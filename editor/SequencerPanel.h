@@ -40,6 +40,10 @@ public:
     void zoomTime(double factor, double at); // the span × factor; the time `at` stays where it is
     void panTime(double seconds);
     void fitTime();                 // the whole sequence, and the curves' values fitted (F)
+    void frameTime(double from, double to); // the time from..to in sight, s (sequence_frame)
+    void setCurves(bool on);        // one track's curves, or the tracks - as the «Кривые» button
+    bool curvesShown() const;
+    SequencerCurves* curvesView() const { return curvesView_; }
     void setEnd(double seconds);    // the scene's play range end (world_set: world duration); 0: none
     void setFrom(double seconds);   // where a take starts (world_set: world record_from), before the end
     void keySelected();             // ◆: the selected objects keyed at the playhead

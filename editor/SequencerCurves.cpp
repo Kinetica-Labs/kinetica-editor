@@ -129,6 +129,11 @@ QPointF SequencerCurves::handleOf(size_t key, int channel, bool out) const {
     return QPointF(panel_->axis(width()).x(at), yOf(v));
 }
 
+std::array<double, 2> SequencerCurves::valueRange() {
+    if (const ke::SequenceTrack* t = track(); t && !valuesHeld_ && drag_ == Drag::None) fitRange(t->keys);
+    return {lo_, hi_};
+}
+
 QPointF SequencerCurves::pointOf(size_t key, int channel) const {
     const ke::SequenceTrack* t = track();
     if (!t || key >= t->keys.size()) return QPointF(-1, -1);

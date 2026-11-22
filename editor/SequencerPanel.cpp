@@ -191,6 +191,14 @@ void SequencerPanel::panTime(double seconds) {
     timeline_->update(), curvesView_->update();
 }
 
+void SequencerPanel::frameTime(double from, double to) {
+    zoomFrom_ = std::max(0.0, from), zoomSpan_ = std::max(0.05, to - zoomFrom_);
+    timeline_->update(), curvesView_->update();
+}
+
+void SequencerPanel::setCurves(bool on) { curves_->setChecked(on); } // its toggled shows them
+bool SequencerPanel::curvesShown() const { return curves_->isChecked(); }
+
 void SequencerPanel::fitTime() {
     zoomFrom_ = zoomSpan_ = 0;
     curvesView_->fitValues();

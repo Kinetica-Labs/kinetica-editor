@@ -95,6 +95,8 @@ public:
     uint32_t object() const;        // the track shown: the selected object's, else the picked key's, else the first
     QPointF pointOf(size_t key, int channel) const; // where a key's channel is drawn (the self-test's hands)
     void fitValues() { valuesHeld_ = false, update(); } // the values fitted to the curve in sight again (F)
+    void setValueRange(double low, double high) { lo_ = low, hi_ = high, valuesHeld_ = true, update(); } // held, as by the hand
+    std::array<double, 2> valueRange();  // the values from the bottom to the top, as the next paint has them
     QPointF handleOf(size_t key, int channel, bool out) const; // where a key's Bezier handle is drawn; (-1, -1): none
 
 protected:

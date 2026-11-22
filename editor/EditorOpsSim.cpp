@@ -6,6 +6,8 @@
 #include "SceneBuilder.h"
 #include "SimController.h"
 #include "UiWindowSpace.h"
+#include "SequencerPanel.h"
+#include "SequencerViews.h"
 #include "Viewport.h"
 #include "api/Scene.h"
 #include "scene/SceneGraph.h"
@@ -165,6 +167,28 @@ void EditorOps::addViewOps() {
         if (a.contains("id")) builder_->select(uint32_t(a.value("id").toInt())), builder_->frameSelected();
         else builder_->frameAll();
         return ok();
+    });
+    // The Sequencer's view, as the wheel, the middle button and F set it: the window's state, no change of the scene.
+    addSync("sequence_frame", "The Sequencer's view, as F, the wheel and the middle button set it, answered as it stands: from, to - the "
+            "time in sight, s; fit - the whole sequence again and the values fitted (F); curves - one track's curves (the selected "
+            "object's) or the tracks; range - the curves' values [low, high] from the bottom to the top ([]: fitted to the curve in "
+            "sight). Nothing given: only the answer. The window's view, no change of the scene",
+            "{from?: number, to?: number, fit?: bool, curves?: bool, range?: [number]}", [this](const QJsonObject& a) {
+        auto* panel = window_->findChild<SequencerPanel*>();
+        if (!panel) return error("the window has no Sequencer");
+        if (a.contains("from") != a.contains("to")) return error("from and to come together: the time in sight, s");
+        const double from = a.value("from").toDouble(), to = a.value("to").toDouble();
+        if (a.contains("from") && !(from >= 0 && to > from)) return error("the time in sight: 0 <= from < to, s");
+        const QJsonArray range = a.value("range").toArray();
+        if (a.contains("range") && !(range.isEmpty() || (range.size() == 2 && range[1].toDouble() > range[0].toDouble())))
+            return error("range: [low, high], low below high - or [] to fit it");
+        if (a.value("fit").toBool()) panel->fitTime();
+        if (a.contains("from")) panel->frameTime(from, to);
+        if (a.contains("curves")) panel->setCurves(a.value("curves").toBool());
+        if (a.contains("range")) range.isEmpty() ? panel->curvesView()->fitValues() : panel->curvesView()->setValueRange(range[0].toDouble(), range[1].toDouble());
+        const sequencer::Axis in = panel->axis(panel->curvesView()->width());
+        const std::array<double, 2> values = panel->curvesView()->valueRange();
+        return ok({{"from", in.from}, {"to", in.from + in.span}, {"curves", panel->curvesShown()}, {"range", QJsonArray{values[0], values[1]}}});
     });
     addSync("view_hud", "The performance plate in the view's lower left corner: the frames a second in large figures coloured by "
             "smoothness, the last two seconds of frame times, one frame's paint and the physics' step, the scene's speed against the "

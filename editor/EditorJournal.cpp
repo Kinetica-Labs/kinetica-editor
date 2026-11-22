@@ -42,7 +42,7 @@ bool EditorOps::windowOnly(const QString& name) {
         if (name.startsWith(prefix)) return true;
     if (wiring(name)) return true;
     return name == "sim_play" || name == "sim_record" || name == "controller_input" || name == "robot_command" || name == "sim_pause" || name == "sim_step" || name == "sim_impulse" || name == "force_fire" || name == "scene_save" || name == "session_start" ||
-           name == "session_end";
+           name == "session_end" || name == "sequence_frame";
 }
 
 QString EditorOps::kind(const QString& name) const {

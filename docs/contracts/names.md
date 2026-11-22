@@ -147,6 +147,7 @@
 | `constant` | `number` | постоянная мотора, Н·м/А | stable |  |
 | `count` | `int` | сколько: копий в массиве, слов после ключа | stable |  |
 | `cursor` | `bool` | двигать и настоящий курсор человека | stable |  |
+| `curves` | `bool` | кривые одной дорожки в секвенсоре, а не дорожки | testing |  |
 | `damping` | `number` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
 | `degrees` | `number` | угол, градусы | stable |  |
 | `diameter` | `number` | диаметр, м | stable |  |
@@ -158,6 +159,7 @@
 | `families` | `[]` | начала имён операций для отбора: `["scene", "sim"]` | stable |  |
 | `file` | `str` | путь к файлу; относительный - от места запуска | stable |  |
 | `fill` | `[]` | контуры заливки: строки `M x y L x y C x1 y1 x2 y2 x y Z` | stable |  |
+| `fit` | `bool` | показать всё целиком, как F | testing |  |
 | `fixed` | `bool` | тело стоит на месте, физика его не двигает | stable |  |
 | `from` | `int` | объект, от которого идёт связь | testing |  |
 | `flip` | `bool` | развернуть заготовку по нормали | stable |  |
@@ -166,6 +168,7 @@
 | `fov` | `number` | угол обзора камеры по вертикали, градусы | stable |  |
 | `frames` | `int` | кадров симуляции - её шагов | stable |  |
 | `free` | `bool` | камера снова свободная - не следит за объектом | stable |  |
+| `from` | `number` | начало показанного времени секвенсора, с | testing |  |
 | `goal` | `int` | цель обратной кинематики | stable |  |
 | `goals` | `[int]` | цели обратной кинематики | stable |  |
 | `group` | `[int]` | объекты, замеряемые вместе | stable |  |
@@ -219,6 +222,7 @@
 | `quaternion` | `[4]` | поворот кватернионом [w, x, y, z] | stable |  |
 | `quaternions` | `[[]]` | повороты кватернионами `[[w, x, y, z], ...]` | stable |  |
 | `radius` | `number` | радиус, м | stable |  |
+| `range` | `[]` | значения кривых [низ, верх]; `[]` - по кривой в виду | testing |  |
 | `reference` | `number` | координата сустава при нулевом счёте энкодера, рад или м | stable |  |
 | `resistance` | `number` | сопротивление обмотки, Ом | stable |  |
 | `role` | `str` | роль тела: rigid - твёрдое, collider - коллайдер | stable |  |
@@ -257,6 +261,7 @@
 | `time` | `number` | время, с | stable |  |
 | `to` | `int` | объект, к которому идёт связь; 0 - мир | testing |  |
 | `to` | `[3]` | вторая точка мира - конец отрезка, м | testing |  |
+| `to` | `number` | конец показанного времени секвенсора, с | testing |  |
 | `tool` | `str` | инструмент гизмо: select, move, rotate, scale | stable |  |
 | `travel` | `number` | ход схвата от открытого, м | stable |  |
 | `trigger` | `bool` | форма-датчик: замечает касание, но не толкает | stable |  |
@@ -285,7 +290,7 @@
 
 ### testing
 
-`relation_list` `schema_get` `schema_list` `view_measure`
+`relation_list` `schema_get` `schema_list` `sequence_frame` `view_measure`
 
 ### obsolete
 
@@ -327,6 +332,7 @@
 | `coordinates` | координаты сустава по шести степеням свободы, м и рад | stable |  |
 | `count` | счёт: энкодера, сколько чего | stable |  |
 | `current` | ток мотора, А | stable |  |
+| `curves` | секвенсор показывает кривые, а не дорожки | testing |  |
 | `damping` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
 | `depth` | глубина проникновения, м | stable |  |
 | `distance` | расстояние, м | stable |  |
@@ -338,7 +344,7 @@
 | `file` | путь к файлу | stable |  |
 | `fixed` | тело стоит на месте | stable |  |
 | `force` | сила, Н | stable |  |
-| `from` | объект, от которого идёт связь | testing |  |
+| `from` | объект, от которого идёт связь; у `sequence_frame` - начало показанного времени, с | testing |  |
 | `form` | вид значений ключа в описи: number, vector, flag, id, one of... | testing |  |
 | `frame` | номер кадра мира | stable |  |
 | `frame_timing` | время частей кадра, мс | stable |  |
@@ -367,6 +373,7 @@
 | `position` | где стоит, м | stable |  |
 | `power` | мощность мотора, Вт | stable |  |
 | `problem` | неисправность датчика: текст, пусто - нет | stable |  |
+| `range` | значения кривых секвенсора [низ, верх] | testing |  |
 | `reading` | показание датчика - в его единице | stable |  |
 | `redone` | повтор сделан | stable |  |
 | `relative` | показание относительно нуля датчика | stable |  |
@@ -386,7 +393,7 @@
 | `tags` | метки | stable |  |
 | `text` | текст: файл сцены | stable |  |
 | `time` | время мира, с | stable |  |
-| `to` | объект, к которому идёт связь; 0 - мир | testing |  |
+| `to` | объект, к которому идёт связь; 0 - мир; у `sequence_frame` - конец показанного времени, с | testing |  |
 | `travel` | ход сустава, м или рад | stable |  |
 | `truth` | истинные значения из физики рядом с показанием - для проверок, не для управления | stable |  |
 | `type` | тип компонента `плагин.компонент` | stable |  |
