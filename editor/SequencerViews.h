@@ -21,11 +21,12 @@ namespace sequencer {
 
 constexpr int kNames = 180, kRuler = 22, kRow = 22, kPad = 12;
 
-// 0 s to `span` across a view's width right of the names' column (span: at least 5 s, a second past the last key).
+// `span` seconds from `from` across a view's width right of the names' column: the whole sequence (axisOf - from 0, at
+// least 5 s, a second past the last key) or the part zoomed into (SequencerPanel::axis).
 struct Axis {
     int width = 0;
-    double span = 5;
-    double x(double t) const { return kNames + kPad + t * double(width - kNames - 2 * kPad) / span; }
+    double span = 5, from = 0;
+    double x(double t) const { return kNames + kPad + (t - from) * double(width - kNames - 2 * kPad) / span; }
     double time(double x) const;
 };
 Axis axisOf(const ke::SequenceObject* q, int width, double atLeast = 0); // atLeast: a run's time (SequencerPanel::atLeast)
@@ -58,6 +59,7 @@ protected:
     void resizeEvent(QResizeEvent*) override;
 
 private:
+    double panFrom_ = -1;           // the middle button's x while it moves the time (-1: not)
     struct Row {
         enum Kind { All, Group, Track } kind = Track;
         int depth = 0;
@@ -92,6 +94,7 @@ public:
     explicit SequencerCurves(SequencerPanel* panel);
     uint32_t object() const;        // the track shown: the selected object's, else the picked key's, else the first
     QPointF pointOf(size_t key, int channel) const; // where a key's channel is drawn (the self-test's hands)
+    void fitValues() { valuesHeld_ = false, update(); } // the values fitted to the curve in sight again (F)
 
 protected:
     void paintEvent(QPaintEvent*) override;
@@ -99,6 +102,7 @@ protected:
     void mouseMoveEvent(QMouseEvent*) override;
     void mouseReleaseEvent(QMouseEvent*) override;
     void contextMenuEvent(QContextMenuEvent*) override;
+    void wheelEvent(QWheelEvent*) override;
 
 private:
     const ke::SequenceTrack* track() const;
@@ -113,6 +117,8 @@ private:
     bool turn_ = false;             // the turn's curves (degrees), not the place's (m)
     std::array<bool, 3> shown_{true, true, true};
     double lo_ = 0, hi_ = 1;        // the values from the bottom to the top
+    bool valuesHeld_ = false;       // zoomed or moved by hand: not fitted again until F
+    QPointF panAt_{-1, -1};         // the middle button while it moves the view (x < 0: not)
     // A drag of a key: which and along what, the keys as they will be.
     std::vector<ke::AnimKey> draft_;
     long dragKey_ = -1;

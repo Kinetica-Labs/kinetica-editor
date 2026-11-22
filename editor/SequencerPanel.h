@@ -15,6 +15,7 @@
 
 class EditorOps;
 class SceneBuilder;
+namespace sequencer { struct Axis; }
 class SequencerCurves;
 class SequencerTimeline;
 class QComboBox;
@@ -33,6 +34,12 @@ public:
     void sync();                    // the sequences as the scene has them now
     void setPlayTime(double time);  // in play: where the world is (its newest frame)
     double atLeast() const;         // the views' span: in a run, past the world's time; the play range's end in sight
+    // The views' time axis, one for the tracks and the curves: the whole sequence, or the part zoomed into - the wheel
+    // (over the tracks' ruler or with Ctrl), the middle button moves it, F over the Sequencer shows the whole again.
+    sequencer::Axis axis(int width) const;
+    void zoomTime(double factor, double at); // the span × factor; the time `at` stays where it is
+    void panTime(double seconds);
+    void fitTime();                 // the whole sequence, and the curves' values fitted (F)
     void setEnd(double seconds);    // the scene's play range end (world_set: world duration); 0: none
     void setFrom(double seconds);   // where a take starts (world_set: world record_from), before the end
     void keySelected();             // ◆: the selected objects keyed at the playhead
@@ -76,4 +83,5 @@ private:
     QElapsedTimer recordClock_;     // a second press within 0.5 s of the take's start: a double click, not a stop
     double previewFrom_ = 0, scrubTime_ = 0, playTime_ = 0, liveTime_ = 0;
     bool scrubbing_ = false;
+    double zoomFrom_ = 0, zoomSpan_ = 0; // the part of the time zoomed into, s (span 0: the whole)
 };

@@ -2458,7 +2458,7 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="435"/>
-        <location filename="../editor/SequencerCurves.cpp" line="150"/>
+        <location filename="../editor/SequencerCurves.cpp" line="154"/>
         <location filename="../editor/ObjectInspector.cpp" line="61"/>
         <source>Поворот, °</source>
         <translation>Rotation, °</translation>
@@ -4908,7 +4908,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="94"/>
-        <location filename="../editor/SequencerTimeline.cpp" line="52"/>
+        <location filename="../editor/SequencerTimeline.cpp" line="54"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="85"/>
         <source> с</source>
         <translation> s</translation>
@@ -5238,19 +5238,24 @@ Sample </translation>
         <translation>Play the scene to see the robot&apos;s sensor reading and ground truth side by side.</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="128"/>
+        <location filename="../editor/SequencerCurves.cpp" line="132"/>
         <source>Здесь кривые дорожки: выделите объект, у которого есть ключи</source>
         <translation>Here are curved paths: highlight an object that has keys</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="142"/>
+        <location filename="../editor/SequencerCurves.cpp" line="146"/>
         <source>потерян</source>
         <translation>lost</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerCurves.cpp" line="150"/>
+        <location filename="../editor/SequencerCurves.cpp" line="154"/>
         <source>Место, м</source>
         <translation>Position, m</translation>
+    </message>
+    <message>
+        <location filename="../editor/SequencerCurves.cpp" line="167"/>
+        <source>Колесо — время, Shift+колесо — значения, средняя кнопка — сдвиг, F — всё</source>
+        <translation>Wheel - time, Shift+wheel - values, middle button - move, F - all</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="50"/>
@@ -5279,7 +5284,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="57"/>
-        <location filename="../editor/SequencerPanel.cpp" line="251"/>
+        <location filename="../editor/SequencerPanel.cpp" line="281"/>
         <source>▶ Просмотр</source>
         <translation>▶ Preview</translation>
     </message>
@@ -5325,7 +5330,7 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="69"/>
-        <location filename="../editor/SequencerPanel.cpp" line="322"/>
+        <location filename="../editor/SequencerPanel.cpp" line="352"/>
         <source>⏺ Запись</source>
         <translation>⏺ Record</translation>
     </message>
@@ -5357,7 +5362,7 @@ Sample </translation>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="103"/>
         <source>Начало записи: «Запись» хранит движение с этой секунды до «До»; до неё мир идёт, но ничего не пишется</source>
-        <translation>The take's start: Record keeps the motion from this second to «To»; before it the world runs and nothing is recorded</translation>
+        <translation>The take&apos;s start: Record keeps the motion from this second to «To»; before it the world runs and nothing is recorded</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="105"/>
@@ -5365,78 +5370,78 @@ Sample </translation>
         <translation>no end</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="205"/>
+        <location filename="../editor/SequencerPanel.cpp" line="230"/>
         <source>Прогон не запоминается, назад не перемотать: бегунок ходит после ■ Стоп</source>
         <translation>A run is not kept, so it cannot be scrubbed back: the playhead moves after ■ Stop</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="251"/>
+        <location filename="../editor/SequencerPanel.cpp" line="281"/>
         <source>■ Стоп</source>
         <translation>■ Stop</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="268"/>
+        <location filename="../editor/SequencerPanel.cpp" line="298"/>
         <source>◆ Линейно — по прямой</source>
         <translation>Linearly - in a straight line</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="268"/>
+        <location filename="../editor/SequencerPanel.cpp" line="298"/>
         <source>● Плавно — кривая через ключи</source>
         <translation>Smooth - curve through the keys</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="268"/>
+        <location filename="../editor/SequencerPanel.cpp" line="298"/>
         <source>■ Ступенька — держать до следующего</source>
         <translation>■ The step is to hold until the next</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="276"/>
+        <location filename="../editor/SequencerPanel.cpp" line="306"/>
         <source>Бегунок на ключ</source>
         <translation>Go to Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="277"/>
+        <location filename="../editor/SequencerPanel.cpp" line="307"/>
         <source>Удалить ключ</source>
         <translation>Delete Key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="282"/>
+        <location filename="../editor/SequencerPanel.cpp" line="312"/>
         <source>Ключи ставятся в правке: остановите «Пуск»</source>
         <translation>The keys are put in the edit: stop &quot;Start ”</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="283"/>
+        <location filename="../editor/SequencerPanel.cpp" line="313"/>
         <source>Выделите объект для ключа</source>
         <translation>Select an object for the key</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="294"/>
-        <location filename="../editor/SequencerPanel.cpp" line="332"/>
+        <location filename="../editor/SequencerPanel.cpp" line="324"/>
+        <location filename="../editor/SequencerPanel.cpp" line="362"/>
         <source>%1 / %2 с</source>
         <translation>%1 /%2 s</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="309"/>
+        <location filename="../editor/SequencerPanel.cpp" line="339"/>
         <source>нет секвенций</source>
         <translation>No seq.</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerPanel.cpp" line="322"/>
+        <location filename="../editor/SequencerPanel.cpp" line="352"/>
         <source>■ Закончить запись</source>
         <translation>■ Stop Recording</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerTimeline.cpp" line="196"/>
+        <location filename="../editor/SequencerTimeline.cpp" line="199"/>
         <source>потерян (id %1)</source>
         <translation>missing (ID %1)</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerTimeline.cpp" line="200"/>
+        <location filename="../editor/SequencerTimeline.cpp" line="203"/>
         <source>Все дорожки</source>
         <translation>All Tracks</translation>
     </message>
     <message>
-        <location filename="../editor/SequencerTimeline.cpp" line="296"/>
+        <location filename="../editor/SequencerTimeline.cpp" line="303"/>
         <source>Выделите объект и нажмите «◆ Ключ» (I): секвенция запомнит, где он стоит в момент бегунка. Передвиньте бегунок, переставьте объект, ещё ключ — между ключами он поедет сам. Или «▶● Запись» сверху: физика станет секвенцией.</source>
         <translation>Select an object and press ◆ Key (I) to store its pose at the playhead. Move the playhead, reposition the object, and add another key. Its pose interpolates between keys. Use Record in the toolbar to capture the simulation as a sequence.</translation>
     </message>
@@ -6889,7 +6894,7 @@ Sample </translation>
     <message>
         <location filename="../editor/SceneBuilder.cpp" line="396"/>
         <source>Время проигрывания вышло — %1 с: пауза. ▶ — дальше, ■ Стоп вернёт сцену; время — поле «До» в секвенсоре</source>
-        <translation>The play range is over - %1 s: paused. ▶ goes on, ■ Stop brings the scene back; the range is the Sequencer's «To» field</translation>
+        <translation>The play range is over - %1 s: paused. ▶ goes on, ■ Stop brings the scene back; the range is the Sequencer&apos;s «To» field</translation>
     </message>
     <message>
         <location filename="../editor/SelfTestForces.cpp" line="351"/>

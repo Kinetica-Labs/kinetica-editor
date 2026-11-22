@@ -172,6 +172,31 @@ void SequencerPanel::setFrom(double seconds) {
     sync();
 }
 
+sequencer::Axis SequencerPanel::axis(int width) const {
+    sequencer::Axis a = sequencer::axisOf(ke::activeSequence(builder_->graph()), width, atLeast());
+    if (zoomSpan_ > 0) a.from = zoomFrom_, a.span = zoomSpan_;
+    return a;
+}
+
+void SequencerPanel::zoomTime(double factor, double at) {
+    const sequencer::Axis a = axis(timeline_->width());
+    const double span = std::clamp(a.span * factor, 0.05, 86400.0);
+    zoomFrom_ = std::max(0.0, at - (at - a.from) * span / a.span), zoomSpan_ = span;
+    timeline_->update(), curvesView_->update();
+}
+
+void SequencerPanel::panTime(double seconds) {
+    const sequencer::Axis a = axis(timeline_->width());
+    zoomFrom_ = std::max(0.0, a.from + seconds), zoomSpan_ = a.span;
+    timeline_->update(), curvesView_->update();
+}
+
+void SequencerPanel::fitTime() {
+    zoomFrom_ = zoomSpan_ = 0;
+    curvesView_->fitValues();
+    timeline_->update();
+}
+
 double SequencerPanel::playhead() const {
     if (!builder_->editing()) return playTime_;
     if (scrubbing_ || previewTimer_->isActive()) return scrubTime_;
@@ -225,8 +250,13 @@ bool SequencerPanel::eventFilter(QObject* watched, QEvent* event) {
     auto* view = static_cast<QWidget*>(watched);
     if (event->type() == QEvent::Enter && window()->isActiveWindow() && !QApplication::activePopupWidget())
         view->setFocus(Qt::MouseFocusReason); // the keys follow the mouse, as into the 3D view
-    const bool space = (event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress) &&
-                       static_cast<QKeyEvent*>(event)->key() == Qt::Key_Space && static_cast<QKeyEvent*>(event)->modifiers() == Qt::NoModifier;
+    const auto* key = event->type() == QEvent::ShortcutOverride || event->type() == QEvent::KeyPress ? static_cast<QKeyEvent*>(event) : nullptr;
+    if (key && key->key() == Qt::Key_F && key->modifiers() == Qt::NoModifier) { // over the Sequencer F shows the whole sequence, not the scene
+        event->accept();
+        if (event->type() == QEvent::KeyPress) fitTime();
+        return true;
+    }
+    const bool space = key && key->key() == Qt::Key_Space && key->modifiers() == Qt::NoModifier;
     if (!space || !spacePlays()) return QWidget::eventFilter(watched, event);
     event->accept(); // before the window's «Пуск»
     if (event->type() == QEvent::KeyPress && !static_cast<QKeyEvent*>(event)->isAutoRepeat()) play_->toggle();

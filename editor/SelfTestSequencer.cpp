@@ -27,6 +27,9 @@
 #include <QLabel>
 #include <QStatusBar>
 #include <QToolButton>
+#include <QWheelEvent>
+#include <QMouseEvent>
+#include <QKeyEvent>
 
 #include <cmath>
 
@@ -548,6 +551,51 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
         pump(60);
         w.grab().save(shotsDir + "/sequencer-curves.png");
     }
+    { // its own names: the test around has its own
+        // Look closer: the wheel zooms the time about the mouse - the tracks' axis with it -, Shift+wheel the values, the middle
+        // button moves the view, F over the Sequencer shows the whole again.
+        const auto wheel = [curves](const QPointF& at, int delta, Qt::KeyboardModifiers mods) {
+            QWheelEvent e(at, curves->mapToGlobal(at), QPoint(), QPoint(0, delta), Qt::NoButton, mods, Qt::NoScrollPhase, false);
+            QCoreApplication::sendEvent(curves, &e);
+            pump(30);
+        };
+        const auto pan = [curves](QEvent::Type type, const QPointF& at) {
+            QMouseEvent e(type, at, curves->mapToGlobal(at), Qt::MiddleButton, type == QEvent::MouseButtonRelease ? Qt::NoButton : Qt::MiddleButton,
+                          Qt::NoModifier);
+            QCoreApplication::sendEvent(curves, &e);
+            pump(30);
+        };
+        auto* tracks = w.findChild<QWidget*>("sequencerTimeline");
+        const sequencer::Axis whole = panel->axis(curves->width());
+        const QPointF key2 = curves->pointOf(1, 1);
+        wheel(key2, 240, Qt::NoModifier); // two notches in, over the key at 2 s
+        const sequencer::Axis near = panel->axis(curves->width());
+        const double tracksSpan = panel->axis(tracks->width()).span;
+        const QPointF closer = curves->pointOf(1, 1);
+        const QPointF mouseAt(closer.x(), closer.y() - 40);
+        wheel(mouseAt, 240, Qt::ShiftModifier); // the values, about a point 40 px over the key
+        const double apart = std::fabs(mouseAt.y() - curves->pointOf(1, 1).y());
+        pan(QEvent::MouseButtonPress, QPointF(600, 80)), pan(QEvent::MouseMove, QPointF(500, 80)), pan(QEvent::MouseButtonRelease, QPointF(500, 80));
+        const sequencer::Axis moved = panel->axis(curves->width());
+        curves->setFocus();
+        QKeyEvent overF(QEvent::ShortcutOverride, Qt::Key_F, Qt::NoModifier, "f"), pressF(QEvent::KeyPress, Qt::Key_F, Qt::NoModifier, "f");
+        overF.ignore();
+        QCoreApplication::sendEvent(curves, &overF), QCoreApplication::sendEvent(curves, &pressF);
+        pump(60);
+        const sequencer::Axis back = panel->axis(curves->width());
+        const QPointF again = curves->pointOf(1, 1);
+        std::printf("  look closer: the wheel over the key at 2 s - %.2f s in sight from %.2f s (was %.2f), the key stays at x %.1f (was %.1f), the tracks' "
+                    "the same %.2f s; Shift+wheel - the key %.1f px from the mouse (was 40); the middle button 100 px - from %.2f s; F - %.2f s from %.2f, "
+                    "the key back at y %.1f (was %.1f), F taken from the 3D view %s\n", near.span, near.from, whole.span, closer.x(), key2.x(),
+                    tracksSpan, apart, moved.from, back.span, back.from, again.y(), key2.y(), overF.isAccepted() ? "yes" : "no");
+        c.check(std::fabs(near.span - whole.span * 0.85 * 0.85) < 1e-6 && std::fabs(closer.x() - key2.x()) < 1.0 && tracksSpan == near.span,
+                "the wheel zooms the curves' time about the mouse, the tracks' with it");
+        c.check(apart > 40 * 1.3, "Shift+wheel zooms the values about the mouse");
+        c.check(moved.from > near.from + 0.01, "the middle button moves the view along the time");
+        c.check(overF.isAccepted() && back.span == whole.span && back.from == 0 && std::fabs(again.y() - key2.y()) < 1.0,
+                "F over the Sequencer shows the whole sequence again, the values fitted");
+    }
+
     if (curvesButton) curvesButton->click();
     std::printf("  the curves of «%s»: its key at 2 s, y %.3f m, dragged up 40 px: %.3f m; one undo: %.3f m\n", findObject(b.graph(), cubes[3])->name.c_str(),
                 double(before), double(raised), double(lowered));

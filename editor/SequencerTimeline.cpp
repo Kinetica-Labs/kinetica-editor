@@ -13,6 +13,7 @@
 #include <QContextMenuEvent>
 #include <QJsonObject>
 #include <QKeyEvent>
+#include <QLocale>
 #include <QMouseEvent>
 #include <QPainter>
 #include <QScrollBar>
@@ -29,35 +30,37 @@ namespace sequencer {
 // this gave 0 s for any point of a drag in the program MSVC built (Windows 10: the playhead could be clicked, not
 // dragged), the right time under GCC, and the right time under MSVC too once the code around the call changed.
 double Axis::time(double x) const {
-    const double t = (x - kNames - kPad) * span / double(std::max(1, width - kNames - 2 * kPad));
-    return t < 0 ? 0 : t > span ? span : t;
+    const double t = from + (x - kNames - kPad) * span / double(std::max(1, width - kNames - 2 * kPad));
+    return std::clamp(t, from, from + span);
 }
 
 Axis axisOf(const ke::SequenceObject* q, int width, double atLeast) {
     return {width, std::max({5.0, std::ceil(double(q ? q->length() : 0) + 1), atLeast})};
 }
 
-// A figure every 1, 5, 10 or 30 s by how long the view is, a tick between; the last figure at the edge written before its tick.
+// A figure every 0.1, 0.2, 0.5, 1, 5, 10 or 30 s by how long the view is, a tick between; the last figure at the edge
+// written before its tick.
 void drawRuler(QPainter& p, const Axis& a, const QPalette& pal, int height) {
     const QColor text = pal.color(QPalette::Text), faint(text.red(), text.green(), text.blue(), 40);
     p.fillRect(QRect(kNames, 0, a.width - kNames, kRuler), pal.color(QPalette::AlternateBase));
-    const double every = a.span <= 12 ? 1 : a.span <= 40 ? 5 : a.span <= 120 ? 10 : 30;
-    for (int k = 0; k * every / 2 <= a.span + 1e-9; ++k) {
+    const double every = a.span <= 1.2 ? 0.1 : a.span <= 2.4 ? 0.2 : a.span <= 4.8 ? 0.5 : a.span <= 12 ? 1 : a.span <= 40 ? 5 : a.span <= 120 ? 10 : 30;
+    for (long k = long(std::ceil(a.from / (every / 2) - 1e-9)); k * every / 2 <= a.from + a.span + 1e-9; ++k) {
         const double t = k * every / 2, x = a.x(t);
         p.setPen(text);
         p.drawLine(QPointF(x, kRuler - (k % 2 ? 4 : 8)), QPointF(x, kRuler));
         if (k % 2) continue;
         const bool edge = x + 40 > a.width;
         p.drawText(edge ? QRectF(x - 63, 1, 60, kRuler - 7) : QRectF(x + 3, 1, 60, kRuler - 7), (edge ? Qt::AlignRight : Qt::AlignLeft) | Qt::AlignVCenter,
-                   QString::number(t) + uiText("Kinetica", " с"));
+                   QLocale().toString(t, 'g', 6) + uiText("Kinetica", " с"));
         p.setPen(faint);
         p.drawLine(QPointF(x, kRuler), QPointF(x, height));
     }
 }
 
 void drawPlayhead(QPainter& p, const Axis& a, double time, int height) {
+    if (time < a.from - 1e-9) return; // zoomed past it
     const QColor head(255, 106, 90);
-    const double x = a.x(std::min(time, a.span));
+    const double x = a.x(std::min(time, a.from + a.span));
     p.setPen(QPen(head, 1.6));
     p.drawLine(QPointF(x, 0), QPointF(x, height));
     p.setBrush(head);
@@ -240,8 +243,8 @@ int SequencerTimeline::rowAt(double y) const {
 bool SequencerTimeline::keyAt(const QPointF& at, uint32_t& object, double& time) const {
     const int r = rowAt(at.y());
     const ke::SequenceObject* q = ke::activeSequence(panel_->builder()->graph());
-    if (r < 0 || !q || rows_[size_t(r)].kind != Row::Track || rows_[size_t(r)].track >= q->tracks.size()) return false;
-    const Axis a = axisOf(q, width(), panel_->atLeast());
+    if (r < 0 || at.x() < kNames || !q || rows_[size_t(r)].kind != Row::Track || rows_[size_t(r)].track >= q->tracks.size()) return false;
+    const Axis a = panel_->axis(width());
     const ke::SequenceTrack& t = q->tracks[rows_[size_t(r)].track];
     for (const ke::AnimKey& k : t.keys)
         if (std::fabs(a.x(double(k.time)) - at.x()) <= 6) return object = t.object, time = double(k.time), true;
@@ -250,7 +253,7 @@ bool SequencerTimeline::keyAt(const QPointF& at, uint32_t& object, double& time)
 
 QPointF SequencerTimeline::pointOf(uint32_t object, double time) const {
     const int first = scroll_->value();
-    const Axis a = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast());
+    const Axis a = panel_->axis(width());
     for (int r = first; r < int(rows_.size()); ++r) {
         const double y = kRuler + (r - first) * kRow;
         if (y + kRow > height()) break;
@@ -274,8 +277,10 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
     p.fillRect(QRect(0, 0, kNames, height()), pal.color(QPalette::Window));
     const ke::SceneGraph& g = panel_->builder()->graph();
     const ke::SequenceObject* q = ke::activeSequence(g);
-    const Axis a = axisOf(q, width(), panel_->atLeast());
+    const Axis a = panel_->axis(width());
     drawRuler(p, a, pal, height());
+    const QRectF plot(kNames, 0, width() - kNames, height()); // zoomed, the times outside it are not drawn over the names
+    p.setClipRect(plot);
     if (const double end = flagDrag_ >= 0 && !dragFrom_ ? flagDrag_ : double(g.world.duration); end > 0) { // the play range: a run does not go past its end
         const double x = a.x(end);
         p.fillRect(QRectF(x, 0, width() - x, height()), QColor(0, 0, 0, 80));
@@ -291,6 +296,7 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
         p.drawLine(QPointF(x, 0), QPointF(x, height()));
         p.fillRect(QRectF(x, 3, 9, 13), kEnd); // its flag faces the range, as the end's does
     }
+    p.setClipping(false);
     if (!q || q->tracks.empty()) {
         p.setPen(pal.color(QPalette::PlaceholderText));
         p.drawText(QRectF(kNames + kPad, kRuler + 4, width() - kNames - 2 * kPad, height() - kRuler - 8), Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap,
@@ -322,6 +328,7 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
         const QString words = row.kind == Row::Track ? row.name : QString("%1 · %2").arg(row.name).arg(row.count);
         p.drawText(QRectF(left, y, kNames - left - 4, kRow), Qt::AlignLeft | Qt::AlignVCenter, p.fontMetrics().elidedText(words, Qt::ElideRight, kNames - left - 4));
         p.setFont(font());
+        p.setClipRect(plot);
         if (row.kind != Row::Track) { // the keys of its tracks, one tick a pixel
             p.setPen(QPen(QColor(kKey.red(), kKey.green(), kKey.blue(), 210), 2));
             int last = -10;
@@ -331,6 +338,7 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
                 last = x;
                 p.drawLine(QPointF(x, mid - 5), QPointF(x, mid + 5));
             }
+            p.setClipping(false);
             continue;
         }
         if (row.track >= q->tracks.size()) continue;
@@ -342,7 +350,9 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
         for (const ke::AnimKey& k : t.keys)
             drawKey(p, QPointF(a.x(double(k.time)), mid), k.interp, row.lost ? QColor(150, 150, 150) : kKey,
                     t.object == keyObject_ && std::fabs(double(k.time) - keyTime_) < 1e-6, text);
+        p.setClipping(false);
     }
+    p.setClipping(false);
     p.setPen(QPen(pal.color(QPalette::Mid), 1));
     p.drawLine(QPointF(kNames, 0), QPointF(kNames, height()));
     if (q && q->length() > 0) { // where the sequence ends
@@ -353,11 +363,12 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
 }
 
 void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
+    if (e->button() == Qt::MiddleButton) return void(panFrom_ = e->position().x()); // the middle button moves the time
     if (e->button() != Qt::LeftButton) return;
     const QPointF at = e->position();
     const ke::SceneGraph& g = panel_->builder()->graph();
     if (at.y() < kRuler) { // a flag taken by its box: the end's left of its line, the start's right of it - the line itself
-        const Axis a = axisOf(ke::activeSequence(g), width(), panel_->atLeast()); // and the ruler around it move the playhead
+        const Axis a = panel_->axis(width()); // and the ruler around it move the playhead
         const double end = double(g.world.duration), from = double(g.world.recordFrom), xe = a.x(end), xf = a.x(from);
         if (end > 0 && at.x() >= xe - 11 && at.x() < xe) return void((flagDrag_ = end, dragFrom_ = false));
         if (at.x() > xf && at.x() <= xf + 11) return void((flagDrag_ = from, dragFrom_ = true));
@@ -382,21 +393,28 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
         }
     }
     keyObject_ = 0, keyTime_ = -1;
-    if (at.x() >= kNames) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(at.x()));
+    if (at.x() >= kNames) panel_->scrub(panel_->axis(width()).time(at.x()));
 }
 
 void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
+    if (panFrom_ >= 0) {
+        const Axis a = panel_->axis(width());
+        panel_->panTime((panFrom_ - e->position().x()) * a.span / double(std::max(1, width() - kNames - 2 * kPad)));
+        panFrom_ = e->position().x();
+        return;
+    }
     if (flagDrag_ >= 0) { // to a twentieth of a second; the flags never pass each other
         const ke::WorldSettings& w = panel_->builder()->graph().world;
-        const double t = std::round(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()) * 20) / 20;
+        const double t = std::round(panel_->axis(width()).time(e->position().x()) * 20) / 20;
         flagDrag_ = dragFrom_ ? std::clamp(t, 0.0, w.duration > 0 ? double(w.duration) - 0.05 : 86400.0)
                               : std::max({0.1, t, double(w.recordFrom) + 0.05});
         return update();
     }
-    if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
+    if (panel_->scrubbing()) panel_->scrub(panel_->axis(width()).time(e->position().x()));
 }
 
-void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {
+void SequencerTimeline::mouseReleaseEvent(QMouseEvent* e) {
+    if (e->button() == Qt::MiddleButton) return void(panFrom_ = -1);
     if (flagDrag_ >= 0) {
         const double at = std::exchange(flagDrag_, -1);
         return dragFrom_ ? panel_->setFrom(at) : panel_->setEnd(at);
@@ -427,6 +445,11 @@ void SequencerTimeline::contextMenuEvent(QContextMenuEvent* e) {
     if (keyAt(e->pos(), object, t)) panel_->keyMenu(object, t, e->globalPos());
 }
 
-void SequencerTimeline::wheelEvent(QWheelEvent* e) { scroll_->setValue(scroll_->value() - e->angleDelta().y() / 40); }
+// The wheel over the ruler, or with Ctrl, zooms the time about the mouse (the curves' too: one axis); elsewhere it scrolls the rows.
+void SequencerTimeline::wheelEvent(QWheelEvent* e) {
+    if (e->position().y() >= kRuler && !(e->modifiers() & Qt::ControlModifier)) return scroll_->setValue(scroll_->value() - e->angleDelta().y() / 40);
+    if (const int d = e->angleDelta().y(); d != 0 && e->position().x() >= kNames)
+        panel_->zoomTime(std::pow(0.85, d / 120.0), panel_->axis(width()).time(e->position().x()));
+}
 
 void SequencerTimeline::resizeEvent(QResizeEvent*) { fitScroll(); }
