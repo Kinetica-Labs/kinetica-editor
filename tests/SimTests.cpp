@@ -1106,6 +1106,25 @@ void testSimRecording() {
     CHECK(keys.size() * 3 < truth.size() && worst <= 0.0005_r + 1e-6_r, "the take thinned to %zu keys of %zu frames, %f mm off", keys.size(), truth.size(),
           double(worst) * 1e3);
     CHECK(replayWorst < 0.001_r, "the take replayed: the box %f mm off its run", double(replayWorst) * 1e3);
+
+    // The same run with the take's start at 0.5 s (record_from): the world runs from 0, the take keeps 0.5..1.5 s only,
+    // its keys at the world's time - where the box was then.
+    g.sequences.pop_back(); // physics again, not the replay
+    Simulation late;
+    late.load(g);
+    late.startRecording(0.5_r);
+    while (late.time() < 1.5_r - 1e-6_r) late.stepFrame();
+    SequenceObject window;
+    const bool got = late.takeRecording("Запись 2", window) && !window.tracks.empty();
+    const std::vector<AnimKey>& from = got ? window.tracks[0].keys : truth;
+    Vector3 p;
+    Quaternion q;
+    samplePose(from, from.front().time, false, 0, p, q);
+    const Real at = from.front().time, off = length(p - truth[30].position); // frame 30: 0.5 s
+    std::printf("  the same run, the take from 0.5 s: its keys %.3f..%.3f s, the first %.3f mm off the run at 0.5 s\n", double(at),
+                double(from.back().time), double(off) * 1e3);
+    CHECK(got && std::fabs(at - 0.5_r) < 1e-3_r && std::fabs(from.back().time - 1.5_r) < 1e-3_r && off < 0.0005_r,
+          "a take from record_from keeps that window only, its keys at the world's time");
 }
 
 // A camera on keys while a box falls: the frame says where the world has the camera (the scene as written does not), a

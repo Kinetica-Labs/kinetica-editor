@@ -34,7 +34,7 @@ public:
     // The take (RobotWorld::startRecording): the running one ended and handed over, or the one a new load (Stop)
     // ended - kept for this call. False: none.
     bool takeRecording(const std::string& name, SequenceObject& out);
-    void startRecording() { if (robot_) robot_->startRecording(*physics_); }
+    void startRecording(Real from = 0) { if (robot_) robot_->startRecording(*physics_, from); }
 
 private:
     std::unique_ptr<PhysicsWorld> physics_;

@@ -37,12 +37,12 @@ public:
     // The bodies and joints in `physics`; what could not be built is said in notes().
     void build(PhysicsWorld& physics);
     // One step of dt in `substeps` substeps: before each, the drives' forces on the links.
-    // A take - the Sequencer's record of a run: from now, every dynamic body's pose on its
-    // parent a frame - a robot's links that its joints and IK move as well as a thrown box; not the bodies the playing
-    // sequence leads; taken, a sequence of it - each body a track, its
-    // samples thinned to the keys that give the motion back within 0.5 mm and 0.2 degrees, the first at 0 s - and the
-    // recording ends. Bodies that never moved get no track.
-    void startRecording(const PhysicsWorld& physics);
+    // A take - the Sequencer's record of a run: from the world's time `from` (now, if that is past), every dynamic body's
+    // pose on its parent a frame - a robot's links that its joints and IK move as well as a thrown box; not the bodies the
+    // playing sequence leads; taken, a sequence of it - each body a track, its samples thinned to the keys that give the
+    // motion back within 0.5 mm and 0.2 degrees, each at its time of the world (a take of 2..5 s lies at 2..5 s, beside the
+    // keys of the sequence that played) - and the recording ends. Bodies that never moved get no track.
+    void startRecording(const PhysicsWorld& physics, Real from = 0);
     bool recording() const { return recording_; }
     SequenceObject takeRecording(const std::string& name);
     void step(PhysicsWorld& physics, Real dt, int substeps);
@@ -259,7 +259,7 @@ private:
     std::vector<char> stands_;                         // body -> it is static (stands()): its pose is the scene's, and in a zone that stands it is not news
     std::vector<std::pair<int, int>> inside_;          // after the last step: a zone's body and a body inside it
     bool recording_ = false;
-    int64_t takeFromNs_ = 0;
+    Real takeFrom_ = 0; // the take's start, s of the world's time
     std::vector<std::vector<AnimKey>> take_;           // a sample a frame, an entity of free_ each
     int64_t clockNs_ = 0;
     std::unordered_map<uint32_t, int> robotOf_;      // entities tied by joints - robots' links - and their robot (robotGroups)

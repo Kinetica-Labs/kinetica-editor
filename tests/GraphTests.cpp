@@ -122,10 +122,10 @@ void testSceneFormatOnlyGrows() {
     std::string error;
     // 2: what the format gained after 1 - kinematic, tags; 3: a plugin's component on what is no shape; 4: a given mass;
     // 5: a shape's opacity; 6: a body's own gravity and damping; 7: what a collider touches - trigger, ignores; 8: the force block;
-    // 9: the world line's play range end, duration; 10: a texture's normal map
+    // 9: the world line's play range end, duration; 10: a texture's normal map; 11: the take's start, record_from
     for (const char* name : {"scene-format-1.kscene", "scene-format-2.kscene", "scene-format-3.kscene", "scene-format-4.kscene",
                              "scene-format-5.kscene", "scene-format-6.kscene", "scene-format-7.kscene", "scene-format-8.kscene",
-                             "scene-format-9.kscene", "scene-format-10.kscene"}) {
+                             "scene-format-9.kscene", "scene-format-10.kscene", "scene-format-11.kscene"}) {
         std::ifstream file(std::string(KE_TEST_DATA) + "/" + name, std::ios::binary);
         std::stringstream sample;
         sample << file.rdbuf();
@@ -254,6 +254,10 @@ void testScenePhysicsLine() {
     CHECK(took && ranged.world.duration == 2.5_r && again.world.duration == 2.5_r, "the play range's end did not come back: %s", error.c_str());
     CHECK(SceneGraph().save().find("duration") == std::string::npos, "a scene without a play range wrote a duration");
     CHECK(!bad.load("world gravity 0 -9.81 0 duration -1\n", error), "a negative duration was taken");
+    CHECK(SceneGraph().save().find("record_from") == std::string::npos, "a scene whose take starts at 0 wrote record_from");
+    CHECK(!bad.load("world gravity 0 -9.81 0 duration 5 record_from 5\n", error) && error.find("record_from") != std::string::npos,
+          "a take starting where the run ends was taken: %s", error.c_str());
+    CHECK(bad.load("world gravity 0 -9.81 0 record_from 30\n", error), "a take's start with no end was refused: %s", error.c_str());
 }
 
 void testSceneGraphLocale() {

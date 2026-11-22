@@ -401,6 +401,8 @@ struct WorldSettings {
     Vector3 size{4, 3, 4};      // the box everything lives in, m (floor at y = 0)
     Real duration = 0;          // the play range's end, s of the world's time from ▶ (0: no end): a window's run pauses
                                 // there - or, its sequence looping, starts over - and a take ends there
+    Real recordFrom = 0;        // where a take starts, s of the world's time (record_from): before it the world runs and
+                                // nothing is kept; before `duration`, when that is set
     PhysicsSettings physics;
 };
 

@@ -25,6 +25,7 @@
 #include <QJsonArray>
 #include <QJsonObject>
 #include <QLabel>
+#include <QStatusBar>
 #include <QToolButton>
 
 #include <cmath>
@@ -188,8 +189,9 @@ void keyedCameraTests(QMainWindow& w, SceneBuilder& b, Viewport* v, Checker& c) 
             "view_through looks through a camera of the scene and back; a camera that is not there is refused");
 }
 
-// The play range (the world's duration, the Sequencer's «До»): ▶ runs to its end and stays paused on that frame; a take
-// ends there by itself; with «Петля» the run starts over; the end's flag on the ruler is dragged to move it.
+// The play range (the world's duration, the Sequencer's «До»): ▶ runs to its end and stays paused on that frame, ▶ again
+// goes on; a take - from «От» - closes there and waits for ■ Стоп; with «Петля» the run starts over; the end's flag on the
+// ruler is dragged to move it.
 void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel* panel, QWidget* timeline, Checker& c) {
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
     const auto call = [&](const char* name, const QJsonObject& args) { ops->run(name, args, [](const QJsonObject&) {}, "ui"); };
@@ -217,27 +219,62 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     auto* note = panel->findChild<QLabel*>("sequencerNote");
     c.check(b.mode() == SceneBuilder::Mode::Paused && worldTime() == stood && note && note->text().contains("Стоп"),
             "a press on the ruler in a run moves nothing back and says why: the run is not kept");
+    play->trigger(); // past the end: a deliberate ▶ goes on
+    pump(300);
+    const double past = worldTime();
+    const QJsonObject late = ops->runNow("sim_record", {{"on", true}});
+    std::printf("  ▶ again at the end: %s, the world at %.3f s; «Запись» there: %s\n", b.mode() == SceneBuilder::Mode::Playing ? "playing" : "NOT PLAYING",
+                past, qPrintable(late.value("error").toString()));
+    c.check(b.mode() == SceneBuilder::Mode::Playing && past > 0.55, "▶ after the play range's end goes on past it");
+    c.check(!late.value("ok").toBool() && late.value("error").toString().contains("past"), "«Запись» past the play range's end is refused and says why");
     stop->trigger();
     pump(300);
 
+    // The take's window: «От» 0.3 s, «До» 0.5 s. At «До» the take closes and the world pauses; ▶ goes on, not recording;
+    // ■ Стоп brings the take in - 0.3..0.5 s of the run only.
+    auto* start = panel->findChild<QDoubleSpinBox*>("sequencerFrom");
+    if (!start) return void(c.check(false, "the Sequencer has the take's start, the field «От»"));
+    start->setValue(0.8);
+    pump(60);
+    const double put = double(b.graph().world.recordFrom);
+    c.check(std::fabs(put - 0.45) < 1e-6 && std::fabs(start->value() - 0.45) < 1e-6, "«От» past «До» is put back inside: the flags never pass each other");
+    start->setValue(0.3);
+    pump(60);
     record->trigger();
+    const bool closed = waitUntil([&] { return b.mode() == SceneBuilder::Mode::Paused && !ops->recording(); }, 5000);
+    pump(200);
+    const QString said = w.statusBar()->currentMessage();
+    const bool waits = !activeSequence(b.graph());
+    const QJsonObject second = ops->runNow("sim_record", {{"on", true}});
+    std::printf("  «Запись» with «От» 0.3 s, «До» 0.5 s: %s at %.3f s - «%s»; another take: %s\n", closed ? "paused" : "DID NOT PAUSE", worldTime(),
+                qPrintable(said), qPrintable(second.value("error").toString()));
+    c.check(closed && waits && said.contains("■ Стоп"), "at «До» the take closes, the world pauses and the take waits for ■ Стоп, saying so");
+    c.check(!second.value("ok").toBool() && second.value("error").toString().contains("waits"), "a new take while one waits is refused and says why");
+    play->trigger();
+    pump(300);
+    const bool goes = b.mode() == SceneBuilder::Mode::Playing && worldTime() > 0.55 && !ops->recording();
+    c.check(goes, "▶ after the take's end goes on, not recording");
+    stop->trigger();
     const bool ended = waitUntil([&] { return b.editing() && activeSequence(b.graph()); }, 5000);
     pump(200);
     const SequenceObject* take = activeSequence(b.graph());
-    const double length = take ? double(take->length()) : -1;
-    std::printf("  «Запись» with «До» 0.5 s: the take %s, %.3f s long\n", ended ? "came by itself" : "DID NOT COME", length);
-    c.check(ended && length > 0.4 && length < 0.52, "a take ends at the play range's end by itself");
+    const SequenceTrack* track = take ? trackOf(*take, cube) : nullptr;
+    const double first = track && !track->keys.empty() ? double(track->keys.front().time) : -1, last = track && !track->keys.empty() ? double(track->keys.back().time) : -1;
+    std::printf("  ■ Стоп: the take %s, the cube's keys %.3f..%.3f s\n", ended ? "came in" : "DID NOT COME", first, last);
+    c.check(ended && std::fabs(first - 0.3) < 0.01 && last > 0.45 && last < 0.52, "the take holds «От»..«До» only, at the world's time - not the run after it");
+    start->setValue(0);
+    pump(60);
 
     call("sequence_set", {{"loop", true}});
     pump(60);
     play->trigger();
     pump(1300); // more than two ranges
-    const bool goes = b.mode() == SceneBuilder::Mode::Playing;
+    const bool loops = b.mode() == SceneBuilder::Mode::Playing;
     const double at = worldTime();
     stop->trigger();
     pump(300);
-    std::printf("  «Петля» and ▶ for 1.3 s: %s, the world's time %.3f s\n", goes ? "still playing" : "NOT PLAYING", at);
-    c.check(goes && at < 0.52, "with «Петля» the run starts over at the play range's end");
+    std::printf("  «Петля» and ▶ for 1.3 s: %s, the world's time %.3f s\n", loops ? "still playing" : "NOT PLAYING", at);
+    c.check(loops && at < 0.52, "with «Петля» the run starts over at the play range's end");
 
     const QPointF from(x(0.5) - 4, 8), to(x(1.5), 8); // by its flag, left of the line
     mouse(timeline, QEvent::MouseButtonPress, from), mouse(timeline, QEvent::MouseMove, to), mouse(timeline, QEvent::MouseButtonRelease, to);
@@ -245,9 +282,25 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     const double dragged = double(b.graph().world.duration);
     std::printf("  the range's handle dragged on the ruler from 0.5 s to 1.5 s: «До» %.2f s, the field %.2f\n", dragged, end->value());
     c.check(std::fabs(dragged - 1.5) < 0.06 && std::fabs(end->value() - dragged) < 1e-6, "the play range's end is dragged by its handle on the ruler");
+    start->setValue(0.2); // the take's start has its flag too, right of its line
+    pump(60);
+    const QPointF grab(x(0.2) + 4, 8), drop(x(0.35), 8);
+    mouse(timeline, QEvent::MouseButtonPress, grab), mouse(timeline, QEvent::MouseMove, drop), mouse(timeline, QEvent::MouseButtonRelease, drop);
+    pump(60);
+    const double moved = double(b.graph().world.recordFrom);
+    std::printf("  the take's start dragged by its flag from 0.2 s to 0.35 s: «От» %.2f s\n", moved);
+    c.check(std::fabs(moved - 0.35) < 0.06 && std::fabs(start->value() - moved) < 1e-6, "the take's start is dragged by its flag on the ruler");
+    start->setValue(0);
     end->setValue(0);
     pump(60);
     c.check(b.graph().world.duration == 0 && b.graph().save().find("duration") == std::string::npos, "«До» 0: no end, nothing written into the scene");
+    record->trigger(); // no end: the take still has one - two minutes
+    pump(100);
+    const double limit = b.playEnd();
+    stop->trigger();
+    pump(300);
+    std::printf("  «Запись» with no «До»: the run stops itself at %.0f s; after ■ Стоп %.0f\n", limit, b.playEnd());
+    c.check(std::fabs(limit - 120) < 1e-6 && b.playEnd() == 0, "a take with no play range ends by itself after two minutes, not without end");
 }
 
 } // namespace

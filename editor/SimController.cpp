@@ -144,7 +144,10 @@ void SimController::loop() {
                          [&] { return quit_ || !queue_.empty() || running_ || stepRequests_ > 0; });
             if (quit_) break;
             cmds.swap(queue_);
-            if (running_ && endTime_ > 0 && double(sim_->time()) >= endTime_ - 1e-6) running_ = false, rangeEnded_ = true; // the play range's end
+            if (const double end = endTime_; running_ && end > 0) { // the play range's end: reached once, then ▶ goes on
+                if (double(sim_->time()) < end - 1e-6) endArmed_ = true;
+                else if (endArmed_) running_ = false, rangeEnded_ = true, endArmed_ = false;
+            }
             if (running_) doStep = true;
             else if (stepRequests_ > 0 && stepsCancelled_ && stepsCancelled_()) stepRequests_ = 0, finishSteps = true; // the rest dropped
             else if (stepRequests_ > 0) { --stepRequests_, ++stepsDone_, doStep = true, finishSteps = stepRequests_ == 0; }

@@ -83,7 +83,8 @@ private:
     uint64_t signature_ = 0;        // of the sequence the tree was built from
     uint32_t keyObject_ = 0;        // the key picked: Delete removes it
     double keyTime_ = -1;
-    double endDrag_ = -1;           // the play range's end while its handle is dragged, s (-1: not dragged)
+    double flagDrag_ = -1;          // a flag of the ruler while dragged - the take's start or the play range's end -, s (-1: none)
+    bool dragFrom_ = false;         // the dragged flag is the take's start («От»)
 };
 
 class SequencerCurves : public QWidget {

@@ -553,6 +553,7 @@
 | `radial` | effect | поле от центра или к центру | stable |  |
 | `radius` | pattern, effect, tyre | радиус, м | stable |  |
 | `range` | kind | дальность света, м | stable |  |
+| `record_from` | world | начало дубля, с времени мира; раньше `duration` | testing |  |
 | `reference` | encoder | координата сустава при нулевом счёте, рад или м | stable |  |
 | `repeats` | texture | повторов на метр | stable |  |
 | `resistance` | dcmotor | сопротивление обмотки, Ом | stable |  |
@@ -797,6 +798,7 @@
 | `World` | мир: тяжесть, размер, физика - `world_get`, `world_set` | stable |
 | `World.duration` | время проигрывания, с; 0 - без конца | stable |
 | `World.gravity` | тяжесть [x, y, z], м/с² | stable |
+| `World.record_from` | начало дубля, с; раньше `duration` | testing |
 | `World.size` | размер мира [x, y, z], м | stable |
 | `World.substeps` | подшагов физики на кадр | stable |
 | `Wrench` | датчик силы и момента | stable |

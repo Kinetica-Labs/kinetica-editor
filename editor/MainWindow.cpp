@@ -629,7 +629,11 @@ void MainWindow::poll() {
         if (sequencer_) sequencer_->setPlayTime(double(frames.back()->time)); // the world plays the sequence: the playhead follows
         onSnapshot(frames.back());
     }
-    if (ended) builder_->playRangeEnded(ops_ && ops_->recording());
+    if (ended) {
+        const bool take = ops_ && ops_->recording();
+        builder_->playRangeEnded(take);
+        if (take) ops_->closeTake(); // the world paused; the take waits for ■ Stop
+    }
 }
 
 void MainWindow::onSnapshot(const std::shared_ptr<const Snap>& s) {

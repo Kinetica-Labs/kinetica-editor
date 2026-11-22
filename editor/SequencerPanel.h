@@ -34,6 +34,7 @@ public:
     void setPlayTime(double time);  // in play: where the world is (its newest frame)
     double atLeast() const;         // the views' span: in a run, past the world's time; the play range's end in sight
     void setEnd(double seconds);    // the scene's play range end (world_set: world duration); 0: none
+    void setFrom(double seconds);   // where a take starts (world_set: world record_from), before the end
     void keySelected();             // ◆: the selected objects keyed at the playhead
     double playhead() const;
 
@@ -66,6 +67,7 @@ private:
     QLineEdit* filter_ = nullptr;
     QLabel *time_ = nullptr, *note_ = nullptr;
     class QDoubleSpinBox* end_ = nullptr; // the scene's play range end (world duration), s
+    class QDoubleSpinBox* from_ = nullptr; // where a take starts (world record_from), s
     QStackedLayout* views_ = nullptr;
     SequencerTimeline* timeline_ = nullptr;
     SequencerCurves* curvesView_ = nullptr;

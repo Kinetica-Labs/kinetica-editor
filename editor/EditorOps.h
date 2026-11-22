@@ -55,6 +55,7 @@ public:
     // What brings the window up to the simulation's newest frame (MainWindow sets it).
     void setRefresh(std::function<void()> refresh) { refresh_ = std::move(refresh); }
     bool recording() const { return recording_; } // a take runs (sim_record)
+    void closeTake(); // the run reached its end while recording: the take closed, the world paused; it comes in with ■ Stop
     void onRecordingChanged(std::function<void()> f) { recordingChanged_ = std::move(f); } // the window's ● follows it
     // Who sees every call as it is answered - the console: who called, the operation, its arguments, its
     // answer, and whether it was a query (it changed nothing).
@@ -123,6 +124,13 @@ private:
     void addStepOp();
     void addRecordOp();                      // EditorOpsRecord.cpp: sim_record, the Sequencer's take
     void finishTake(const Reply& reply);     // the take into the scene as a new sequence (reply may be empty)
+    // The take out of the world (Simulation::takeRecording) as a block of the scene file - empty: nothing moved - and its
+    // counts, then `done` on the window's thread.
+    void takeOut(std::function<void(const std::string& block, const QJsonObject& counts)> done);
+    void putTake(const std::string& block, const QJsonObject& counts, const Reply& reply); // a new sequence: scene_put
+    std::string waitingTake_;   // closed at the run's end (closeTake), it comes in with ■ Stop
+    QJsonObject waitingCounts_;
+    double takeFrom_ = 0;       // the running take's start, s of the world's time
     void addStateOp();
     ke::RuntimePolicy::Usage runtimeUsage() const;
     void stopRuntime(const QString& reason, std::function<void()> done);

@@ -126,12 +126,16 @@
   `scene-format-4.kscene` — `mass`, `center_of_mass` и `inertia` у роли `rigid`; `scene-format-5.kscene` — `opacity`
   у формы; `scene-format-6.kscene` — `gravity_scale`, `linear_damping` и `angular_damping` у роли `rigid`;
   `scene-format-7.kscene` — `trigger` у роли `collider` и строка `ignores`; `scene-format-8.kscene` — блок `force`;
-  `scene-format-9.kscene` — `duration` у строки `world`; `scene-format-10.kscene` — `normal_file` у строки `texture`:
+  `scene-format-9.kscene` — `duration` у строки `world`; `scene-format-11.kscene` — `record_from` у строки `world`;
+  `scene-format-10.kscene` — `normal_file` у строки `texture`:
   карта нормалей — картинка нормалей поверхности, зелёный канал вверх (как в OpenGL); пишется, только когда задана,
   и меняет одно освещение, как `bump`.
   Слово `duration` — время проигрывания, секунды от «Пуска», 0 … 86400 (нет слова или 0 — без конца): на этой
   секунде окно ставит сцену на паузу — или, с петлёй у открытой секвенции, пускает её заново — и заканчивает
   запись дубля. Мир из него не строится: правка после «Пуска» берётся на ходу. У `kinetica-core` часов нет, он число хранит.
+  Слово `record_from` — начало дубля, секунды того же времени (нет слова или 0 — с «Пуска»): до него мир идёт, а дубль
+  ничего не держит; ключи дубля стоят на своём времени мира. Оно раньше `duration`, когда та задана: иначе строка
+  отвергается. На `duration` дубль закрывается, а мир встаёт на паузу; дубль входит в сцену с «Стопом».
   Блок `force` (объект «Сила») несёт строку `effect` с ключами `radius shape mode strength` и, только когда заданы,
   `falloff`, `start`, `tag`: слово `falloff`, `start`, `tag` пишется, только когда задано. Строка называется `effect`,
   чтобы не совпасть с блоком по первому слову. У файла нет строки версии: прежняя программа отвергает блок `force` с

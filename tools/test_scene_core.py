@@ -325,6 +325,17 @@ class SceneCore(unittest.TestCase):
             scene.world.duration = 0
             self.assertNotIn("duration", scene.ed.world_get()["text"])
 
+    def test_the_take_starts_before_the_play_range_ends(self):
+        # scene.world.record_from: where the window's take starts; never at or after the end, the refusal names both
+        with ke.Scene() as scene:
+            scene.world.duration = 5
+            scene.world.record_from = 2
+            self.assertEqual(scene.world.record_from, 2)
+            self.assertIn(" record_from 2", scene.ed.world_get()["text"])
+            with self.assertRaisesRegex(ke.OperationError, "record_from 6 is not before duration 5"):
+                scene.world.record_from = 6
+            self.assertEqual(scene.world.record_from, 2)
+
     def test_a_force_of_its_own_body(self):
         # body=: the force is that body's own - a metre of arrow is 3 m/s of it; a neighbour half a metre away feels nothing
         with ke.Scene() as scene:

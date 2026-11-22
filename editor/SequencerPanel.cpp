@@ -83,18 +83,29 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     time_ = new QLabel(this);
     time_->setObjectName("sequencerTime");
     bar->addWidget(time_);
-    bar->addWidget(new QLabel(uiText("Kinetica", "До"), this));
-    end_ = new QDoubleSpinBox(this); // the scene's play range: where a run and a take end
-    end_->setObjectName("sequencerEnd");
-    end_->setRange(0, 86400);
-    end_->setDecimals(2);
-    end_->setSingleStep(0.5);
-    end_->setSuffix(uiText("Kinetica", " с"));
-    end_->setSpecialValueText(uiText("Kinetica", "без конца"));
-    end_->setKeyboardTracking(false);
-    end_->setToolTip(uiText("Kinetica", "Время проигрывания: «Пуск» и «Запись» идут до этой секунды и встают на паузу; с «Петлёй» начинают сначала. 0 — без конца"));
-    bar->addWidget(end_);
-    connect(end_, &QDoubleSpinBox::valueChanged, this, &SequencerPanel::setEnd);
+    // The take's window on the world's clock: «От» where a take starts, «До» where a run and a take end.
+    const auto seconds = [&](const QString& label, const char* name, const QString& none, const QString& tip, void (SequencerPanel::*set)(double)) {
+        bar->addWidget(new QLabel(label, this));
+        auto* box = new QDoubleSpinBox(this);
+        box->setObjectName(name);
+        box->setRange(0, 86400);
+        box->setDecimals(2);
+        box->setSingleStep(0.5);
+        box->setSuffix(uiText("Kinetica", " с"));
+        box->setSpecialValueText(none);
+        box->setKeyboardTracking(false);
+        box->setToolTip(tip);
+        bar->addWidget(box);
+        connect(box, &QDoubleSpinBox::valueChanged, this, set);
+        return box;
+    };
+    from_ = seconds(uiText("Kinetica", "От"), "sequencerFrom", uiText("Kinetica", "с начала"),
+                    uiText("Kinetica", "Начало записи: «Запись» хранит движение с этой секунды до «До»; до неё мир идёт, но ничего не пишется"),
+                    &SequencerPanel::setFrom);
+    end_ = seconds(uiText("Kinetica", "До"), "sequencerEnd", uiText("Kinetica", "без конца"),
+                   uiText("Kinetica", "Время проигрывания: «Пуск» и «Запись» идут до этой секунды и встают на паузу, дубль закрывается; "
+                          "▶ после — дальше без записи; с «Петлёй» «Пуск» начинает сначала. 0 — без конца (запись — не дольше 2 мин)"),
+                   &SequencerPanel::setEnd);
     col->addWidget(strip);
 
     auto* tracks = new QWidget(this);
@@ -148,8 +159,17 @@ double SequencerPanel::atLeast() const {
     return std::max(builder_->editing() ? 0.0 : std::ceil(liveTime_) + 1, end > 0 ? std::ceil(end) + 1 : 0.0);
 }
 
+// The two flags never pass each other: a number that would is put back a twentieth of a second inside.
 void SequencerPanel::setEnd(double seconds) {
+    if (seconds > 0) seconds = std::max(seconds, double(builder_->graph().world.recordFrom) + 0.05);
     run("world_set", QJsonObject{{"line", "world"}, {"key", "duration"}, {"values", QJsonArray{seconds}}});
+    sync(); // the field shows what the scene took
+}
+
+void SequencerPanel::setFrom(double seconds) {
+    if (const double end = double(builder_->graph().world.duration); end > 0) seconds = std::min(seconds, end - 0.05);
+    run("world_set", QJsonObject{{"line", "world"}, {"key", "record_from"}, {"values", QJsonArray{std::max(0.0, seconds)}}});
+    sync();
 }
 
 double SequencerPanel::playhead() const {
@@ -304,8 +324,9 @@ void SequencerPanel::sync() {
         record_->setStyleSheet(ops_->recording() ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString());
     }
     {
-        const QSignalBlocker hush(end_);
+        const QSignalBlocker hush(end_), quiet(from_);
         end_->setValue(double(g.world.duration));
+        from_->setValue(double(g.world.recordFrom));
     }
     const double length = active ? double(active->length()) : 0;
     time_->setText(QString(uiText("Kinetica", "%1 / %2 с")).arg(playhead(), 0, 'f', 2).arg(length, 0, 'f', 2));

@@ -19,6 +19,7 @@
 #include <QWheelEvent>
 
 #include <algorithm>
+#include <utility>
 #include <cmath>
 #include <unordered_map>
 
@@ -275,12 +276,19 @@ void SequencerTimeline::paintEvent(QPaintEvent*) {
     const ke::SequenceObject* q = ke::activeSequence(g);
     const Axis a = axisOf(q, width(), panel_->atLeast());
     drawRuler(p, a, pal, height());
-    if (const double end = endDrag_ >= 0 ? endDrag_ : double(g.world.duration); end > 0) { // the play range: a run does not go past its end
+    if (const double end = flagDrag_ >= 0 && !dragFrom_ ? flagDrag_ : double(g.world.duration); end > 0) { // the play range: a run does not go past its end
         const double x = a.x(end);
         p.fillRect(QRectF(x, 0, width() - x, height()), QColor(0, 0, 0, 80));
         p.setPen(QPen(kEnd, 2));
         p.drawLine(QPointF(x, 0), QPointF(x, height()));
         p.fillRect(QRectF(x - 9, 3, 9, 13), kEnd); // its handle on the ruler, a flag over the range: dragged, the end moves
+    }
+    if (const double from = flagDrag_ >= 0 && dragFrom_ ? flagDrag_ : double(g.world.recordFrom); from > 0) { // the take's start: before it nothing is kept
+        const double x = a.x(from), zero = a.x(0);
+        p.fillRect(QRectF(zero, 0, x - zero, height()), QColor(0, 0, 0, 50));
+        p.setPen(QPen(kEnd, 2));
+        p.drawLine(QPointF(x, 0), QPointF(x, height()));
+        p.fillRect(QRectF(x, 3, 9, 13), kEnd); // its flag faces the range, as the end's does
     }
     if (!q || q->tracks.empty()) {
         p.setPen(pal.color(QPalette::PlaceholderText));
@@ -347,10 +355,11 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
     if (e->button() != Qt::LeftButton) return;
     const QPointF at = e->position();
     const ke::SceneGraph& g = panel_->builder()->graph();
-    if (const double end = double(g.world.duration); end > 0 && at.y() < kRuler
-        && std::fabs(at.x() + 3 - axisOf(ke::activeSequence(g), width(), panel_->atLeast()).x(end)) <= 8) {
-        endDrag_ = end; // the play range's end taken by its handle
-        return;
+    if (at.y() < kRuler) { // a flag taken by its handle: the end's left of its line, the start's right of it
+        const Axis a = axisOf(ke::activeSequence(g), width(), panel_->atLeast());
+        const double end = double(g.world.duration), from = double(g.world.recordFrom);
+        if (end > 0 && std::fabs(at.x() + 3 - a.x(end)) <= 8) return void((flagDrag_ = end, dragFrom_ = false));
+        if (from > 0 && std::fabs(at.x() - 3 - a.x(from)) <= 8) return void((flagDrag_ = from, dragFrom_ = true));
     }
     const int r = rowAt(at.y());
     uint32_t object = 0;
@@ -376,19 +385,20 @@ void SequencerTimeline::mousePressEvent(QMouseEvent* e) {
 }
 
 void SequencerTimeline::mouseMoveEvent(QMouseEvent* e) {
-    if (endDrag_ >= 0) { // to a twentieth of a second, never before a tenth
-        const double t = axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x());
-        endDrag_ = std::max(0.1, std::round(t * 20) / 20);
+    if (flagDrag_ >= 0) { // to a twentieth of a second; the flags never pass each other
+        const ke::WorldSettings& w = panel_->builder()->graph().world;
+        const double t = std::round(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()) * 20) / 20;
+        flagDrag_ = dragFrom_ ? std::clamp(t, 0.0, w.duration > 0 ? double(w.duration) - 0.05 : 86400.0)
+                              : std::max({0.1, t, double(w.recordFrom) + 0.05});
         return update();
     }
     if (panel_->scrubbing()) panel_->scrub(axisOf(ke::activeSequence(panel_->builder()->graph()), width(), panel_->atLeast()).time(e->position().x()));
 }
 
 void SequencerTimeline::mouseReleaseEvent(QMouseEvent*) {
-    if (endDrag_ >= 0) {
-        const double end = endDrag_;
-        endDrag_ = -1;
-        return panel_->setEnd(end);
+    if (flagDrag_ >= 0) {
+        const double at = std::exchange(flagDrag_, -1);
+        return dragFrom_ ? panel_->setFrom(at) : panel_->setEnd(at);
     }
     if (panel_->scrubbing()) panel_->endScrub();
 }

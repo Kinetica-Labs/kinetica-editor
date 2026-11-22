@@ -37,7 +37,8 @@ public:
     void stepFrames(int n, std::function<bool()> cancelled, std::function<void(ke::Simulation&, int)> after);
     void setRealtimeLimit(bool on) { realtime_ = on; }
     // The play range: a running scene stops itself when the world's time reaches `seconds` (0: never) - the frame the
-    // range ends on is the last one stepped, whatever the window's pace. rangeEnded: it did so since the last ask.
+    // range ends on is the last one stepped, whatever the window's pace - once: ▶ after it goes on past it, until the
+    // world is again before the end (a new run, a later end). rangeEnded: it did so since the last ask.
     void setEndTime(double seconds) { endTime_ = seconds; }
     bool rangeEnded() { return rangeEnded_.exchange(false); }
     // Lockstep with the controllers of the window (plugins' on_tick): after each stepped frame
@@ -97,6 +98,7 @@ private:
     std::function<void(ke::Simulation&, int)> afterSteps_;  // under mtx_
     std::atomic<bool> running_{false}, quit_{false}, realtime_{true}, rangeEnded_{false};
     std::atomic<double> endTime_{0.0};
+    bool endArmed_ = false; // the world is before the end: reaching it stops the run (the simulation's thread only)
     std::function<void(ke::Simulation&)> onFrame_; // under mtx_
     int patienceMs_ = 500;
     bool awaiting_ = false;                        // a frame was handed to the controllers, not answered (under mtx_)

@@ -675,9 +675,9 @@ bool RobotWorld::push(const PhysicsWorld& physics, uint32_t entity, const Vector
     return true;
 }
 
-void RobotWorld::startRecording(const PhysicsWorld& physics) {
+void RobotWorld::startRecording(const PhysicsWorld& physics, Real from) {
     recording_ = true;
-    takeFromNs_ = clockNs_;
+    takeFrom_ = from;
     take_.assign(free_.size(), {});
     sampleTake(physics);
 }
@@ -685,7 +685,8 @@ void RobotWorld::startRecording(const PhysicsWorld& physics) {
 // Each free body's pose on its parent and the velocity of its frame's origin (v + w x r from the centre of mass), turned
 // onto its parent.
 void RobotWorld::sampleTake(const PhysicsWorld& physics) {
-    const Real t = Real(double(clockNs_ - takeFromNs_) * 1e-9);
+    const Real t = Real(double(clockNs_) * 1e-9);
+    if (t < takeFrom_ - 1e-4_r) return; // before the take's start: the world runs, nothing is kept
     for (size_t i = 0; i < free_.size(); ++i) {
         const SceneObject* o = findObject(live_, free_[i]);
         const int b = bodyOf(free_[i]);

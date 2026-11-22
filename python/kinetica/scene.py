@@ -99,6 +99,15 @@ class World:
         self._put("world", "duration", [float(seconds)], f"scene.world.duration = {float(seconds)}")
 
     @property
+    def record_from(self):
+        """Where the window's take starts, s (0: at play); before `duration` when that is set."""
+        return (self._scene._call("world_get", line="world", key="record_from", count=1)["values"] or [0.0])[0]
+
+    @record_from.setter
+    def record_from(self, seconds):
+        self._put("world", "record_from", [float(seconds)], f"scene.world.record_from = {float(seconds)}")
+
+    @property
     def substeps(self):
         """The physics engine's substeps per frame of 1/60 s."""
         return int(self._get("physics", "substeps"))

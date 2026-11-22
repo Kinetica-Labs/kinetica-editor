@@ -150,7 +150,11 @@ public:
     uint32_t entityOfBody(int body) const; // the drawn id of a body: an entity, an array's copy... (0: none)
     // Play mode: the simulation's newest picture (the live pose of the selected object on pause).
     void onSimulationSnapshot(const ke::Frame& s);
-    void playRangeEnded(bool recording); // the run reached the scene's play range end (world duration)
+    void playRangeEnded(bool take); // the run reached its end (playEnd): paused - or, no take and the sequence looping, again
+    // Where a run pauses by itself: the play range's end (world duration) or, none set, the limit of a take (EditorOps).
+    double playEnd() const { return graph_.world.duration > 0 ? double(graph_.world.duration) : takeEnd_; }
+    void setTakeEnd(double seconds);
+    void say(const QString& text) { emit statusMessage(text); } // the status line, for the operations of the window
     void play();
     void pause();
     void stop();
@@ -552,6 +556,7 @@ private:
     void applyKeptPoses(const std::vector<KeptPose>& poses);
     ke::SceneGraph keptBefore_;
     bool hasKeptBefore_ = false;
+    double takeEnd_ = 0; // the running take's limit with no play range, s of the world's time (0: no take)
     ke::Vector3 liveTarget_{0.0f}; // on pause: where the selected object's body is now
     bool liveTargetValid_ = false;
     std::map<uint32_t, std::pair<ke::Vector3, ke::Quaternion>> goalLive_; // the goals on paths, where the scene has walked them

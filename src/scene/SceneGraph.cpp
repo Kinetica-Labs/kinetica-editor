@@ -2,7 +2,7 @@
 // by hand and compared with diff. A sample:
 //
 //   # Kinetica scene
-//   world gravity 0 -9.81 0 size 4 3 4 [duration 10]
+//   world gravity 0 -9.81 0 size 4 3 4 [duration 10] [record_from 2]
 //   physics substeps 16 contact_hertz 120 contact_damping 10 joint_hertz 240 joint_damping 2 sleeping 1 continuous 1 linear_damping 0 angular_damping 0
 //   entity "Base"
 //     object id 3 visible 1 locked 0
@@ -515,7 +515,8 @@ static std::string physicsText(const PhysicsSettings& p) {
 }
 
 static std::string worldLine(const WorldSettings& w) {
-    return "world gravity " + vec(w.gravity) + " size " + vec(w.size) + (w.duration > 0 ? " duration " + num(w.duration) : "") + "\n";
+    return "world gravity " + vec(w.gravity) + " size " + vec(w.size) + (w.duration > 0 ? " duration " + num(w.duration) : "") +
+           (w.recordFrom > 0 ? " record_from " + num(w.recordFrom) : "") + "\n";
 }
 
 std::string worldText(const WorldSettings& w) { return worldLine(w) + physicsText(w.physics); }
@@ -633,6 +634,7 @@ static const Key<WorldSettings> kWorldKeys[] = {
     {"gravity", "vector", "m/s²", vector<WorldSettings, &WorldSettings::gravity>},
     {"size", "vector", "m", vector<WorldSettings, &WorldSettings::size>},
     {"duration", "number 0..86400; 0 - no end", "s", [](LineReader& r, WorldSettings& w, std::string&) { return within(r, w.duration, 0, 86400); }},
+    {"record_from", "number 0..86400; before duration", "s", [](LineReader& r, WorldSettings& w, std::string&) { return within(r, w.recordFrom, 0, 86400); }},
 };
 static const Key<PhysicsSettings> kPhysicsKeys[] = {
     {"substeps", "count 1..64", "", [](LineReader& r, PhysicsSettings& p, std::string&) { return r.count(p.substeps, 1, 64); }},
@@ -1166,7 +1168,10 @@ static bool readLine(const std::vector<std::string>& w, SceneGraph& g, Block& bl
         }
         if (w[0] == "world") {
             LineReader r(w, 1);
-            return readKeys(r, g.world, kWorldKeys, bad);
+            if (!readKeys(r, g.world, kWorldKeys, bad)) return false;
+            if (g.world.duration > 0 && g.world.recordFrom >= g.world.duration) // a take that would start after the run ends
+                return bad = "record_from " + num(g.world.recordFrom) + " is not before duration " + num(g.world.duration), false;
+            return true;
         }
         if (w[0] == "entity") g.entities.emplace_back(), g.entities.back().name = name, block = Block::Entity;
         else if (w[0] == "group") g.groups.emplace_back(), g.groups.back().name = name, block = Block::Group;
