@@ -801,12 +801,14 @@ def train(scene, generations: int = 5, first: int = 0):
             "the plugin gone, its section of the plots goes with its panel");
 }
 
-// A robot from URDF (plugins/urdf, the editor's own plugin; examples/robot-arm.urdf): «Импорт…» lists the format, the
+// A robot from URDF (plugins/io_formats, the editor's own plugin; examples/robot-arm.urdf): «Импорт…» lists the format, the
 // import is one undo step - six links in a group, five joints, the root fixed, z up turned to y up (the upper arm's centre
 // 0.4 m over the floor), the shoulder's limit written; Play, and the motors hold the arm up. A mesh found by package://
 // stands where URDF puts its points: a 0.1 m cube from 0 to 0.1 on each axis has its centre at 0.05, 0.05, -0.05.
-void testUrdf(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
-    QDir().mkpath(folder + "/urdf");
+void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/io_formats");
+    for (const char* file : {"plugin.py", "urdf.py", "gltf.py"}) QFile::copy(resourceDir("plugins") + "/io_formats/" + file, folder + "/io_formats/" + file);
+    QDir().mkpath(folder + "/urdf"); // the old name, obsolete: it answers, it is no format and no button
     QFile::copy(resourceDir("plugins") + "/urdf/plugin.py", folder + "/urdf/plugin.py");
     QDir().mkpath(folder + "/kpkg/meshes");
     { // a binary STL: a cube from 0 to 0.1 m, twelve triangles
@@ -829,12 +831,13 @@ void testUrdf(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, con
     write(folder + "/kpkg/block.urdf", R"(<robot name="block"><link name="block"><visual><geometry><mesh filename="package://kpkg/meshes/block.stl"/></geometry></visual><inertial><mass value="1"/></inertial></link></robot>)");
     host->start(true);
     waitUntil([&] { return !host->openerFor("x.urdf").isEmpty(); }, 10000);
-    const bool listed = host->formats().contains("URDF — робот (*.urdf)") && host->openerFor("/a/B.URDF") == "urdf_load";
+    const bool listed = host->formats().contains("URDF — робот (*.urdf)") && host->openerFor("/a/B.URDF") == "io_formats_urdf_load" &&
+                        host->formats().count("URDF — робот (*.urdf)") == 1;
     b.newScene();
     const size_t steps = b.undoTaken();
     const auto load = [&](const QString& path) { // a plugin's command answers when the plugin has
         QJsonObject answer;
-        ops->run("urdf_load", {{"path", path}}, [&answer](const QJsonObject& r) { answer = r; }, "ui");
+        ops->run("io_formats_urdf_load", {{"path", path}}, [&answer](const QJsonObject& r) { answer = r; }, "ui");
         waitUntil([&] { return !answer.isEmpty(); }, 20000);
         return answer;
     };
@@ -880,7 +883,15 @@ void testUrdf(Checker& c, SceneBuilder& b, EditorOps* ops, PluginHost* host, con
                 double(p.x), double(p.y), double(p.z), cube ? double(cube->size.x) : -1.0);
     c.check(o && std::fabs(p.x - 0.05f) < 1e-3f && std::fabs(p.y - 0.05f) < 1e-3f && std::fabs(p.z + 0.05f) < 1e-3f && std::fabs(cube->size.x - 0.1f) < 1e-3f,
             "a URDF mesh (package://, binary STL) stands where its points are, at its own size");
+    // The old name still answers - forwarded, the same robot -, and it is no menu item.
+    b.newScene();
+    QJsonObject old;
+    ops->run("urdf_load", {{"path", resourceDir("examples") + "/robot-arm.urdf"}}, [&old](const QJsonObject& r) { old = r; }, "ui");
+    waitUntil([&] { return !old.isEmpty(); }, 20000);
+    std::printf("  the obsolete urdf_load answered: %s\n", QJsonDocument(old).toJson(QJsonDocument::Compact).left(300).constData());
+    c.check(old.value("links").toInt() == 6 && !action(w, "plugin:urdf_load"), "the obsolete urdf_load still answers, forwarding to io_formats; no button");
     QDir(folder + "/urdf").removeRecursively();
+    QDir(folder + "/io_formats").removeRecursively();
 }
 
 } // namespace
@@ -1359,7 +1370,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testStepChart(c, w, ops, host, dir.path());
     testSvg(c, w, ops, host, dir.path());
     testWords(c, w, ops, host, dir.path());
-    testUrdf(c, b, ops, host, dir.path());
+    testUrdf(c, w, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
     testGizmos(c, w, b, v, ops, host, dir.path());
     testFillAndChange(c, w, b, v, ops, host, dir.path());

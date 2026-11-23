@@ -70,6 +70,7 @@ signals:
 private:
     struct Command {
         QString name, label, key, help, op;
+        QString obsolete; // the operation that replaced it: it still answers, but is no button, menu item or format
         bool tool = false; // a tool of the shelf: a click in the view calls it
         QStringList opens; // the file extensions it opens (".urdf"): «Файл → Импорт…», a file dropped on the view
         QJsonObject args; // field -> {type, default, label, unit, minimum, maximum, enum}

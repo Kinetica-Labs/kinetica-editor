@@ -88,6 +88,16 @@ class PluginSdk(unittest.TestCase):
         self.assertEqual(plugin._commands["row"]["label"], "Ряд")
         self.assertEqual(plugin._commands["row"]["key"], "Ctrl+Shift+R")
 
+    def test_obsolete_name_is_no_format(self):
+        @plugin.command(obsolete="new_load", opens=".x")
+        def old_load(scene, path: str):
+            return scene.ed.new_load(path=path)
+        try:
+            c = plugin._commands["old_load"]
+            self.assertEqual((c["obsolete"], c["opens"]), ("new_load", []))  # an operation that answers, no format, no button
+        finally:
+            plugin._commands.pop("old_load", None)
+
     def test_fields_become_schema(self):
         args = plugin._args(row)
         self.assertEqual(list(args), ["count", "gap", "solid", "colour"])

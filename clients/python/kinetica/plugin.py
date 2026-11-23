@@ -87,7 +87,7 @@ class field:
         return out
 
 
-def command(label=None, key=None, tool=False, opens=None):
+def command(label=None, key=None, tool=False, opens=None, obsolete=None):
     """A function of this file made a command of the editor: ``label`` on its button, ``key`` its shortcut.
 
     ``tool=True`` makes it a tool of the shelf at the left of the view (an orange button): a click in the view calls it
@@ -111,12 +111,17 @@ def command(label=None, key=None, tool=False, opens=None):
         @command(label="URDF — робот", opens=".urdf")
         def load(scene, path):
             ...
+
+    ``obsolete="io_formats_urdf_load"`` keeps an old name alive after it moved (names only grow:
+    docs/contracts/names.md): the operation still answers - the function forwards to the new one -, but it is no
+    button, no menu item and no format of «Импорт…»; its help names what to call instead.
     """
 
     def make(fn):
         given = [opens] if isinstance(opens, str) else list(opens or [])
         _commands[fn.__name__] = {"fn": fn, "label": label or fn.__name__, "key": key or "", "tool": bool(tool),
-                                  "opens": [e if e.startswith(".") else "." + e for e in given]}
+                                  "opens": [] if obsolete else [e if e.startswith(".") else "." + e for e in given],
+                                  "obsolete": obsolete or ""}
         return fn
 
     return make
@@ -514,7 +519,8 @@ def _serve(file):
             args.update({k: v for k, v in _CLICK.items() if k in args})
         if c["opens"] and "path" in args:  # the file to open: given by «Импорт…» or a drop
             args["path"] = {"type": "string", "label": "Файл"}
-        commands.append({"name": n, "label": c["label"], "key": c["key"], "tool": c["tool"], "opens": c["opens"], "help": (inspect.getdoc(c["fn"]) or "").strip(),
+        commands.append({"name": n, "label": c["label"], "key": c["key"], "tool": c["tool"], "opens": c["opens"], "obsolete": c["obsolete"],
+                         "help": (inspect.getdoc(c["fn"]) or "").strip(),
                          "args": args, "order": [k for k in args if not (c["tool"] and k in _CLICK)]})
     _link.update(client=control, name=name, token=token)
     components = [{"name": m["name"], "label": m["label"], "help": m["help"], "order": list(m["fields"]),

@@ -1,4 +1,4 @@
-"""The glTF import that comes with the editor (plugins/gltf): a small .glb made here - a red cube under a node that rises -
+"""The glTF import that comes with the editor (plugins/io_formats, gltf.py): a small .glb made here - a red cube under a node that rises -
 is read into a scene with no window (ke.Scene()), and what came is held to what the file says: the node tree as groups and
 a shape, the place, the turn and the baked scale, the colour, the mesh written beside the file, the animation as a
 sequence. Needs build/kinetica-core.
@@ -30,7 +30,7 @@ def built():
 
 
 def plugin():
-    spec = importlib.util.spec_from_file_location("gltf_plugin", os.path.join(ROOT, "plugins", "gltf", "plugin.py"))
+    spec = importlib.util.spec_from_file_location("gltf_plugin", os.path.join(ROOT, "plugins", "io_formats", "gltf.py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

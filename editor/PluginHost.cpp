@@ -749,6 +749,7 @@ void PluginHost::addOps() {
             cmd.name = c.value("name").toString(), cmd.label = c.value("label").toString(cmd.name), cmd.key = c.value("key").toString();
             cmd.help = c.value("help").toString(), cmd.args = c.value("args").toObject(), cmd.order = c.value("order").toArray();
             cmd.tool = c.value("tool").toBool();
+            cmd.obsolete = c.value("obsolete").toString();
             for (const QJsonValue& x : c.value("opens").toArray()) cmd.opens << x.toString().toLower();
             cmd.op = p->name + "_" + slug(cmd.name);
             for (auto f = cmd.args.begin(); f != cmd.args.end(); ++f) // a field of a scene object whose kind is no kind: said at once
@@ -758,8 +759,8 @@ void PluginHost::addOps() {
                     if (!why.isEmpty()) emit output(p->name, uiText("Kinetica", "поле «") + f.key() + uiText("Kinetica", "» команды «") + cmd.name + "»: " + why);
                 }
             const QString plugin = p->name, command = cmd.name;
-            ops_->addPluginOp(cmd.op, QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ",
-                                                                QString("(plugin %1)").arg(plugin)),
+            ops_->addPluginOp(cmd.op, (cmd.obsolete.isEmpty() ? QString() : QString("obsolete - call %1. ").arg(cmd.obsolete)) +
+                                          QString("«%1» - %2%3").arg(cmd.label, cmd.help.isEmpty() ? QString() : cmd.help + " ", QString("(plugin %1)").arg(plugin)),
                               argsHelp(cmd.args, c.value("order").toArray()),
                               [this, plugin, command, fields = cmd.args](const QJsonObject& args, const EditorOps::Reply& r) {
                 Plugin* q = find(plugin);
@@ -767,6 +768,11 @@ void PluginHost::addOps() {
                 if (const QString why = refProblem(fields, args); !why.isEmpty()) return r(EditorOps::error(why));
                 call(*q, command, args, r);
             }, jsonSchema(cmd.args));
+            if (!cmd.obsolete.isEmpty()) { // an old name kept alive: an operation, no button
+                p->commands.push_back(cmd);
+                made.append(cmd.op);
+                continue;
+            }
             cmd.action = new QAction(cmd.label + (cmd.args.isEmpty() || cmd.tool ? QString() : "…"), window_);
             if (!cmd.opens.isEmpty()) cmd.action->setText(cmd.label + "…");
             if (cmd.tool) { // on the shelf at the left of the view, under the gizmo's tools: orange, its first letter
