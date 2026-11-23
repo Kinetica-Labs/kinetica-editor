@@ -109,19 +109,20 @@ void fallingCube(QMainWindow& w, SceneBuilder& b) {
 }
 
 void testZeroClicks(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const Plots& p, const QString& dir) {
-    p.graphs->setChecked(false); // a fresh start: the plots closed, as in a new window
+    p.graphs->setChecked(true); // as a new window has them: a tab of the bottom panel from the start
+    p.dock->raise();
     fallingCube(w, b);
-    const bool closedBefore = !p.dock->isVisible();
+    const bool openBefore = p.dock->isVisible();
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-1-before.png");
     trigger(w, "actionPlay"); // ▶
     pump(1000);
     TrackChart* energy = viewTitled(p, kEnergyTitle);
     const bool drawn = energy && energy->isVisible() && energy->tracks().size() == 3 && hasNumbers(p.panel, "scene/kinetic energy") &&
                        hasNumbers(p.panel, "scene/potential energy") && hasNumbers(p.panel, "scene/mechanical energy");
-    std::printf("  before ▶ the plots are %s; a second after ▶: %s, «%s» %s\n", closedBefore ? "closed" : "OPEN",
+    std::printf("  before ▶ the plots are %s; a second after ▶: %s, «%s» %s\n", openBefore ? "open" : "CLOSED",
                 p.dock->isVisible() ? "open" : "closed", qPrintable(kEnergyTitle), drawn ? "drawn" : "MISSING");
-    c.check(closedBefore && p.dock->isVisible() && drawn,
-            "zero clicks: a second after the first ▶ the plots are open and the scene's energy (3 lines) is drawn");
+    c.check(openBefore && p.dock->isVisible() && drawn,
+            "zero clicks: the plots are open before ▶, and a second after it the scene's energy (3 lines) is drawn");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/plots-2-play.png");
 
     const auto s = v->snapshot();

@@ -6,6 +6,7 @@
 // The menu offers it only while the core's registry has that operation (scene/SceneOps.h): tuning a servo to its load
 // needs the running world, and a window offers nothing the API cannot do.
 #include "SceneBuilder.h"
+#include "Icons.h"
 #include "UiLanguage.h"
 
 #include "scene/SceneOps.h"
@@ -31,7 +32,7 @@ void SceneBuilder::fillJointMenu(const Entity& e, QMenu* menu) {
     static const char* const slides[] = {uiText("Kinetica", "Ход вдоль X"), uiText("Kinetica", "Ход вдоль вертикали (Y)"), uiText("Kinetica", "Ход вдоль Z")};
     for (int kind = 0; kind < 2; ++kind)
         for (int axis = 0; axis < 3; ++axis) {
-            QAction* a = menu->addAction(kind == 0 ? turns[axis] : slides[axis]);
+            QAction* a = menu->addAction(svgIcon(kind == 0 ? "joints/rotary-motor" : "joints/linear-actuator", 24), kind == 0 ? turns[axis] : slides[axis]);
             a->setToolTip(QString(kind == 0 ? uiText("Kinetica", "Шарнир с сервоприводом, настроенным под то, что он несёт: держит позу, цель — угол в карточке сочленения")
                                             : uiText("Kinetica", "Ползун с сервоприводом, настроенным под то, что он несёт: держит место, цель — ход в карточке сочленения")) +
                           order);

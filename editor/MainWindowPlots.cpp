@@ -1,6 +1,6 @@
 // The plots in the window (see PlotPanel.h), and what ties them to the rest of it:
-//   1. zero clicks: the first ▶ opens the plots by itself, compact (unless the reader closed them by
-//      hand), and selecting a body gives it its own charts, selecting an IK goal its arm's;
+//   1. zero clicks: the plots are a tab of the bottom panel from the start, and selecting a body gives it
+//      its own charts, selecting an IK goal its arm's;
 //   2. what the simulation measures for them (sim/Channels.h): the scene's channels while the
 //      plots or the Laboratory are open - closed, nothing is measured and nothing is paid; the
 //      channels of every body the reader looks at - selected in the scene, or clicked in the
@@ -72,12 +72,10 @@ void MainWindow::connectPlots() {
         auto* dock = findChild<QDockWidget*>("resultsDock");
         if (dock && dock->isVisible() && dock->height() < height) resizeDocks({dock}, {std::min(height, this->height() / 2)}, Qt::Vertical);
     });
-    // Closed by the reader's hand (F9, the menu, the dock's ✕): the next ▶ leaves the plots closed.
-    connect(graphsAct_, &QAction::triggered, this, [this](bool on) { plotsClosedByHand_ = !on; });
+    // Closed by the dock's ✕: «Графики» (F9) goes off with it, and nothing is measured for them.
     auto* dock = findChild<QDockWidget*>("resultsDock");
     connect(dock, &QDockWidget::visibilityChanged, this, [this, dock](bool on) {
         if (on || !dock->isHidden() || settingGraphs_ || !graphsAct_->isChecked()) return;
-        plotsClosedByHand_ = true;
         setGraphsVisible(false);
     });
 }
@@ -97,21 +95,6 @@ void MainWindow::recordFrames(const std::vector<SimController::Reading>& reading
         }
         if (r.frame != plotFrame_ && r.frame > 0) plots_->append(r.time, r.channels, r.measurements);
         plotFrame_ = r.frame;
-    }
-    if (sceneRunning()) autoOpenPlots(); // the first ▶ shows the plots by itself
-}
-
-// The first ▶ opens the plots by themselves, compact - unless the reader closed them by hand (then
-// they stay closed) or nobody watches (the automation's pictures keep their layout).
-void MainWindow::autoOpenPlots() {
-    if (graphsAct_->isChecked() || plotsClosedByHand_ || auto_.active) return;
-    auto* sequencer = findChild<QDockWidget*>("sequencerDock");
-    const bool timeline = sequencer && sequencer->isVisible() && !sequencer->visibleRegion().isEmpty(); // its tab in front
-    setGraphsVisible(true);
-    if (timeline) sequencer->raise(); // ▶ watched on the timeline: the plots open behind it
-    if (auto* dock = findChild<QDockWidget*>("resultsDock")) {
-        resizeDocks({dock}, {210}, Qt::Vertical);
-        if (armWatched_) dock->raise(); // a goal selected before ▶: its arm's charts in front
     }
 }
 

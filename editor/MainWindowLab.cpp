@@ -129,8 +129,6 @@ void MainWindow::labSync() {
     if (labAct_->isChecked()) lab_->syncFromProbe();
 }
 
-bool MainWindow::sceneRunning() const { return builder_->mode() == SceneBuilder::Mode::Playing; }
-
 void MainWindow::labPlot(const QString& channel) {
     plots_->showChannel(channel.toStdString());
     setGraphsVisible(true);

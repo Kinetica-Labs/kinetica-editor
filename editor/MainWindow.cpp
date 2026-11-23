@@ -85,7 +85,8 @@ MainWindow::MainWindow() {
     buildPlayExtras();
     connectViewportControls();
     connectPlots();         // the plots with the Laboratory's timeline and the selected object
-    setGraphsVisible(false);
+    setGraphsVisible(true); // a tab of the bottom panel from the start (a core research tool), the Sequencer in front
+    if (auto* sequencer = findChild<QDockWidget*>("sequencerDock")) sequencer->raise();
 
     onModeChanged();
 

@@ -193,7 +193,6 @@ private:
     };
     void showBodyCard(int body);       // index into the frame's bodies
     void fillBodyCard(const LabBodyFacts& f);
-    bool sceneRunning() const;
     void labPlot(const QString& channel);     // «Построить график»: the channel into the plots, the plots shown
 
     // The plots and what ties them to the window (MainWindowPlots.cpp): what the simulation measures
@@ -209,12 +208,10 @@ private:
     bool armWatched_ = false;
     void forgetWatched();                     // editing again or another scene: no body watched
     void saveVisibleCsv();                    // «Сохранить CSV»: the lines on the charts
-    void autoOpenPlots();                     // the first ▶: the plots open by themselves, compact
     void recordFrames(const std::vector<SimController::Reading>& readings); // every simulated frame
     std::string plotScene_;                   // the scene and the frame the plots recorded last
     uint64_t plotFrame_ = 0;
     std::vector<ke::ObjectRef> watched_;      // the bodies whose channels are measured (by their entities)
-    bool plotsClosedByHand_ = false;          // the reader closed the plots: ▶ leaves them closed
     bool settingGraphs_ = false;              // setGraphsVisible at work (not the reader's hand)
 
     std::unique_ptr<SimController> ctrl_;
