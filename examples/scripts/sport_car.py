@@ -48,16 +48,17 @@ for x in (BASE / 2, -BASE / 2):
     front = x > 0
     for side in (1, -1):  # +z right, -z left
         z = side * 0.23
-        hub = box("Ступица", (x, Y, z), (0.06, 0.06, 0.06))
+        where = ("П" if front else "З") + ("П" if side > 0 else "Л")  # front/rear, right/left: «Колесо ПЛ» - front left
+        hub = box(f"Ступица {where}", (x, Y, z), (0.06, 0.06, 0.06))
         ed.assembly_joint(a=hub, b=chassis, type="shock", anchor=[x, Y, side * 0.2], axis=[0, 1, 0])
         carrier = hub
         if front:  # the knuckle on its kingpin, held at its angle by a servo
-            knuckle = box("Кулак", (x, Y, side * 0.275), (0.04, 0.04, 0.03))
+            knuckle = box(f"Кулак {where}", (x, Y, side * 0.275), (0.04, 0.04, 0.03))
             king = ed.assembly_joint(a=knuckle, b=hub, type="hinge", anchor=[x, Y, side * 0.26], axis=[0, 1, 0])["id"]
             angle = inner if side < 0 else outer
             ed.assembly_drive(joint=king, kind="servo", stiffness=40, damping=2, target=angle)
             carrier = knuckle
-        wheel = ed.scene_add(shape="cylinder", name="Колесо", position=[x, Y, side * 0.32], size=[0.2, 0.06, 0.2], role="rigid")["id"]
+        wheel = ed.scene_add(shape="cylinder", name=f"Колесо {where}", position=[x, Y, side * 0.32], size=[0.2, 0.06, 0.2], role="rigid")["id"]
         ed.scene_turn(ids=[wheel], axis="x", degrees=90)  # a cylinder's axis is its y: the axle along z
         axle = ed.assembly_joint(a=wheel, b=carrier, type="hinge", anchor=[x, Y, side * 0.29], axis=[0, 0, 1])["id"]
         if not front:  # a DC motor through a 36:1 gearbox, its K and R from its make (the motors plugin: Lorentz, Faraday, Ohm)

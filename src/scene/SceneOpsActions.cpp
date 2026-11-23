@@ -10,6 +10,7 @@
 #include "scene/SceneActions.h"
 
 #include <algorithm>
+#include <set>
 
 namespace ke {
 
@@ -173,7 +174,13 @@ SceneOp treeOp(const char* name, const char* help, const char* args = "{ids}") {
         if (op == "scene_delete") {
             std::vector<uint32_t> gone = roots;
             for (uint32_t id : named) if (device(g, id)) gone.push_back(id); // a battery or a driver: no root
+            std::set<uint32_t> was;
+            eachObjectList(g, [&](const auto& list) { for (const auto& o : list) was.insert(o.id); });
             deleteObjects(g, gone);
+            eachObjectList(g, [&](const auto& list) { for (const auto& o : list) was.erase(o.id); });
+            Value deleted = Value::list(); // all that went: the named, what was under them, the joints and sensors they held
+            for (uint32_t id : was) deleted.push(int64_t(id));
+            r.set("deleted", deleted);
         } else if (op == "scene_ungroup") {
             made = ungroupObjects(g, named);
             if (made.empty()) return e = "no group among the ids", false;

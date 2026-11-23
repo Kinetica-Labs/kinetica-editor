@@ -214,7 +214,7 @@
 | `offset` | `[3]` | смещение от центра объекта в его осях, м | stable |  |
 | `on` | `bool` | включить; false - выключить | stable |  |
 | `open_force` | `number` | сила, с которой схват открывается, Н | stable |  |
-| `ops` | `[]` | операции пакета `[{op, args}]` - одним шагом отмены | stable |  |
+| `ops` | `[]` | операции пакета `[{op, args, as?}]` - одним шагом отмены; `as` - имя шага для ссылок `"$имя"` | stable |  |
 | `overrides` | `[]` | переопределения частей сборки: `{name, line, key, values}` - `scene_set` по имени детали внутри неё (как prefab overrides) | stable |  |
 | `part` | `str` | часть окна на снимке: view, toolbar, tools, inspector, sequencer, plots, console, laboratory | stable |  |
 | `pivot` | `[3]` | точка, вокруг которой поворачивают, м | stable |  |
@@ -346,6 +346,7 @@
 | `current` | ток мотора, А | stable |  |
 | `curves` | секвенсор показывает кривые, а не дорожки | stable |  |
 | `damping` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
+| `deleted` | объекты, ушедшие при удалении: названные, всё под ними, суставы и датчики на них | stable |  |
 | `depth` | глубина проникновения, м | stable |  |
 | `distance` | расстояние, м | stable |  |
 | `dof` | степень свободы мотора: номер 0-5 (tx, ty, tz, rx, ry, rz) | stable |  |

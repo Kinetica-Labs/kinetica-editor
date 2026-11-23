@@ -75,7 +75,7 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
         };
         if (p < 0) { // an ideal bus: each motor at its own line's voltage
             for (Motor& m : motors) {
-                const double V = double(joints_[m.live->joint].spec.dof[joints_[m.live->joint].dof].drive.voltage);
+                const double V = std::fabs(double(joints_[m.live->joint].spec.dof[joints_[m.live->joint].dof].drive.voltage)); // a supply's: the duty's sign turns it, as on a pack
                 const double free = m.duty != 0 ? (m.duty * V - m.K * m.w) / m.R : m.brake ? -m.K * m.w / m.R : 0.0, I = held(m, free);
                 m.live->current = Real(I);
                 m.live->voltage = Real(m.duty == 0 && !m.brake ? m.K * m.w : I == free && m.duty != 0 ? m.duty * V : I * m.R + m.K * m.w);

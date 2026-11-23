@@ -24,18 +24,25 @@ Kinetica — редактор роботов на физике Box3D. Челов
 
 2. **Земля — один вызов.** `terrain_make {size, height, hills, flat, seed, track}`: неподвижные холмы, ровная середина
    радиусом `flat`; `track: true` — ещё горка, лежачие полицейские, лёгкие ящики и мячи.
-3. **Новое — один `scene_batch`.** `"$n"` — id, который выдал шаг n (счёт с 0), `"$n.key"` — другой ключ его ответа.
-   Робот из деталей, суставов и моторов — один пакет:
+3. **Новое — один `scene_batch`.** Шаг с именем — `{"as": "шасси", "op", "args"}`; дальше `"$шасси"` — id, который он
+   выдал, `"$шасси.key"` — другой ключ его ответа (по номеру тоже можно: `"$0"` — первый шаг). Робот из деталей, суставов,
+   моторов и питания — один пакет:
 
    ```json
    {"ops": [
-     {"op": "scene_add", "args": {"shape": "box", "name": "Шасси", "position": [0, 0.3, 0], "size": [1, 0.05, 0.4], "role": "rigid"}},
-     {"op": "scene_add", "args": {"shape": "cylinder", "name": "Колесо", "position": [-0.35, 0.1, 0.3], "size": [0.2, 0.06, 0.2], "role": "rigid"}},
-     {"op": "scene_turn", "args": {"ids": ["$1"], "axis": "x", "degrees": 90}},
-     {"op": "assembly_joint", "args": {"a": "$1", "b": "$0", "type": "hinge", "anchor": [-0.35, 0.1, 0.27], "axis": [0, 0, 1]}},
-     {"op": "assembly_drive", "args": {"joint": "$3", "kind": "dcmotor", "voltage": -11.1, "resistance": 0.13, "constant": 0.29}},
-     {"op": "assembly_power", "args": {"joint": "$3"}}]}
+     {"as": "шасси", "op": "scene_add", "args": {"shape": "box", "name": "Шасси", "position": [0, 0.3, 0], "size": [1, 0.05, 0.4], "role": "rigid"}},
+     {"as": "колесо", "op": "scene_add", "args": {"shape": "cylinder", "name": "Колесо ЗП", "position": [-0.35, 0.1, 0.3], "size": [0.2, 0.06, 0.2], "role": "rigid"}},
+     {"op": "scene_turn", "args": {"ids": ["$колесо"], "axis": "x", "degrees": 90}},
+     {"as": "ось", "op": "assembly_joint", "args": {"a": "$колесо", "b": "$шасси", "type": "hinge", "anchor": [-0.35, 0.1, 0.27], "axis": [0, 0, 1]}},
+     {"op": "assembly_drive", "args": {"joint": "$ось", "kind": "dcmotor", "voltage": -11.1, "resistance": 0.13, "constant": 0.29}},
+     {"as": "питание", "op": "assembly_power", "args": {"joint": "$ось"}},
+     {"op": "scene_set", "args": {"id": "$питание.battery", "line": "cells", "key": "parallel", "values": [3]}},
+     {"op": "scene_set", "args": {"id": "$питание", "line": "bridge", "key": "limit", "values": [15]}}]}
    ```
+
+   `assembly_power` отвечает id драйвера и `battery` — id его батареи. Батарея: строка `cells`, ключи `series` и
+   `parallel` (сколько ячеек последовательно и параллельно), `capacity` (А·ч одной ячейки). Драйвер: строка `bridge`, ключи
+   `limit` (предел тока, А) и `duty` (скважность −1…1).
 
 4. **Один блок — `scene_put {block}`** (id 0 — новый объект). Пульт машинки, `CHASSIS` — id шасси:
 
@@ -67,6 +74,9 @@ Kinetica — редактор роботов на физике Box3D. Челов
 - Типы суставов: `hinge` (вращение вокруг axis), `slider`, `ball`, `weld`, `shock` (пружина с демпфером вдоль axis),
   `cylinder`, `universal`, `planar`. `anchor` и `axis` — в мире.
 - Колесо на оси вдоль z: цилиндр повернуть вокруг x на 90°.
+- У сустава свои оси: шарнир всегда вращается вокруг своей `rx`, ползун и амортизатор ходят вдоль своей `tx`, куда бы ни
+  смотрела ось в мире. Поэтому у шарнира вокруг мировой z степень свободы называется `rx`.
+- `scene_delete` отвечает `deleted` — всё, что ушло: названное, всё под ним, суставы и датчики на нём.
 - Действия пульта машинки — `drive value`: их читает плагин, стабилизатор «Мозга» ведёт машинку. Клавиши — по именам Qt
   (`Up Down Left Right W Space`), геймпад — `left_y right_x left_trigger …`.
 - Каждый блок текста кончается строкой `end`.

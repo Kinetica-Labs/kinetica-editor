@@ -646,9 +646,14 @@ std::vector<SceneOp> assemblySceneOps() {
     ops.push_back(wheelModuleOp());
     ops.push_back(driveSceneOp());
     ops.push_back(gripSceneOp());
-    ops.push_back({"assembly_power", "A joint's DC motor fed from a battery: a driver at duty 0 - still until its duty is set (scene_set, robot_command, a controller's duty action, the card's slider); battery 0: the scene's first, or a new 3S pack",
+    ops.push_back({"assembly_power", "A joint's DC motor fed from a battery: a driver at duty 0 - still until its duty is set (scene_set, robot_command, a controller's duty action, the card's slider); battery 0: the scene's first, or a new 3S pack. Answers the driver's id and its battery's",
                    "{joint: int, battery?: int}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
-        const uint32_t id = powerMotor(g, uint32_t(a["joint"].integer()), uint32_t(a["battery"].integer(0)));
+        const uint32_t battery = uint32_t(a["battery"].integer(0));
+        if (battery && std::none_of(g.batteries.begin(), g.batteries.end(), [&](const BatteryObject& b) { return b.id == battery; }))
+            return e = std::to_string(battery) + " is no battery (scene_list {kind: battery} names them; 0: the scene's first, or a new 3S pack)", false;
+        const uint32_t id = powerMotor(g, uint32_t(a["joint"].integer()), battery);
+        for (const DriverObject& d : g.drivers)
+            if (d.id == id) r.set("battery", d.battery); // the pack it draws on - a new one, or the scene's first
         return r.set("id", id), id != 0 || (e = "joint " + std::to_string(a["joint"].integer()) + " has no DC motor: give it one first - assembly_drive {joint, kind: 'dcmotor', voltage, resistance, constant}", false);
     }});
     return ops;

@@ -364,6 +364,10 @@ void testSceneApiHyperOperations() {
     CHECK(bigger["ok"].truth() && pack != scene.graph().batteries.end() && pack->parallel == 2, "an override changes its part as it goes in: %s", bigger["error"].text("").c_str());
     CHECK(!call(scene, "assembly_add", R"({"name": "Спорткар", "overrides": [{"name": "Нет такой", "line": "cells", "key": "parallel", "values": [2]}]})")["ok"].truth(),
           "an override of no part is refused, nothing put in");
+    const std::string drivers = std::to_string(scene.graph().drivers[0].id);
+    const Value notPack = scene.call("assembly_power", parseJson("{\"joint\": " + std::to_string(scene.graph().drivers[0].joint) + ", \"battery\": " + drivers + "}"));
+    CHECK(!notPack["ok"].truth() && notPack["error"].text().find("is no battery") != std::string::npos, "a driver's id given for a battery is refused: %s",
+          notPack["error"].text("").c_str());
     const Value listed = call(scene, "assembly_list");
     bool found = false;
     for (const Value& a : listed["assemblies"].items()) found = found || a["name"].text() == "Спорткар";

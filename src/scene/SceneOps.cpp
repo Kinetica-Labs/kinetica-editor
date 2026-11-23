@@ -10,6 +10,7 @@
 #include "scene/SensorSpec.h"
 
 #include <algorithm>
+#include <map>
 #include <type_traits>
 
 namespace ke {
@@ -226,27 +227,29 @@ std::vector<SceneOp> readOps() {
     };
 }
 
-// An argument of a batch's step with what earlier steps answered in place of "$n" (the id step n made) and "$n.key" (that
-// key of its answer), in lists and maps too; a reference to no such step or key: `e`.
-Value referred(const Value& v, const Value& results, std::string& e) {
+// An argument of a batch's step with what earlier steps answered in place of "$n" (the id step n made - from 0) or
+// "$name" (the step named so by its `as`), "$n.key" / "$name.key" (that key of its answer), in lists and maps too; a
+// reference to no such step or key: `e`.
+Value referred(const Value& v, const Value& results, const std::map<std::string, size_t>& named, std::string& e) {
     if (v.type() == Value::Type::Text && v.text().size() > 1 && v.text()[0] == '$') {
         const std::string t = v.text().substr(1);
         const size_t dot = t.find('.');
         const std::string n = t.substr(0, dot), key = dot == std::string::npos ? "id" : t.substr(dot + 1);
         const bool whole = !n.empty() && n.size() < 6 && std::all_of(n.begin(), n.end(), [](char c) { return c >= '0' && c <= '9'; });
-        if (whole && size_t(std::stoi(n)) < results.items().size() && results.items()[size_t(std::stoi(n))].has(key))
-            return results.items()[size_t(std::stoi(n))][key];
-        e = "'" + v.text() + "': no earlier step " + n + " answered " + key + " (steps count from 0)";
+        const auto name = named.find(n);
+        const size_t step = whole ? size_t(std::stoi(n)) : name != named.end() ? name->second : results.items().size();
+        if (step < results.items().size() && results.items()[step].has(key)) return results.items()[step][key];
+        e = "'" + v.text() + "': no earlier step " + n + " answered " + key + " (a step's number from 0, or the name its 'as' gave it)";
         return Value();
     }
     if (v.type() == Value::Type::List) {
         Value out = Value::list();
-        for (const Value& x : v.items()) out.push(referred(x, results, e));
+        for (const Value& x : v.items()) out.push(referred(x, results, named, e));
         return out;
     }
     if (v.type() == Value::Type::Map) {
         Value out = Value::map();
-        for (const std::string& k : v.keys()) out.set(k, referred(v[k], results, e));
+        for (const std::string& k : v.keys()) out.set(k, referred(v[k], results, named, e));
         return out;
     }
     return v;
@@ -255,15 +258,21 @@ Value referred(const Value& v, const Value& results, std::string& e) {
 // The edits a batch may hold: every edit of the list but the batch itself.
 bool batch(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     Value results = Value::list();
+    std::map<std::string, size_t> named; // the steps' names (as) -> their places
     for (const Value& step : a["ops"].items()) {
         const std::string name = step["op"].text("");
         const SceneOp* op = findSceneOp(name);
         if (!op || !op->edit || name == "scene_batch") return e = "'" + name + "' is no edit a batch can hold", false;
         Value answer = Value::map();
         std::string unresolved; // its own: the caller's error may hold words of before
-        const Value args = referred(step["args"], results, unresolved);
+        const Value args = referred(step["args"], results, named, unresolved);
         if (!unresolved.empty()) return e = name + ": " + unresolved, false;
         if (!op->edit(g, args, answer, e)) return e = name + ": " + e, false;
+        if (const std::string as = step["as"].text(""); !as.empty()) {
+            if (named.count(as) || std::all_of(as.begin(), as.end(), [](char c) { return c >= '0' && c <= '9'; }))
+                return e = "as '" + as + "': a name for one step, not a number", false;
+            named[as] = results.items().size();
+        }
         results.push(answer);
     }
     return r.set("results", results), true;
@@ -297,10 +306,11 @@ std::vector<SceneOp> coreSceneOps() {
                        [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         return removeObject(g, uint32_t(a["id"].integer())) || (e = "no object " + std::to_string(a["id"].integer()), false);
     }));
-    ops.push_back(edit("scene_batch", "Several edits as one undo step, all or none. An argument \"$n\" is the id step n (from 0) made, "
-                       "\"$n.key\" that key of its answer - so one batch builds a whole robot: shapes, then the joints, drives and "
-                       "sensors between them, e.g. [{op: scene_add, args: {shape: box}}, {op: scene_add, args: {shape: cylinder}}, "
-                       "{op: assembly_joint, args: {a: \"$1\", b: \"$0\", type: hinge}}]", "{ops: [{op: str, args: {}}]}", batch));
+    ops.push_back(edit("scene_batch", "Several edits as one undo step, all or none. A step named by as - {as: \"chassis\", op, args} - is "
+                       "referred to as \"$chassis\" (the id it made) or \"$chassis.key\" (that key of its answer); \"$n\" is step n from 0. So "
+                       "one batch builds a whole robot: shapes, then the joints, drives and sensors between them, e.g. [{as: body, op: "
+                       "scene_add, args: {shape: box}}, {as: wheel, op: scene_add, args: {shape: cylinder}}, {op: assembly_joint, args: {a: "
+                       "\"$wheel\", b: \"$body\", type: hinge}}]", "{ops: [{op: str, args: {}, as?: str}]}", batch));
     return ops;
 }
 

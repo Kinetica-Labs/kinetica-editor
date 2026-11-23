@@ -552,6 +552,12 @@ void testSimBatteryDrivesMotor() {
     for (int k = 0; k < 600; ++k) ideal.stepFrame();
     const double faster = ideal.physics()->state(ideal.robot()->bodyOf(2)).angularVelocity.z;
     CHECK(std::fabs(faster / double(m.voltage / m.constant) - 1) < 0.01, "a duty of 1 set while running gives U / K, not %f", faster);
+    m.voltage = -6; // its line's sign is not the supply's: the duty alone turns it, as on a pack (a car's two motors agree)
+    Simulation negative;
+    negative.load(scene(1, false));
+    for (int k = 0; k < 600; ++k) negative.stepFrame();
+    const double same = negative.physics()->state(negative.robot()->bodyOf(2)).angularVelocity.z;
+    CHECK(std::fabs(same / expected - 1) < 0.01, "a line of -6 V on an ideal bus turns as one of 6 V: %f, not %f", same, expected);
 }
 
 // assembly_actuator - "join these two with a motor" - on two shapes that are geometry only, as a newcomer draws them:
