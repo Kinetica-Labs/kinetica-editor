@@ -147,7 +147,7 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     connect(reset, &QToolButton::clicked, this, &PlotPanel::resetView);
     follow_ = new QToolButton;
     follow_->setObjectName("plotFollow");
-    connect(follow_, &QToolButton::clicked, this, [this] { setFollowing(view_.time.count("") > 0); });
+    connect(follow_, &QToolButton::clicked, this, [this] { setFollowing(stands()); });
     state->addWidget(stateWords_);
     state->addWidget(follow_);
     state->addWidget(reset);
@@ -322,11 +322,13 @@ QJsonArray PlotPanel::channelsJson() {
 // What is not the plain view, said under the charts, and the way back beside it - never a state without a way out.
 QString PlotPanel::viewWords() const {
     QStringList parts;
-    if (const auto run = view_.time.find(""); run != view_.time.end())
+    const auto run = std::find_if(view_.time.begin(), view_.time.end(), [](const auto& kv) { return timeAxis(kv.first); });
+    if (run != view_.time.end())
         parts << QString(uiText("Kinetica", "окно стоит на %1–%2 с")).arg(run->second.first, 0, 'f', 1).arg(run->second.second, 0, 'f', 1).replace('.', ',');
     else if (view_.span > 0 && !view_.wholeRun)
         parts << QString(uiText("Kinetica", "окно %1 с едет за временем")).arg(view_.span, 0, 'f', view_.span < 10 ? 1 : 0).replace('.', ',');
-    if (view_.time.size() > (view_.time.count("") ? 1u : 0u) || !view_.values.empty()) parts << uiText("Kinetica", "приближено");
+    const bool steps = std::any_of(view_.time.begin(), view_.time.end(), [](const auto& kv) { return !timeAxis(kv.first); });
+    if (steps || !view_.values.empty()) parts << uiText("Kinetica", "приближено");
     if (!view_.focus.isEmpty()) parts << uiText("Kinetica", "один график во всю ширину");
     if (!view_.hidden.empty()) parts << QString(uiText("Kinetica", "скрыто графиков: %1")).arg(view_.hidden.size());
     if (view_.wholeRun) parts << uiText("Kinetica", "весь прогон");
@@ -337,7 +339,7 @@ void PlotPanel::viewChanged() {
     const QString words = viewWords();
     stateWords_->setText(words);
     stateBar_->setVisible(!words.isEmpty());
-    const bool stands = view_.time.count("") > 0;
+    const bool stands = this->stands();
     follow_->setText(stands ? uiText("Kinetica", "▶ Ехать") : uiText("Kinetica", "⏸ Остановить"));
     follow_->setToolTip(stands ? uiText("Kinetica", "Окно снова едет за временем: новое справа, старое уходит влево; колесо — его ширина")
                                : uiText("Kinetica", "Окно встанет, где оно сейчас: колесо приближает внутри, перетаскивание листает прошлое"));
@@ -345,18 +347,20 @@ void PlotPanel::viewChanged() {
 }
 
 // «▶ Ехать» / «⏸ Остановить»: the run's time the reader's own (it stands where it is now) or the sliding window again.
+bool PlotPanel::stands() const {
+    return std::any_of(view_.time.begin(), view_.time.end(), [](const auto& kv) { return timeAxis(kv.first); });
+}
+
 void PlotPanel::setFollowing(bool on) {
-    if (on) {
-        view_.time.erase("");
-        for (TrackChart* o : allViews())
-            if (o->axisWords().isEmpty()) o->clearUserWindow();
-    } else { // each stands where it is: a plugin's chart may keep its own clock
-        view_.time[""] = timeWindow();
-        for (TrackChart* o : allViews())
-            if (o->axisWords().isEmpty()) {
-                const auto [t0, t1] = o->shownTime();
-                o->setUserWindow(t0, t1);
-            }
+    for (auto it = view_.time.begin(); on && it != view_.time.end();) it = timeAxis(it->first) ? view_.time.erase(it) : std::next(it);
+    for (TrackChart* o : allViews()) {
+        if (!timeAxis(o->axisWords())) continue;
+        if (on) o->clearUserWindow();
+        else { // each stands where it is, by its own clock (a plugin's may keep one)
+            const auto [t0, t1] = o->shownTime();
+            o->setUserWindow(t0, t1);
+            view_.time[o->axisWords()] = {t0, t1};
+        }
     }
     refreshCharts();
     refreshPluginCharts();
@@ -1082,11 +1086,11 @@ QAction* PlotPanel::focusItem(QMenu* menu, const QString& chart) {
 // each), ↺ on one gives them all back to the panel; a chart built again keeps the reader's window.
 void PlotPanel::linkZoom(TrackChart* v, const QString& key) {
     connect(v, &TrackChart::zoomedX, this, [this, v](double t0, double t1, bool dragged) {
-        if (!dragged && v->axisWords().isEmpty() && !view_.time.count("") && !view_.wholeRun) {
+        if (!dragged && timeAxis(v->axisWords()) && !stands() && !view_.wholeRun) {
             // the wheel while the window slides: its width, and it slides on (a strip chart's, as an oscilloscope's)
             view_.span = std::clamp(t1 - t0, 0.05, 1e6);
             for (TrackChart* o : allViews())
-                if (o->axisWords().isEmpty()) o->clearUserWindow();
+                if (timeAxis(o->axisWords())) o->clearUserWindow();
             refreshCharts();
             refreshPluginCharts();
             return viewChanged();
@@ -1125,6 +1129,7 @@ void PlotPanel::refreshPluginCharts() {
         for (size_t k = 0; k < s.views.size() && k < s.charts.size(); ++k) {
             const auto [t0, t1] = view_.wholeRun ? s.charts[k].span() : s.charts[k].window(live);
             s.views[k]->setWindow(t0, t1);
+            s.views[k]->setSliding(!view_.wholeRun && !stands());
             s.views[k]->refresh();
         }
 }
@@ -1170,6 +1175,7 @@ void PlotPanel::refreshCharts() {
     const auto [t0, t1] = timeWindow();
     for (TrackChart* v : views_) {
         v->setWindow(t0, t1);
+        v->setSliding(!view_.wholeRun && !stands());
         v->refresh();
     }
     if (view_.arrangement == Arrangement::Lanes) alignLanes();

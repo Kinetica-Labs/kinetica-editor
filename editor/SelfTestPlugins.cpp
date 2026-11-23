@@ -433,7 +433,8 @@ void testChart(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, Plug
 
 clock = 0.0
 
-ui.panel("Счётчик", ui.chart("Время кадра", {"clock": "время", "half": "половина"}, unit="с"), ui.value("clock", "Сейчас"), place="bottom")
+ui.panel("Счётчик", ui.chart("Время кадра", {"clock": "время", "half": "половина"}, unit="с"), ui.value("clock", "Сейчас"),
+         ui.chart("Плата", {"board": "значение"}, x={"since": "время с подключения, с"}), place="bottom")
 
 
 @on_play
@@ -446,7 +447,7 @@ def start(scene):
 def count(scene, dt, sensors):
     global clock
     clock += dt
-    show(clock=clock, half=clock / 2)
+    show(clock=clock, half=clock / 2, since=100 + clock, board=clock)  # a board's own clock, 100 s ahead, as depz's
 )py";
     write(folder + "/meter/plugin.py", file);
     host->start(true);
@@ -524,10 +525,15 @@ def count(scene, dt, sensors):
         const auto [p0, p1] = plotted(w, "Счётчик")->shownTime();
         double sceneWidth = 0;
         for (TrackChart* v : plots->views()) sceneWidth = std::max(sceneWidth, v->shownTime().second - v->shownTime().first);
+        TrackChart* board = plotted(w, "Счётчик", 1);
+        const auto [b0, b1] = board ? board->shownTime() : std::pair<double, double>{0, 0};
+        std::printf("  the board's chart on its own clock («%s»): %.3f..%.3f\n", board ? qPrintable(board->axisWords()) : "none", b0, b1);
         std::printf("  the wheel over the plugin's chart: a window of %.3f s; the plugin's shows %.3f..%.3f (its latest %.3f), the scene's %.3f s wide\n",
                     span, p0, p1, line->latest(), sceneWidth);
-        c.check(span > 0 && std::fabs((p1 - p0) - span) < 1e-6 && std::fabs(p1 - line->time(line->size() - 1)) < 1e-9 && std::fabs(sceneWidth - span) < 1e-6,
-                "the wheel over a plugin's chart sets the sliding window of all the charts - the plugin's and the scene's slide with it");
+        c.check(span > 0 && std::fabs((p1 - p0) - span) < 1e-6 && std::fabs(p1 - line->time(line->size() - 1)) < 1e-9 && std::fabs(sceneWidth - span) < 1e-6 &&
+                    board && std::fabs((b1 - b0) - span) < 1e-6 && b1 > 100,
+                "the wheel over a plugin's chart sets the sliding window of all the charts - the plugin's, one on a board's own clock, and "
+                "the scene's slide with it");
         plots->setView(PlotPanel::View());
     }
     b.stop();

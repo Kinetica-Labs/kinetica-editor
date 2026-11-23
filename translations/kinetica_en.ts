@@ -7455,5 +7455,9 @@ A - another axis · Tab - flip · Ctrl - no snap</translation>
         <source>Окно встанет, где оно сейчас: колесо приближает внутри, перетаскивание листает прошлое</source>
         <translation>The window stops where it is: the wheel zooms inside it, a drag pages the past</translation>
     </message>
+    <message>
+        <source>сейчас</source>
+        <translation>now</translation>
+    </message>
 </context>
 </TS>

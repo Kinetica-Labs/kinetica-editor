@@ -224,6 +224,7 @@ private:
     class QLabel* stateWords_ = nullptr;
     class QToolButton* follow_ = nullptr; // «▶ Ехать» / «⏸ Остановить»: the window slides with the run or stands
     void setFollowing(bool on);
+    bool stands() const; // a time axis has the reader's own window: the charts stand
     QToolButton* layoutButton_ = nullptr;
     std::set<QString> folded_;       // its sections folded, by title
     class QSplitter* body_ = nullptr;     // «Что показывать» | the charts

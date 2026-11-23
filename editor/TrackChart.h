@@ -59,6 +59,10 @@ struct PlotTrack {
     bool hidden = false;                   // switched off in the legend
 };
 
+// Whether a horizontal axis is time: the run's own (no words) or a plugin's clock in seconds («время с подключения, с») -
+// such charts slide and stand together; any other axis is a step (generations), shown whole.
+inline bool timeAxis(const QString& words) { return words.isEmpty() || words.endsWith(", с") || words.endsWith(", s"); }
+
 // A chart a plugin's panel draws, as the bottom plots show it too: the same lines over the same series. `keep` shares
 // their ownership, so the plots' copy outlives nothing it points to; `xWords`: the horizontal axis when it is a step (a
 // generation, an iteration) and not the run's time - empty: the time.
@@ -77,7 +81,7 @@ struct SharedChart {
     // panel's sliding window - a plugin's chart by its own clock).
     std::pair<double, double> window(double live = 60.0) const {
         const auto [lo, hi] = span();
-        return xWords.isEmpty() ? std::pair<double, double>{std::max(lo, hi - live), hi} : std::pair<double, double>{lo, hi};
+        return timeAxis(xWords) ? std::pair<double, double>{std::max(lo, hi - live), hi} : std::pair<double, double>{lo, hi};
     }
 };
 
@@ -102,7 +106,10 @@ public:
     void clearUserWindow();               // the panel's time window again
     void setUserValues(double y0, double y1); // the reader's values, bottom to top
     void clearZoom();
-    std::pair<double, double> shownTime() const { return {t0_, t1_}; } // the time it shows now, s                     // the panel's window and the values' own range again
+    std::pair<double, double> shownTime() const { return {t0_, t1_}; } // the time it shows now, s
+    // The window slides with the time (the panel's «едет»): its axis counts back from now - «−10 с … сейчас», as a system
+    // monitor's - while the reader has not zoomed it to stand.
+    void setSliding(bool on) { if (sliding_ != on) sliding_ = on, update(); }                     // the panel's window and the values' own range again
     bool zoomed() const { return userX_ || userY_; }
     // Margins shared by stacked lanes, so their time axes line up (0: the chart's own).
     int neededLeftMargin() const;
@@ -170,6 +177,7 @@ private:
     bool menu_ = true;
     bool normalized_ = false;
     bool timeAxis_ = true;
+    bool sliding_ = false;
     double hover_ = std::nan("");
     double t0_ = 0, t1_ = 1, y0_ = 0, y1_ = 1;
     double autoT0_ = 0, autoT1_ = 1;       // the panel's window, kept while the reader's is shown

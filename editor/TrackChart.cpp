@@ -391,6 +391,20 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
     }
     if (!timeAxis_) return;
     double tStep = 0;
+    if (sliding_ && !userX_ && timeAxis(axisWords_)) { // back from now: the right edge «сейчас», the rest «−N с»
+        for (double back : niceTicks(t0_ - t1_, 0.0, std::max(2, int(r.width() / 70)), &tStep)) {
+            const double x = std::round(toScreen(r, t1_ + back, y0_).x()) + 0.5;
+            p.setPen(QPen(kGrid, 1.0));
+            p.drawLine(QPointF(x, r.bottom()), QPointF(x, r.bottom() + 4));
+            p.setPen(kAxisText);
+            const QString words = std::fabs(back) < 0.5 * tStep ? QString(uiText("Kinetica", "сейчас"))
+                                                                 : (formatNumber(back, tStep) + uiText("Kinetica", " с")).replace('-', QChar(0x2212));
+            p.drawText(QRectF(x - 40, r.bottom() + 5, 80, 14), std::fabs(back) < 0.5 * tStep ? Qt::AlignRight | Qt::AlignTop : Qt::AlignHCenter | Qt::AlignTop, words);
+        }
+        p.setPen(kMuted);
+        if (!axisWords_.isEmpty()) p.drawText(QRectF(r.left(), r.bottom() + 5 + kStepWords, r.width(), 14), Qt::AlignRight | Qt::AlignTop, axisWords_);
+        return;
+    }
     std::vector<double> ticks = niceTicks(t0_, t1_, std::max(2, int(r.width() / 70)), &tStep);
     if (!axisWords_.isEmpty() && tStep < 1 && wholeSteps()) // whole generations get whole numbers
         ticks = niceTicks(t0_, t1_, std::max(2, int(std::floor(t1_ - t0_)) + 1), &tStep);
