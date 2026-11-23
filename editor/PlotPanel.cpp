@@ -350,13 +350,16 @@ void PlotPanel::setFollowing(bool on) {
         view_.time.erase("");
         for (TrackChart* o : allViews())
             if (o->axisWords().isEmpty()) o->clearUserWindow();
-    } else {
-        const auto [t0, t1] = timeWindow();
-        view_.time[""] = {t0, t1};
+    } else { // each stands where it is: a plugin's chart may keep its own clock
+        view_.time[""] = timeWindow();
         for (TrackChart* o : allViews())
-            if (o->axisWords().isEmpty()) o->setUserWindow(t0, t1);
+            if (o->axisWords().isEmpty()) {
+                const auto [t0, t1] = o->shownTime();
+                o->setUserWindow(t0, t1);
+            }
     }
     refreshCharts();
+    refreshPluginCharts();
     viewChanged();
 }
 
@@ -1085,6 +1088,7 @@ void PlotPanel::linkZoom(TrackChart* v, const QString& key) {
             for (TrackChart* o : allViews())
                 if (o->axisWords().isEmpty()) o->clearUserWindow();
             refreshCharts();
+            refreshPluginCharts();
             return viewChanged();
         }
         view_.time[v->axisWords()] = {t0, t1};
@@ -1116,9 +1120,10 @@ std::vector<TrackChart*> PlotPanel::allViews() const {
 }
 
 void PlotPanel::refreshPluginCharts() {
+    const double live = view_.span > 0 ? view_.span : kLiveSeconds; // the same sliding window as the scene's charts
     for (PluginSection& s : plugins_)
         for (size_t k = 0; k < s.views.size() && k < s.charts.size(); ++k) {
-            const auto [t0, t1] = s.charts[k].window();
+            const auto [t0, t1] = view_.wholeRun ? s.charts[k].span() : s.charts[k].window(live);
             s.views[k]->setWindow(t0, t1);
             s.views[k]->refresh();
         }

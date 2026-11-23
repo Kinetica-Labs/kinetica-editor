@@ -73,10 +73,11 @@ struct SharedChart {
             if (t.series && t.series->size() > 0) lo = std::min(lo, t.series->time(0)), hi = std::max(hi, t.series->time(t.series->size() - 1));
         return lo <= hi ? std::pair<double, double>{lo, hi > lo ? hi : lo + 1} : std::pair<double, double>{0, 1};
     }
-    // What the chart shows: the step chart all of it, the time chart the last minute up to its latest point.
-    std::pair<double, double> window() const {
+    // What the chart shows: the step chart all of it, the time chart the last `live` seconds up to its latest point (the
+    // panel's sliding window - a plugin's chart by its own clock).
+    std::pair<double, double> window(double live = 60.0) const {
         const auto [lo, hi] = span();
-        return xWords.isEmpty() ? std::pair<double, double>{std::max(0.0, hi - 60.0), hi} : std::pair<double, double>{lo, hi};
+        return xWords.isEmpty() ? std::pair<double, double>{std::max(lo, hi - live), hi} : std::pair<double, double>{lo, hi};
     }
 };
 

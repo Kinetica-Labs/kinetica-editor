@@ -507,6 +507,29 @@ def count(scene, dt, sensors):
                 qPrintable(chart->title()), chart->tracks().size(), line ? line->size() : 0, to, timed ? "yes" : "no", qPrintable(said));
     c.check(timed && framed, "a plugin's chart: what on_tick shows is a point of its line at that frame's time, a frame each");
     c.check(worded, "the value a chart draws is a word of the panel too: one show() for both");
+    // The wheel over a plugin's chart while the window slides: its width for every chart - the plugin's and the scene's -
+    // and each slides on, its right edge at its latest point (the user saw only the scene's follow).
+    if (auto* plots = w.findChild<PlotPanel*>()) {
+        plots->setView(PlotPanel::View());
+        pump(100);
+        chart = plotted(w, "Счётчик");
+        const QPointF middle(chart->width() * 0.6, chart->height() * 0.6);
+        QWheelEvent wheel(middle, chart->mapToGlobal(middle), {}, {0, 480}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QApplication::sendEvent(chart, &wheel);
+        QJsonObject stepped;
+        ops->run("sim_step", {{"frames", 30}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+        waitUntil([&] { return !stepped.isEmpty(); }, 20000);
+        pump(200);
+        const double span = plots->view().span;
+        const auto [p0, p1] = plotted(w, "Счётчик")->shownTime();
+        double sceneWidth = 0;
+        for (TrackChart* v : plots->views()) sceneWidth = std::max(sceneWidth, v->shownTime().second - v->shownTime().first);
+        std::printf("  the wheel over the plugin's chart: a window of %.3f s; the plugin's shows %.3f..%.3f (its latest %.3f), the scene's %.3f s wide\n",
+                    span, p0, p1, line->latest(), sceneWidth);
+        c.check(span > 0 && std::fabs((p1 - p0) - span) < 1e-6 && std::fabs(p1 - line->time(line->size() - 1)) < 1e-9 && std::fabs(sceneWidth - span) < 1e-6,
+                "the wheel over a plugin's chart sets the sliding window of all the charts - the plugin's and the scene's slide with it");
+        plots->setView(PlotPanel::View());
+    }
     b.stop();
     pump(100);
     run(10);
