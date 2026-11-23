@@ -169,6 +169,7 @@ The toolbar is everything that creates and runs:
 |---|---|
 | <img src="images/ui/icons/shape.png" height="22" alt=""> Shape, <img src="images/ui/icons/light.png" height="22" alt=""> Light, <img src="images/ui/icons/camera.png" height="22" alt=""> Camera, <img src="images/ui/icons/sensor.png" height="22" alt=""> Sensor, <img src="images/ui/icons/force.png" height="22" alt=""> Force | add to the scene |
 | <img src="images/ui/icons/magnet.png" height="22" alt=""> Magnet | assemble a mechanism face to face |
+| Joint | join two standing parts: an edge - a hinge along it, a face's centre - a shaft, a corner - a ball |
 | <img src="images/ui/icons/play.png" height="22" alt=""> Play, <img src="images/ui/icons/record.png" height="22" alt=""> Record, <img src="images/ui/icons/pause.png" height="22" alt=""> Pause, <img src="images/ui/icons/stop.png" height="22" alt=""> Stop | the scene's time |
 | <img src="images/ui/icons/undo.png" height="22" alt=""> Undo, <img src="images/ui/icons/redo.png" height="22" alt=""> Redo | a step back and forward |
 | Examples, Laboratory, Plots | ready scenes and instruments |

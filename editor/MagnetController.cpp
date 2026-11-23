@@ -17,6 +17,7 @@
 #include "scene/Assembly.h"
 #include "scene/SceneEdits.h"
 
+#include <QGuiApplication>
 #include <QMap>
 #include <QAction>
 #include <QActionGroup>
@@ -96,6 +97,34 @@ MagnetController::MagnetController(EditorOps* ops, SceneBuilder* builder, Viewpo
                         "Ctrl+щелчок по двум деталям — соединить.<br>"
                         "1–5 выбрать, 0 подсказка, A ось, Tab перевернуть, M зеркало, Esc выход"));
     action_->setMenu(buildMenu());
+    jointAction_ = new QAction(linkIcon(LinkIcon::Rotary, 48), uiText("Kinetica", "Сустав"), this);
+    jointAction_->setObjectName("jointTool");
+    jointAction_->setCheckable(true);
+    jointAction_->setToolTip(uiText("Kinetica", "<b>Сустав</b>: соединить две стоящие детали.<br>"
+                             "Наведите: центр грани — вал, ребро — петля, угол — шар; призрак показывает движение.<br>"
+                             "Щелчок — место оси, щелчок по второй детали — готово (движется меньшая).<br>"
+                             "0–4 вид, A ось, Tab перевернуть, M кто движется, Ctrl без привязки, Shift — ещё один, Esc"));
+    auto* kinds = new QMenu(view_);
+    auto* kindGroup = new QActionGroup(kinds);
+    const std::pair<const char*, const char*> joinKinds[] = {{"auto", uiText("Kinetica", "0  ★ по месту: центр — вал, ребро — петля, угол — шар")},
+                                                             {"hinge", uiText("Kinetica", "1  Шарнир — качается")}, {"slider", uiText("Kinetica", "2  Ползун — скользит")},
+                                                             {"ball", uiText("Kinetica", "3  Шар — во все стороны")}, {"weld", uiText("Kinetica", "4  Сварка — намертво")}};
+    const LinkIcon joinIcons[] = {LinkIcon::Rotary, LinkIcon::Rotary, LinkIcon::Linear, LinkIcon::Ball, LinkIcon::Weld};
+    for (int k = 0; k < 5; ++k) {
+        QAction* a = k == 0 ? kinds->addAction(joinKinds[k].second) : kinds->addAction(linkIcon(joinIcons[k], 24), joinKinds[k].second);
+        a->setObjectName(QString("joint_") + joinKinds[k].first);
+        a->setCheckable(true);
+        a->setChecked(k == 0);
+        kindGroup->addAction(a);
+        connect(a, &QAction::triggered, this, [this, word = QString(joinKinds[k].first), icon = joinIcons[k]] {
+            joinType_ = word;
+            jointAction_->setIcon(linkIcon(icon, 48));
+            if (!jointAction_->isChecked()) jointAction_->setChecked(true);
+            else if (hasLast_) preview(last_);
+        });
+    }
+    jointAction_->setMenu(kinds);
+    connect(jointAction_, &QAction::toggled, this, &MagnetController::setJoining);
     pieTimer_->setSingleShot(true);
     pieTimer_->setInterval(200); // held this long without a drag: the pie opens
     animation_->setInterval(33);
@@ -138,7 +167,28 @@ QMenu* MagnetController::buildMenu() {
     return menu;
 }
 
+// «Сустав» on: the magnet's view mode, a plain click joins; the magnet's own button goes out (one tool at a time).
+void MagnetController::setJoining(bool on) {
+    if (on && !builder_->editing()) {
+        jointAction_->setChecked(false);
+        return emit statusMessage(uiText("Kinetica", "Сустав ставится в режиме правки — остановите сцену"));
+    }
+    if (on && action_->isChecked()) action_->setChecked(false);
+    joining_ = on;
+    joinFrom_ = JoinSnap();
+    joinAxis_ = 0, swapMover_ = false;
+    if (jointAction_->isChecked() != on) jointAction_->setChecked(on);
+    view_->setMagnetMode(on);
+    ghost_.clear();
+    animation_->stop();
+    view_->setMagnetPreview({}, {});
+    pressed_ = connectFrom_ = Place();
+    if (on) view_->setFocus();
+    emit statusMessage(on ? uiText("Kinetica", "Сустав: наведите на грань — центр, ребро или угол подскажут вид") : QString());
+}
+
 void MagnetController::setActive(bool on) {
+    if (on && jointAction_->isChecked()) jointAction_->setChecked(false);
     if (on && !builder_->editing()) {
         action_->setChecked(false);
         emit statusMessage(uiText("Kinetica", "Магнит работает в режиме правки — остановите сцену"));
@@ -229,6 +279,7 @@ void MagnetController::animate() {
 void MagnetController::preview(QPointF pos) {
     last_ = pos;
     hasLast_ = true;
+    if (joining_) return showJoint(placeAt(pos));
     const Place p = placeAt(pos);
     const QString connecting = connectFrom_.found ? uiText("Kinetica", "Соединить: Ctrl+щелчок по второй детали · ") : "";
     if (!p.found) {
@@ -243,6 +294,8 @@ void MagnetController::preview(QPointF pos) {
 
 void MagnetController::press(QPointF pos, Qt::KeyboardModifiers modifiers) {
     const Place p = placeAt(pos);
+    keepJoining_ = modifiers & Qt::ShiftModifier;
+    if (joining_) return joinPress(p);
     if (modifiers & Qt::ControlModifier) return connectPress(p);
     pressed_ = p;
     pressPos_ = pos;
@@ -275,6 +328,177 @@ void MagnetController::connectPress(const Place& p) {
     const QString note = done.value("note").toString();
     emit statusMessage(done.value("ok").toBool() ? uiText("Kinetica", "Соединено: ") + words.value(type, type) + (note.isEmpty() ? QString() : ". " + note)
                                                  : uiText("Kinetica", "Соединить: ") + done.value("error").toString());
+}
+
+namespace {
+
+const char* jointWord(ke::JointType t) {
+    return t == ke::JointType::Slider ? "slider" : t == ke::JointType::Ball ? "ball" : t == ke::JointType::Fixed ? "weld" : "hinge";
+}
+
+QString jointText(ke::JointType t) {
+    return t == ke::JointType::Slider ? uiText("Kinetica", "ползун") : t == ke::JointType::Ball ? uiText("Kinetica", "шар")
+           : t == ke::JointType::Fixed ? uiText("Kinetica", "сварка") : uiText("Kinetica", "шарнир");
+}
+
+// An arrow from `a` to `b`: the shaft and a head of two strokes `head` long, in the plane facing the eye.
+void appendArrow(std::vector<float>& lines, const Vector3& a, const Vector3& b, const Vector3& eye, float head) {
+    const Vector3 d = ke::normalize(b - a), side = ke::normalize(ke::cross(d, eye - b));
+    lines.insert(lines.end(), {a.x, a.y, a.z, 0.0f, b.x, b.y, b.z, 0.0f});
+    for (float k : {-1.0f, 1.0f}) {
+        const Vector3 t = b - d * head + side * (0.5f * k * head);
+        lines.insert(lines.end(), {b.x, b.y, b.z, 0.0f, t.x, t.y, t.z, 0.0f});
+    }
+}
+
+Vector3 across(const Vector3& axis) { // any unit direction square to the axis
+    const Vector3 a = ke::normalize(axis);
+    return ke::normalize(ke::cross(a, std::fabs(a.y) < 0.9f ? Vector3(0, 1, 0) : Vector3(1, 0, 0)));
+}
+
+} // namespace
+
+MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
+    JoinSnap s;
+    s.at = p;
+    if (!p.found) return s;
+    s.axes = {p.normal};
+    const ke::Entity* e = ke::findEntity(builder_->graph(), p.target);
+    if (!e) return s;
+    const ke::Quaternion q = ke::entityRotation(*e);
+    const Vector3 local = q.conjugate().rotate(p.normal), unit[3] = {Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)};
+    const float half[3] = {0.5f * float(e->size.x), 0.5f * float(e->size.y), 0.5f * float(e->size.z)};
+    const auto world = [&](const Vector3& v) { return e->position + q.rotate(v); };
+    struct Candidate { Vector3 point, axis; ke::JointType type; int kind; };
+    std::vector<Candidate> candidates;
+    if (e->shape == ke::ShapeKind::Box) {
+        const float n[3] = {float(local.x), float(local.y), float(local.z)};
+        const int k = std::fabs(n[0]) >= std::fabs(n[1]) && std::fabs(n[0]) >= std::fabs(n[2]) ? 0 : std::fabs(n[1]) >= std::fabs(n[2]) ? 1 : 2;
+        const int i = (k + 1) % 3, j = (k + 2) % 3;
+        const Vector3 centre = unit[k] * (n[k] < 0 ? -half[k] : half[k]);
+        const Vector3 u = q.rotate(unit[i]), v = q.rotate(unit[j]);
+        candidates.push_back({world(centre), p.normal, ke::JointType::Hinge, 0});
+        for (float side : {-1.0f, 1.0f}) {
+            candidates.push_back({world(centre + unit[i] * (side * half[i])), v, ke::JointType::Hinge, 1}); // an edge along j
+            candidates.push_back({world(centre + unit[j] * (side * half[j])), u, ke::JointType::Hinge, 1}); // an edge along i
+            for (float other : {-1.0f, 1.0f})
+                candidates.push_back({world(centre + unit[i] * (side * half[i]) + unit[j] * (other * half[j])), p.normal, ke::JointType::Ball, 2});
+        }
+        s.axes = {p.normal, p.normal, u, v};
+    } else if (e->shape == ke::ShapeKind::Cylinder) { // its axis is its own y: the side snaps onto the axis, a cap to its centre
+        const Vector3 axis = q.rotate(unit[1]);
+        const bool cap = std::fabs(float(local.y)) > 0.7f;
+        const float along = cap ? (local.y < 0 ? -half[1] : half[1]) : float(ke::dot(q.conjugate().rotate(p.point - e->position), unit[1]));
+        s.at.point = world(unit[1] * along), s.axes = {axis, across(axis), ke::cross(axis, across(axis))}, s.kind = 4;
+        s.marks = {world(unit[1] * -half[1]), world(Vector3(0.0f)), world(unit[1] * half[1])};
+        return s;
+    } else if (e->shape == ke::ShapeKind::Sphere) {
+        s.at.point = e->position, s.type = ke::JointType::Ball, s.kind = 5, s.marks = {e->position};
+        return s;
+    } else {
+        const QJsonObject snap = ops_->runNow("assembly_snap", {{"target", int(p.target)}, {"point", json(p.point)}, {"normal", json(p.normal)}});
+        if (snap.value("ok").toBool()) candidates.push_back({vec(snap.value("anchor").toArray()), p.normal, ke::JointType::Hinge, 0});
+    }
+    const GizmoView view = view_->gizmoView();
+    const ke::Vector2 mouse = view.project(p.point);
+    const Candidate* best = nullptr;
+    float nearest = 24.0f; // px
+    for (const Candidate& c : candidates) {
+        s.marks.push_back(c.point);
+        const ke::Vector2 d = view.project(c.point) - mouse;
+        if (float(ke::length(d)) < nearest) nearest = float(ke::length(d)), best = &c;
+    }
+    if (best && !(QGuiApplication::keyboardModifiers() & Qt::ControlModifier)) {
+        s.at.point = best->point, s.type = best->type, s.kind = best->kind;
+        s.axes.front() = best->axis;
+    }
+    return s;
+}
+
+Vector3 MagnetController::joinAxis(const JoinSnap& s) const {
+    const Vector3 a = s.axes.empty() ? s.at.normal : s.axes[size_t(joinAxis_) % s.axes.size()];
+    return ke::normalize(a) * (flip_ ? -1.0f : 1.0f);
+}
+
+ke::JointType MagnetController::joinKind(const JoinSnap& s) const {
+    return joinType_ == "hinge" ? ke::JointType::Hinge : joinType_ == "slider" ? ke::JointType::Slider : joinType_ == "ball" ? ke::JointType::Ball
+           : joinType_ == "weld" ? ke::JointType::Fixed : s.type;
+}
+
+// The smaller of the two moves (a part on a base), a shape that is no body yet stays; M swaps.
+uint32_t MagnetController::moverOf(uint32_t first, uint32_t second) const {
+    const auto volume = [this](uint32_t id) {
+        const ke::Entity* e = ke::findEntity(builder_->graph(), id);
+        return e ? float(e->size.x * e->size.y * e->size.z) * (e->rigid.enabled ? 1.0f : 1e9f) : 1e9f;
+    };
+    const bool firstMoves = volume(first) < volume(second);
+    return firstMoves != swapMover_ ? first : second;
+}
+
+void MagnetController::joinPress(const Place& p) {
+    if (!p.found) return;
+    if (!joinFrom_.at.found || joinFrom_.at.target == p.target) { // the first click, or the first again elsewhere on the same shape
+        joinFrom_ = joinSnap(p);
+        return showJoint(p);
+    }
+    const uint32_t mover = moverOf(joinFrom_.at.target, p.target), base = mover == p.target ? joinFrom_.at.target : p.target;
+    const ke::JointType type = joinKind(joinFrom_);
+    const QJsonObject done = ops_->runNow("assembly_joint", {{"a", int(mover)}, {"b", int(base)}, {"type", jointWord(type)},
+                                                             {"anchor", json(joinFrom_.at.point)}, {"axis", json(joinAxis(joinFrom_))}});
+    joinFrom_ = JoinSnap();
+    const QString note = done.value("note").toString();
+    emit statusMessage(done.value("ok").toBool() ? uiText("Kinetica", "Соединено: ") + jointText(type) + (note.isEmpty() ? QString() : ". " + note)
+                                                 : uiText("Kinetica", "Сустав: ") + done.value("error").toString());
+    if (done.value("ok").toBool() && !keepJoining_) setJoining(false); // one joint, then the selection; Shift: one more
+    else showJoint(p);
+}
+
+// What a click would make: the snap points of the face as dots, the joint's own glyph at the chosen one at a size steady on
+// screen, its axis drawn long; after the first click, the part that will move swinging (sliding, wobbling) as the joint lets
+// it - the motion seen before the second click.
+void MagnetController::showJoint(const Place& p) {
+    const JoinSnap hover = joinSnap(p);
+    const JoinSnap& s = joinFrom_.at.found ? joinFrom_ : hover;
+    glyphs_.clear();
+    ghost_.clear();
+    if (s.at.found) {
+        const GizmoView view = view_->gizmoView();
+        Vector3 right, up;
+        view.screenAxes(right, up);
+        for (const Vector3& m : (joinFrom_.at.found ? joinFrom_ : hover).marks) { // a dot: a small cross, 4 px
+            const float r = 4.0f * view.worldPerPixel(m);
+            for (const Vector3& d : {right * r, up * r})
+                glyphs_.insert(glyphs_.end(), {m.x - d.x, m.y - d.y, m.z - d.z, 0.0f, m.x + d.x, m.y + d.y, m.z + d.z, 0.0f});
+        }
+        const float size = 26.0f * view.worldPerPixel(s.at.point);
+        ke::JointVis v;
+        v.type = joinKind(s);
+        v.anchorA = v.anchorB = s.at.point;
+        v.axis = joinAxis(s);
+        v.reference = across(v.axis);
+        v.size = size;
+        appendJointGlyph(glyphs_, v, size);
+        // The axis as an arrow (the way the angle counts; a slider's both ways), its tail through the point.
+        const Vector3 eye = view.eye(), o = s.at.point;
+        if (v.type == ke::JointType::Hinge) appendArrow(glyphs_, o - v.axis * (1.5f * size), o + v.axis * (3.0f * size), eye, 0.6f * size);
+        if (v.type == ke::JointType::Slider)
+            for (float k : {-1.0f, 1.0f}) appendArrow(glyphs_, o, o + v.axis * (k * 3.0f * size), eye, 0.6f * size);
+        if (joinFrom_.at.found && p.found && p.target != joinFrom_.at.target) // what joins to what: from the axis to the part under the mouse
+            appendArrow(glyphs_, o, p.point, eye, 0.6f * size);
+        if (joinFrom_.at.found && p.found && p.target != joinFrom_.at.target) {
+            const uint32_t mover = moverOf(joinFrom_.at.target, p.target);
+            if (const ke::Entity* e = ke::findEntity(builder_->graph(), mover))
+                ghost_.push_back({ghostEdges(builder_->graph(), *e), s.at.point, v.axis, v.reference, int(v.type), false, 0.5f * float(ke::maxComp(e->size))});
+        }
+    }
+    if (ghost_.empty()) animation_->stop(), view_->setMagnetPreview({}, glyphs_);
+    else if (!animation_->isActive()) animation_->start(), animate();
+    static const char* const kinds[] = {"центр грани", "ребро", "угол", "точка", "ось цилиндра", "центр шара"};
+    const QString where = s.at.found ? QString("%1 · %2").arg(uiText("Kinetica", kinds[s.kind]), jointText(joinKind(s))) : QString();
+    emit statusMessage(!joinFrom_.at.found
+                           ? (s.at.found ? QString(uiText("Kinetica", "Сустав · %1: щелчок — здесь ось · 0–4 вид, A ось, Tab, Ctrl без привязки")).arg(where)
+                                         : QString(uiText("Kinetica", "Сустав: наведите на грань — центр, ребро или угол подскажут вид")))
+                           : QString(uiText("Kinetica", "Сустав · %1: щёлкните вторую деталь — движется меньшая (M — другая), Shift — ещё один")).arg(where));
 }
 
 void MagnetController::openPie() {
@@ -321,7 +545,16 @@ void MagnetController::pin(int preset) {
 }
 
 void MagnetController::key(int key) {
-    if (key == Qt::Key_Escape) return action_->setChecked(false);
+    if (key == Qt::Key_Escape) return action_->setChecked(false), jointAction_->setChecked(false);
+    if (joining_) {
+        if (key >= Qt::Key_0 && key <= Qt::Key_4)
+            if (QAction* a = jointAction_->menu()->actions().value(key - Qt::Key_0)) a->trigger();
+        if (key == Qt::Key_A) ++joinAxis_;
+        if (key == Qt::Key_Tab) flip_ = !flip_;
+        if (key == Qt::Key_M) swapMover_ = !swapMover_;
+        if (hasLast_) preview(last_);
+        return;
+    }
     if (key >= Qt::Key_0 && key <= Qt::Key_0 + ke::kMagnetCount) return pin(key - Qt::Key_0 - 1);
     if (key == Qt::Key_A) axis_ = axis_ == -1 ? 2 : axis_ == 2 ? 0 : axis_ == 0 ? 1 : -1; // normal, across, across, own
     if (key == Qt::Key_Tab) flip_ = !flip_;

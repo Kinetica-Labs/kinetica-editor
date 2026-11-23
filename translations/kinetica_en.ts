@@ -7223,5 +7223,77 @@ Sample </translation>
         <source>Момент крутит это тело вокруг своей оси +Y, где бы на теле ни стоял; ось поворачивает гизмо</source>
         <translation>The torque turns this body about its own +Y axis wherever on the body it stands; the gizmo turns the axis</translation>
     </message>
+    <message>
+        <source>Сустав</source>
+        <translation>Joint</translation>
+    </message>
+    <message>
+        <source>&lt;b&gt;Сустав&lt;/b&gt;: соединить две стоящие детали.&lt;br&gt;Наведите: центр грани — вал, ребро — петля, угол — шар; призрак показывает движение.&lt;br&gt;Щелчок — место оси, щелчок по второй детали — готово (движется меньшая).&lt;br&gt;0–4 вид, A ось, Tab перевернуть, M кто движется, Ctrl без привязки, Shift — ещё один, Esc</source>
+        <translation>&lt;b&gt;Joint&lt;/b&gt;: join two standing parts.&lt;br&gt;Hover: a face's centre - a shaft, an edge - a hinge, a corner - a ball; the ghost shows the motion.&lt;br&gt;Click - the axis's place, click the other part - done (the smaller moves).&lt;br&gt;0-4 kind, A axis, Tab flip, M which moves, Ctrl no snap, Shift - one more, Esc</translation>
+    </message>
+    <message>
+        <source>0  ★ по месту: центр — вал, ребро — петля, угол — шар</source>
+        <translation>0  ★ by place: centre - shaft, edge - hinge, corner - ball</translation>
+    </message>
+    <message>
+        <source>1  Шарнир — качается</source>
+        <translation>1  Hinge - swings</translation>
+    </message>
+    <message>
+        <source>2  Ползун — скользит</source>
+        <translation>2  Slider - slides</translation>
+    </message>
+    <message>
+        <source>3  Шар — во все стороны</source>
+        <translation>3  Ball - every way</translation>
+    </message>
+    <message>
+        <source>4  Сварка — намертво</source>
+        <translation>4  Weld - rigid</translation>
+    </message>
+    <message>
+        <source>Сустав ставится в режиме правки — остановите сцену</source>
+        <translation>A joint is made in editing mode - stop the scene</translation>
+    </message>
+    <message>
+        <source>Сустав: наведите на грань — центр, ребро или угол подскажут вид</source>
+        <translation>Joint: hover a face - its centre, edge or corner suggests the kind</translation>
+    </message>
+    <message>
+        <source>шар</source>
+        <translation>ball</translation>
+    </message>
+    <message>
+        <source>Сустав: </source>
+        <translation>Joint: </translation>
+    </message>
+    <message>
+        <source>Сустав · %1: щелчок — здесь ось · 0–4 вид, A ось, Tab, Ctrl без привязки</source>
+        <translation>Joint · %1: click - the axis here · 0-4 kind, A axis, Tab, Ctrl no snap</translation>
+    </message>
+    <message>
+        <source>Сустав · %1: щёлкните вторую деталь — движется меньшая (M — другая), Shift — ещё один</source>
+        <translation>Joint · %1: click the other part - the smaller moves (M - the other), Shift - one more</translation>
+    </message>
+    <message>
+        <source>центр грани</source>
+        <translation>face centre</translation>
+    </message>
+    <message>
+        <source>ребро</source>
+        <translation>edge</translation>
+    </message>
+    <message>
+        <source>точка</source>
+        <translation>point</translation>
+    </message>
+    <message>
+        <source>ось цилиндра</source>
+        <translation>cylinder axis</translation>
+    </message>
+    <message>
+        <source>центр шара</source>
+        <translation>sphere centre</translation>
+    </message>
 </context>
 </TS>

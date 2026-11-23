@@ -1,5 +1,5 @@
 // The big bar on top of the window (see MainWindow.h): what you can create (shapes, a model, the
-// lights, a camera), then run+record / pause / stop, then what acts on a body (the magnet, a force, the sensors), then
+// lights, a camera), then run+record / pause / stop, then what acts on a body (the magnet, a joint, a force, the sensors), then
 // undo / redo, and at the right end the text
 // buttons Примеры, Лаборатория, Графики. A shape of «Фигура ▾» is drawn
 // with the mouse in the view (CreateTool, ViewportTools.h) and made by one call of scene_add.
@@ -70,10 +70,13 @@ void MainWindow::buildMainToolbar() {
     };
     for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_}) addRun(a);
     tb->addSeparator(); // what acts on a made body - links it, pushes it, measures it - before undo
-    tb->addAction(magnet_->action()); // a link on a face, with a joint (MagnetController)
-    if (auto* b = qobject_cast<QToolButton*>(tb->widgetForAction(magnet_->action()))) {
-        b->setPopupMode(QToolButton::MenuButtonPopup);
-        createButtons_.push_back(b); // narrows with the shapes on a narrow window
+    // a link on a face, with a joint; a joint between two shapes that stand (MagnetController)
+    for (QAction* a : {magnet_->action(), magnet_->jointAction()}) {
+        tb->addAction(a);
+        if (auto* b = qobject_cast<QToolButton*>(tb->widgetForAction(a))) {
+            b->setPopupMode(QToolButton::MenuButtonPopup);
+            createButtons_.push_back(b); // narrows with the shapes on a narrow window
+        }
     }
     addForceButton(tb);
     addSensorButton(tb);

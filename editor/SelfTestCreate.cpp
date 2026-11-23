@@ -6,10 +6,15 @@
 // aimed; a right click and a tool of the shelf leave the mode. Each check prints one line.
 #include "SelfTestSupport.h"
 
+#include "EditorOps.h"
+#include "MainWindow.h"
+
 #include <QDockWidget>
 #include <QKeyEvent>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include <QRegularExpression>
+#include <QJsonArray>
 
 #include <cmath>
 
@@ -251,6 +256,49 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     clickAt(v, onScreen(v, Vector3(-0.6f, 0.0f, -0.4f)));
     c.check(escaped && cone && rightOut && !v->createMode() && b.graph().entities.size() == now,
             "Esc with nothing begun, a right click and the shelf's Move leave the mode: a click then makes nothing");
+
+    // «Сустав»: a block and a bar lying against it; the mouse on the block's top edge where the bar touches - the guess is a
+    // hinge along that edge (a lid's) - a click there, a click on the bar: the bar (the smaller) hangs on the block about the
+    // edge, free; the tool is over. Then a corner: a ball.
+    b.newScene();
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    const auto put = [ops](Vector3 at, Vector3 size) {
+        return uint32_t(ops->runNow("scene_add", {{"shape", "box"}, {"role", "rigid"}, {"position", QJsonArray{at.x, at.y, at.z}},
+                                                  {"size", QJsonArray{size.x, size.y, size.z}}}).value("id").toInt());
+    };
+    const uint32_t block = put({0, 0.1f, 0}, {0.4f, 0.2f, 0.4f}), bar = put({0.4f, 0.15f, 0}, {0.4f, 0.1f, 0.1f});
+    v->camera().lookAt(QVector3D(0.9f, 0.7f, 0.9f), QVector3D(0.3f, 0.1f, 0.0f));
+    pump(100);
+    trigger(w, "jointTool");
+    const auto join = [&](Vector3 first, Vector3 second) {
+        sendMouse(v, QEvent::MouseMove, onScreen(v, first), Qt::NoButton, Qt::NoButton); // near the edge, not on it: the snap finds it
+        pump(30);
+        clickAt(v, onScreen(v, first));
+        sendMouse(v, QEvent::MouseMove, onScreen(v, second), Qt::NoButton, Qt::NoButton);
+        pump(30);
+        clickAt(v, onScreen(v, second));
+        pump(30);
+    };
+    join({0.19f, 0.2f, 0.01f}, {0.5f, 0.2f, 0});
+    const QJsonArray joints = ops->runNow("scene_list", {{"kind", "joint"}}).value("objects").toArray();
+    const QString text = joints.isEmpty() ? QString() : ops->runNow("scene_get", {{"id", joints[0].toObject().value("id").toInt()}}).value("text").toString();
+    std::printf("  «Сустав» at the block's edge, then the bar:\n%s", qPrintable(text));
+    const ke::JointObject* hinge = nullptr;
+    for (const ke::JointObject& j : b.graph().joints)
+        if (!joints.isEmpty() && j.id == uint32_t(joints[0].toObject().value("id").toInt())) hinge = &j;
+    const auto* jointTool = w.findChild<QAction*>("jointTool");
+    c.check(hinge && hinge->a == bar && hinge->b == block && near(hinge->anchorB, Vector3(0.2f, 0.1f, 0.0f)) && text.contains("free rx") &&
+                jointTool && !jointTool->isChecked(),
+            "«Сустав»: a click at the block's edge and one on the bar - the bar hangs on the block about that edge, free; the tool is over");
+
+    trigger(w, "jointTool");
+    join({-0.19f, 0.2f, -0.19f}, {0.5f, 0.2f, 0});
+    const QJsonArray two = ops->runNow("scene_list", {{"kind", "joint"}}).value("objects").toArray();
+    const QString cornerJoint = two.size() < 2 ? QString() : ops->runNow("scene_get", {{"id", two[1].toObject().value("id").toInt()}}).value("text").toString();
+    std::printf("  «Сустав» at the block's corner:\n%s", qPrintable(cornerJoint));
+    c.check(cornerJoint.contains(QRegularExpression("free[^\\n]*rx")) && cornerJoint.contains(QRegularExpression("free[^\\n]*ry")) &&
+                cornerJoint.contains(QRegularExpression("free[^\\n]*rz")) && cornerJoint.contains("anchor_b -0.2 0.1 -0.2"),
+            "«Сустав» at a corner guesses a ball at the corner: turns free every way");
     b.newScene();
     pump(60);
     return c.failures;
