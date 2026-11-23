@@ -7,6 +7,7 @@
 #include "ApiConsole.h"
 #include "EditorOps.h"
 #include "EditorServer.h"
+#include "JointTool.h"
 #include "MagnetController.h"
 #include "SceneBuilder.h"
 #include "SequencerPanel.h"
@@ -34,11 +35,16 @@ void MainWindow::buildOperators() {
         }, "ui");
     });
     magnet_ = new MagnetController(ops_, builder_, view_, this);
-    connect(builder_, &SceneBuilder::pickJointRequested, magnet_, &MagnetController::pickJoint);
-    connect(magnet_, &MagnetController::statusMessage, this, [this](const QString& text) {
+    joint_ = new JointTool(ops_, builder_, view_, this);
+    connect(builder_, &SceneBuilder::pickJointRequested, joint_, &JointTool::pickJoint);
+    connect(magnet_, &MagnetController::started, joint_, [this] { joint_->setActive(false); }); // one of the view's two tools at a time
+    connect(joint_, &JointTool::started, magnet_, [this] { magnet_->setActive(false); });
+    const auto status = [this](const QString& text) {
         if (text.isEmpty()) statusBar()->clearMessage();
-        else statusBar()->showMessage(text); // stays while the magnet is on: it says what a click does here
-    });
+        else statusBar()->showMessage(text); // stays while the tool is on: it says what a click does here
+    };
+    connect(magnet_, &MagnetController::statusMessage, this, status);
+    connect(joint_, &JointTool::statusMessage, this, status);
     // An operation that waits for the simulation answers after the window took its newest frame, so a
     // screenshot right after sim_step shows that frame, not the one before.
     ops_->setRefresh([this] {

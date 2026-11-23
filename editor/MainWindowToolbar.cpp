@@ -11,6 +11,7 @@
 // every resize of the window.
 #include "MainWindow.h"
 #include "UiLanguage.h"
+#include "JointTool.h"
 #include "MagnetController.h"
 
 #include "EditorOps.h"
@@ -71,7 +72,7 @@ void MainWindow::buildMainToolbar() {
     for (QAction* a : {playAct_, recordAct_, pauseAct_, stopAct_}) addRun(a);
     tb->addSeparator(); // what acts on a made body - links it, pushes it, measures it - before undo
     // a link on a face, with a joint; a joint between two shapes that stand (MagnetController)
-    for (QAction* a : {magnet_->action(), magnet_->jointAction()}) {
+    for (QAction* a : {magnet_->action(), joint_->action()}) {
         tb->addAction(a);
         if (auto* b = qobject_cast<QToolButton*>(tb->widgetForAction(a))) {
             b->setPopupMode(QToolButton::MenuButtonPopup);
@@ -167,6 +168,7 @@ QAction* MainWindow::createAction(const CreateWhat& what, const QIcon& icon, con
 void MainWindow::startCreating(const CreateWhat& what) {
     if (!builder_->editing()) return statusBar()->showMessage(uiText("Kinetica", "Создавать можно в режиме правки — остановите сцену"), 6000);
     magnet_->setActive(false);
+    joint_->setActive(false);
     statusBar()->clearMessage(); // the hint line says what the mouse does now
     view_->setCreateMode(true, what);
     view_->setFocus(); // Esc and Backspace go to the view at once

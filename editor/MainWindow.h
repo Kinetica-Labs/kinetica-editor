@@ -252,6 +252,7 @@ private:
     class EditorOps* ops_ = nullptr;
     class EditorServer* apiServer_ = nullptr; // the API, once started (apiPort)
     class MagnetController* magnet_ = nullptr;
+    class JointTool* joint_ = nullptr;
     void showDrivenByApi();             // the plate "an agent drives the editor" while requests come in
     class QLabel* apiBanner_ = nullptr;
     class QTimer* apiIdle_ = nullptr;

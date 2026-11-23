@@ -161,7 +161,7 @@ if(Qt6_FOUND)
     editor/ColliderGuides.h  editor/ColliderGuides.cpp
     editor/WorldPanel.h      editor/WorldPanel.cpp
     editor/TexturePanel.h    editor/TexturePanel.cpp editor/TextureBumpPanel.cpp
-    editor/MagnetController.h editor/MagnetController.cpp
+    editor/MagnetController.h editor/MagnetController.cpp editor/JointTool.h editor/JointTool.cpp editor/AssemblyGhost.h editor/AssemblyGhost.cpp
     editor/PieMenu.h         editor/PieMenu.cpp
     editor/IkSolverView.h    editor/IkSolverView.cpp
     editor/CommandSearch.h   editor/CommandSearch.cpp

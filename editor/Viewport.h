@@ -222,6 +222,7 @@ public:
     // mode and makes `what` after `what`, step by step, until Esc or a right click with nothing begun,
     // another tool or the magnet, or play.
     void setCreateMode(bool on, const CreateWhat& what = {});
+    bool magnetMode() const { return magnetMode_; } // the magnet or «Сустав» has the mouse
     bool createMode() const { return createMode_; }
     const CreateWhat& createWhat() const { return createWhat_; }
     // Joints drawn with both their frames and the gap between them (the solver's error).

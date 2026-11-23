@@ -356,6 +356,23 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     c.check(moved.contains(QRegularExpression("anchor_b -0\\.1[0-9]* 0\\.2 0\\.2 ")) && near(entity(b, loose)->position, loosePos),
             "«Указать в виде…» on a joint's card: a click on an edge puts the joint there, the links stay");
 
+    // The view's two assembly tools, one at a time: «Сустав» on turns the magnet off and keeps the view's mode; the magnet on, back.
+    {
+        auto* magnet = w.findChild<QAction*>("magnetTool");
+        auto* joint = w.findChild<QAction*>("jointTool");
+        if (magnet && joint) {
+            magnet->setChecked(true);
+            joint->setChecked(true);
+            const bool jointWon = joint->isChecked() && !magnet->isChecked() && v->magnetMode();
+            magnet->setChecked(true);
+            const bool magnetWon = magnet->isChecked() && !joint->isChecked() && v->magnetMode();
+            magnet->setChecked(false);
+            c.check(jointWon && magnetWon && !v->magnetMode(), "the magnet and «Сустав»: one on at a time, the view's mode stays with the one on");
+        } else {
+            c.check(false, "the toolbar has the magnet and «Сустав»");
+        }
+    }
+
     // 8: a shock absorber - a slider whose spring and damper carry the moving part's weight.
     b.newScene();
     const uint32_t frame = put({0, 0.2f, 0}, {0.4f, 0.4f, 0.4f}), hub = put({0.3f, 0.2f, 0}, {0.2f, 0.1f, 0.1f});

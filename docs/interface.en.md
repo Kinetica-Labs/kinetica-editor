@@ -385,7 +385,6 @@ A plain click puts the ready link with the star - the one the editor finds fitti
 | `0` | the hint for the place |
 | `A` / `Tab` | rotate the axis / flip it |
 | `M` | mirror |
-| `Ctrl` + two clicks | join two bodies that already stand |
 | `Esc` | leave the magnet |
 
 ### Joints and actuators
