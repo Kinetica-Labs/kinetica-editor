@@ -970,7 +970,7 @@ void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, Plugi
     // A package out and in: the UR5e with its models in one .kpkg, opened from it - the same objects, every model found.
     {
         QJsonObject opened, packed, unpacked;
-        ops->run("scene_open", {{"file", resourceDir("examples") + "/ur5e.kscene"}}, [&opened](const QJsonObject& r) { opened = r; }, "ui");
+        ops->run("scene_open", {{"file", resourceDir("examples") + "/scenes/ur5e.kscene"}}, [&opened](const QJsonObject& r) { opened = r; }, "ui");
         waitUntil([&] { return !opened.isEmpty(); }, 20000);
         const size_t objects = b.graph().entities.size();
         const QString package = folder + "/out/ur5e.kpkg";

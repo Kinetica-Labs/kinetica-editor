@@ -148,7 +148,7 @@ jobs:
       - name: Распаковать и запустить UR5e в игре, снимок окна
         run: |
           tar -xzf kinetica-linux.tar.gz
-          xvfb-run -a -s "-screen 0 1600x1000x24" ./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/ur5e.kscene \
+          xvfb-run -a -s "-screen 0 1600x1000x24" ./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/scenes/ur5e.kscene \
             --play --frames 120 --window --screenshot ur5e-${{ matrix.os }}.png
           test -s ur5e-${{ matrix.os }}.png
       - name: ke.Scene() из самой папки, без окна
@@ -158,7 +158,7 @@ jobs:
           python3 examples/python/01_hello.py
       - name: API для скриптов и агентов
         run: |
-          xvfb-run -a ./kinetica-linux/kinetica --agent-eval --api 47801 --scene kinetica-linux/usr/bin/examples/ur5e.kscene &
+          xvfb-run -a ./kinetica-linux/kinetica --agent-eval --api 47801 --scene kinetica-linux/usr/bin/examples/scenes/ur5e.kscene &
           for i in $(seq 30); do python3 kinetica-linux/usr/bin/tools/ke_editor.py scene_list > list.json 2>/dev/null && break; sleep 1; done
           grep -q "UR5e" list.json && echo "API: $(grep -o '"name"' list.json | wc -l) objects"
       - uses: actions/upload-artifact@v4
@@ -198,7 +198,7 @@ jobs:
       - name: Снимок окна UR5e в игре (у машин CI бывает нет видеокарты - тогда шаг жёлтый, не красный)
         continue-on-error: true
         run: |
-          build/kinetica.app/Contents/MacOS/kinetica --scene build/kinetica.app/Contents/Resources/examples/ur5e.kscene \
+          build/kinetica.app/Contents/MacOS/kinetica --scene build/kinetica.app/Contents/Resources/examples/scenes/ur5e.kscene \
             --play --frames 120 --window --screenshot ur5e-macos.png
           test -s ur5e-macos.png
       - uses: actions/upload-artifact@v4

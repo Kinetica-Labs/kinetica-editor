@@ -27,7 +27,7 @@ public:
         QString sceneFile; // the scene file (*.kscene)
     };
 
-    ExamplesGallery(const QString& examplesDir, QWidget* parent = nullptr);
+    ExamplesGallery(const QString& scenesDir, QWidget* parent = nullptr);
     ~ExamplesGallery() override;
     const Example* chosen() const { return chosen_ >= 0 ? &examples_[size_t(chosen_)] : nullptr; }
     int pendingThumbnails() const { return int(queue_.size()) + (running_ >= 0 ? 1 : 0); }
@@ -37,7 +37,7 @@ signals:
     void thumbnailsDone();
 
 private:
-    void collect(const QString& examplesDir);
+    void collect(const QString& scenesDir);
     void buildTiles();
     void filter(int tab);
     QString thumbnailPath(const Example& e) const;

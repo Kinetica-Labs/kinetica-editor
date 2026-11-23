@@ -215,7 +215,7 @@ def sequencer(c):
 @film
 def robot(c):
     """The UR5e in play: the keys drive its goal, the arm follows it; the space bar closes the gripper."""
-    c.ed.scene_open(file=os.path.join(EDITOR_DIR, "examples", "ur5e.kscene"))
+    c.ed.scene_open(file=os.path.join(EDITOR_DIR, "examples", "scenes", "ur5e.kscene"))
     c.ed.view_look(eye=[1.25, 0.95, 1.25], target=[0.15, 0.4, 0])
     c.begin((62, 108, 1218, 685))
     c.hold(0.5)

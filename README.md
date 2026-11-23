@@ -37,7 +37,7 @@ Python, `@command` становится кнопкой, строкой конс�
 [docs/scripts.md](docs/scripts.md), «Без окна».
 
 Состояние: готовы ядро, модель сцены робота, физика на Box3D, мир робота с суставами, приводами, датчиками и питанием, ИК,
-окно редактора, плагины, импорт URDF и glTF. Пример — UR5e с целью ИК, схватом и кубиками (`examples/ur5e.kscene`).
+окно редактора, плагины, импорт URDF и glTF. Пример — UR5e с целью ИК, схватом и кубиками (`examples/scenes/ur5e.kscene`).
 
 ## Как это выглядит
 
@@ -89,7 +89,7 @@ Python, `@command` становится кнопкой, строкой конс�
 
 ```sh
 tar -xzf kinetica-linux.tar.gz
-./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/ur5e.kscene
+./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/scenes/ur5e.kscene
 ```
 
 **Windows** (10 и 11, 64 бита) — `kinetica-windows.zip`: распакуйте и запустите `kinetica.exe`; примеры
@@ -143,7 +143,7 @@ C:\Qt\6.7.3\msvc2019_64\bin\windeployqt build\Release\kinetica.exe   # библ�
 обновите его командой `cmake --build build --target update_translations`.
 
 ```sh
-build/kinetica --scene examples/ur5e.kscene   # окно со сценой UR5e (Windows: build\Release\kinetica.exe)
+build/kinetica --scene examples/scenes/ur5e.kscene   # окно со сценой UR5e (Windows: build\Release\kinetica.exe)
 build/ke_tests                                # тесты ядра
 build/kinetica --self-test                    # самотест окна: жмёт кнопки, тащит гизмо; код выхода = ошибки
 build/kinetica-core --version                 # программа без окна; python3 examples/python/01_hello.py

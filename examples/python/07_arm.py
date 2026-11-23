@@ -16,7 +16,7 @@ import kinetica as ke  # noqa: E402
 OVER, ONTO, UP = 0.25, 0.115, 0.30  # the hand's height over the floor: above the cube, around it, lifted; m
 
 with ke.Scene() as scene:
-    scene.open(os.path.join(HERE, "..", "ur5e.kscene"))
+    scene.open(os.path.join(HERE, "..", "scenes", "ur5e.kscene"))
     goal, cube = scene.objects["Цель «Схват»"], scene.objects["Кубик жёлтый"]
     scene.run(0.5)
     at = scene.measure(objects=[cube])

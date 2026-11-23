@@ -1,6 +1,6 @@
 """The UR5e and a pyramid of cubes beside it - the example scene opened and built on by code.
 
-Opens examples/ur5e.kscene, stacks a pyramid of rigid cubes in front of the arm, lets the world run for a second and
+Opens examples/scenes/ur5e.kscene, stacks a pyramid of rigid cubes in front of the arm, lets the world run for a second and
 says how the pyramid stood. Stop brings the scene back as it was built: the cubes stay, their fall is not kept.
 
     build/kinetica --script examples/scripts/ur5e_cubes.py
@@ -16,7 +16,7 @@ FLOOR = 0.02   # the top of this scene's floor plate, m
 AT = (0.55, 0.0)  # the pyramid's middle on the floor: x, z
 
 scene = ke.connect()
-scene.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "ur5e.kscene"))
+scene.open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "scenes", "ur5e.kscene"))
 
 cubes = []
 for level in range(BASE):

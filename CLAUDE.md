@@ -15,7 +15,7 @@ cmake --build build -j
 build/ke_tests                                   # ядро; KE_TEST=<подстрока> — выборочно
 build/kinetica --self-test                       # окно: жмёт кнопки, тащит гизмо; KE_EDITOR_TEST=<группа>
 cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp test_scene_core test_examples test_names test_gltf test_kpkg test_hosts_agree   # стенд испытателей, SDK, MCP, ke.Scene() - без окна; test_hosts_agree поднимает одно скрытое окно
-build/kinetica --agent-eval --api 47801 --scene examples/ur5e.kscene   # окно без показа; без --agent-eval - человеку; к --api ходят клиент и MCP ke-editor (.mcp.json)
+build/kinetica --agent-eval --api 47801 --scene examples/scenes/ur5e.kscene   # окно без показа; без --agent-eval - человеку; к --api ходят клиент и MCP ke-editor (.mcp.json)
 build/kinetica-core --version; python3 examples/python/01_hello.py          # без окна: ke.Scene()
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
 ```

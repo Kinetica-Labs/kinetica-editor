@@ -160,8 +160,8 @@ void testGoalInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
 // the whole robot selected shows its collider guides at once.
 void testGripButton(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     QString error;
-    const bool opened = b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error);
-    c.check(opened, "examples/ur5e.kscene opens");
+    const bool opened = b.openFile(MainWindow::scenesDir() + "/ur5e.kscene", error);
+    c.check(opened, "examples/scenes/ur5e.kscene opens");
     if (!opened) return;
     // The whole UR5e selected: its links' collider guides drawn at once - from the points the engine gets (HullPoints.h),
     // not from the hull of each mesh's tens of thousands of points (26 s, the window hung at a click on the arm).
@@ -273,8 +273,8 @@ void testGoalDragInPlay(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v
 // Space pauses again.
 void testPanelKeys(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     QString error;
-    if (!b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error)) {
-        c.check(false, "examples/ur5e.kscene opens");
+    if (!b.openFile(MainWindow::scenesDir() + "/ur5e.kscene", error)) {
+        c.check(false, "examples/scenes/ur5e.kscene opens");
         return;
     }
     b.play();

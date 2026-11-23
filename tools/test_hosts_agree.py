@@ -24,7 +24,7 @@ sys.path.insert(0, os.path.join(ROOT, "clients", "python"))
 import record_window_transcript as rec  # noqa: E402
 from kinetica.core import find_core  # noqa: E402
 
-UR5E = os.path.join(ROOT, "examples", "ur5e.kscene")
+UR5E = os.path.join(ROOT, "examples", "scenes", "ur5e.kscene")
 
 
 def why_not():

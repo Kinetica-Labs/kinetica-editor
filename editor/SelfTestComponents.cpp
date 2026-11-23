@@ -403,8 +403,8 @@ void testJointCard(Checker& c, SceneBuilder& b) {
     b.stop(); // the first minute ended playing
     pump(60);
     QString error;
-    if (!b.openFile(MainWindow::examplesDir() + "/ur5e.kscene", error) || !findJoint(b.graph(), 7))
-        return c.check(false, "examples/ur5e.kscene opens with its elbow");
+    if (!b.openFile(MainWindow::scenesDir() + "/ur5e.kscene", error) || !findJoint(b.graph(), 7))
+        return c.check(false, "examples/scenes/ur5e.kscene opens with its elbow");
     b.select(7);
     pump(60);
     ComponentCard* card = cardTitled(b, "Сочленение");

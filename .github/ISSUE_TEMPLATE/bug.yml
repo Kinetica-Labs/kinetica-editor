@@ -9,7 +9,7 @@ body:
     id: did
     attributes:
       label: "Что вы делали"
-      placeholder: "Открыл examples/ur5e.kscene, нажал ▶, потащил цель руки…"
+      placeholder: "Открыл examples/scenes/ur5e.kscene, нажал ▶, потащил цель руки…"
     validations:
       required: true
   - type: textarea

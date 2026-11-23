@@ -779,13 +779,13 @@ void testSimStiffServoOnLightLink() {
 // collider is a cylinder, and a mesh's hull takes its extremes, HullPoints.h).
 // Built, it holds its gripper on its IK goal under gravity, its links still.
 SceneGraph ur5e() {
-    std::ifstream file(std::string(KE_EXAMPLES) + "/ur5e.kscene");
+    std::ifstream file(std::string(KE_EXAMPLES) + "/scenes/ur5e.kscene");
     std::stringstream text;
     text << file.rdbuf();
     SceneGraph g;
     std::string error;
-    CHECK(g.load(text.str(), error), "examples/ur5e.kscene loads: %s", error.c_str());
-    g.baseDirectory = KE_EXAMPLES;
+    CHECK(g.load(text.str(), error), "examples/scenes/ur5e.kscene loads: %s", error.c_str());
+    g.baseDirectory = std::string(KE_EXAMPLES) + "/scenes"; // the scene's own folder: its models are ../models
     return g;
 }
 

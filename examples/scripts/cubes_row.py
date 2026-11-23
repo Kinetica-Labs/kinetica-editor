@@ -3,7 +3,7 @@
 A script builds or changes the scene and ends; everything it did is one step of Ctrl+Z. Run it from the editor
 («Файл → Выполнить скрипт…»), with the editor's start:
 
-    build/kinetica --scene examples/ur5e.kscene --script examples/scripts/cubes_row.py
+    build/kinetica --scene examples/scenes/ur5e.kscene --script examples/scripts/cubes_row.py
 
 or from a terminal beside an editor started with --api (python3 examples/scripts/cubes_row.py, PYTHONPATH=python).
 The same words work line by line in the editor's API console.

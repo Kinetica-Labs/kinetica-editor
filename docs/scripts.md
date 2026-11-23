@@ -102,7 +102,7 @@ scene.stop()                               # сцена снова как пос
 ## Запустить
 
 - в окне: **Файл → Выполнить скрипт…**;
-- при запуске редактора: `kinetica --scene examples/ur5e.kscene --script examples/scripts/cubes_row.py`;
+- при запуске редактора: `kinetica --scene examples/scenes/ur5e.kscene --script examples/scripts/cubes_row.py`;
 - операцией, из консоли, другого скрипта или агентом: `ed.script_run(file="/путь/к/скрипту.py")`;
 - из терминала рядом с редактором, запущенным с `--api`: `PYTHONPATH=clients/python python3 скрипт.py`.
 

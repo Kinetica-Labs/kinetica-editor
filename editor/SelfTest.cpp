@@ -480,7 +480,7 @@ void testContextMenu(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
 // The authored scene: a few shapes, a model and the robot arm of the examples, in edit mode and then playing.
 void sceneShots(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir) {
     QString error;
-    if (!b.openFile(MainWindow::examplesDir() + "/robot-arm.kscene", error)) b.newScene();
+    if (!b.openFile(MainWindow::scenesDir() + "/robot-arm.kscene", error)) b.newScene();
     for (int k = 0; k < 2; ++k) b.createActions()[size_t(k)]->trigger();
     b.importModel(MainWindow::examplesDir() + "/models/house.obj", error);
     pump(500);

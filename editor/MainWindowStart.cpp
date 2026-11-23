@@ -58,6 +58,7 @@ QStringList restartArguments(const QStringList& arguments, const QString& snapsh
 } // namespace
 
 QString MainWindow::examplesDir() { return resourceDir("examples"); }
+QString MainWindow::scenesDir() { return resourceDir("examples") + "/scenes"; }
 
 void MainWindow::changeLanguage(const QString& code) {
     auto* menu = findChild<QMenu*>("languageMenu");
@@ -162,7 +163,7 @@ void MainWindow::startBuilder(bool interactive) {
     const bool person = qApp->property("keInteractive").toBool(); // a run nobody watches meets a newcomer only when told to
     const bool firstMinute = interactive && restartFile_.isEmpty() && startScene_.isEmpty() &&
                              (forceFirstStart_ || (person && !QSettings().value(kFirstMinuteDone, false).toBool()));
-    const QString scene = firstMinute ? examplesDir() + "/ur5e.kscene" : startScene_; // a robotics editor opens with a robot
+    const QString scene = firstMinute ? scenesDir() + "/ur5e.kscene" : startScene_; // a robotics editor opens with a robot
     if (!resumed) {
         if (!scene.isEmpty() && !builder_->openFile(scene, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);
         if (scene.isEmpty() || !error.isEmpty()) builder_->newScene();
@@ -260,7 +261,7 @@ void MainWindow::openGallery() {
 
 // The gallery with every picture made, saved as a PNG; then the program quits (--gallery-shot).
 void MainWindow::runGalleryShot(const QString& file) {
-    auto* gallery = new ExamplesGallery(examplesDir(), this);
+    auto* gallery = new ExamplesGallery(scenesDir(), this);
     gallery->show();
     auto save = [gallery, file] {
         gallery->grab().save(file);

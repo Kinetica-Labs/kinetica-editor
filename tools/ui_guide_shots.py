@@ -207,7 +207,7 @@ class Studio:
         self.ed.view_look(eye=eye, target=target)
 
     def open(self, name, eye, target):
-        self.ed.scene_open(file=os.path.join(EDITOR_DIR, "examples", name))
+        self.ed.scene_open(file=os.path.join(EDITOR_DIR, "examples", "scenes", name))
         self.ed.view_draw(clear=True)
         self.ed.selection_set(ids=[])
         self.ed.ui_trigger(text="actionSequencer")

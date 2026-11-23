@@ -33,6 +33,7 @@ class MainWindow : public QMainWindow {
 public:
     // Where the editor's own scenes and models are: examples/ next to the program, else the source tree's (MainWindowStart.cpp).
     static QString examplesDir();
+    static QString scenesDir(); // examples/scenes: the example scenes, and where a new scene is saved first
     MainWindow();
     ~MainWindow() override;
 

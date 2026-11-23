@@ -586,7 +586,7 @@ void MainWindow::buildSceneMenu() {
         if (!builder_->openFile(path, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);
     });
     menu->addAction(uiText("Kinetica", "Сохранить…"), QKeySequence::Save, this, [this] {
-        const QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Сохранить сцену"), examplesDir(), uiText("Kinetica", "Сцена Kinetica (*.kscene)"));
+        const QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Сохранить сцену"), scenesDir(), uiText("Kinetica", "Сцена Kinetica (*.kscene)"));
         if (path.isEmpty()) return;
         QString error;
         if (!builder_->saveFile(path, error)) return void(QMessageBox::warning(this, uiText("Kinetica", "Сохранить сцену"), error));

@@ -38,7 +38,7 @@ QIcon placeholder(const QString& title) {
 
 } // namespace
 
-ExamplesGallery::ExamplesGallery(const QString& examplesDir, QWidget* parent) : QDialog(parent) {
+ExamplesGallery::ExamplesGallery(const QString& scenesDir, QWidget* parent) : QDialog(parent) {
     setWindowTitle(uiText("Kinetica", "Примеры"));
     resize(1100, 720);
     auto* col = new QVBoxLayout(this);
@@ -58,7 +58,7 @@ ExamplesGallery::ExamplesGallery(const QString& examplesDir, QWidget* parent) : 
     list_->setWordWrap(true);
     list_->setUniformItemSizes(true);
     col->addWidget(list_, 1);
-    collect(examplesDir);
+    collect(scenesDir);
     buildTiles();
     connect(tabs_, &QTabBar::currentChanged, this, &ExamplesGallery::filter);
     connect(list_, &QListWidget::itemClicked, this, [this](QListWidgetItem* item) {
@@ -84,13 +84,13 @@ QString ExamplesGallery::thumbnailDir() {
 }
 
 // The scenes by name, the first start's scene at the very front.
-void ExamplesGallery::collect(const QString& examplesDir) {
-    QStringList files = QDir(examplesDir).entryList({"*.kscene"}, QDir::Files, QDir::Name);
+void ExamplesGallery::collect(const QString& scenesDir) {
+    QStringList files = QDir(scenesDir).entryList({"*.kscene"}, QDir::Files, QDir::Name);
     files.sort();
     if (files.removeOne("ur5e.kscene")) files.prepend("ur5e.kscene");
     const QString category = uiText("Kinetica", "Сцены редактора");
     categories_ << uiText("Kinetica", "Все") << category;
-    for (const QString& f : files) examples_.push_back({sceneTitle(QFileInfo(f).completeBaseName()), category, examplesDir + "/" + f});
+    for (const QString& f : files) examples_.push_back({sceneTitle(QFileInfo(f).completeBaseName()), category, scenesDir + "/" + f});
 }
 
 void ExamplesGallery::buildTiles() {
