@@ -23,6 +23,7 @@
 #include "TrackChart.h"
 
 #include <QByteArray>
+#include <QJsonArray>
 #include <QJsonObject>
 #include <QSvgRenderer>
 #include <QWidget>
@@ -107,6 +108,7 @@ private:
     std::vector<Chart> charts_;
     QPushButton* chartsButton_ = nullptr;               // «Графики ▸ Углы · Ускорение»: the charts are in the plots
     std::function<void()> openCharts_;
+    QJsonArray chartTitles_;                            // the charts' own words, for the button
     QTimer* soon_ = nullptr;                            // a run shows sixty times a second: the panel follows at 25
     double now_ = 0;                                    // the latest frame shown from
 };

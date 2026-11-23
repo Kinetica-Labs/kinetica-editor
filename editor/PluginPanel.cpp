@@ -218,8 +218,9 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
             connect(chartsButton_, &QPushButton::clicked, this, [this] { if (openCharts_) openCharts_(); });
             into->addWidget(chartsButton_);
         }
+        chartTitles_.append(n.value("title")); // its own words: the unit is not one of them
         QStringList titles;
-        for (const Chart& c : charts_) titles << c.title.section(", ", 0, 0);
+        for (const QJsonValue& c : chartTitles_) titles << c.toString();
         chartsButton_->setText(uiText("Kinetica", "Графики ▸ ") + titles.join(" · "));
     } else if (kind == "button") {
         auto* b = new QPushButton(n.value("label").toString(n.value("command").toString()), this);

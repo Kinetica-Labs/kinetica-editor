@@ -18,6 +18,7 @@
 #include <QSignalBlocker>
 #include <QLineEdit>
 #include <QMenu>
+#include <QPointer>
 #include <QScrollArea>
 #include <QTextStream>
 #include <QTimer>
@@ -106,7 +107,7 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     connect(find_, &QLineEdit::textChanged, this, &PlotPanel::filterTree);
     connect(tree_, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item) {
         if (!item->parent()) return; // a section: Qt ticks its charts, each comes here
-        const QString key = item->parent()->text(0) + '\n' + item->text(0);
+        const QString key = item->parent()->text(0) + '\n' + item->data(0, Qt::UserRole).toString();
         if (item->checkState(0) == Qt::Checked) hiddenCharts_.erase(key);
         else hiddenCharts_.insert(key);
         rebuildSoon_->start();
@@ -462,7 +463,6 @@ void PlotPanel::isolateLine(int chart, const std::string& id) {
 void PlotPanel::removeChart(int chart) {
     if (chart < 0 || chart >= int(charts_.size())) return;
     charts_.erase(charts_.begin() + chart);
-    focus_.clear(); // the charts after it move up: «scene:3» would be another one
     chartsChanged();
 }
 
@@ -488,7 +488,7 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
          [this, chart, line] { chart >= 0 ? setOnChart(chart, line, false) : setChannelShown(line, false); })
         ->setEnabled(k >= 0);
     item("plotMenuRemoveChart", uiText("Kinetica", "Убрать этот график"), [this, chart] { removeChart(chart); })->setEnabled(chart >= 0);
-    if (chart >= 0) focusItem(menu, "scene:" + QString::number(chart));
+    if (chart >= 0) focusItem(menu, "scene:" + chartKey(chart));
     menu->addSeparator();
     auto* layouts = new QActionGroup(menu);
     const std::pair<const char*, const char*> choices[] = {{"plotMenuOverlay", uiText("Kinetica", "Наложить")}, {"plotMenuLanes", uiText("Kinetica", "Дорожками")},
@@ -504,7 +504,9 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
     whole->setChecked(wholeRun_);
     menu->addSeparator();
     item("plotMenuCsv", uiText("Kinetica", "Сохранить CSV…"), [this] { emit saveCsvRequested(); });
-    item("plotMenuCopy", uiText("Kinetica", "Скопировать картинку"), [view] { QApplication::clipboard()->setImage(view->grab().toImage()); });
+    item("plotMenuCopy", uiText("Kinetica", "Скопировать картинку"), [view = QPointer<TrackChart>(view)] {
+        if (view) QApplication::clipboard()->setImage(view->grab().toImage());
+    });
     return menu;
 }
 
@@ -581,7 +583,7 @@ TrackChart* PlotPanel::makeView(int chart) {
     connect(v, &TrackChart::legendClicked, this, [this, v, chart](int k) { toggleLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::legendDoubleClicked, this, [this, v, chart](int k) { isolateLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::menuRequested, this, [this, v](QPoint at) { contextMenu(v, at)->popup(v->mapToGlobal(at)); });
-    if (chart >= 0) connect(v, &TrackChart::doubleClicked, this, [this, chart] { focusChart(focus_.isEmpty() ? "scene:" + QString::number(chart) : QString()); });
+    if (chart >= 0) connect(v, &TrackChart::doubleClicked, this, [this, chart] { focusChart(focus_.isEmpty() ? "scene:" + chartKey(chart) : QString()); });
     views_.push_back(v);
     viewChart_.push_back(chart);
     return v;
@@ -607,11 +609,11 @@ void PlotPanel::rebuildCharts() {
     std::vector<int> scene, object;
     for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
     const QString sceneTitle = uiText("Kinetica", "Сцена");
-    std::vector<std::pair<QString, std::vector<QString>>> sections{{sceneTitle, chartTitles(scene)}};
-    if (!object.empty()) sections.push_back({objectTitle(), chartTitles(object)});
+    std::vector<std::pair<QString, Rows>> sections{{sceneTitle, rowsOf(scene)}};
+    if (!object.empty()) sections.push_back({objectTitle(), rowsOf(object)});
     for (const PluginSection& p : plugins_) {
         sections.push_back({p.title, {}});
-        for (const SharedChart& c : p.charts) sections.back().second.push_back(c.title);
+        for (const SharedChart& c : p.charts) sections.back().second.push_back({c.title, c.title});
     }
     fillTree(sections);
     if (!focus_.isEmpty()) { // one chart in the whole width, a way back over it
@@ -626,8 +628,8 @@ void PlotPanel::rebuildCharts() {
         col->addWidget(back, 0, Qt::AlignLeft);
         QWidget* one = nullptr;
         if (focus_.startsWith("scene:")) {
-            const int chart = focus_.mid(6).toInt();
-            if (chart >= 0 && chart < int(charts_.size())) one = section(QString(), {chart}, false);
+            for (int i = 0; i < int(charts_.size()) && !one; ++i)
+                if (focus_ == "scene:" + chartKey(i)) one = section(QString(), {i}, false);
         } else
             for (size_t i = 0; i < plugins_.size() && !one; ++i)
                 for (size_t k = 0; k < plugins_[i].charts.size() && !one; ++k)
@@ -648,18 +650,18 @@ void PlotPanel::rebuildCharts() {
     if (arrangement_ == Arrangement::Normalized) { // one chart of the ticked charts' lines
         std::vector<int> ticked;
         for (int i : scene)
-            if (!hiddenCharts_.count(sceneTitle + '\n' + titleOf(charts_[size_t(i)]))) ticked.push_back(i);
+            if (!hiddenCharts_.count(sceneTitle + '\n' + chartKey(i))) ticked.push_back(i);
         for (int i : object)
-            if (!hiddenCharts_.count(objectTitle() + '\n' + titleOf(charts_[size_t(i)]))) ticked.push_back(i);
+            if (!hiddenCharts_.count(objectTitle() + '\n' + chartKey(i))) ticked.push_back(i);
         if (!ticked.empty()) box->addWidget(normalizedView(ticked), 1);
     } else {
-        if (const int own = shownOf(sceneTitle, chartTitles(scene)); own || scene.empty()) box->addWidget(section(sceneTitle, scene, true), std::max(1, own));
-        if (const int own = shownOf(objectTitle(), chartTitles(object)); own) box->addWidget(section(objectTitle(), object, false), own);
+        if (const int own = shownOf(sceneTitle, rowsOf(scene)); own || scene.empty()) box->addWidget(section(sceneTitle, scene, true), std::max(1, own));
+        if (const int own = shownOf(objectTitle(), rowsOf(object)); own) box->addWidget(section(objectTitle(), object, false), own);
     }
     for (size_t i = 0; i < plugins_.size(); ++i) { // in every layout
-        std::vector<QString> titles;
-        for (const SharedChart& c : plugins_[i].charts) titles.push_back(c.title);
-        if (const int shown = shownOf(plugins_[i].title, titles)) box->addWidget(pluginSection(i), shown);
+        Rows rows;
+        for (const SharedChart& c : plugins_[i].charts) rows.push_back({c.title, c.title});
+        if (const int shown = shownOf(plugins_[i].title, rows)) box->addWidget(pluginSection(i), shown);
     }
     scroll_->setWidget(host);
     refreshCharts();
@@ -693,16 +695,17 @@ QLabel* PlotPanel::sectionHeader(const QString& title) {
 
 // «Что показывать» again: a row a section, ticked (partly) by its charts, a row a chart under it; the folded sections
 // stay folded, the words in the find line still filter. Its own ticks do not come back here as changes.
-void PlotPanel::fillTree(const std::vector<std::pair<QString, std::vector<QString>>>& sections) {
+void PlotPanel::fillTree(const std::vector<std::pair<QString, Rows>>& sections) {
     const QSignalBlocker quiet(tree_);
     tree_->clear();
     for (const auto& [title, charts] : sections) {
         auto* section = new QTreeWidgetItem(tree_, {title});
         section->setFlags(section->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsAutoTristate);
-        for (const QString& chart : charts) {
-            auto* row = new QTreeWidgetItem(section, {chart});
+        for (const auto& [words, key] : charts) {
+            auto* row = new QTreeWidgetItem(section, {words});
+            row->setData(0, Qt::UserRole, key);
             row->setFlags(row->flags() | Qt::ItemIsUserCheckable);
-            row->setCheckState(0, hiddenCharts_.count(title + '\n' + chart) ? Qt::Unchecked : Qt::Checked);
+            row->setCheckState(0, hiddenCharts_.count(title + '\n' + key) ? Qt::Unchecked : Qt::Checked);
         }
         section->setExpanded(!folded_.count(title));
     }
@@ -711,6 +714,7 @@ void PlotPanel::fillTree(const std::vector<std::pair<QString, std::vector<QStrin
 
 // The find line: the charts whose words have it (a section's title having it shows all its charts), the others hidden.
 void PlotPanel::filterTree(const QString& words) {
+    const QSignalBlocker quiet(tree_); // a section opened to show what was found is not one the reader unfolded
     for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
         QTreeWidgetItem* section = tree_->topLevelItem(i);
         const bool whole = words.isEmpty() || section->text(0).contains(words, Qt::CaseInsensitive);
@@ -725,15 +729,25 @@ void PlotPanel::filterTree(const QString& words) {
     }
 }
 
-int PlotPanel::shownOf(const QString& title, const std::vector<QString>& charts) const {
+int PlotPanel::shownOf(const QString& title, const Rows& charts) const {
     int n = 0;
-    for (const QString& chart : charts) n += !hiddenCharts_.count(title + '\n' + chart);
+    for (const auto& row : charts) n += !hiddenCharts_.count(title + '\n' + row.second);
     return n;
 }
 
-std::vector<QString> PlotPanel::chartTitles(const std::vector<int>& charts) {
-    std::vector<QString> out;
-    for (int i : charts) out.push_back(titleOf(charts_[size_t(i)]));
+// A scene's chart by what it draws - its lines -, not its words (two charts may have the same) nor its place (a chart
+// put before it moves it); an empty one by its place.
+QString PlotPanel::chartKey(int chart) const {
+    const Chart& c = charts_[size_t(chart)];
+    if (c.ids.empty()) return "#" + QString::number(chart);
+    QStringList ids;
+    for (const std::string& id : c.ids) ids << QString::fromStdString(id);
+    return ids.join('|');
+}
+
+PlotPanel::Rows PlotPanel::rowsOf(const std::vector<int>& charts) {
+    Rows out;
+    for (int i : charts) out.push_back({titleOf(charts_[size_t(i)]), chartKey(i)});
     return out;
 }
 
@@ -746,7 +760,7 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& all, 
     col->setSpacing(3);
     std::vector<int> charts;
     for (int i : all)
-        if (header.isEmpty() || !hiddenCharts_.count(header + '\n' + titleOf(charts_[size_t(i)]))) charts.push_back(i);
+        if (header.isEmpty() || !hiddenCharts_.count(header + '\n' + chartKey(i))) charts.push_back(i);
     if (!header.isEmpty()) col->addWidget(sectionHeader(header));
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
@@ -821,7 +835,9 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
             auto* menu = new QMenu(this);
             menu->setAttribute(Qt::WA_DeleteOnClose);
             focusItem(menu, "plugin:" + k);
-            connect(menu->addAction(uiText("Kinetica", "Скопировать картинку")), &QAction::triggered, this, [v] { QApplication::clipboard()->setImage(v->grab().toImage()); });
+            connect(menu->addAction(uiText("Kinetica", "Скопировать картинку")), &QAction::triggered, this, [v = QPointer<TrackChart>(v)] {
+                if (v) QApplication::clipboard()->setImage(v->grab().toImage()); // the charts may be built again under the menu
+            });
             menu->popup(v->mapToGlobal(at));
         });
         if (lanes) v->setMinimumHeight(96);

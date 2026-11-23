@@ -152,13 +152,15 @@ private:
     void alignLanes();
     void onHover(TrackChart* view, double t, QPoint globalPos, int track);
     void onHoverLeft();
+    using Rows = std::vector<std::pair<QString, QString>>; // a chart's words in «Что показывать», its key
     QLabel* sectionHeader(const QString& title);
-    void fillTree(const std::vector<std::pair<QString, std::vector<QString>>>& sections); // «Что показывать»: section -> charts
+    void fillTree(const std::vector<std::pair<QString, Rows>>& sections); // «Что показывать»: section -> charts
     void filterTree(const QString& words);
-    int shownOf(const QString& title, const std::vector<QString>& charts) const;          // its charts not unticked
-    std::vector<QString> chartTitles(const std::vector<int>& charts);
+    int shownOf(const QString& title, const Rows& charts) const;          // its charts not unticked
+    Rows rowsOf(const std::vector<int>& charts);
+    QString chartKey(int chart) const;
     QWidget* pluginSection(size_t i, int only = -1); // only: that one chart of it (the whole width), else the ticked ones
-    void focusChart(const QString& chart);           // one chart in the whole width («scene:3», «plugin:<section>\n<chart>»), empty: all
+    void focusChart(const QString& chart);           // one chart in the whole width («scene:<its key>», «plugin:<section>\n<chart>»), empty: all
     QAction* focusItem(QMenu* menu, const QString& chart);
     void refreshPluginCharts();
     void showHint(); // before the first frame: one quiet line instead of the charts
@@ -181,7 +183,7 @@ private:
     };
     std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
     QString focus_;                        // the chart in the whole width (focusChart), empty: every chart
-    std::set<QString> hiddenCharts_; // the charts unticked in «Что показывать»: «section\nchart»
+    std::set<QString> hiddenCharts_; // the charts unticked in «Что показывать»: «section\nchart's key» (chartKey; a plugin's: its title)
     std::set<QString> folded_;       // its sections folded, by title
     class QSplitter* body_ = nullptr;     // «Что показывать» | the charts
     class QTreeWidget* tree_ = nullptr;
