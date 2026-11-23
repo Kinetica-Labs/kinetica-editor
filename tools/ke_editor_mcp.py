@@ -16,7 +16,8 @@ an action (a file written, the program stopped, a plugin's command) is left as i
 
 The profile, by default "agent": the hyper-operations first - a ready assembly in one call, terrain in one call, a whole
 robot in one scene_batch - and the few operations a build is checked with (AGENT); measured on a weak model (Haiku), the
-full list of 150 tools - some 25 000 tokens a turn - and learning the file format cost it about 18 calls a task.
+full list of 150 tools - some 25 000 tokens a turn - and learning the file format cost it about 18 calls a task; the
+instructions are docs/agent-guide.md, the lessons of those runs.
 ``KE_MCP_FAMILIES=all`` offers every operation, ``KE_MCP_FAMILIES=scene,assembly,sim`` those of the families (the first
 word of a name). The rest stay one call away:
 ``editor_call`` reaches any operation, and ``ops_list {families: [...]}`` describes them. When the operations change - a plugin started, fell or was saved - the server says so
@@ -47,7 +48,7 @@ LOCAL_TOOLS = [
      "inputSchema": {"type": "object", "properties": {"op": {"type": "string"}, "args": OPEN}, "required": ["op"]}},
 ]
 FAMILIES = [f for f in os.environ.get("KE_MCP_FAMILIES", "agent").replace(" ", "").split(",") if f]  # agent, all, or families
-AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_drive", "assembly_power", "terrain_make", "scene_batch",
+AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_drive", "assembly_power", "assembly_sensor", "terrain_make", "scene_batch",
          "scene_get", "scene_list", "scene_new", "scene_delete", "scene_set", "scene_put", "sim_play", "sim_step", "sim_measure", "sim_stop",
          "controller_input", "view_screenshot", "view_follow", "ops_list"}
 # An operation's kind (ops_list) as MCP's annotations of its tool.
@@ -56,35 +57,11 @@ HINTS = {"query": {"readOnlyHint": True}, "edit": {"readOnlyHint": False, "destr
 
 _editor = None
 _names = None  # the operations' names at the last list: a change is said to the client
-# What a model reads first (MCP initialize: instructions): where it is and the first calls that pay off.
-INSTRUCTIONS = (
-    "Kinetica Editor: a robotics editor on the Box3D physics engine; the person watching sees every call. Axes: x forward, "
-    "y up (the floor at y 0), z right; SI units; angles in rad, Euler degrees only in the scene text's rotation lines; a "
-    "shape's position is its centre, its size its full extent (a sphere's: its diameter).\n"
-    "Work top-down - each call is a turn of yours, the fewest win:\n"
-    "1. Ready: assembly_list, then assembly_add {name, position} - a whole robot in one call (Спорткар: chassis, shocks, "
-    "steering, DC motors on a battery, an IMU, a driving panel). Its parts change in the same call: overrides: [{name: part, line, "
-    "key, values}] - e.g. {name: \"Батарея 1\", line: cells, key: parallel, values: [2]}.\n"
-    "2. Ground: terrain_make {size, height, hills, flat, seed, track} - static hills, flat in the middle; track: true adds "
-    "a hump, speed bumps, crates and balls.\n"
-    "3. Anything new: ONE scene_batch {ops: [{op, args}, ...]} - \"$n\" is the id step n (from 0) made, \"$n.key\" that key "
-    "of its answer. E.g. [{op: scene_add, args: {shape: box, position: [0, 0.3, 0], size: [1, 0.05, 0.4], role: rigid}}, "
-    "{op: scene_add, args: {shape: cylinder, position: [-0.35, 0.1, 0.3], size: [0.2, 0.06, 0.2], role: rigid}}, "
-    "{op: scene_turn, args: {ids: [\"$1\"], axis: x, degrees: 90}}, {op: assembly_joint, args: {a: \"$1\", b: \"$0\", type: hinge, "
-    "anchor: [-0.35, 0.1, 0.27], axis: [0, 0, 1]}}, {op: assembly_drive, args: {joint: \"$3\", kind: dcmotor, voltage: -11.1, "
-    "resistance: 0.13, constant: 0.29}}, {op: assembly_power, args: {joint: \"$3\"}}].\n"
-    "4. A copy of a part: scene_get gives its blocks; assembly_add {text} puts blocks with ids of their own in (renumbered). "
-    "One new block: scene_put {block} (id 0: a new object). A car's driving panel, CHASSIS its chassis' id: 'controller \"Пульт\"\\n"
-    "  action steer axis drive value target CHASSIS speed 1.5\\n  action throttle axis drive value target CHASSIS speed 2\\n"
-    "  bind steer keys Right Left\\n  bind steer gamepad right_x\\n  bind throttle keys Up Down\\n  bind throttle gamepad left_y\\nend'.\n"
-    "5. Check once: sim_play, sim_step {frames: 120, state: false}, sim_measure {objects: [id]} (centre y, speed), sim_stop; "
-    "view_screenshot to look. Anything else: editor_call {op, args}; ops_list {families: [...]} describes it.\n"
-    "Learned the hard way: joint types hinge (about axis), slider, ball, weld, shock (spring and damper along axis), cylinder, "
-    "universal, planar - anchor and axis in the world. A DC motor first (assembly_drive kind dcmotor), then assembly_power; a "
-    "driver starts at duty 0. A cylinder's axis is its y: a wheel on an axle along z is turned x 90°. A car's panel: actions "
-    "with drive value (a plugin reads them, the brain's stabiliser drives the car); keys by Qt's names (Up Down Left Right W "
-    "Space), pad left_y right_x. Every block of text ends with 'end'. A light pushable body: scene_set {id, line: rigid, key: "
-    "density, values: [150]}. While the scene plays, an edit lasts until sim_stop.")
+# What a model reads first (MCP initialize: instructions): docs/agent-guide.md - the distilled way to build fast, one
+# source for people and models.
+GUIDE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "agent-guide.md")
+INSTRUCTIONS = (open(GUIDE, encoding="utf-8").read() if os.path.exists(GUIDE) else
+                "Kinetica Editor: a robotics editor; start with assembly_list, terrain_make and scene_batch.")
 WIRING = {"plugin_register", "plugin_wait", "plugin_reply", "plugin_panel_set"}  # a plugin process's own, with its token
 
 
