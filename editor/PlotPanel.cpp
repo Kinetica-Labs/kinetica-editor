@@ -637,24 +637,46 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& chart
     return w;
 }
 
-// A plugin panel's charts as a part of the plots: its header, its charts the way the scene's are laid out, no «+».
+// A plugin panel's charts as a part of the plots: its header, its charts the way the scene's are laid out, no «+». The
+// header's ▾ lists the charts with a tick each: the ones unticked are not drawn (kept by the plugin's and the chart's
+// titles, so a plugin started again keeps the choice).
 QWidget* PlotPanel::pluginSection(size_t i) {
     PluginSection& s = plugins_[i];
     auto* w = new QWidget;
     auto* col = new QVBoxLayout(w);
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(3);
-    auto* title = new QLabel(s.title);
+    const auto key = [&s](const SharedChart& c) { return s.title + '\n' + c.title; };
+    auto* title = new QToolButton;
     title->setObjectName("plotSection");
-    title->setStyleSheet("color: #8fc1ff; font-weight: 600; padding-left: 4px;");
-    col->addWidget(title);
+    title->setText(s.title + " ▾");
+    title->setToolTip(uiText("Kinetica", "Какие графики плагина видны"));
+    title->setAutoRaise(true);
+    title->setPopupMode(QToolButton::InstantPopup);
+    title->setStyleSheet("QToolButton { color: #8fc1ff; font-weight: 600; padding-left: 4px; border: none; } QToolButton::menu-indicator { image: none; width: 0; }");
+    auto* menu = new QMenu(title);
+    menu->setObjectName("plotSectionMenu");
+    for (const SharedChart& c : s.charts) {
+        QAction* a = menu->addAction(c.title);
+        a->setCheckable(true);
+        a->setChecked(!hiddenPluginCharts_.count(key(c)));
+        connect(a, &QAction::toggled, this, [this, k = key(c)](bool on) {
+            if (on) hiddenPluginCharts_.erase(k);
+            else hiddenPluginCharts_.insert(k);
+            QTimer::singleShot(0, this, &PlotPanel::rebuildCharts); // not under the menu's own signal: the section goes
+        });
+    }
+    title->setMenu(menu);
+    col->addWidget(title, 0, Qt::AlignLeft);
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     const bool lanes = arrangement_ == Arrangement::Lanes;
-    const int columns = lanes ? 1 : std::clamp(int(s.charts.size()), 1, 3);
-    for (size_t k = 0; k < s.charts.size(); ++k) {
+    int shown = 0;
+    for (const SharedChart& c : s.charts) shown += !hiddenPluginCharts_.count(key(c));
+    const int columns = lanes ? 1 : std::clamp(shown, 1, 3);
+    for (size_t k = 0, at = 0; k < s.charts.size(); ++k) {
         const SharedChart& c = s.charts[k];
-        auto* v = new TrackChart;
+        auto* v = new TrackChart(w);
         v->setObjectName("pluginPlotChart");
         v->setTitle(c.title, false);
         v->setAxisWords(c.xWords);
@@ -671,8 +693,9 @@ QWidget* PlotPanel::pluginSection(size_t i) {
             QToolTip::hideText();
         });
         if (lanes) v->setMinimumHeight(96);
-        s.views.push_back(v);
-        grid->addWidget(v, int(k) / columns, int(k) % columns);
+        s.views.push_back(v); // one view a chart, even unticked: the views follow the charts one by one
+        if (hiddenPluginCharts_.count(key(c))) v->hide();
+        else grid->addWidget(v, int(at) / columns, int(at) % columns), ++at;
     }
     col->addLayout(grid, 1);
     return w;

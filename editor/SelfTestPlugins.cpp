@@ -20,6 +20,7 @@
 #include <QDateTime>
 #include <QDialog>
 #include <QDir>
+#include <QDockWidget>
 #include <QDoubleSpinBox>
 #include <QElapsedTimer>
 #include <QFile>
@@ -385,12 +386,32 @@ def mark(scene, dt, sensors):
                                                   "pictures go with it");
 }
 
+// A plugin's chart as the plots draw it - the only place it is drawn; asked anew each time, as the plots build their views
+// again with the layout and the selection.
+TrackChart* plotted(QMainWindow& w, const QString& section, size_t k = 0) {
+    if (auto* plots = w.findChild<PlotPanel*>())
+        for (const auto& [title, views] : plots->pluginSections())
+            if (title == section && k < views.size()) return views[k];
+    return nullptr;
+}
+
+// The window's first level (docs/contracts/ui.md): its docked panels by name, each open (+) or closed (-).
+QStringList firstLevel(QMainWindow& w) {
+    QStringList out;
+    for (QDockWidget* d : w.findChildren<QDockWidget*>()) out << d->objectName() + (d->isHidden() ? "-" : "+");
+    out.sort();
+    return out;
+}
+
 // A plugin's chart (ui.chart): lines over the run's time, drawn by the editor from what the plugin shows in on_tick - a
 // point a frame at that frame's time, with the frame's answer; the same value is a word of the panel; a new run is a new
-// history; the plugin gone, its panel too.
+// history; the plugin gone, its chart too. The panel asked for the bottom, and is a tab of the inspector all the same:
+// the plugin, started, started again and gone, leaves the window's panels as they were; the chart is drawn in the plots
+// only, the panel's «Графики ▸» opens them.
 void testChart(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
+    const QStringList before = firstLevel(w);
     QDir().mkpath(folder + "/meter");
-    write(folder + "/meter/plugin.py", R"py(from kinetica.plugin import on_play, on_tick, show, ui
+    const QString file = R"py(from kinetica.plugin import on_play, on_tick, show, ui
 
 clock = 0.0
 
@@ -408,11 +429,30 @@ def count(scene, dt, sensors):
     global clock
     clock += dt
     show(clock=clock, half=clock / 2)
-)py");
+)py";
+    write(folder + "/meter/plugin.py", file);
     host->start(true);
     TrackChart* chart = nullptr;
-    waitUntil([&] { return (chart = w.findChild<TrackChart*>("pluginChart")) != nullptr && host->ticking(); }, 10000);
-    if (!chart) return c.check(false, "a plugin's chart comes with its panel"), void();
+    waitUntil([&] { return (chart = plotted(w, "Счётчик")) != nullptr && host->ticking(); }, 10000);
+    if (!chart) return c.check(false, "a plugin's chart comes with its panel, in the plots"), void();
+    const QWidget* first = w.findChild<QWidget*>("pluginPanel");
+    write(folder + "/meter/plugin.py", file + "\n");
+    waitUntil([&] { return host->ticking() && plotted(w, "Счётчик") && w.findChild<QWidget*>("pluginPanel") != first; }, 10000); // started again
+    pump(300);
+    auto* panel = w.findChild<QWidget*>("pluginPanel");
+    QWidget* dock = panel;
+    while (dock && !qobject_cast<QDockWidget*>(dock)) dock = dock->parentWidget();
+    auto* button = w.findChild<QPushButton*>("pluginChartsButton");
+    std::printf("  the window's panels with the plugin: %s (before: %s)\n", qPrintable(firstLevel(w).join(' ')), qPrintable(before.join(' ')));
+    c.check(firstLevel(w) == before && dock && dock->objectName() == "inspectorDock",
+            "a plugin's panel - asked for the bottom too - is a tab of the inspector: the window's panels stay as they were");
+    c.check(panel && panel->findChildren<TrackChart*>().isEmpty() && button && button->text().contains("Время кадра"),
+            "the panel draws no chart: one «Графики ▸» button names its charts");
+    if (button) button->click();
+    pump(50);
+    auto* results = w.findChild<QDockWidget*>("resultsDock");
+    c.check(results && results->isVisible(), "the panel's «Графики ▸» opens the plots");
+    chart = plotted(w, "Счётчик");
     b.newScene();
     ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 1.0, 0.0}}, {"role", "rigid"}});
     const PlotSeries* line = chart->tracks().size() == 2 ? chart->tracks()[0].series : nullptr;
@@ -434,6 +474,8 @@ def count(scene, dt, sensors):
     auto* word = w.findChild<QLabel*>("pluginValue_clock");
     const QString said = word ? word->text() : QString();
     const bool worded = line && line->size() > 0 && said == "Сейчас: " + QString::number(line->latest(), 'g', 6);
+    chart = plotted(w, "Счётчик");
+    if (!chart) return c.check(false, "the plugin's chart stays in the plots"), void();
     const auto [from, to] = chart->timeRange();
     const bool framed = line && line->size() > 0 && from == 0 && std::fabs(to - line->time(line->size() - 1)) < 1e-9 && chart->title() == "Время кадра, с";
     std::printf("  a plugin's chart «%s»: %zu lines, %zu points over %.3f s after 30 frames, in step with the frames %s; the word «%s»\n",
@@ -446,7 +488,11 @@ def count(scene, dt, sensors):
     c.check(line && line->size() == 11 && line->time(0) == 0, "a new run is a new history of the chart");
     b.stop();
     QDir(folder + "/meter").removeRecursively();
-    c.check(waitUntil([&] { return w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000), "the plugin gone, its chart goes with its panel");
+    c.check(waitUntil([&] { return plotted(w, "Счётчик") == nullptr && !w.findChild<QWidget*>("pluginPanel"); }, 5000),
+            "the plugin gone, its chart goes with its panel");
+    if (results && before.contains("resultsDock-")) results->hide(); // as it was: the button opened it
+    pump(50);
+    c.check(firstLevel(w) == before, "the plugin gone, the window's panels are as they were before it");
 }
 
 // A picture in the panel (ui.svg): an SVG the plugin sends through show() from a command is drawn by the editor, scaled to
@@ -505,8 +551,8 @@ def draw(scene, good: bool = True):
 }
 
 // A training's chart (ui.chart(..., x="step")): the axis is a step, not the run's time, and the points come from a thread
-// of the plugin through show() - no run, no on_tick. They are in the panel's chart and in the bottom plots' section of
-// the plugin, the same series; a step going back is a new training; the plugin gone, the section goes with its panel.
+// of the plugin through show() - no run, no on_tick. They are in the plots' section of the plugin, whose ▾ chooses the
+// charts drawn; a step going back is a new training; the plugin gone, the section goes with its panel.
 void testStepChart(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
     QDir().mkpath(folder + "/trainer");
     write(folder + "/trainer/plugin.py", R"py(import threading
@@ -525,30 +571,41 @@ def train(scene, generations: int = 5, first: int = 0):
 )py");
     host->start(true);
     TrackChart* chart = nullptr;
-    waitUntil([&] { return (chart = w.findChild<TrackChart*>("pluginChart")) != nullptr && action(w, "plugin:trainer_train") != nullptr; }, 10000);
+    waitUntil([&] { return (chart = plotted(w, "Обучение")) != nullptr && action(w, "plugin:trainer_train") != nullptr; }, 10000);
     auto* plots = w.findChild<PlotPanel*>();
-    if (!chart || !plots) return c.check(false, "a step chart comes with its panel"), void();
+    if (!chart || !plots) return c.check(false, "a step chart comes with its panel, in the plots"), void();
+    const PlotSeries* best = chart->tracks().size() == 2 ? chart->tracks()[0].series : nullptr;
     const auto train = [&](int n, size_t points, int first = 0) {
         ops->run("trainer_train", {{"generations", n}, {"first", first}}, [](const QJsonObject&) {}, "ui");
-        waitUntil([&] { return chart->tracks()[0].series->size() == points; }, 5000);
+        waitUntil([&] { return best && best->size() == points; }, 5000);
         pump(150);
     };
     train(5, 5);
-    const PlotSeries* best = chart->tracks().size() == 2 ? chart->tracks()[0].series : nullptr;
-    bool stepped = best && best->size() == 5 && chart->axisWords() == "поколение";
+    chart = plotted(w, "Обучение");
+    bool stepped = chart && best && best->size() == 5 && chart->axisWords() == "поколение";
     for (size_t k = 0; stepped && k < best->size(); ++k) stepped = best->time(k) == double(k) && best->value(k) == 10.0 * double(k);
-    const auto sections = plots->pluginSections();
-    const TrackChart* below = sections.size() == 1 && sections[0].first == "Обучение" && sections[0].second.size() == 1 ? sections[0].second[0] : nullptr;
-    const bool shared = below && below->tracks().size() == 2 && below->tracks()[0].series == best && below->axisWords() == "поколение" &&
-                        below->title() == chart->title() && below->timeRange().second == 4;
-    std::printf("  a step chart «%s»: %zu points by generation from a thread's show(); the plots' section «%s» %s\n", qPrintable(chart->title()),
-                best ? best->size() : 0, sections.empty() ? "-" : qPrintable(sections[0].first), shared ? "shares them" : "does not");
+    const bool shown = chart && chart->title() == "Награда, м" && chart->timeRange().second == 4;
+    std::printf("  a step chart «%s» in the plots' section «Обучение»: %zu points by generation from a thread's show()\n",
+                chart ? qPrintable(chart->title()) : "-", best ? best->size() : 0);
     c.check(stepped, "a step chart takes a point per line whenever one show() carries the x and the line's value, from any thread");
-    c.check(shared, "the plugin's chart is also in the bottom plots, in a section headed with the panel's title, the same lines and points");
+    c.check(shown, "the plugin's chart is in the plots, in a section headed with the panel's title, all its points in sight");
+    // The section's ▾: a chart unticked is not drawn, ticked again it is back.
+    auto* menu = plots->findChild<QMenu*>("plotSectionMenu");
+    QAction* tick = menu && !menu->actions().isEmpty() ? menu->actions()[0] : nullptr;
+    if (tick) tick->setChecked(false);
+    pump(50);
+    const TrackChart* off = plotted(w, "Обучение");
+    const bool hidden = off && off->isHidden();
+    if ((menu = plots->findChild<QMenu*>("plotSectionMenu")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
+    pump(50);
+    c.check(tick && hidden && plotted(w, "Обучение") && !plotted(w, "Обучение")->isHidden(),
+            "the section's ▾ chooses the plugin's charts drawn: unticked - gone, ticked - back");
     train(3, 3); // the step went back: a new training, a new history
     c.check(best && best->size() == 3 && best->time(0) == 0, "the step going back starts a new history");
     train(2, 2, 2); // a new training starts again at the generation the last one ended on: still a new history
     c.check(best && best->size() == 2 && best->time(0) == 2, "a step not advancing (equal to the last) starts a new history too");
+    chart = plotted(w, "Обучение");
+    if (!chart) return c.check(false, "the step chart stays in the plots"), void();
     const QString tip = plotHoverText(chart->tracks()[0], 2.4, chart->axisWords());
     c.check(tip.contains("поколение 2") && !tip.contains("2,4"), "a step chart's tooltip says the generation of the nearest point, not the mouse's x");
     for (PlotPanel::Arrangement a : {PlotPanel::Arrangement::Normalized, PlotPanel::Arrangement::Lanes, PlotPanel::Arrangement::Overlay}) {
@@ -557,7 +614,7 @@ def train(scene, generations: int = 5, first: int = 0):
         c.check(plots->pluginSections().size() == 1 && plots->pluginSections()[0].second.size() == 1, "the plugin's section of the plots is in every layout");
     }
     QDir(folder + "/trainer").removeRecursively();
-    c.check(waitUntil([&] { return plots->pluginSections().empty() && w.findChild<TrackChart*>("pluginChart") == nullptr; }, 5000),
+    c.check(waitUntil([&] { return plots->pluginSections().empty(); }, 5000),
             "the plugin gone, its section of the plots goes with its panel");
 }
 

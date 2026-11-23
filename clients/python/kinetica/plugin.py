@@ -325,7 +325,8 @@ class ui:
 
     @staticmethod
     def panel(title, *children, place="right"):
-        """The plugin's panel: a tab of the inspector (right) or of the bottom panel (bottom)."""
+        """The plugin's panel: a tab of the inspector. `place` is kept ("bottom" too) and means the same: the window's
+        first level - its docked panels - is the person's, not a plugin's (docs/contracts/ui.md)."""
         global _panel
         _panel = {"kind": "panel", "title": title, "place": place, "children": list(children)}
 
@@ -347,7 +348,8 @@ class ui:
 
     @staticmethod
     def chart(title, lines, unit=None, x=None):
-        """Lines drawn by the editor, in the panel and in the bottom «Графики». A line is one of the panel's values.
+        """Lines drawn by the editor in the «Графики» tab, in the plugin's section (the panel has a «Графики ▸» button to
+        it); the person picks there which of them are seen. A line is one of the panel's values.
         `lines`: the values' names, or {name: the line's words}. By default the axis is the run's time: show(error=0.02)
         from on_tick adds a point at that frame's time::
 

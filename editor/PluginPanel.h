@@ -10,8 +10,9 @@
 // last minute of it; the time going back is a new run and a new history. With `x` (a training: a generation, an
 // iteration) the horizontal axis is another value of the panel: a line takes a point whenever one show() or
 // plugin_panel_set carries both the `x` and the line's value, from any thread, and the chart keeps every point from the
-// first to the last; `x` not advancing is a new training and a new history. The series are shared (sharedCharts()): the bottom
-// plots draw the same ones. Qt lives here only: a plugin does not know it.
+// first to the last; `x` not advancing is a new training and a new history. The series are shared (sharedCharts()): the
+// plots draw them - the only place a plugin's chart is drawn; the panel has one «Графики ▸» button to them. Qt lives here
+// only: a plugin does not know it.
 //
 // A picture (svg) is an SVG the plugin sends as the value of its name: SvgView draws it as wide as the panel with the
 // aspect kept, at most `height` px high; an empty or invalid one is a quiet placeholder. It follows the panel's refresh.
@@ -35,6 +36,7 @@ class FieldForm;
 class QBoxLayout;
 class QLabel;
 class QLineEdit;
+class QPushButton;
 class QTimer;
 
 class SvgView : public QWidget {
@@ -74,19 +76,19 @@ public:
     // `press`: a button's command and the panel's values (PluginHost picks the command's own of them).
     PluginPanel(const QJsonObject& description, std::function<void(const QString& command, const QJsonObject& values)> press, QWidget* parent = nullptr);
     QString title() const { return title_; }
-    QString place() const { return place_; } // "right": a tab of the inspector; "bottom": a tab of the bottom panel
+    QString place() const { return place_; } // where it asked to be: "right" or "bottom" - a tab of the inspector either way (docs/contracts/ui.md)
     QJsonObject values() const { return values_; }
     // Fields and words: what the plugin says, or the last session's. `time`: the frame of the run they were shown
     // from (NaN: none) - the charts' lines among them take a point there.
     void setValues(const QJsonObject& values, double time = std::nan(""));
-    // Its charts for the bottom plots: the same lines over the same series, owned jointly.
+    // Its charts for the plots, the only place they are drawn: the same lines over the same series, owned jointly.
     std::vector<SharedChart> sharedCharts() const;
+    void onCharts(std::function<void()> open) { openCharts_ = std::move(open); } // its «Графики ▸» button: show the plots
 
 private:
     void build(const QJsonObject& node, QBoxLayout* into);
     FieldForm* form(QBoxLayout* into); // the fields in a row of the layout share one form
     void refresh();                    // every field, value and chart from values_ and the lines' histories
-    void hover(TrackChart* chart, double t, QPoint at, int track);
 
     QString title_, place_;
     QJsonObject values_;
@@ -97,12 +99,14 @@ private:
     std::vector<std::pair<QString, SvgView*>> svgs_;    // svg(name)
     FieldForm* open_ = nullptr;                         // the form fields go into until another kind of element
     struct Chart {
-        TrackChart* view = nullptr;
         QString title, x, xWords;                                          // x: the value that is the axis (empty: the run's time)
         std::vector<std::pair<QString, std::shared_ptr<PlotSeries>>> lines; // a line by its value's name
+        std::vector<PlotTrack> tracks;                                      // the same lines as the plots draw them
         double lastX = std::nan("");
     };
     std::vector<Chart> charts_;
+    QPushButton* chartsButton_ = nullptr;               // «Графики ▸ Углы · Ускорение»: the charts are in the plots
+    std::function<void()> openCharts_;
     QTimer* soon_ = nullptr;                            // a run shows sixty times a second: the panel follows at 25
     double now_ = 0;                                    // the latest frame shown from
 };

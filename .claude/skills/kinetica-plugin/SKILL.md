@@ -15,7 +15,8 @@ an extension of the physics, the bodies in, `{body: {"force": [x, y, z]}}` out; 
 (`@command(tool=True)`: `point`, `normal`, `object` from a click; with `to` - a drag from point to point) and drawing
 (`draw.line/segments/points/label/circle/box/clear`, op `view_draw`) are there; a chart of the plugin's own numbers
 (`ui.chart("Ошибка", {"error": "ошибка"}, unit="рад")` in its `ui.panel`, a point a frame from `show(error=x)` in
-`on_tick` - the editor keeps the history and draws it); importers too (`@command(opens=".urdf")`: «Файл → Импорт…» and a file dropped on the view
+`on_tick` - the editor keeps the history and draws it in the «Графики» tab; the panel is a tab of the inspector, the
+window's first level is not a plugin's: `docs/contracts/ui.md`); importers too (`@command(opens=".urdf")`: «Файл → Импорт…» and a file dropped on the view
 call it with `path`; plugins/urdf is the editor's own example) (`docs/contracts/editor-plugin.md`, «Дальше»). Guide for people: `docs/plugins.md`;
 contract: `docs/contracts/editor-plugin.md`; SDK: `clients/python/kinetica/plugin.py`; examples: the project's plugins repository kinetica-plugins (`gizmos/plugin.py`); new plugins of the project go there, one folder each.
 

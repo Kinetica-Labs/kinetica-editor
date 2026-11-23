@@ -7019,6 +7019,21 @@ Sample </translation>
         <translation>The points will appear as the training goes</translation>
     </message>
     <message>
+        <location filename="../editor/PluginPanel.cpp" line="1"/>
+        <source>Графики ▸ </source>
+        <translation>Plots ▸ </translation>
+    </message>
+    <message>
+        <location filename="../editor/PluginPanel.cpp" line="1"/>
+        <source>Графики плагина — во вкладке «Графики» внизу (F9): там же выбрать, какие видны</source>
+        <translation>The plugin's plots are in the Plots tab at the bottom (F9): choose there which are shown</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Какие графики плагина видны</source>
+        <translation>Which of the plugin's plots are shown</translation>
+    </message>
+    <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Следить за выделенным</source>
         <translation>Follow selected</translation>

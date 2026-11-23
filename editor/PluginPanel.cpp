@@ -3,7 +3,6 @@
 #include "UiLanguage.h"
 
 #include "InspectorWidgets.h"
-#include "TrackChart.h"
 
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -14,16 +13,11 @@
 #include <QPainter>
 #include <QPushButton>
 #include <QTimer>
-#include <QToolTip>
 #include <QVBoxLayout>
 #include <QWheelEvent>
 
 #include <algorithm>
 #include <cmath>
-
-namespace {
-constexpr double kLiveSeconds = 60.0; // a chart shows the run's last minute, sliding
-}
 
 SvgView::SvgView(int maxHeight, QWidget* parent) : QWidget(parent), maxHeight_(maxHeight > 0 ? maxHeight : 240) {
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
@@ -119,7 +113,7 @@ PluginPanel::PluginPanel(const QJsonObject& d, std::function<void(const QString&
     soon_->setInterval(40);
     connect(soon_, &QTimer::timeout, this, [this] { refresh(); });
     for (const QJsonValue& c : d.value("children").toArray()) build(c.toObject(), col);
-    if (charts_.empty()) col->addStretch(1); // a chart takes the room there is
+    col->addStretch(1);
     refresh();
 }
 
@@ -200,32 +194,32 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
         svgs_.push_back({name, v});
         into->addWidget(v);
     } else if (kind == "chart") {
-        auto* view = new TrackChart(this);
-        view->setObjectName("pluginChart");
+        // Drawn in the plots only: here its lines' histories, and in its place one button to them for all the charts.
         const QString unit = n.value("unit").toString();
         Chart chart;
-        chart.view = view;
         chart.title = n.value("title").toString() + (unit.isEmpty() ? QString() : ", " + unit); // «Ошибка привода, рад»
         chart.x = n.value("x").toString();
         chart.xWords = chart.x.isEmpty() ? QString() : n.value("x_label").toString(chart.x);
-        view->setTitle(chart.title, false);
-        view->setAxisWords(chart.xWords);
-        view->setEmptyText(chart.x.isEmpty() ? uiText("Kinetica", "линии появятся после ▶") : uiText("Kinetica", "точки появятся по ходу обучения"));
-        std::vector<PlotTrack> tracks;
         for (const QJsonValue& v : n.value("lines").toArray()) {
             const QString line = v.toObject().value("name").toString();
-            const int slot = int(tracks.size());
+            const int slot = int(chart.tracks.size());
             auto series = std::make_shared<PlotSeries>();
             series->setKeep(!chart.x.isEmpty()); // a step chart keeps its whole history, not the last minute
             chart.lines.push_back({line, series});
-            tracks.push_back({line.toStdString(), v.toObject().value("label").toString(line), unit, plotSlotColor(slot), plotSlotStyle(slot),
-                              series.get(), false});
+            chart.tracks.push_back({line.toStdString(), v.toObject().value("label").toString(line), unit, plotSlotColor(slot), plotSlotStyle(slot),
+                                    series.get(), false});
         }
-        view->setTracks(std::move(tracks));
-        connect(view, &TrackChart::hovered, this, [this, view](double t, QPoint at, int track) { hover(view, t, at, track); });
-        connect(view, &TrackChart::hoverLeft, this, [this] { hover(nullptr, std::nan(""), {}, -1); });
         charts_.push_back(std::move(chart));
-        into->addWidget(view, 1);
+        if (!chartsButton_) {
+            chartsButton_ = new QPushButton(this);
+            chartsButton_->setObjectName("pluginChartsButton");
+            chartsButton_->setToolTip(uiText("Kinetica", "Графики плагина — во вкладке «Графики» внизу (F9): там же выбрать, какие видны"));
+            connect(chartsButton_, &QPushButton::clicked, this, [this] { if (openCharts_) openCharts_(); });
+            into->addWidget(chartsButton_);
+        }
+        QStringList titles;
+        for (const Chart& c : charts_) titles << c.title.section(", ", 0, 0);
+        chartsButton_->setText(uiText("Kinetica", "Графики ▸ ") + titles.join(" · "));
     } else if (kind == "button") {
         auto* b = new QPushButton(n.value("label").toString(n.value("command").toString()), this);
         b->setObjectName("pluginButton_" + n.value("command").toString());
@@ -267,21 +261,11 @@ void PluginPanel::setValues(const QJsonObject& values, double time) {
 std::vector<SharedChart> PluginPanel::sharedCharts() const {
     std::vector<SharedChart> out;
     for (const Chart& c : charts_) {
-        SharedChart s{c.title, c.xWords, c.view->tracks(), {}};
+        SharedChart s{c.title, c.xWords, c.tracks, {}};
         for (const auto& [name, line] : c.lines) s.keep.push_back(line);
         out.push_back(std::move(s));
     }
     return out;
-}
-
-// The mouse over a chart: the dashed line and the dots on every chart of the panel, the line under it in words -
-// «Ошибка: 0,02 рад в 2,40 с», or «лучший: 849 м, поколение 12». Off the charts (no chart): gone.
-void PluginPanel::hover(TrackChart* chart, double t, QPoint at, int track) {
-    for (Chart& c : charts_) c.view->setHoverTime(chart && c.view->axisWords() == chart->axisWords() ? t : std::nan("")); // one axis, one cursor
-    const PlotTrack* line = chart && track >= 0 && track < int(chart->tracks().size()) ? &chart->tracks()[size_t(track)] : nullptr;
-    const QString text = line ? plotHoverText(*line, t, chart->axisWords()) : QString();
-    if (text.isEmpty()) return QToolTip::hideText();
-    QToolTip::showText(at + QPoint(14, 12), text, chart);
 }
 
 void PluginPanel::refresh() {
@@ -295,11 +279,4 @@ void PluginPanel::refresh() {
     for (auto& [name, line] : texts_)
         if (line->text() != values_.value(name).toString()) line->setText(values_.value(name).toString());
     for (auto& [name, v] : svgs_) v->setSvg(values_.value(name).toString().toUtf8());
-    const double from = std::max(0.0, now_ - kLiveSeconds);
-    for (Chart& c : charts_) {
-        const SharedChart own{c.title, c.xWords, c.view->tracks(), {}};
-        if (c.x.isEmpty()) c.view->setWindow(from, std::max(now_, from + 1e-3));
-        else c.view->setWindow(own.span().first, own.span().second);
-        c.view->refresh();
-    }
 }

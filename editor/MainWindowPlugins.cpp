@@ -91,19 +91,11 @@ void MainWindow::buildPlugins() {
     menuBar()->insertMenu(menuBar()->findChild<QMenu*>("helpMenu")->menuAction(), menu);
     runHooks_ = std::make_unique<RunHooks>();
     plugins_ = new PluginHost(ops_, builder_, this, menu, runHooks_.get(), [this] { return apiPort(); }, [this](PluginPanel* panel, bool add) {
-        // A plugin's panel: a tab of the inspector (right) or of the bottom panel; taken out when the plugin stops.
-        // Its charts are also a section of the bottom plots, and leave them before the panel goes.
+        // A plugin's panel: a tab of the inspector, wherever it asked to be - the window's first level is not a plugin's
+        // (docs/contracts/ui.md); taken out when the plugin stops. Its charts are a section of the plots, and leave them
+        // before the panel goes; its «Графики» button opens them, as F9 does.
         if (plots_) plots_->showPluginCharts(QString::number(quintptr(panel)), panel->title(), add ? panel->sharedCharts() : std::vector<SharedChart>());
-        if (panel->place() == "bottom") {
-            if (!add) return panel->parentWidget()->deleteLater(); // its dock, the panel in it: the host lets go of the panel after this
-            auto* dock = new QDockWidget(panel->title(), this);
-            dock->setObjectName("pluginDock");
-            dock->setWidget(panel);
-            addDockWidget(Qt::BottomDockWidgetArea, dock);
-            if (auto* graphs = findChild<QDockWidget*>("resultsDock")) tabifyDockWidget(graphs, dock);
-            dock->show(), dock->raise();
-            return;
-        }
+        if (add) panel->onCharts([this] { showDock("resultsDock"); if (auto* dock = findChild<QDockWidget*>("resultsDock")) dock->raise(); });
         for (int i = 0; i < inspectorTabs_->count(); ++i)
             if (auto* scroll = qobject_cast<QScrollArea*>(inspectorTabs_->widget(i)); scroll && scroll->widget() == panel) {
                 scroll->takeWidget();

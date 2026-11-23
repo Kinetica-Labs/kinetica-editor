@@ -170,6 +170,7 @@ private:
         std::vector<TrackChart*> views;
     };
     std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
+    std::set<QString> hiddenPluginCharts_; // the plugins' charts unticked under their section's ▾: «plugin\nchart»
     QTimer* pluginTick_ = nullptr;       // their series are filled from outside the frames: repaint at 25 a second while there are any
     std::vector<TrackChart*> views_;
     std::vector<int> viewChart_; // the chart each view shows (-1: the normalised one)
