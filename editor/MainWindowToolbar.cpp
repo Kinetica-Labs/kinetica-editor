@@ -139,9 +139,11 @@ void MainWindow::addShapeButton(QToolBar* tb, const std::vector<QAction*>& shape
 // one after another. The builder's own create actions still add a shape at
 // once over a free spot, as scene_add with no place does for a script or an agent.
 std::vector<QAction*> MainWindow::shapeCreateActions() {
-    const char* tips[] = {uiText("Kinetica", "Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)"),
-                          uiText("Kinetica", "Шар: центр, затем радиус"), uiText("Kinetica", "Цилиндр: центр основания, радиус, высота"),
-                          uiText("Kinetica", "Конус: центр основания, радиус, высота"), uiText("Kinetica", "Плоскость: угол, затем противоположный угол")};
+    const char* tips[] = {uiText("Kinetica", "Куб: щелчок — готовый куб 0,2 м; протяжка — основание, щелчок — высота; Shift — ставить подряд"),
+                          uiText("Kinetica", "Шар: щелчок — готовый шар 0,2 м; протяжка от центра — радиус"),
+                          uiText("Kinetica", "Цилиндр: щелчок — готовый 0,2 м; протяжка от центра — радиус, щелчок — высота"),
+                          uiText("Kinetica", "Конус: щелчок — готовый 0,2 м; протяжка от центра — радиус, щелчок — высота"),
+                          uiText("Kinetica", "Плоскость: щелчок — готовая 1 м; протяжка — от угла до угла")};
     std::vector<QAction*> out;
     for (int k = 0; k < 5; ++k) {
         CreateWhat what;

@@ -177,13 +177,11 @@ void SceneBuilder::buildInspector() {
     inspectorPanel_ = new QWidget;
     inspectorPanel_->setObjectName("builderPanel");
     auto* col = column(inspectorPanel_, 8);
-    banner_ = new InlineBanner;
-    col->addWidget(banner_);
+    banner_ = new InlineBanner; // under the cards with the play's note: a message comes and goes, the fields stay put
     playHint_ = new QLabel;
     playHint_->setObjectName("emptyHint");
     playHint_->setWordWrap(true);
-    playHint_->setVisible(false);
-    col->addWidget(playHint_);
+    playHint_->setVisible(false); // under the cards, not over them: ▶ changes words, not where the fields are
     emptyHint_ = new QLabel(uiText("Kinetica", "Выберите объект в сцене\nили создайте новый кнопкой сверху."));
     emptyHint_->setAlignment(Qt::AlignCenter);
     emptyHint_->setObjectName("emptyHint");
@@ -209,6 +207,8 @@ void SceneBuilder::buildInspector() {
     buildTextureCard(shape);
     body->addWidget(shapePart_);
     col->addWidget(inspectorBody_);
+    col->addWidget(banner_);
+    col->addWidget(playHint_);
     buildDeviceCards(col);
     col->addStretch(1);
 }

@@ -60,7 +60,9 @@ Scene → New Empty Scene (`Ctrl+N`). Only the floor is left.
 
 ### Step 2. A brick
 
-Press <img src="images/ui/icons/shape.png" height="22" alt=""> Shape **(1)** and choose Cube **(2)**.
+Press <img src="images/ui/icons/shape.png" height="22" alt=""> Shape **(1)**, choose Cube **(2)** and click the floor: a
+ready 0.2 m cube stands there. A drag instead of the click draws its base, the next click its height. One shape made,
+the tool ends by itself; with Shift it makes the next one.
 
 ![The Shape menu](images/ui/en/first-2-menu.png)
 

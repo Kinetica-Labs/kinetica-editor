@@ -52,7 +52,7 @@ RoleBar::RoleBar(QWidget* parent) : QWidget(parent) {
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(4);
     auto row = [this, col](const QString& title, std::initializer_list<RoleIcon> roles) {
-        auto* label = new QLabel(title);
+        auto* label = state_ = new QLabel(title);
         label->setObjectName("roleRowLabel");
         col->addWidget(label);
         auto* line = new QHBoxLayout;
@@ -68,9 +68,16 @@ RoleBar::RoleBar(QWidget* parent) : QWidget(parent) {
     row(uiText("Kinetica", "тело и чем сталкивается"), {RoleIcon::Rigid, RoleIcon::Collider});
 }
 
+// The buttons lit as the entity's roles, and over them in words what they make of it - the state said, not guessed
+// from two lit tiles («Твёрдое» turns the collider on too: a body needs it to meet anything).
 void RoleBar::setRoles(const ke::Entity& e) {
     for (int k = 0; k < int(RoleIcon::Count); ++k) {
         const QSignalBlocker quiet(buttons_[k]);
         buttons_[k]->setChecked(roleEnabled(e, RoleIcon(k)));
     }
+    const bool rigid = roleEnabled(e, RoleIcon::Rigid), collider = roleEnabled(e, RoleIcon::Collider);
+    state_->setText(rigid && collider ? uiText("Kinetica", "тело: падает и сталкивается")
+                    : collider        ? uiText("Kinetica", "препятствие: стоит, о него ударяются")
+                    : rigid           ? uiText("Kinetica", "тело без коллайдера: падает сквозь всё")
+                                      : uiText("Kinetica", "только картинка: не падает и не сталкивается"));
 }

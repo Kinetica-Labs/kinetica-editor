@@ -2220,31 +2220,6 @@ The picture is being prepared…</translation>
         <translation>Create a cube, sphere, cylinder, cone, plane or imported mesh. Add components in the inspector.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="142"/>
-        <source>Куб: угол основания, противоположный угол, высота — три щелчка (или протяжка и щелчок)</source>
-        <translation>Cube: pick two opposite base corners and then the height. You can also drag the base and click to set the height.</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="143"/>
-        <source>Шар: центр, затем радиус</source>
-        <translation>Sphere: center, then radius</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="143"/>
-        <source>Цилиндр: центр основания, радиус, высота</source>
-        <translation>Cylinder: base center, radius, then height</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="144"/>
-        <source>Конус: центр основания, радиус, высота</source>
-        <translation>Cone: base center, radius, then height</translation>
-    </message>
-    <message>
-        <location filename="../editor/MainWindowToolbar.cpp" line="144"/>
-        <source>Плоскость: угол, затем противоположный угол</source>
-        <translation>Plane: one corner, then the opposite corner</translation>
-    </message>
-    <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="163"/>
         <source>Создавать можно в режиме правки — остановите сцену</source>
         <translation>You can create in editing mode - stop the scene</translation>
@@ -5986,21 +5961,6 @@ Sample </translation>
         <translation>Click a place on the floor or body</translation>
     </message>
     <message>
-        <location filename="../editor/ViewportTools.cpp" line="605"/>
-        <source>щёлкните центр шара</source>
-        <translation>click the sphere center</translation>
-    </message>
-    <message>
-        <location filename="../editor/ViewportTools.cpp" line="606"/>
-        <source>щёлкните центр основания</source>
-        <translation>click the base center</translation>
-    </message>
-    <message>
-        <location filename="../editor/ViewportTools.cpp" line="607"/>
-        <source>щёлкните первый угол основания (или сразу тяните)</source>
-        <translation>Click the first corner of the base (or immediately pull)</translation>
-    </message>
-    <message>
         <location filename="../editor/ViewportTools.cpp" line="609"/>
         <source>радиус</source>
         <translation>radius</translation>
@@ -7117,6 +7077,76 @@ Sample </translation>
         <location filename="../editor/PlotPanel.cpp" line="1"/>
         <source>имя раскладки — без «/» и «\»</source>
         <translation>a layout's name - without «/» and «\»</translation>
+    </message>
+    <message>
+        <location filename="../editor/ViewportTools.cpp" line="1"/>
+        <source>щелчок — готовый шар 0.2 м, или тяните радиус от центра</source>
+        <translation>click - a ready 0.2 m ball, or drag its radius from the centre</translation>
+    </message>
+    <message>
+        <location filename="../editor/ViewportTools.cpp" line="1"/>
+        <source>щелчок — готовая плоскость 1 м, или тяните от угла</source>
+        <translation>click - a ready 1 m plane, or drag from a corner</translation>
+    </message>
+    <message>
+        <location filename="../editor/ViewportTools.cpp" line="1"/>
+        <source>щелчок — готовая фигура 0.2 м, или тяните радиус от центра</source>
+        <translation>click - a ready 0.2 m shape, or drag its radius from the centre</translation>
+    </message>
+    <message>
+        <location filename="../editor/ViewportTools.cpp" line="1"/>
+        <source>щелчок — готовая фигура 0.2 м, или тяните основание от угла</source>
+        <translation>click - a ready 0.2 m shape, or drag its base from a corner</translation>
+    </message>
+    <message>
+        <location filename="../editor/ViewportTools.cpp" line="1"/>
+        <source> · Shift — ставить подряд</source>
+        <translation> · Shift - one more</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Куб: щелчок — готовый куб 0,2 м; протяжка — основание, щелчок — высота; Shift — ставить подряд</source>
+        <translation>Cube: click - a ready 0.2 m cube; drag - its base, click - its height; Shift - one more</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Шар: щелчок — готовый шар 0,2 м; протяжка от центра — радиус</source>
+        <translation>Sphere: click - a ready 0.2 m ball; drag from the centre - its radius</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Цилиндр: щелчок — готовый 0,2 м; протяжка от центра — радиус, щелчок — высота</source>
+        <translation>Cylinder: click - a ready 0.2 m one; drag from the centre - its radius, click - its height</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Конус: щелчок — готовый 0,2 м; протяжка от центра — радиус, щелчок — высота</source>
+        <translation>Cone: click - a ready 0.2 m one; drag from the centre - its radius, click - its height</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindowToolbar.cpp" line="1"/>
+        <source>Плоскость: щелчок — готовая 1 м; протяжка — от угла до угла</source>
+        <translation>Plane: click - a ready 1 m one; drag - from corner to corner</translation>
+    </message>
+    <message>
+        <location filename="../editor/RoleBar.cpp" line="1"/>
+        <source>тело: падает и сталкивается</source>
+        <translation>a body: falls and collides</translation>
+    </message>
+    <message>
+        <location filename="../editor/RoleBar.cpp" line="1"/>
+        <source>препятствие: стоит, о него ударяются</source>
+        <translation>an obstacle: stands, things hit it</translation>
+    </message>
+    <message>
+        <location filename="../editor/RoleBar.cpp" line="1"/>
+        <source>тело без коллайдера: падает сквозь всё</source>
+        <translation>a body without a collider: falls through everything</translation>
+    </message>
+    <message>
+        <location filename="../editor/RoleBar.cpp" line="1"/>
+        <source>только картинка: не падает и не сталкивается</source>
+        <translation>a picture only: does not fall or collide</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>

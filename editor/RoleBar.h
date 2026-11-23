@@ -20,6 +20,7 @@ signals:
 
 private:
     QToolButton* buttons_[int(RoleIcon::Count)] = {};
+    class QLabel* state_ = nullptr; // what the lit buttons make of the entity, in words
 };
 
 bool roleEnabled(const ke::Entity& e, RoleIcon role);

@@ -3,6 +3,7 @@
 // changes the geometry, three clicks make a cube fall, and the cards of a joint, a sensor, a battery and a driver edit
 // them. Each check prints one line.
 #include "SelfTestSupport.h"
+#include "RoleBar.h"
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QApplication>
@@ -77,8 +78,25 @@ void testBareObject(Checker& c, QMainWindow& w, SceneBuilder& b, const QString& 
 }
 
 void testRigidBringsCollider(Checker& c, QMainWindow& w, SceneBuilder& b) {
+    const auto said = [&w] { auto* l = w.findChild<QLabel*>("roleRowLabel"); return l ? l->text() : QString(); };
+    const QString bare = said();
     clickRole(w, RoleIcon::Rigid);
     pump(100);
+    std::printf("  the role bar says: «%s», then «%s»\n", qPrintable(bare), qPrintable(said()));
+    c.check(bare.contains("только картинка") && said().contains("падает и сталкивается"),
+            "the role bar says in words what the lit tiles make: a picture only, then a body that falls and collides");
+    // ▶ changes words, not where the fields are: the role bar stands where it stood (a newcomer's click lands on it).
+    auto* bar = w.findChild<RoleBar*>();
+    b.showBanner("a message of the edit, gone with ▶"); // the worst case: a note in edit that play takes away
+    pump(50);
+    const int editY = bar ? bar->mapTo(&w, QPoint(0, 0)).y() : -1;
+    b.play();
+    pump(150);
+    const int playY = bar ? bar->mapTo(&w, QPoint(0, 0)).y() : -2;
+    b.stop();
+    pump(150);
+    std::printf("  the role bar at y %d in edit, %d in play\n", editY, playY);
+    c.check(bar && editY == playY, "▶ does not move the inspector's fields, whatever note comes or goes: the notes are under the cards");
     const QStringList cards = visibleCards(b);
     std::printf("  after «Твёрдое»: cards %s\n", qPrintable(cards.join(", ")));
     c.check(cards.size() == 2 && cards.contains("Твёрдое тело") && cards.contains("Коллайдер") && last(b).collider.enabled &&

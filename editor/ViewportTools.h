@@ -170,7 +170,8 @@ struct CreateWhat {
     bool target = false; // a camera that always looks at its target: the object (or point) its third click aims at
 };
 
-// Making things one after another with the mouse (edit mode), step by step,
+// Making a thing with the mouse (edit mode). A shape: a click puts a ready one - 0.2 m, a plane 1 m - standing where it is
+// clicked (as Figma's and Illustrator's rectangle: a click, a default; a drag, your own); a drag draws it step by step,
 // each step named in the view's hint («Куб · шаг 2/3 ●●○ · противоположный угол»):
 //   a box, a plane: a corner, the opposite corner, (the box) its height;
 //   a cylinder, a cone: the centre, the radius, the height; a sphere: the centre, the radius;
@@ -182,7 +183,8 @@ struct CreateWhat {
 // a wireframe with its size next to the cursor; Ctrl snaps to 5 cm; Backspace goes a step back; Esc or
 // a right click drops the thing begun, and with nothing begun leaves the mode. The middle button,
 // Alt + any button and a right drag move the camera. Done, the viewport emits `created` and the window
-// makes it with one API call (one undo step, one console line).
+// makes it with one API call (one undo step, one console line). One thing made, the mode ends (the new thing selected,
+// the gizmo back): a newcomer is not left in a tool that starts the next one; Shift held keeps it on for one more.
 class CreateTool : public ViewportTool {
 public:
     void press(Viewport& v, QMouseEvent* e) override;
@@ -200,6 +202,8 @@ private:
     std::vector<Step> stepsOf(const CreateWhat& what) const;
     bool surfaceAt(Viewport& v, const QPointF& pos, ke::Vector3& at) const; // a top face or the floor
     bool done(const CreateWhat& what) const;                // the step now has a size worth keeping
+    void made(Viewport& v, const CreateWhat& what, const QPointF& pos, bool snap); // emitted; the mode ends unless Shift
+    void readyMade(Viewport& v, const QPointF& pos, bool snap);                    // a click: the shape of its default size
     void confirm(Viewport& v, const QPointF& pos, bool snap); // the step ends there: the next one, or made
     void track(Viewport& v, const QPointF& pos, bool snap);   // the step now to the cursor, the ghost
 
@@ -208,6 +212,7 @@ private:
     ke::Vector3 target_{0.0f};                // where a light or a camera looks
     float height_ = 0;
     bool armed_ = false, rightClick_ = false; // a left press of this tool; a right press that may be a click
+    bool keep_ = false;                       // Shift held at the last press or release: the mode stays after this one
     QPointF pressPos_, risePos_, rightPos_, lastPos_;
     ke::Vector3 position_{0.0f}, size_{0.0f}; // the shape as it stands now: its centre and size; a light's place
     std::vector<float> ghost_;

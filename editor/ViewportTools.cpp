@@ -442,6 +442,7 @@ void CreateTool::press(Viewport& v, QMouseEvent* e) {
     if (e->button() == Qt::RightButton && !alt) rightClick_ = true, rightPos_ = e->position(); // a click drops, a drag looks
     if (e->button() != Qt::LeftButton || alt) return camera_.press(v, e);
     armed_ = true;
+    keep_ = e->modifiers() & Qt::ShiftModifier;
     pressPos_ = lastPos_ = e->position();
     if (step_ > 0) return confirm(v, e->position(), snap);
     if (!surfaceAt(v, e->position(), start_)) return void(armed_ = false);
@@ -471,7 +472,28 @@ void CreateTool::release(Viewport& v, QMouseEvent* e) {
     }
     if (e->button() != Qt::LeftButton || !armed_) return;
     armed_ = false;
-    if (step_ > 0 && QLineF(e->position(), pressPos_).length() > 4) confirm(v, e->position(), e->modifiers() & Qt::ControlModifier);
+    keep_ = keep_ || (e->modifiers() & Qt::ShiftModifier);
+    const bool snap = e->modifiers() & Qt::ControlModifier;
+    if (step_ > 0 && QLineF(e->position(), pressPos_).length() > 4) confirm(v, e->position(), snap);
+    else if (step_ == 1 && v.createWhat().kind == CreateWhat::Kind::Shape) readyMade(v, e->position(), snap); // a click
+}
+
+// A click with nothing drawn yet: the shape of its default size, standing on the spot - 0.2 m (a plane 1 m across).
+void CreateTool::readyMade(Viewport& v, const QPointF& pos, bool snap) {
+    const CreateWhat what = v.createWhat();
+    const float across = what.shape == ke::ShapeKind::Plane ? 1.0f : 0.2f;
+    size_ = ke::Vector3(across, what.shape == ke::ShapeKind::Plane ? plateThickness() : across, across);
+    position_ = millimetres(start_ + kUp * (0.5f * size_.y));
+    made(v, what, pos, snap);
+}
+
+void CreateTool::made(Viewport& v, const CreateWhat& what, const QPointF& pos, bool snap) {
+    const ke::Vector3 position = position_, size = size_, target = millimetres(target_);
+    const bool keep = keep_;
+    reset();
+    track(v, pos, snap); // the cross for the next one
+    emit v.created(what, position, size, target);
+    if (!keep) v.setCreateMode(false); // one thing, then the selection and its gizmo; Shift: one more
 }
 
 bool CreateTool::back(Viewport& v) {
@@ -509,10 +531,7 @@ void CreateTool::confirm(Viewport& v, const QPointF& pos, bool snap) {
         risePos_ = pos;
         return track(v, pos, snap);
     }
-    const ke::Vector3 position = position_, size = size_, target = millimetres(target_);
-    reset();
-    track(v, pos, snap); // the cross for the next one
-    emit v.created(what, position, size, target);
+    made(v, what, pos, snap);
 }
 
 // The step now to the cursor: the footprint on the plane of the first click, the height on the vertical
@@ -602,9 +621,10 @@ QString CreateTool::hint(const CreateWhat& w) const {
     switch (step) {
     case Step::Place:
         doing = isPlaced(w)                        ? uiText("Kinetica", "щёлкните место на полу или на теле")
-                : w.shape == ke::ShapeKind::Sphere ? uiText("Kinetica", "щёлкните центр шара")
-                : round                            ? uiText("Kinetica", "щёлкните центр основания")
-                                                   : uiText("Kinetica", "щёлкните первый угол основания (или сразу тяните)");
+                : w.shape == ke::ShapeKind::Sphere ? uiText("Kinetica", "щелчок — готовый шар 0.2 м, или тяните радиус от центра")
+                : w.shape == ke::ShapeKind::Plane  ? uiText("Kinetica", "щелчок — готовая плоскость 1 м, или тяните от угла")
+                : round                            ? uiText("Kinetica", "щелчок — готовая фигура 0.2 м, или тяните радиус от центра")
+                                                   : uiText("Kinetica", "щелчок — готовая фигура 0.2 м, или тяните основание от угла");
         break;
     case Step::Base: doing = round ? uiText("Kinetica", "радиус") : uiText("Kinetica", "противоположный угол"); break;
     case Step::Height: doing = uiText("Kinetica", "высота — ведите мышь вверх"); break;
@@ -616,7 +636,8 @@ QString CreateTool::hint(const CreateWhat& w) const {
     QString text = QString(uiText("Kinetica", "%1 · шаг %2/%3 %4 · %5")).arg(titleOf(w)).arg(step_ + 1).arg(steps.size()).arg(dots, doing);
     const QString size = sizeText(w);
     if (!size.isEmpty()) text += " · " + size;
-    return text + (step_ == 0 ? uiText("Kinetica", " · Esc — выход") : uiText("Kinetica", " · Backspace — шаг назад · Esc — отмена")) + uiText("Kinetica", " · Ctrl — сетка 5 см");
+    return text + (step_ == 0 ? uiText("Kinetica", " · Esc — выход") : uiText("Kinetica", " · Backspace — шаг назад · Esc — отмена")) + uiText("Kinetica", " · Ctrl — сетка 5 см") +
+           uiText("Kinetica", " · Shift — ставить подряд");
 }
 
 void PluginTool::press(Viewport&, QMouseEvent* e) { pressed_ = now_ = e->position(), dragging_ = false; }

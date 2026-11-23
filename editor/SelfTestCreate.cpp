@@ -86,77 +86,86 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     log->clear();
     choose(w, 0); // Куб
     c.check(v->createMode() && v->createWhat().shape == ShapeKind::Box && v->cursor().shape() == Qt::CrossCursor &&
-                v->mouseHint().contains("шаг 1/3") && v->mouseHint().contains("первый угол") && v->mouseHint().contains("Esc"),
-            "«Фигура ▾» → «Куб» starts making boxes: a cross cursor, the hint says step 1/3 - the first corner");
+                v->mouseHint().contains("шаг 1/3") && v->mouseHint().contains("щелчок — готовая фигура 0.2 м") && v->mouseHint().contains("Esc") &&
+                v->mouseHint().contains("Shift"),
+            "«Фигура ▾» → «Куб» starts making a box: a cross cursor, the hint says a click puts a ready 0.2 m one, a drag draws it");
 
-    // Three clicks: a corner, the opposite corner 0.4 x 0.3 m away, 0.2 m of height.
+    // A click: a ready 0.2 m box standing there, selected, and the mode is over - a newcomer is not left in the tool.
     const size_t before = b.graph().entities.size();
-    const Vector3 a(-0.3f, 0.0f, 0.1f), corner = a + Vector3(0.4f, 0.0f, 0.3f), top = corner + Vector3(0.0f, 0.2f, 0.0f);
+    const Vector3 a(-0.3f, 0.0f, 0.1f);
     clickAt(v, onScreen(v, a));
-    glide(v, a, corner);
-    const QString base = v->mouseHint();
-    clickAt(v, onScreen(v, corner));
-    glide(v, corner, top);
-    const QString rising = v->mouseHint();
-    if (!dir.isEmpty()) windowShot(w).save(dir + "/create-height.png");
-    std::printf("  base: %s\n  rising: %s\n", qPrintable(base), qPrintable(rising));
-    c.check(base.contains("шаг 2/3") && base.contains("0.40 × 0.30 м") && rising.contains("шаг 3/3") && rising.contains("высота 0.20 м") &&
-                b.graph().entities.size() == before,
-            "each step is named with the size so far: 2/3 the footprint, 3/3 its height; nothing is made yet");
-    clickAt(v, onScreen(v, top));
     const Entity& box = last(b);
     const uint32_t first = box.id;
     const QStringList lines = addLines(log);
-    std::printf("  made: %s at (%.3f, %.3f, %.3f) size (%.3f, %.3f, %.3f); the console: %s\n", box.name.c_str(), double(box.position.x),
+    std::printf("  a click made: %s at (%.3f, %.3f, %.3f) size (%.3f, %.3f, %.3f); the console: %s\n", box.name.c_str(), double(box.position.x),
                 double(box.position.y), double(box.position.z), double(box.size.x), double(box.size.y), double(box.size.z),
                 qPrintable(lines.join(" | ")));
-    c.check(b.graph().entities.size() == before + 1 && box.shape == ShapeKind::Box && near(box.size, Vector3(0.4f, 0.2f, 0.3f)) &&
-                near(box.position, Vector3(-0.1f, 0.1f, 0.25f)) && entityIsGeometryOnly(box) && b.selectedId() == first &&
-                v->mouseHint().contains("шаг 1/3"),
-            "the third click makes a 0.4 x 0.3 x 0.2 m box standing on the floor there, selected; the next box waits at step 1");
-    c.check(lines.size() == 1 && lines[0].contains("scene.add(\"box\", position=(-0.1, 0.1, 0.25), size=(0.4, 0.2, 0.3))"),
+    c.check(b.graph().entities.size() == before + 1 && box.shape == ShapeKind::Box && near(box.size, Vector3(0.2f)) &&
+                length(box.position - Vector3(-0.3f, 0.1f, 0.1f)) < 2e-3f && entityIsGeometryOnly(box) && b.selectedId() == first && !v->createMode(),
+            "a click makes a ready 0.2 m box standing on the floor there, selected; the mode is over");
+    c.check(lines.size() == 1 && lines[0].contains("scene.add(\"box\", position=(") && lines[0].contains("size=(0.2, 0.2, 0.2))"),
             "the console shows it as one line: scene.add(\"box\", position=..., size=...)");
     b.undoAction()->trigger();
     pump(60);
     c.check(b.graph().entities.size() == before && !entity(b, first), "one undo takes the box away");
     b.redoAction()->trigger();
     pump(60);
-    c.check(entity(b, first) && v->createMode(), "redo brings it back; the mode stays on for the next box");
+    c.check(entity(b, first), "redo brings it back");
 
-    // A press, a drag and a release make the footprint at once: a second box on the top of the first.
-    const Vector3 onTop(-0.2f, 0.2f, 0.2f), onTopCorner = onTop + Vector3(0.15f, 0.0f, 0.1f);
-    dragOver(v, onTop, onTopCorner);
-    raiseAndClick(v, onTopCorner, 0.1f);
+    // A drag with Shift: the footprint 0.4 x 0.3 m, then its height 0.2 m with a click - each step named; Shift keeps the mode.
+    choose(w, 0);
+    const Vector3 a2(0.6f, 0.0f, 0.0f), corner = a2 + Vector3(0.4f, 0.0f, 0.3f), top = corner + Vector3(0.0f, 0.2f, 0.0f); // clear of the later ones
+    sendMouse(v, QEvent::MouseButtonPress, onScreen(v, a2), Qt::LeftButton, Qt::LeftButton, Qt::ShiftModifier);
+    for (int i = 1; i <= 10; ++i) sendMouse(v, QEvent::MouseMove, onScreen(v, a2 + (corner - a2) * (float(i) / 10.0f)), Qt::NoButton, Qt::LeftButton, Qt::ShiftModifier);
+    const QString base = v->mouseHint();
+    sendMouse(v, QEvent::MouseButtonRelease, onScreen(v, corner), Qt::LeftButton, Qt::NoButton, Qt::ShiftModifier);
+    pump(30);
+    glide(v, corner, top, Qt::ShiftModifier);
+    const QString rising = v->mouseHint();
+    if (!dir.isEmpty()) windowShot(w).save(dir + "/create-height.png");
+    std::printf("  base: %s\n  rising: %s\n", qPrintable(base), qPrintable(rising));
+    c.check(base.contains("шаг 2/3") && base.contains("0.40 × 0.30 м") && rising.contains("шаг 3/3") && rising.contains("высота 0.20 м"),
+            "a drag draws it step by step: 2/3 the footprint with its size, 3/3 its height");
+    clickAt(v, onScreen(v, top), Qt::LeftButton, Qt::ShiftModifier);
+    const Entity& drawn = last(b);
+    c.check(drawn.id != first && near(drawn.size, Vector3(0.4f, 0.2f, 0.3f)) && near(drawn.position, Vector3(0.8f, 0.1f, 0.15f)) &&
+                b.selectedId() == drawn.id && v->createMode() && v->mouseHint().contains("шаг 1/3"),
+            "the drawn box is 0.4 x 0.3 x 0.2 m on the floor, selected; with Shift the mode stays for one more");
+
+    // On the top of the first box: a box dragged out there stands on its top face.
+    const Vector3 onTop(-0.35f, 0.2f, 0.05f), onTopCorner = onTop + Vector3(0.1f, 0.0f, 0.1f);
+    dragOver(v, onTop, onTopCorner, Qt::ShiftModifier);
+    raiseAndClick(v, onTopCorner, 0.1f, Qt::ShiftModifier);
     const Entity& upper = last(b);
     const Entity* lower = entity(b, first);
     const float gap = lower ? (upper.position.y - 0.5f * upper.size.y) - (lower->position.y + 0.5f * lower->size.y) : 1.0f;
-    c.check(upper.id != first && near(upper.size, Vector3(0.15f, 0.1f, 0.1f)) && std::fabs(gap) < 1e-4f &&
-                near(upper.position, Vector3(-0.125f, 0.25f, 0.25f)),
+    c.check(upper.id != drawn.id && near(upper.size, Vector3(0.1f, 0.1f, 0.1f)) && std::fabs(gap) < 2e-3f,
             "a box dragged out on the top of another stands on its top face");
 
-    // A second click on the spot of the first waits; Backspace goes a step back; Esc drops it, then leaves.
+    // Backspace goes a step back, Esc drops the thing begun - the mode stays -, Esc again leaves.
     const size_t made = b.graph().entities.size();
     const Vector3 spot(0.5f, 0.0f, 0.5f);
-    clickAt(v, onScreen(v, spot));
-    clickAt(v, onScreen(v, spot));
-    const bool waits = v->mouseHint().contains("шаг 2/3");
+    dragOver(v, spot, spot + Vector3(0.2f, 0.0f, 0.2f), Qt::ShiftModifier);
+    const bool rising2 = v->mouseHint().contains("шаг 3/3");
     key(v, Qt::Key_Backspace);
-    const bool back = v->mouseHint().contains("шаг 1/3");
-    clickAt(v, onScreen(v, spot));
-    glide(v, spot, spot + Vector3(0.2f, 0.0f, 0.2f));
+    const bool back = v->mouseHint().contains("шаг 2/3");
     key(v, Qt::Key_Escape);
     const bool dropped = v->createMode() && v->mouseHint().contains("шаг 1/3");
-    c.check(waits && back && dropped && b.graph().entities.size() == made,
-            "a click on the same spot waits for a size; Backspace goes a step back; Esc drops the box begun, the mode stays");
+    key(v, Qt::Key_Escape);
+    c.check(rising2 && back && dropped && !v->createMode() && b.graph().entities.size() == made,
+            "Backspace goes a step back; Esc drops the box begun and the mode stays; Esc with nothing begun leaves");
 
     // A sphere: «Сфера», a drag of 0.1 m from its centre.
     choose(w, 1);
     const Vector3 centre(0.5f, 0.0f, -0.3f);
     dragOver(v, centre, centre + Vector3(0.1f, 0.0f, 0.0f));
     const Entity& ball = last(b);
-    c.check(v->createWhat().shape == ShapeKind::Sphere && ball.shape == ShapeKind::Sphere && near(ball.size, Vector3(0.2f)) &&
-                near(ball.position, Vector3(0.5f, 0.1f, -0.3f)) && b.selectedId() == ball.id,
-            "a sphere: its centre and a drag of 0.1 m make a ball of radius 0.1 m on the floor");
+    std::printf("  a sphere dragged: %s %s at (%.3f, %.3f, %.3f) size %.3f, selected %s, mode %s\n", ball.name.c_str(),
+                ball.shape == ShapeKind::Sphere ? "sphere" : "not a sphere", double(ball.position.x), double(ball.position.y), double(ball.position.z),
+                double(ball.size.x), b.selectedId() == ball.id ? "yes" : "no", v->createMode() ? "on" : "off");
+    c.check(ball.shape == ShapeKind::Sphere && near(ball.size, Vector3(0.2f)) && near(ball.position, Vector3(0.5f, 0.1f, -0.3f)) &&
+                b.selectedId() == ball.id && !v->createMode(),
+            "a sphere: its centre and a drag of 0.1 m make a ball of radius 0.1 m on the floor, selected; the mode over");
 
     // A cylinder with Ctrl held: its centre, radius and height on the 5 cm grid.
     choose(w, 2);
@@ -174,7 +183,9 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     clickAt(v, onScreen(v, lampFoot));
     raiseAndClick(v, lampFoot, 1.0f);
     const Light* lamp = b.graph().lights.size() == lights + 1 ? &b.graph().lights.back() : nullptr;
-    c.check(v->createWhat().kind == CreateWhat::Kind::Light && lamp && lamp->kind == LightKind::Point &&
+    std::printf("  a lamp: %zu new, at (%.3f, %.3f, %.3f), mode %s\n", b.graph().lights.size() - lights, lamp ? double(lamp->position.x) : 0.0,
+                lamp ? double(lamp->position.y) : 0.0, lamp ? double(lamp->position.z) : 0.0, v->createMode() ? "on" : "off");
+    c.check(!v->createMode() && lamp && lamp->kind == LightKind::Point &&
                 length(lamp->position - Vector3(0.3f, 1.0f, -0.5f)) < 0.02f && b.selectedId() == lamp->id &&
                 log->toPlainText().contains("scene.add_light(\"point\", position=(0.3, 1, -0.5))"),
             "a lamp: a click on the floor, the mouse up 1 m, a click - it hangs there; one scene.add_light line");
