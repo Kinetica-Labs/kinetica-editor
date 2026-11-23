@@ -13,6 +13,10 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QTreeWidget>
+#include <QSplitter>
+#include <QSignalBlocker>
+#include <QLineEdit>
 #include <QMenu>
 #include <QScrollArea>
 #include <QTextStream>
@@ -67,12 +71,48 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     placeholder_->setStyleSheet("color: #8a93a3;");
     col->addWidget(placeholder_, 1);
 
-    // The charts scroll: many of them never squeeze below a readable size.
+    // The charts scroll: many of them never squeeze below a readable size. At their left, «Что показывать»: every
+    // section and its charts with a tick each, and a line to find one - the one place the charts drawn are chosen.
     scroll_ = new QScrollArea;
     scroll_->setObjectName("plotScroll");
     scroll_->setWidgetResizable(true);
     scroll_->setFrameShape(QFrame::NoFrame);
-    col->addWidget(scroll_, 1);
+    auto* chooser = new QWidget;
+    auto* side = new QVBoxLayout(chooser);
+    side->setContentsMargins(0, 0, 4, 0);
+    side->setSpacing(3);
+    find_ = new QLineEdit;
+    find_->setObjectName("plotFind");
+    find_->setPlaceholderText(uiText("Kinetica", "Найти график…"));
+    find_->setClearButtonEnabled(true);
+    tree_ = new QTreeWidget;
+    tree_->setObjectName("plotTree");
+    tree_->setHeaderHidden(true);
+    tree_->setRootIsDecorated(true);
+    tree_->setToolTip(uiText("Kinetica", "Что показывать: галочка — график виден; у раздела — все его графики"));
+    side->addWidget(find_);
+    side->addWidget(tree_, 1);
+    body_ = new QSplitter(Qt::Horizontal);
+    body_->setObjectName("plotBody");
+    body_->addWidget(chooser);
+    body_->addWidget(scroll_);
+    body_->setStretchFactor(1, 1);
+    body_->setSizes({190, 800});
+    col->addWidget(body_, 1);
+    rebuildSoon_ = new QTimer(this);
+    rebuildSoon_->setSingleShot(true);
+    rebuildSoon_->setInterval(0); // a section's tick changes all its charts' ticks: one rebuild for them all
+    connect(rebuildSoon_, &QTimer::timeout, this, &PlotPanel::rebuildCharts);
+    connect(find_, &QLineEdit::textChanged, this, &PlotPanel::filterTree);
+    connect(tree_, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item) {
+        if (!item->parent()) return; // a section: Qt ticks its charts, each comes here
+        const QString key = item->parent()->text(0) + '\n' + item->text(0);
+        if (item->checkState(0) == Qt::Checked) hiddenCharts_.erase(key);
+        else hiddenCharts_.insert(key);
+        rebuildSoon_->start();
+    });
+    connect(tree_, &QTreeWidget::itemCollapsed, this, [this](QTreeWidgetItem* i) { folded_.insert(i->text(0)); });
+    connect(tree_, &QTreeWidget::itemExpanded, this, [this](QTreeWidgetItem* i) { folded_.erase(i->text(0)); });
 
     checklist_ = new ChannelList(ChannelList::Mode::Checklist, this);
     connect(checklist_, &ChannelList::toggled, this, [this](std::string id, bool on) { setChannelShown(id, on); });
@@ -564,6 +604,16 @@ void PlotPanel::rebuildCharts() {
     QBoxLayout* box = lanes ? static_cast<QBoxLayout*>(new QVBoxLayout(host)) : new QHBoxLayout(host);
     box->setContentsMargins(0, 0, 0, 0);
     box->setSpacing(lanes ? 6 : 12);
+    std::vector<int> scene, object;
+    for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
+    const QString sceneTitle = uiText("Kinetica", "Сцена");
+    std::vector<std::pair<QString, std::vector<QString>>> sections{{sceneTitle, chartTitles(scene)}};
+    if (!object.empty()) sections.push_back({objectTitle(), chartTitles(object)});
+    for (const PluginSection& p : plugins_) {
+        sections.push_back({p.title, {}});
+        for (const SharedChart& c : p.charts) sections.back().second.push_back(c.title);
+    }
+    fillTree(sections);
     if (!focus_.isEmpty()) { // one chart in the whole width, a way back over it
         auto* back = new QToolButton;
         back->setObjectName("plotFocusBack");
@@ -593,36 +643,23 @@ void PlotPanel::rebuildCharts() {
         delete col, delete back;
         focus_.clear(); // the chart is gone (its plugin stopped, the chart removed): every chart again
     }
-    std::vector<int> scene, object;
-    for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
-    const QString sceneTitle = uiText("Kinetica", "Сцена");
-    if (arrangement_ == Arrangement::Normalized) { // the sections' headers, as in the other layouts, over one chart of their ticked lines
-        auto* w = new QWidget;
-        auto* col = new QVBoxLayout(w);
-        col->setContentsMargins(0, 0, 0, 0);
-        col->setSpacing(3);
-        auto* heads = new QHBoxLayout;
-        heads->addWidget(sectionHeader(sceneTitle, chartTitles(scene)));
-        if (!object.empty()) heads->addWidget(sectionHeader(objectTitle(), chartTitles(object)));
-        heads->addStretch(1);
-        col->addLayout(heads);
+    // A section is drawn with its ticked charts and by their room; none ticked - not drawn (the tree still lists it);
+    // the scene's with no chart at all keeps its «+».
+    if (arrangement_ == Arrangement::Normalized) { // one chart of the ticked charts' lines
         std::vector<int> ticked;
         for (int i : scene)
             if (!hiddenCharts_.count(sceneTitle + '\n' + titleOf(charts_[size_t(i)]))) ticked.push_back(i);
         for (int i : object)
             if (!hiddenCharts_.count(objectTitle() + '\n' + titleOf(charts_[size_t(i)]))) ticked.push_back(i);
-        if (!ticked.empty()) col->addWidget(normalizedView(ticked), 1);
-        box->addWidget(w, ticked.empty() ? 0 : 1, ticked.empty() ? Qt::AlignTop : Qt::Alignment());
+        if (!ticked.empty()) box->addWidget(normalizedView(ticked), 1);
     } else {
-        const int own = shownOf(sceneTitle, chartTitles(scene)); // the room by its charts ticked - none: its header and «+» only
-        box->addWidget(section(sceneTitle, scene, true), own, own ? Qt::Alignment() : Qt::AlignTop);
-        if (!object.empty()) box->addWidget(section(objectTitle(), object, false), shownOf(objectTitle(), chartTitles(object)));
+        if (const int own = shownOf(sceneTitle, chartTitles(scene)); own || scene.empty()) box->addWidget(section(sceneTitle, scene, true), std::max(1, own));
+        if (const int own = shownOf(objectTitle(), chartTitles(object)); own) box->addWidget(section(objectTitle(), object, false), own);
     }
-    for (size_t i = 0; i < plugins_.size(); ++i) { // in every layout; the room by its charts ticked - none: its header only
+    for (size_t i = 0; i < plugins_.size(); ++i) { // in every layout
         std::vector<QString> titles;
         for (const SharedChart& c : plugins_[i].charts) titles.push_back(c.title);
-        const int shown = shownOf(plugins_[i].title, titles);
-        box->addWidget(pluginSection(i), shown, shown ? Qt::Alignment() : Qt::AlignTop);
+        if (const int shown = shownOf(plugins_[i].title, titles)) box->addWidget(pluginSection(i), shown);
     }
     scroll_->setWidget(host);
     refreshCharts();
@@ -646,30 +683,46 @@ TrackChart* PlotPanel::normalizedView(const std::vector<int>& charts) {
     return v;
 }
 
-// A section's header, «Сцена ▾» or a plugin's: its ▾ lists the section's charts with a tick each; an unticked one is not
-// drawn and holds no room (kept by the section's and the chart's titles: a plugin started again keeps the choice).
-QToolButton* PlotPanel::sectionHeader(const QString& title, const std::vector<QString>& charts) {
-    auto* button = new QToolButton;
-    button->setObjectName("plotSection");
-    button->setText(title + " ▾");
-    button->setToolTip(uiText("Kinetica", "Какие графики раздела видны"));
-    button->setAutoRaise(true);
-    button->setPopupMode(QToolButton::InstantPopup);
-    button->setStyleSheet("QToolButton { color: #8fc1ff; font-weight: 600; padding-left: 4px; border: none; } QToolButton::menu-indicator { image: none; width: 0; }");
-    auto* menu = new QMenu(button);
-    menu->setObjectName("plotSectionMenu");
-    for (const QString& chart : charts) {
-        QAction* a = menu->addAction(chart);
-        a->setCheckable(true);
-        a->setChecked(!hiddenCharts_.count(title + '\n' + chart));
-        connect(a, &QAction::toggled, this, [this, k = title + '\n' + chart](bool on) {
-            if (on) hiddenCharts_.erase(k);
-            else hiddenCharts_.insert(k);
-            QTimer::singleShot(0, this, &PlotPanel::rebuildCharts); // not under the menu's own signal: the section goes
-        });
+// A section's header over its charts: its title, quiet («Сцена», «Объект: Куб 1», a plugin's panel's).
+QLabel* PlotPanel::sectionHeader(const QString& title) {
+    auto* label = new QLabel(title);
+    label->setObjectName("plotSection");
+    label->setStyleSheet("color: #8fc1ff; font-weight: 600; padding-left: 4px;");
+    return label;
+}
+
+// «Что показывать» again: a row a section, ticked (partly) by its charts, a row a chart under it; the folded sections
+// stay folded, the words in the find line still filter. Its own ticks do not come back here as changes.
+void PlotPanel::fillTree(const std::vector<std::pair<QString, std::vector<QString>>>& sections) {
+    const QSignalBlocker quiet(tree_);
+    tree_->clear();
+    for (const auto& [title, charts] : sections) {
+        auto* section = new QTreeWidgetItem(tree_, {title});
+        section->setFlags(section->flags() | Qt::ItemIsUserCheckable | Qt::ItemIsAutoTristate);
+        for (const QString& chart : charts) {
+            auto* row = new QTreeWidgetItem(section, {chart});
+            row->setFlags(row->flags() | Qt::ItemIsUserCheckable);
+            row->setCheckState(0, hiddenCharts_.count(title + '\n' + chart) ? Qt::Unchecked : Qt::Checked);
+        }
+        section->setExpanded(!folded_.count(title));
     }
-    button->setMenu(menu);
-    return button;
+    filterTree(find_->text());
+}
+
+// The find line: the charts whose words have it (a section's title having it shows all its charts), the others hidden.
+void PlotPanel::filterTree(const QString& words) {
+    for (int i = 0; i < tree_->topLevelItemCount(); ++i) {
+        QTreeWidgetItem* section = tree_->topLevelItem(i);
+        const bool whole = words.isEmpty() || section->text(0).contains(words, Qt::CaseInsensitive);
+        int seen = 0;
+        for (int k = 0; k < section->childCount(); ++k) {
+            const bool on = whole || section->child(k)->text(0).contains(words, Qt::CaseInsensitive);
+            section->child(k)->setHidden(!on);
+            seen += on;
+        }
+        section->setHidden(!seen && !whole);
+        if (!words.isEmpty() && seen) section->setExpanded(true);
+    }
 }
 
 int PlotPanel::shownOf(const QString& title, const std::vector<QString>& charts) const {
@@ -684,7 +737,7 @@ std::vector<QString> PlotPanel::chartTitles(const std::vector<int>& charts) {
     return out;
 }
 
-// A part of the charts: its header «Сцена ▾» / «Объект: Куб 1 ▾» (none: the chart alone in the whole width), its ticked
+// A part of the charts: its header «Сцена» / «Объект: Куб 1» (none: the chart alone in the whole width), its ticked
 // charts - side by side, three to a row, or as lanes one under another - and, in the scene's part, the quiet «+».
 QWidget* PlotPanel::section(const QString& header, const std::vector<int>& all, bool plus) {
     auto* w = new QWidget;
@@ -694,7 +747,7 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& all, 
     std::vector<int> charts;
     for (int i : all)
         if (header.isEmpty() || !hiddenCharts_.count(header + '\n' + titleOf(charts_[size_t(i)]))) charts.push_back(i);
-    if (!header.isEmpty()) col->addWidget(sectionHeader(header, chartTitles(all)), 0, Qt::AlignLeft);
+    if (!header.isEmpty()) col->addWidget(sectionHeader(header));
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     const bool lanes = arrangement_ == Arrangement::Lanes;
@@ -728,9 +781,8 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& all, 
     return w;
 }
 
-// A plugin panel's charts as a part of the plots: its header, its charts the way the scene's are laid out, no «+». The
-// header's ▾ lists the charts with a tick each: the ones unticked are not drawn (kept by the plugin's and the chart's
-// titles, so a plugin started again keeps the choice).
+// A plugin panel's charts as a part of the plots: its header, its ticked charts (or `only` one) the way the scene's are
+// laid out, no «+».
 QWidget* PlotPanel::pluginSection(size_t i, int only) {
     PluginSection& s = plugins_[i];
     auto* w = new QWidget;
@@ -738,9 +790,7 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(3);
     const auto key = [&s](const SharedChart& c) { return s.title + '\n' + c.title; };
-    std::vector<QString> titles;
-    for (const SharedChart& c : s.charts) titles.push_back(c.title);
-    col->addWidget(sectionHeader(s.title, titles), 0, Qt::AlignLeft);
+    col->addWidget(sectionHeader(s.title));
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     const bool lanes = arrangement_ == Arrangement::Lanes;
@@ -861,7 +911,7 @@ void PlotPanel::refreshCharts() {
 // Before the first frame: one quiet line instead of the charts - nothing to press, nothing to choose.
 void PlotPanel::showHint() {
     const bool shown = frames_ > 0 || !plugins_.empty(); // a plugin's chart needs no run
-    scroll_->setVisible(shown);
+    body_->setVisible(shown);
     placeholder_->setVisible(!shown);
 }
 

@@ -7030,8 +7030,13 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/PlotPanel.cpp" line="1"/>
-        <source>Какие графики раздела видны</source>
-        <translation>Which plots of the section are shown</translation>
+        <source>Найти график…</source>
+        <translation>Find a plot…</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Что показывать: галочка — график виден; у раздела — все его графики</source>
+        <translation>What to show: a tick shows a plot; a section's tick, all its plots</translation>
     </message>
     <message>
         <location filename="../editor/PlotPanel.cpp" line="1"/>

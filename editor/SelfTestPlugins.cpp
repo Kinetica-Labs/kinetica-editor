@@ -33,6 +33,7 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QToolBar>
+#include <QTreeWidget>
 #include <QToolButton>
 #include <QBoxLayout>
 #include "scene/Assembly.h"
@@ -398,11 +399,17 @@ TrackChart* plotted(QMainWindow& w, const QString& section, size_t k = 0) {
     return nullptr;
 }
 
-// A section's ▾ menu in the plots, by the section's title («Обучение ▾»).
-QMenu* sectionMenu(PlotPanel* plots, const QString& title) {
-    for (auto* b : plots->findChildren<QToolButton*>("plotSection"))
-        if (b->text().startsWith(title + " ")) return b->menu();
+// A chart's row in the plots' «Что показывать»: under its section's row (by the section's title), the k-th; nullptr: none.
+QTreeWidgetItem* treeRow(PlotPanel* plots, const QString& section, int k = 0) {
+    auto* tree = plots->findChild<QTreeWidget*>("plotTree");
+    for (int i = 0; tree && i < tree->topLevelItemCount(); ++i)
+        if (tree->topLevelItem(i)->text(0) == section && k < tree->topLevelItem(i)->childCount()) return tree->topLevelItem(i)->child(k);
     return nullptr;
+}
+
+void tick(PlotPanel* plots, const QString& section, bool on, int k = 0) {
+    if (QTreeWidgetItem* row = treeRow(plots, section, k)) row->setCheckState(0, on ? Qt::Checked : Qt::Unchecked);
+    pump(50);
 }
 
 // The window's first level (docs/contracts/ui.md): its docked panels by name, each open (+) or closed (-).
@@ -605,8 +612,8 @@ def draw(scene, good: bool = True):
 }
 
 // A training's chart (ui.chart(..., x="step")): the axis is a step, not the run's time, and the points come from a thread
-// of the plugin through show() - no run, no on_tick. They are in the plots' section of the plugin, whose ▾ chooses the
-// charts drawn; a step going back is a new training; the plugin gone, the section goes with its panel.
+// of the plugin through show() - no run, no on_tick. They are in the plots' section of the plugin, «Что показывать»
+// chooses the charts drawn; a step going back is a new training; the plugin gone, the section goes with its panel.
 void testStepChart(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
     QDir().mkpath(folder + "/trainer");
     write(folder + "/trainer/plugin.py", R"py(import threading
@@ -643,40 +650,29 @@ def train(scene, generations: int = 5, first: int = 0):
                 chart ? qPrintable(chart->title()) : "-", best ? best->size() : 0);
     c.check(stepped, "a step chart takes a point per line whenever one show() carries the x and the line's value, from any thread");
     c.check(shown, "the plugin's chart is in the plots, in a section headed with the panel's title, all its points in sight");
-    // The section's ▾: a chart unticked is not drawn, ticked again it is back.
-    auto* menu = sectionMenu(plots, "Обучение");
-    QAction* tick = menu && !menu->actions().isEmpty() ? menu->actions()[0] : nullptr;
-    if (tick) tick->setChecked(false);
-    pump(50);
-    const TrackChart* off = plotted(w, "Обучение");
-    const bool hidden = off && off->isHidden();
-    if ((menu = sectionMenu(plots, "Обучение")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
-    pump(50);
-    c.check(tick && hidden && plotted(w, "Обучение") && !plotted(w, "Обучение")->isHidden(),
-            "the section's ▾ chooses the plugin's charts drawn: unticked - gone, ticked - back");
-    // Its only chart unticked, the section keeps its header and no room: the other charts take it.
-    if ((menu = sectionMenu(plots, "Обучение")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(false);
-    pump(50);
-    auto* drawn = plots->findChild<QWidget*>("plotHost");
-    auto* box = drawn ? qobject_cast<QBoxLayout*>(drawn->layout()) : nullptr;
-    const bool folded = box && box->count() > 0 && box->stretch(box->count() - 1) == 0 && plots->findChild<QToolButton*>("plotSection");
-    if ((menu = sectionMenu(plots, "Обучение")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
-    pump(50);
-    c.check(folded, "a section with no chart ticked is its header only: it holds no room");
-    // The scene's charts the same: «Сцена ▾» unticks the energy, and back.
+    // «Что показывать»: a chart unticked is not drawn - its section neither, none of its charts ticked, the others take
+    // the room; ticked again, it is back. The scene's charts the same; the find line keeps the rows that have its words.
+    const bool listed = treeRow(plots, "Обучение") && treeRow(plots, "Обучение")->text(0) == "Награда, м";
+    tick(plots, "Обучение", false);
+    const bool gone = !plotted(w, "Обучение") && treeRow(plots, "Обучение");
+    tick(plots, "Обучение", true);
+    c.check(listed && gone && plotted(w, "Обучение"), "«Что показывать» lists the plugin's charts: unticked - not drawn, its section neither; ticked - back");
     const auto sceneCharts = [&] {
         int n = 0;
         for (TrackChart* v : plots->findChildren<TrackChart*>("trackChart")) n += v->isVisibleTo(plots);
         return n;
     };
     const int energy = sceneCharts();
-    QMenu* scene = sectionMenu(plots, uiText("Kinetica", "Сцена"));
-    if (scene && !scene->actions().isEmpty()) scene->actions()[0]->setChecked(false);
-    pump(50);
+    tick(plots, uiText("Kinetica", "Сцена"), false);
     const int without = sceneCharts();
-    if ((scene = sectionMenu(plots, uiText("Kinetica", "Сцена"))) && !scene->actions().isEmpty()) scene->actions()[0]->setChecked(true);
-    pump(50);
-    c.check(energy > 0 && without == energy - 1 && sceneCharts() == energy, "«Сцена ▾» unticks a chart of the scene too, and ticks it back");
+    tick(plots, uiText("Kinetica", "Сцена"), true);
+    c.check(energy > 0 && without == energy - 1 && sceneCharts() == energy, "the scene's charts are ticked there too: the energy goes and comes back");
+    auto* find = plots->findChild<QLineEdit*>("plotFind");
+    if (find) find->setText("Наград");
+    const bool found = treeRow(plots, "Обучение") && !treeRow(plots, "Обучение")->isHidden() && treeRow(plots, uiText("Kinetica", "Сцена")) &&
+                       treeRow(plots, uiText("Kinetica", "Сцена"))->isHidden();
+    if (find) find->clear();
+    c.check(found, "its find line keeps the charts whose words have it, hides the others");
     // A double click on a chart: it alone in the whole width, a way back over it; again - every chart back.
     const auto visibleCharts = [&] {
         int n = 0;
@@ -710,7 +706,7 @@ def train(scene, generations: int = 5, first: int = 0):
         plots->setArrangement(a);
         pump(50);
         c.check(plots->pluginSections().size() == 1 && plots->pluginSections()[0].second.size() == 1, "the plugin's section of the plots is in every layout");
-        c.check(sectionMenu(plots, uiText("Kinetica", "Сцена")) != nullptr, "«Сцена ▾» is there in every layout, «Нормировать» too: its charts can be unticked");
+        c.check(treeRow(plots, uiText("Kinetica", "Сцена")) != nullptr, "«Что показывать» is there in every layout, «Нормировать» too");
     }
     QDir(folder + "/trainer").removeRecursively();
     c.check(waitUntil([&] { return plots->pluginSections().empty(); }, 5000),

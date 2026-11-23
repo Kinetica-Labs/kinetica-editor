@@ -16,8 +16,8 @@
 //     picture, that moment in the Laboratory;
 //   - the «+» after the last chart adds an empty chart with its list open;
 //   - «Ещё величины…» under the charts: every quantity at once, with checkboxes;
-//   - every section - «Сцена», the object's, a plugin's - has a header whose ▾ ticks which of its charts are drawn
-//     (none: its header only, no room);
+//   - «Что показывать» at the left: every section - «Сцена», the object's, a plugin's - and its charts with a tick
+//     each, a line to find one; unticked charts are not drawn and hold no room, nor a section with none ticked;
 //   - a double click on a chart (not its legend): it alone in the whole width, «◂ Все графики» over it; again - all.
 // Three layouts: «Наложить» (charts side by side, each with its lines of one unit together),
 // «Дорожками» (the charts stacked over one shared time axis), «Нормировать» (every line on one chart,
@@ -152,7 +152,9 @@ private:
     void alignLanes();
     void onHover(TrackChart* view, double t, QPoint globalPos, int track);
     void onHoverLeft();
-    QToolButton* sectionHeader(const QString& title, const std::vector<QString>& charts); // «title ▾»: a tick a chart
+    QLabel* sectionHeader(const QString& title);
+    void fillTree(const std::vector<std::pair<QString, std::vector<QString>>>& sections); // «Что показывать»: section -> charts
+    void filterTree(const QString& words);
     int shownOf(const QString& title, const std::vector<QString>& charts) const;          // its charts not unticked
     std::vector<QString> chartTitles(const std::vector<int>& charts);
     QWidget* pluginSection(size_t i, int only = -1); // only: that one chart of it (the whole width), else the ticked ones
@@ -179,7 +181,12 @@ private:
     };
     std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
     QString focus_;                        // the chart in the whole width (focusChart), empty: every chart
-    std::set<QString> hiddenCharts_; // the charts unticked under their section's ▾: «section\nchart»
+    std::set<QString> hiddenCharts_; // the charts unticked in «Что показывать»: «section\nchart»
+    std::set<QString> folded_;       // its sections folded, by title
+    class QSplitter* body_ = nullptr;     // «Что показывать» | the charts
+    class QTreeWidget* tree_ = nullptr;
+    class QLineEdit* find_ = nullptr;
+    QTimer* rebuildSoon_ = nullptr;
     QTimer* pluginTick_ = nullptr;       // their series are filled from outside the frames: repaint at 25 a second while there are any
     std::vector<TrackChart*> views_;
     std::vector<int> viewChart_; // the chart each view shows (-1: the normalised one)
