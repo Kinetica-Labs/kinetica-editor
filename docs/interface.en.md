@@ -430,7 +430,9 @@ into the scene.
 ### Plots
 
 Plots (`F9`): on the left - the scene's energy, on the right - the height and the speed of the selected object. The
-curves can be overlaid, stacked, normalised and saved as CSV.
+curves can be overlaid, stacked, normalised and saved as CSV. The plugins' plots follow, a section per plugin: the ▾ by
+a section's title picks which of its plots are shown (the ones unticked take no room). A double click on a plot shows it
+alone in the whole width; another, or «◂ All plots», brings them all back.
 
 ![Plots of the scene's energy and of the ball](images/ui/en/graphs.png)
 

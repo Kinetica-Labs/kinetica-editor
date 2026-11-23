@@ -15,7 +15,9 @@
 //   - a right click: add or remove a line, remove the chart, the layout, the CSV, a copy of the
 //     picture, that moment in the Laboratory;
 //   - the «+» after the last chart adds an empty chart with its list open;
-//   - «Ещё величины…» under the charts: every quantity at once, with checkboxes.
+//   - «Ещё величины…» under the charts: every quantity at once, with checkboxes;
+//   - a plugin's section: the ▾ by its title ticks which of its charts are drawn (none: its header only, no room);
+//   - a double click on a chart (not its legend): it alone in the whole width, «◂ Все графики» over it; again - all.
 // Three layouts: «Наложить» (charts side by side, each with its lines of one unit together),
 // «Дорожками» (the charts stacked over one shared time axis), «Нормировать» (every line on one chart,
 // each scaled to 0 … 1: the shape of a quantity, not its size). Never two y-axes: a quantity of
@@ -149,7 +151,9 @@ private:
     void alignLanes();
     void onHover(TrackChart* view, double t, QPoint globalPos, int track);
     void onHoverLeft();
-    QWidget* pluginSection(size_t i);
+    QWidget* pluginSection(size_t i, int only = -1); // only: that one chart of it (the whole width), else the ticked ones
+    void focusChart(const QString& chart);           // one chart in the whole width («scene:3», «plugin:<section>\n<chart>»), empty: all
+    QAction* focusItem(QMenu* menu, const QString& chart);
     void refreshPluginCharts();
     void showHint(); // before the first frame: one quiet line instead of the charts
 
@@ -170,6 +174,7 @@ private:
         std::vector<TrackChart*> views;
     };
     std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
+    QString focus_;                        // the chart in the whole width (focusChart), empty: every chart
     std::set<QString> hiddenPluginCharts_; // the plugins' charts unticked under their section's ▾: «plugin\nchart»
     QTimer* pluginTick_ = nullptr;       // their series are filled from outside the frames: repaint at 25 a second while there are any
     std::vector<TrackChart*> views_;

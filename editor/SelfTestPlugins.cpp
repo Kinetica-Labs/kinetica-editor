@@ -32,6 +32,8 @@
 #include <QApplication>
 #include <QKeyEvent>
 #include <QToolBar>
+#include <QToolButton>
+#include <QBoxLayout>
 #include "scene/Assembly.h"
 #include <QJsonArray>
 #include <QLabel>
@@ -600,6 +602,36 @@ def train(scene, generations: int = 5, first: int = 0):
     pump(50);
     c.check(tick && hidden && plotted(w, "Обучение") && !plotted(w, "Обучение")->isHidden(),
             "the section's ▾ chooses the plugin's charts drawn: unticked - gone, ticked - back");
+    // Its only chart unticked, the section keeps its header and no room: the other charts take it.
+    if ((menu = plots->findChild<QMenu*>("plotSectionMenu")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(false);
+    pump(50);
+    auto* drawn = plots->findChild<QWidget*>("plotHost");
+    auto* box = drawn ? qobject_cast<QBoxLayout*>(drawn->layout()) : nullptr;
+    const bool folded = box && box->count() > 0 && box->stretch(box->count() - 1) == 0 && plots->findChild<QToolButton*>("plotSection");
+    if ((menu = plots->findChild<QMenu*>("plotSectionMenu")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
+    pump(50);
+    c.check(folded, "a section with no chart ticked is its header only: it holds no room");
+    // A double click on a chart: it alone in the whole width, a way back over it; again - every chart back.
+    const auto visibleCharts = [&] {
+        int n = 0;
+        for (TrackChart* v : plots->findChildren<TrackChart*>()) n += v->isVisibleTo(plots);
+        return n;
+    };
+    const int all = visibleCharts();
+    const auto twice = [&](TrackChart* v) {
+        if (!v) return;
+        const QPointF mid(v->width() / 2.0, v->height() * 0.6);
+        QMouseEvent e(QEvent::MouseButtonDblClick, mid, v->mapToGlobal(mid), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(v, &e);
+        pump(50);
+    };
+    twice(plotted(w, "Обучение"));
+    const int alone = visibleCharts();
+    const bool back = plots->findChild<QToolButton*>("plotFocusBack") != nullptr;
+    twice(plotted(w, "Обучение"));
+    std::printf("  charts in the plots: %d; one double-clicked: %d, a way back %s; again: %d\n", all, alone, back ? "yes" : "no", visibleCharts());
+    c.check(all > 1 && alone == 1 && back && visibleCharts() == all && !plots->findChild<QToolButton*>("plotFocusBack"),
+            "a double click shows the chart alone in the whole width of the plots, another brings every chart back");
     train(3, 3); // the step went back: a new training, a new history
     c.check(best && best->size() == 3 && best->time(0) == 0, "the step going back starts a new history");
     train(2, 2, 2); // a new training starts again at the generation the last one ended on: still a new history

@@ -422,6 +422,7 @@ void PlotPanel::isolateLine(int chart, const std::string& id) {
 void PlotPanel::removeChart(int chart) {
     if (chart < 0 || chart >= int(charts_.size())) return;
     charts_.erase(charts_.begin() + chart);
+    focus_.clear(); // the charts after it move up: «scene:3» would be another one
     chartsChanged();
 }
 
@@ -447,6 +448,7 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
          [this, chart, line] { chart >= 0 ? setOnChart(chart, line, false) : setChannelShown(line, false); })
         ->setEnabled(k >= 0);
     item("plotMenuRemoveChart", uiText("Kinetica", "Убрать этот график"), [this, chart] { removeChart(chart); })->setEnabled(chart >= 0);
+    if (chart >= 0) focusItem(menu, "scene:" + QString::number(chart));
     menu->addSeparator();
     auto* layouts = new QActionGroup(menu);
     const std::pair<const char*, const char*> choices[] = {{"plotMenuOverlay", uiText("Kinetica", "Наложить")}, {"plotMenuLanes", uiText("Kinetica", "Дорожками")},
@@ -539,6 +541,7 @@ TrackChart* PlotPanel::makeView(int chart) {
     connect(v, &TrackChart::legendClicked, this, [this, v, chart](int k) { toggleLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::legendDoubleClicked, this, [this, v, chart](int k) { isolateLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::menuRequested, this, [this, v](QPoint at) { contextMenu(v, at)->popup(v->mapToGlobal(at)); });
+    if (chart >= 0) connect(v, &TrackChart::doubleClicked, this, [this, chart] { focusChart(focus_.isEmpty() ? "scene:" + QString::number(chart) : QString()); });
     views_.push_back(v);
     viewChart_.push_back(chart);
     return v;
@@ -561,6 +564,35 @@ void PlotPanel::rebuildCharts() {
     QBoxLayout* box = lanes ? static_cast<QBoxLayout*>(new QVBoxLayout(host)) : new QHBoxLayout(host);
     box->setContentsMargins(0, 0, 0, 0);
     box->setSpacing(lanes ? 6 : 12);
+    if (!focus_.isEmpty()) { // one chart in the whole width, a way back over it
+        auto* back = new QToolButton;
+        back->setObjectName("plotFocusBack");
+        back->setText(uiText("Kinetica", "◂ Все графики"));
+        back->setToolTip(uiText("Kinetica", "Вернуть все графики (или двойной щелчок по графику)"));
+        back->setAutoRaise(true);
+        connect(back, &QToolButton::clicked, this, [this] { focusChart({}); });
+        auto* col = new QVBoxLayout;
+        col->setSpacing(3);
+        col->addWidget(back, 0, Qt::AlignLeft);
+        QWidget* one = nullptr;
+        if (focus_.startsWith("scene:")) {
+            const int chart = focus_.mid(6).toInt();
+            if (chart >= 0 && chart < int(charts_.size())) one = section(QString(), {chart}, false);
+        } else
+            for (size_t i = 0; i < plugins_.size() && !one; ++i)
+                for (size_t k = 0; k < plugins_[i].charts.size() && !one; ++k)
+                    if (focus_ == "plugin:" + plugins_[i].title + '\n' + plugins_[i].charts[k].title) one = pluginSection(i, int(k));
+        if (one) {
+            col->addWidget(one, 1);
+            box->addLayout(col, 1);
+            scroll_->setWidget(host);
+            refreshCharts();
+            refreshPluginCharts();
+            return;
+        }
+        delete col, delete back;
+        focus_.clear(); // the chart is gone (its plugin stopped, the chart removed): every chart again
+    }
     if (arrangement_ == Arrangement::Normalized) {
         box->addWidget(normalizedView(), 1);
     } else {
@@ -570,7 +602,11 @@ void PlotPanel::rebuildCharts() {
         box->addWidget(section(headers ? QString(uiText("Kinetica", "Сцена")) : QString(), scene, true), std::max(1, int(scene.size())));
         if (!object.empty()) box->addWidget(section(objectTitle(), object, false), int(object.size()));
     }
-    for (size_t i = 0; i < plugins_.size(); ++i) box->addWidget(pluginSection(i), std::max(1, int(plugins_[i].charts.size()))); // in every layout
+    for (size_t i = 0; i < plugins_.size(); ++i) { // in every layout; the room by its charts ticked - none: its header only
+        int shown = 0;
+        for (const SharedChart& c : plugins_[i].charts) shown += !hiddenPluginCharts_.count(plugins_[i].title + '\n' + c.title);
+        box->addWidget(pluginSection(i), shown, shown ? Qt::Alignment() : Qt::AlignTop);
+    }
     scroll_->setWidget(host);
     refreshCharts();
     showHint();
@@ -640,7 +676,7 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& chart
 // A plugin panel's charts as a part of the plots: its header, its charts the way the scene's are laid out, no «+». The
 // header's ▾ lists the charts with a tick each: the ones unticked are not drawn (kept by the plugin's and the chart's
 // titles, so a plugin started again keeps the choice).
-QWidget* PlotPanel::pluginSection(size_t i) {
+QWidget* PlotPanel::pluginSection(size_t i, int only) {
     PluginSection& s = plugins_[i];
     auto* w = new QWidget;
     auto* col = new QVBoxLayout(w);
@@ -671,8 +707,9 @@ QWidget* PlotPanel::pluginSection(size_t i) {
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     const bool lanes = arrangement_ == Arrangement::Lanes;
+    const auto drawn = [&](size_t k) { return only >= 0 ? int(k) == only : !hiddenPluginCharts_.count(key(s.charts[k])); };
     int shown = 0;
-    for (const SharedChart& c : s.charts) shown += !hiddenPluginCharts_.count(key(c));
+    for (size_t k = 0; k < s.charts.size(); ++k) shown += drawn(k);
     const int columns = lanes ? 1 : std::clamp(shown, 1, 3);
     for (size_t k = 0, at = 0; k < s.charts.size(); ++k) {
         const SharedChart& c = s.charts[k];
@@ -692,13 +729,37 @@ QWidget* PlotPanel::pluginSection(size_t i) {
             for (TrackChart* o : plugins_[i].views) o->setHoverTime(std::nan(""));
             QToolTip::hideText();
         });
+        connect(v, &TrackChart::doubleClicked, this, [this, k = key(c)] { focusChart(focus_.isEmpty() ? "plugin:" + k : QString()); });
+        connect(v, &TrackChart::menuRequested, this, [this, v, k = key(c)](QPoint at) {
+            auto* menu = new QMenu(this);
+            menu->setAttribute(Qt::WA_DeleteOnClose);
+            focusItem(menu, "plugin:" + k);
+            connect(menu->addAction(uiText("Kinetica", "Скопировать картинку")), &QAction::triggered, this, [v] { QApplication::clipboard()->setImage(v->grab().toImage()); });
+            menu->popup(v->mapToGlobal(at));
+        });
         if (lanes) v->setMinimumHeight(96);
         s.views.push_back(v); // one view a chart, even unticked: the views follow the charts one by one
-        if (hiddenPluginCharts_.count(key(c))) v->hide();
+        if (!drawn(k)) v->hide();
         else grid->addWidget(v, int(at) / columns, int(at) % columns), ++at;
     }
     col->addLayout(grid, 1);
     return w;
+}
+
+// One chart in the whole width of the plots, the others out of the way - as a dashboard's «view panel»; double-clicked
+// again, «◂ Все графики» or the menu's item, every chart back as it was.
+void PlotPanel::focusChart(const QString& chart) {
+    if (chart == focus_) return;
+    focus_ = chart;
+    QTimer::singleShot(0, this, &PlotPanel::rebuildCharts); // not under the chart's own event: it goes
+}
+
+QAction* PlotPanel::focusItem(QMenu* menu, const QString& chart) {
+    const bool on = focus_ == chart;
+    QAction* a = menu->addAction(on ? uiText("Kinetica", "Все графики") : uiText("Kinetica", "Во всю ширину"));
+    a->setObjectName("plotMenuFocus");
+    connect(a, &QAction::triggered, this, [this, chart, on] { focusChart(on ? QString() : chart); });
+    return a;
 }
 
 void PlotPanel::refreshPluginCharts() {

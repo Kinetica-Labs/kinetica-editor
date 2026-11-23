@@ -584,7 +584,9 @@ void TrackChart::mousePressEvent(QMouseEvent* e) {
 }
 
 void TrackChart::mouseDoubleClickEvent(QMouseEvent* e) {
-    if (const int k = legendAt(e->position()); e->button() == Qt::LeftButton && k >= 0) emit legendDoubleClicked(k);
+    if (e->button() != Qt::LeftButton) return;
+    if (const int k = legendAt(e->position()); k >= 0) emit legendDoubleClicked(k);
+    else if (!(menu_ && titleRect().contains(e->position()))) emit doubleClicked(); // the plot itself: the whole width or back
 }
 
 void TrackChart::contextMenuEvent(QContextMenuEvent* e) { emit menuRequested(e->pos()); }

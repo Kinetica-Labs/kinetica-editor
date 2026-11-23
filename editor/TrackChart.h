@@ -118,6 +118,7 @@ signals:
     void titleClicked();
     void legendClicked(int track);
     void legendDoubleClicked(int track);
+    void doubleClicked(); // on the plot, not its legend or title
     void menuRequested(QPoint localPos);
 
 protected:

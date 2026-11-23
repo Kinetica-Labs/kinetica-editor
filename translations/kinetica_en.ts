@@ -7034,6 +7034,26 @@ Sample </translation>
         <translation>Which of the plugin's plots are shown</translation>
     </message>
     <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>◂ Все графики</source>
+        <translation>◂ All plots</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Вернуть все графики (или двойной щелчок по графику)</source>
+        <translation>Bring all plots back (or double-click the plot)</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Все графики</source>
+        <translation>All plots</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Во всю ширину</source>
+        <translation>Whole width</translation>
+    </message>
+    <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Следить за выделенным</source>
         <translation>Follow selected</translation>
