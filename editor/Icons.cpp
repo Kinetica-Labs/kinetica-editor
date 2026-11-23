@@ -2,6 +2,8 @@
 // requested size (the four forces and the lidar are pictures laid on it). Light comes from the top left: faces turned to it are lighter, the others darker,
 // and a gentle shadow sits under every shape so it reads as a solid thing standing on a floor.
 #include "Icons.h"
+#include <QSvgRenderer>
+#include "Resources.h"
 
 #include <QCoreApplication>
 #include <QImage>
@@ -1021,6 +1023,23 @@ QIcon layoutIcon(LayoutIcon kind, int size) {
         for (const qreal scale : {1.0, 2.0})
             icon.addPixmap(render(size, scale, [kind, open](QPainter& p) { drawLayout(p, kind, open); }), QIcon::Normal,
                            open ? QIcon::On : QIcon::Off);
+    return icon;
+}
+// The panels' icons are pictures, not code: data/icons/panels/<name>.svg (24 px lines, #DEE2EA and one #60A5FA detail),
+// drawn at the tab's size and at twice it for a sharp screen.
+QIcon panelIcon(PanelIcon kind, int size) {
+    static const char* const names[] = {"plots", "console", "sequencer", "laboratory", "scene", "object", "world"};
+    QSvgRenderer svg(resourceDir("data") + "/icons/panels/" + names[int(kind)] + ".svg");
+    QIcon icon;
+    for (const qreal scale : {1.0, 2.0}) {
+        QPixmap pm(int(size * scale), int(size * scale));
+        pm.setDevicePixelRatio(scale);
+        pm.fill(Qt::transparent);
+        QPainter p(&pm);
+        svg.render(&p, QRectF(0, 0, size, size));
+        p.end();
+        icon.addPixmap(pm);
+    }
     return icon;
 }
 QPixmap rolePixmap(RoleIcon role, int size) { return render(size, 2.0, roleDraw(role)); }

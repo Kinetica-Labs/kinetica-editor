@@ -8,6 +8,7 @@
 //      what the frame holds: the pose and the sleep).
 // The thing on the card gets a ring in the view, so the numbers and the place belong together.
 #include "MainWindow.h"
+#include "Icons.h"
 #include "UiLanguage.h"
 
 #include "LabCard.h"
@@ -78,6 +79,7 @@ void MainWindow::buildLaboratory() {
     labAct_->setToolTip(uiText("Kinetica", "Лаборатория (F8): что считает движок — контакты, силы, тела, суставы; карточка по щелчку, "
                         "время каждой стадии"));
     labDock_ = new QDockWidget(uiText("Kinetica", "Лаборатория"), this);
+    labDock_->setWindowIcon(panelIcon(PanelIcon::Laboratory));
     labDock_->setObjectName("labDock");
     lab_ = new LabPanel;
     lab_->addActionRow(uiText("Kinetica", "Тела"), collidersAct_, QColor(110, 232, 130)); // the window's wireframes, among the engine's drawings

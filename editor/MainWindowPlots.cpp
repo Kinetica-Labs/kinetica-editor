@@ -9,6 +9,7 @@
 //      the timeline to that moment;
 //   4. «Сохранить CSV»: the lines on the charts, to a file.
 #include "MainWindow.h"
+#include "Icons.h"
 #include "UiLanguage.h"
 
 #include "scene/Assembly.h"
@@ -240,6 +241,7 @@ void MainWindow::updatePlotObjects(const ke::Frame& snapshot) {
 // the window (a text field keeps it).
 void MainWindow::buildSequencerDock() {
     auto* dock = new QDockWidget(uiText("Kinetica", "Секвенсор"), this);
+    dock->setWindowIcon(panelIcon(PanelIcon::Sequencer));
     dock->setObjectName("sequencerDock");
     sequencer_ = new SequencerPanel(ops_, builder_, dock);
     dock->setWidget(sequencer_);

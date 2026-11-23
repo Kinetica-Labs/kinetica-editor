@@ -51,5 +51,10 @@ QIcon linkIcon(LinkIcon kind, int size = 28);
 QPixmap linkPixmap(LinkIcon kind, int size);
 
 enum class LayoutIcon { LeftBar, Customize, BottomPanel, RightBar, Count };
+// The window's panels and the inspector's tabs, beside their words on the tabs (a picture is found before a word is read;
+// the word stays: an icon alone is a riddle to a newcomer): data/icons/panels/*.svg - a polyline on axes, a prompt, keys
+// on a time line, a flask; the scene's tree, a cube, a globe.
+enum class PanelIcon { Plots, Console, Sequencer, Laboratory, Scene, Object, World, Count };
+QIcon panelIcon(PanelIcon kind, int size = 16);
 QIcon layoutIcon(LayoutIcon kind, int size = 20);
 

@@ -5,6 +5,8 @@
 // (keys, mouse schemes, many objects), MainWindowToolbar.cpp (the top bar) and MainWindowPlay.cpp
 // (the simulation status row, K, Ctrl+K, the white-window check).
 #include "MainWindow.h"
+#include <utility>
+#include "Icons.h"
 
 #include "RunHooks.h"
 #include "PluginHost.h"
@@ -127,7 +129,10 @@ void MainWindow::connectViewport() {
 
 MainWindow::~MainWindow() {
     timer_->stop();
-    leftBarAct_ = nullptr; // the docks hide as the window closes: the layout buttons stop following them
+    // ~QWidget hides the docks and the rest after this body: their signals must not reach a MainWindow that is gone
+    // (UBSan: a member called on an object already a plain QWidget).
+    for (QObject* child : findChildren<QObject*>()) child->disconnect(this);
+    delete std::exchange(plugins_, nullptr); // before the operations it unhooks itself from (children go in the order made)
     ctrl_->setLockstep(nullptr); // no frame handed to the plugins' hooks any more, so their wire may go:
     runHooks_.reset();           // its thread ends here, and with it the answers that reach for the simulation
     ctrl_.reset(); // stop the simulation thread before the widgets go away
@@ -459,9 +464,9 @@ void MainWindow::buildSceneBuilderDock() {
     builder_ = new SceneBuilder(ctrl_.get(), this);
     inspectorTabs_ = new QTabWidget;
     inspectorTabs_->setObjectName("inspectorTabs");
-    inspectorTabs_->addTab(scrolled(builder_->sceneListPanel()), uiText("Kinetica", "Сцена"));
-    inspectorTabs_->addTab(scrolled(builder_->inspectorPanel()), uiText("Kinetica", "Объект"));
-    inspectorTabs_->addTab(scrolled(builder_->worldPanel()), uiText("Kinetica", "Мир"));
+    inspectorTabs_->addTab(scrolled(builder_->sceneListPanel()), panelIcon(PanelIcon::Scene), uiText("Kinetica", "Сцена"));
+    inspectorTabs_->addTab(scrolled(builder_->inspectorPanel()), panelIcon(PanelIcon::Object), uiText("Kinetica", "Объект"));
+    inspectorTabs_->addTab(scrolled(builder_->worldPanel()), panelIcon(PanelIcon::World), uiText("Kinetica", "Мир"));
     inspectorTabs_->setTabToolTip(0, uiText("Kinetica", "Все объекты сцены"));
     inspectorTabs_->setTabToolTip(2, uiText("Kinetica", "Физика всей сцены: гравитация, шаг, контакты, суставы"));
     inspectorTabs_->setTabToolTip(1, uiText("Kinetica", "Выбранный объект: где стоит, как выглядит и что умеет"));
@@ -625,6 +630,7 @@ void MainWindow::buildSceneMenu() {
 // ---------------------------------------------------------------------------
 void MainWindow::buildResultsDock() {
     auto* dock = new QDockWidget(uiText("Kinetica", "Графики"), this);
+    dock->setWindowIcon(panelIcon(PanelIcon::Plots)); // on its tab, beside the word
     dock->setObjectName("resultsDock");
 
     QWidget* plotHost = buildPlots(); // the charts and the quiet bar under them (MainWindowPlots.cpp)

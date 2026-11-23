@@ -1,6 +1,7 @@
 // The API of the window (MainWindow.h): the operations (EditorOps) made once, the magnet on top of
 // them, and the server that lets a script or an agent call them from outside.
 #include "MainWindow.h"
+#include "Icons.h"
 #include "UiLanguage.h"
 
 #include "ApiConsole.h"
@@ -50,6 +51,7 @@ void MainWindow::buildOperators() {
 // window is one client of the API among others, and the line says so. The View menu brings it back.
 void MainWindow::buildConsoleDock() {
     auto* dock = new QDockWidget(uiText("Kinetica", "Консоль API"), this);
+    dock->setWindowIcon(panelIcon(PanelIcon::Console));
     dock->setObjectName("consoleDock");
     auto* console = new ApiConsole(ops_, dock);
     console->setApiPort([this] { return apiPort(); });
