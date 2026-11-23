@@ -367,7 +367,8 @@ MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
     const Vector3 local = q.conjugate().rotate(p.normal), unit[3] = {Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)};
     const float half[3] = {0.5f * float(e->size.x), 0.5f * float(e->size.y), 0.5f * float(e->size.z)};
     const auto world = [&](const Vector3& v) { return e->position + q.rotate(v); };
-    struct Candidate { Vector3 point, axis; ke::JointType type; int kind; };
+    // An edge is caught along its whole length (the mouse near any of it), its joint put at its middle; a point, near itself.
+    struct Candidate { Vector3 point, axis; ke::JointType type; int kind; Vector3 from{0.0f}, to{0.0f}; };
     std::vector<Candidate> candidates;
     if (e->shape == ke::ShapeKind::Box) {
         const float n[3] = {float(local.x), float(local.y), float(local.z)};
@@ -377,8 +378,9 @@ MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
         const Vector3 u = q.rotate(unit[i]), v = q.rotate(unit[j]);
         candidates.push_back({world(centre), p.normal, ke::JointType::Hinge, 0});
         for (float side : {-1.0f, 1.0f}) {
-            candidates.push_back({world(centre + unit[i] * (side * half[i])), v, ke::JointType::Hinge, 1}); // an edge along j
-            candidates.push_back({world(centre + unit[j] * (side * half[j])), u, ke::JointType::Hinge, 1}); // an edge along i
+            const Vector3 alongJ = centre + unit[i] * (side * half[i]), alongI = centre + unit[j] * (side * half[j]);
+            candidates.push_back({world(alongJ), v, ke::JointType::Hinge, 1, world(alongJ - unit[j] * half[j]), world(alongJ + unit[j] * half[j])});
+            candidates.push_back({world(alongI), u, ke::JointType::Hinge, 1, world(alongI - unit[i] * half[i]), world(alongI + unit[i] * half[i])});
             for (float other : {-1.0f, 1.0f})
                 candidates.push_back({world(centre + unit[i] * (side * half[i]) + unit[j] * (other * half[j])), p.normal, ke::JointType::Ball, 2});
         }
@@ -403,8 +405,13 @@ MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
     float nearest = 24.0f; // px
     for (const Candidate& c : candidates) {
         s.marks.push_back(c.point);
-        const ke::Vector2 d = view.project(c.point) - mouse;
-        if (float(ke::length(d)) < nearest) nearest = float(ke::length(d)), best = &c;
+        float d = float(ke::length(view.project(c.point) - mouse));
+        if (c.kind == 1) { // the distance to the edge's segment on screen
+            const ke::Vector2 a = view.project(c.from), b = view.project(c.to), ab = b - a;
+            const float t = std::clamp(float(ke::dot(mouse - a, ab)) / std::max(float(ke::dot(ab, ab)), 1e-6f), 0.0f, 1.0f);
+            d = float(ke::length(mouse - (a + ab * t))) + 4.0f; // a corner or the centre nearby wins
+        }
+        if (d < nearest) nearest = d, best = &c;
     }
     if (best && !(QGuiApplication::keyboardModifiers() & Qt::ControlModifier)) {
         s.at.point = best->point, s.type = best->type, s.kind = best->kind;
