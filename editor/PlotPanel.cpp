@@ -593,12 +593,27 @@ void PlotPanel::rebuildCharts() {
         delete col, delete back;
         focus_.clear(); // the chart is gone (its plugin stopped, the chart removed): every chart again
     }
-    if (arrangement_ == Arrangement::Normalized) {
-        box->addWidget(normalizedView(), 1);
+    std::vector<int> scene, object;
+    for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
+    const QString sceneTitle = uiText("Kinetica", "Сцена");
+    if (arrangement_ == Arrangement::Normalized) { // the sections' headers, as in the other layouts, over one chart of their ticked lines
+        auto* w = new QWidget;
+        auto* col = new QVBoxLayout(w);
+        col->setContentsMargins(0, 0, 0, 0);
+        col->setSpacing(3);
+        auto* heads = new QHBoxLayout;
+        heads->addWidget(sectionHeader(sceneTitle, chartTitles(scene)));
+        if (!object.empty()) heads->addWidget(sectionHeader(objectTitle(), chartTitles(object)));
+        heads->addStretch(1);
+        col->addLayout(heads);
+        std::vector<int> ticked;
+        for (int i : scene)
+            if (!hiddenCharts_.count(sceneTitle + '\n' + titleOf(charts_[size_t(i)]))) ticked.push_back(i);
+        for (int i : object)
+            if (!hiddenCharts_.count(objectTitle() + '\n' + titleOf(charts_[size_t(i)]))) ticked.push_back(i);
+        if (!ticked.empty()) col->addWidget(normalizedView(ticked), 1);
+        box->addWidget(w, ticked.empty() ? 0 : 1, ticked.empty() ? Qt::AlignTop : Qt::Alignment());
     } else {
-        std::vector<int> scene, object;
-        for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
-        const QString sceneTitle = uiText("Kinetica", "Сцена");
         const int own = shownOf(sceneTitle, chartTitles(scene)); // the room by its charts ticked - none: its header and «+» only
         box->addWidget(section(sceneTitle, scene, true), own, own ? Qt::Alignment() : Qt::AlignTop);
         if (!object.empty()) box->addWidget(section(objectTitle(), object, false), shownOf(objectTitle(), chartTitles(object)));
@@ -615,13 +630,15 @@ void PlotPanel::rebuildCharts() {
     if (lanes) emit roomWanted(host->minimumSizeHint().height() + 64); // the lanes and the bar under them
 }
 
-// Every line of every chart, each once, on one chart - each scaled to 0 … 1.
-TrackChart* PlotPanel::normalizedView() {
+// Every line of these charts, each once, on one chart - each scaled to 0 … 1.
+TrackChart* PlotPanel::normalizedView(const std::vector<int>& charts) {
     std::vector<PlotTrack> tracks;
     std::set<std::string> seen;
-    for (const Chart& c : charts_)
+    for (int i : charts) {
+        const Chart& c = charts_[size_t(i)];
         for (const std::string& id : c.ids)
             if (seen.insert(id).second) tracks.push_back(trackOf(id, c.hidden.count(id) > 0));
+    }
     TrackChart* v = makeView(-1);
     v->setTitle(uiText("Kinetica", "Все линии от 0 до 1 — форма, не величина"), false);
     v->setEmptyText(uiText("Kinetica", "Нет ни одной линии: щёлкните правой кнопкой — «Добавить величину…»"));

@@ -145,7 +145,7 @@ private:
     PlotTrack trackOf(const std::string& id, bool hidden);
     void rebuildCharts();
     QWidget* section(const QString& header, const std::vector<int>& charts, bool plus);
-    TrackChart* normalizedView();
+    TrackChart* normalizedView(const std::vector<int>& charts); // the charts ticked, one chart of their lines
     TrackChart* makeView(int chart);
     TrackChart* viewOf(int chart) const;
     std::pair<double, double> timeWindow() const;

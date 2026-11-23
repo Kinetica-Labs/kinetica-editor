@@ -710,6 +710,7 @@ def train(scene, generations: int = 5, first: int = 0):
         plots->setArrangement(a);
         pump(50);
         c.check(plots->pluginSections().size() == 1 && plots->pluginSections()[0].second.size() == 1, "the plugin's section of the plots is in every layout");
+        c.check(sectionMenu(plots, uiText("Kinetica", "Сцена")) != nullptr, "«Сцена ▾» is there in every layout, «Нормировать» too: its charts can be unticked");
     }
     QDir(folder + "/trainer").removeRecursively();
     c.check(waitUntil([&] { return plots->pluginSections().empty(); }, 5000),
