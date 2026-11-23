@@ -1,5 +1,5 @@
 #pragma once
-// A field of a schema as data (docs/constitution.md, article 7): one description from which the window's form, the check
+// A field of a schema as data (docs/constitution.md, article 4): one description from which the window's form, the check
 // at the boundary of an operation, the line of the scene file, the JSON Schema an MCP tool and a client get, Python's
 // hints and the reference are all made - no hand-made copy of any of them. Its unit is a UCUM code (core/Units.h), its
 // words for a person apart from it.
