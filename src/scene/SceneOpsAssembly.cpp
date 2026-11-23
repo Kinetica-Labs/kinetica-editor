@@ -49,21 +49,46 @@ bool kindOk(const Value& v) {
     return v.isNull() || v.text("") == "shock" || setJointKind(probe, v.text(""));
 }
 
-// A shock absorber: a slider whose spring carries a's weight as a car's does (AssemblyPresets.cpp, shock) - 4 Hz, a sag of
-// 1.6 cm, damping ratio 0.5 - limited to three sags or a quarter of a's size either way, whichever is more.
-void makeShock(SceneGraph& g, uint32_t joint, uint32_t a) {
-    const Entity* e = findEntity(g, a);
+// A shock absorber: a slider whose spring carries a weight as a car's does (AssemblyPresets.cpp, shock) - 4 Hz, a sag of
+// 1.6 cm, damping ratio 0.5 - limited to three sags or a quarter of a's size either way, whichever is more. The weight it
+// carries: the one that moves when the other holds still (fixed, or the world) - a part hanging on it -, else the heavier
+// of the two - a chassis on its wheels' hubs -, shared by all that body's shocks. Each shock of that body whose spring is
+// still the share it was given (no hand changed it) is set to the new share, so four made one by one carry a quarter each.
+constexpr Real kShockOmega = 2 * kPi * 4;
+
+bool isShock(const JointObject& j) {
+    const int d = mainFreedom(j);
+    return d >= 0 && d < DofRx && j.dof[d].drive.enabled && j.dof[d].drive.stiffness > 0 && j.name.rfind("Амортизатор", 0) == 0;
+}
+
+void springFor(JointFreedom& f, Real carried) {
+    f.drive.enabled = true, f.drive.stiffness = carried * kShockOmega * kShockOmega;
+    f.drive.damping = 2 * 0.5_r * std::sqrt(f.drive.stiffness * carried);
+}
+
+void makeShock(SceneGraph& g, uint32_t joint, uint32_t a, uint32_t b) {
+    const Entity* ea = findEntity(g, a);
+    const Entity* eb = b ? findEntity(g, b) : nullptr;
+    if (!ea) return;
+    const Entity& heavy = !eb || !eb->rigid.dynamic() ? *ea : !ea->rigid.dynamic() ? *eb : bodyMass(*ea) >= bodyMass(*eb) ? *ea : *eb;
+    int shocks = 1; // this one, and the carried body's others
+    for (const JointObject& o : g.joints)
+        if (o.id != joint && isShock(o) && (o.a == heavy.id || o.b == heavy.id)) ++shocks;
+    const Real m = bodyMass(heavy), share = m / Real(shocks), before = m / Real(std::max(shocks - 1, 1));
     for (JointObject& j : g.joints) {
-        if (j.id != joint) continue;
-        setJointKind(j, std::string("slider"));
-        const int d = mainFreedom(j);
-        if (d < 0 || !e) return;
-        const Real m = bodyMass(*e), omega = 2 * kPi * 4, travel = std::max(3 * 9.81_r / (omega * omega), 0.25_r * maxComp(e->size));
-        JointFreedom& f = j.dof[d];
-        f.motion = JointMotion::Limited, f.lower = -travel, f.upper = travel;
-        f.drive.enabled = true, f.drive.stiffness = m * omega * omega, f.drive.damping = 2 * 0.5_r * std::sqrt(f.drive.stiffness * m);
-        const std::string number = j.name.substr(j.name.find_last_of(' ') + 1);
-        j.name = "Амортизатор " + number;
+        if (j.id == joint) {
+            setJointKind(j, std::string("slider"));
+            const int d = mainFreedom(j);
+            if (d < 0) return;
+            const Real travel = std::max(3 * 9.81_r / (kShockOmega * kShockOmega), 0.25_r * maxComp(ea->size));
+            JointFreedom& f = j.dof[d];
+            f.motion = JointMotion::Limited, f.lower = -travel, f.upper = travel;
+            springFor(f, share);
+            j.name = "Амортизатор " + j.name.substr(j.name.find_last_of(' ') + 1);
+        } else if (isShock(j) && (j.a == heavy.id || j.b == heavy.id)) {
+            JointFreedom& f = j.dof[mainFreedom(j)];
+            if (std::fabs(f.drive.stiffness - before * kShockOmega * kShockOmega) < 0.01_r * f.drive.stiffness) springFor(f, share);
+        }
     }
 }
 
@@ -542,7 +567,8 @@ std::vector<SceneOp> assemblySceneOps() {
         return r.set("id", done.entity), r.set("entity", done.entity), r.set("joint", done.joint), r.set("axis", along), true;
     }});
     ops.push_back({"assembly_joint", "A joint between two shapes (b 0: the world) at a world point along a world direction (a shock: a slider "
-                                     "whose spring and damper carry a's weight, 4 Hz, damping ratio 0.5). A shape that "
+                                     "whose spring and damper carry a weight at 4 Hz, damping ratio 0.5 - a's when b is fixed or the world, "
+                                     "else the heavier one's shared by its shocks, the earlier ones set to the new share unless changed by hand). A shape that "
                                      "is geometry only becomes a body - a, the moving link, rigid; b, what it hangs on, rigid and fixed - "
                                      "since a joint holds bodies; the answer's note says which",
                    "{a: int, b: int, type?: 'hinge'|'weld'|'slider'|'ball'|'cylinder'|'universal'|'planar'|'shock', anchor: [x,y,z], axis?: [x,y,z]}",
@@ -554,7 +580,7 @@ std::vector<SceneOp> assemblySceneOps() {
         vectorArg(a, "axis", axis);
         const uint32_t joint = addJoint(g, JointType::Hinge, ea, eb, anchor, axis);
         const std::string note = bodiesForJoint(g, ea, eb); // geometry alone is never built - and a shock's spring weighs the body
-        if (a["type"].text("") == "shock") makeShock(g, joint, ea);
+        if (a["type"].text("") == "shock") makeShock(g, joint, ea, eb);
         else setKind(g, joint, a["type"]);
         if (!note.empty()) r.set("note", note);
         return r.set("id", joint), r.set("joint", joint), true;

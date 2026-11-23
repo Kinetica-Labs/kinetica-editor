@@ -1864,3 +1864,41 @@ void testSimShockCarriesItsWeight() {
     std::printf("  a 0.5 kg hub on a shock: sagged %.4f m (g / (8 pi)^2 = %.4f)\n", double(sag), 9.81 / (64 * kPi * kPi));
     CHECK(std::fabs(sag - 9.81_r / (64 * kPi * kPi)) < 0.003_r, "a shock carries its body's weight with a 1.55 cm sag: %f", double(sag));
 }
+
+// Four shocks made one by one under a chassis (assembly_joint type shock, a: the hub, fixed; b: the chassis): each carries a
+// quarter of the chassis, the earlier ones re-shared as the next come - in the world it sags the same 1.55 cm.
+void testSimShocksShareTheChassis() {
+    SceneGraph g;
+    std::string error;
+    const auto run = [&g, &error](const char* op, const Value& a) {
+        Value r = Value::map();
+        if (!findSceneOp(op)->edit(g, a, r, error)) r = Value::map();
+        return r;
+    };
+    const auto vec = [](Real x, Real y, Real z) { Value v = Value::list(); v.push(x), v.push(y), v.push(z); return v; };
+    Value chassis = Value::map();
+    chassis.set("shape", "box"), chassis.set("role", "rigid"), chassis.set("position", vec(0, 0.4_r, 0)), chassis.set("size", vec(0.8_r, 0.06_r, 0.36_r));
+    const int c = run("scene_add", chassis)["id"].integer();
+    for (Real x : {-0.3_r, 0.3_r})
+        for (Real z : {-0.21_r, 0.21_r}) {
+            Value hub = Value::map(), joint = Value::map();
+            hub.set("shape", "box"), hub.set("role", "rigid"), hub.set("fixed", true), hub.set("position", vec(x, 0.4_r, z)), hub.set("size", vec(0.06_r, 0.06_r, 0.06_r));
+            const int h = run("scene_add", hub)["id"].integer();
+            joint.set("a", h), joint.set("b", c), joint.set("type", "shock"), joint.set("anchor", vec(x, 0.4_r, z < 0 ? -0.18_r : 0.18_r)), joint.set("axis", vec(0, 1, 0));
+            run("assembly_joint", joint);
+        }
+    Real low = 1e9_r, high = 0;
+    for (const JointObject& j : g.joints) {
+        const Real k = j.dof[mainFreedom(j)].drive.stiffness;
+        low = std::min(low, k), high = std::max(high, k);
+    }
+    const Real quarter = bodyMass(*findEntity(g, uint32_t(c))) / 4 * 64 * kPi * kPi;
+    CHECK(g.joints.size() == 4 && std::fabs(low - quarter) < 0.01_r * quarter && std::fabs(high - quarter) < 0.01_r * quarter,
+          "four shocks under a chassis carry a quarter each: k %f .. %f, a quarter %f", double(low), double(high), double(quarter));
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 150; ++k) s.stepFrame();
+    const Real sag = 0.4_r - s.physics()->state(s.robot()->bodyOf(uint32_t(c))).position.y;
+    std::printf("  a chassis on four shocks made one by one: sagged %.4f m (g / (8 pi)^2 = %.4f)\n", double(sag), 9.81 / (64 * kPi * kPi));
+    CHECK(std::fabs(sag - 9.81_r / (64 * kPi * kPi)) < 0.003_r, "the chassis sags a 4 Hz spring's 1.55 cm: %f", double(sag));
+}

@@ -73,6 +73,7 @@ int main() {
     run("world: the frame is the live scene flattened - a body, a child without one, a goal moved while it runs", testSimFrameFollowsTheLiveScene);
     run("world: a body fallen out of the world leaves the engine; the frame's contacts only when they are read", testSimLostBodiesLeaveTheWorld);
     run("sim: a shock absorber carries its body's weight - the sag of a 4 Hz spring", testSimShockCarriesItsWeight);
+    run("sim: shocks made one by one under a chassis share its weight - the same 1.55 cm sag", testSimShocksShareTheChassis);
     run("world: bodies alone are one step of the engine a frame, a servo's world a step a substep", testSimBodiesAloneAreOneEngineStep);
     run("world: a servo reaches its target and droops by m g d / k under gravity", testSimServoHoldsAndDroops);
     run("sim: a kinematic body goes as its velocity says and pushes what it meets", testSimKinematicBodyLeads);

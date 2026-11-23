@@ -81,6 +81,7 @@ void testSimForceOnBody();
 void testSimFrameFollowsTheLiveScene();
 void testSimLostBodiesLeaveTheWorld();
 void testSimShockCarriesItsWeight();
+void testSimShocksShareTheChassis();
 void testSimBodiesAloneAreOneEngineStep();
 void testSimServoHoldsAndDroops();
 void testSimKinematicBodyLeads();
