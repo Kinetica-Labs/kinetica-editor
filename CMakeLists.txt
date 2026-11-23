@@ -253,7 +253,7 @@ if(KE_TESTS)
     tests/RuntimePolicyTests.cpp
     tests/DeviceTests.cpp
     tests/ElectroTests.cpp
-    tests/PhysicsTests.cpp tests/SimTests.cpp
+    tests/PhysicsTests.cpp tests/SimTests.cpp tests/MetamorphicTests.cpp
     tests/GraphTests.cpp tests/AblationTests.cpp
     tests/ArrayTests.cpp
     tests/SceneActionTests.cpp

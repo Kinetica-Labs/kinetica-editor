@@ -71,6 +71,10 @@ void testPhysicsRepeatable();
 void testPhysicsThreadsDeterministic();
 // SimTests.cpp
 void testSimBoxRestsOnFloor();
+void testMetamorphicMoved();
+void testMetamorphicTurned();
+void testMetamorphicMirrored();
+void testMetamorphicOrder();
 void testSimForces();
 void testSimForceOnBody();
 void testSimFrameFollowsTheLiveScene();

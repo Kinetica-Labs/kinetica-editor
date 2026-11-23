@@ -63,6 +63,10 @@ int main() {
     run("physics: two worlds built alike stay equal to the bit", testPhysicsRepeatable);
     run("physics: the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit", testPhysicsThreadsDeterministic);
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
+    run("metamorphic: the scene moved along the floor, the run moved with it", testMetamorphicMoved);
+    run("metamorphic: the scene turned about y, the run turned with it", testMetamorphicTurned);
+    run("metamorphic: the scene mirrored, the run mirrored", testMetamorphicMirrored);
+    run("metamorphic: the objects made in the other order, the same run to the bit", testMetamorphicOrder);
     run("world: a force acts on rigid bodies by the formulas, once or all the time, and takes live edits", testSimForces);
     run("world: a body's own force acts on it alone at its own point - momentum, and spin off the centre", testSimForceOnBody);
     run("world: the frame is the live scene flattened - a body, a child without one, a goal moved while it runs", testSimFrameFollowsTheLiveScene);
