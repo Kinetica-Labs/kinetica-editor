@@ -32,6 +32,7 @@
 #include <QJsonDocument>
 #include <QApplication>
 #include <QKeyEvent>
+#include <QTabBar>
 #include <QToolBar>
 #include <QTreeWidget>
 #include <QToolButton>
@@ -469,6 +470,10 @@ def count(scene, dt, sensors):
     pump(50);
     auto* results = w.findChild<QDockWidget*>("resultsDock");
     c.check(results && results->isVisible(), "the panel's «Графики ▸» opens the plots");
+    int tabs = 0, iconed = 0; // the docks' tabs carry their panel's icon beside its words
+    for (QTabBar* bar : w.findChildren<QTabBar*>(Qt::FindDirectChildrenOnly))
+        for (int i = 0; i < bar->count(); ++i) ++tabs, iconed += !bar->tabIcon(i).isNull();
+    c.check(tabs > 0 && iconed == tabs, "every tab of the window's panels has its icon beside its words");
     auto* wide = w.findChild<QToolButton*>("actionBottomWidePlots");
     c.check(wide && wide->defaultAction() && wide->defaultAction()->objectName() == "actionBottomWide",
             "the plots' bar has the bottom panel's ⇔ (the window's whole width), as the Sequencer's has");

@@ -22,6 +22,8 @@
 #include <QStatusBar>
 #include <QToolBar>
 #include <QToolButton>
+#include <QTimer>
+#include <QTabBar>
 
 namespace {
 
@@ -199,6 +201,13 @@ void MainWindow::showDock(const QString& name) {
 }
 
 void MainWindow::syncLayoutButtons() {
+    // The docks' tabs carry their panel's icon beside its words: Qt names a tab after its dock but leaves its icon off.
+    QTimer::singleShot(0, this, [this] {
+        for (QTabBar* bar : findChildren<QTabBar*>(Qt::FindDirectChildrenOnly)) // the window's own tab bars, the docks'
+            for (int i = 0; i < bar->count(); ++i)
+                for (QDockWidget* d : findChildren<QDockWidget*>())
+                    if (bar->tabText(i) == d->windowTitle() && !d->windowIcon().isNull()) bar->setTabIcon(i, d->windowIcon());
+    });
     if (!leftBarAct_) return;
     leftBarAct_->setChecked(dockAreaOpen(Qt::LeftDockWidgetArea));
     bottomPanelAct_->setChecked(dockAreaOpen(Qt::BottomDockWidgetArea));
