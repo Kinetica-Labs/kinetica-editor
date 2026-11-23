@@ -699,6 +699,56 @@ def train(scene, generations: int = 5, first: int = 0):
         c.check(c0 < b0 && std::fabs((c1 - c0) - (b1 - b0)) < 1e-9 && kept, "a drag moves the window; the reader's window stays while the data come");
         c.check(!v->zoomed() && v->timeRange() == std::make_pair(a0, a1), "↺ in the plot's corner gives all of it back");
     } else c.check(false, "the step chart is there to zoom");
+    // The plots are a state machine: the view is one value; what is not plain is said under the charts with one way back;
+    // the value is saved by name and set again through plots_set, read through plots_get - the same as the hands make it.
+    {
+        const auto call = [&](const QString& op, const QJsonObject& args) {
+            QJsonObject answer;
+            ops->run(op, args, [&answer](const QJsonObject& r) { answer = r; }, "ui");
+            waitUntil([&] { return !answer.isEmpty(); }, 3000);
+            return answer;
+        };
+        auto* words = w.findChild<QLabel*>("plotStateWords"); // on the bar under the charts: the window's
+        auto* state = w.findChild<QWidget*>("plotState");
+        tick(plots, "Обучение", false);
+        const QString said = words ? words->text() : QString();
+        const bool shown = state && state->isVisibleTo(&w);
+        const QJsonObject saved = call("plots_set", {{"save", "selftest"}});
+        if (auto* reset = w.findChild<QToolButton*>("plotResetView")) reset->click();
+        pump(50);
+        const bool plain = plots->view().hidden.empty() && plotted(w, "Обучение") && state && !state->isVisibleTo(&w);
+        const QJsonObject back = call("plots_set", {{"preset", "selftest"}});
+        const bool restored = plots->view().hidden.size() == 1 && !plotted(w, "Обучение") && back.value("view").toObject() == saved.value("view").toObject();
+        const QJsonObject got = call("plots_get", {});
+        const QJsonObject gone = call("plots_set", {{"delete", "selftest"}, {"reset", true}});
+        std::printf("  the view's words: «%s», shown %s; reset plain %s; the preset restored %s; plots_get: %d charts, presets after delete %d\n",
+                    qPrintable(said), shown ? "yes" : "no", plain ? "yes" : "no", restored ? "yes" : "no", int(got.value("charts").toArray().size()),
+                    int(gone.value("presets").toArray().size()));
+        c.check(!said.isEmpty() && shown && plain, "what is not the plain view is said under the charts, and «Сбросить вид» gives the plain one");
+        c.check(saved.value("ok").toBool() && restored && got.value("view").toObject() == saved.value("view").toObject(),
+                "the view is one value: saved by name (plots_set save), set again (preset), read (plots_get) the same");
+        c.check(gone.value("ok").toBool() && !gone.value("presets").toArray().contains("selftest") && plotted(w, "Обучение"),
+                "plots_set delete removes the preset, reset - every chart back");
+        // What «Ещё величины…», «Очистить» and «Сохранить CSV» do, an agent does too (MCP offers every operation).
+        const auto shownOf = [](const QJsonObject& r, const QString& id) {
+            for (const QJsonValue& ch : r.value("channels").toArray())
+                if (ch.toObject().value("id").toString() == id) return ch.toObject().value("shown").toBool();
+            return false;
+        };
+        const QString energy = "scene/kinetic energy";
+        const QJsonObject off = call("plots_show", {{"channels", QJsonArray{energy}}, {"on", false}});
+        const QJsonObject on = call("plots_show", {{"channels", QJsonArray{energy}}});
+        const QJsonObject unknown = call("plots_show", {{"channels", QJsonArray{"no/such"}}});
+        const QString csv = QDir::temp().filePath("kinetica-selftest-plots.csv");
+        const QJsonObject saved2 = call("plots_save", {{"file", csv}});
+        const QJsonObject cleared = call("plots_clear", {});
+        std::printf("  plots_show %s off: shown %s, on: shown %s; an unknown one: %s; plots_save %s; plots_clear %s\n", qPrintable(energy),
+                    shownOf(off, energy) ? "yes" : "no", shownOf(on, energy) ? "yes" : "no", qPrintable(unknown.value("error").toString()),
+                    QFile::exists(csv) ? "wrote the file" : "-", cleared.value("ok").toBool() ? "ok" : "-");
+        c.check(!shownOf(off, energy) && shownOf(on, energy) && !unknown.value("ok").toBool(), "plots_show puts a quantity on its chart and takes it off; an unknown one is refused");
+        c.check(saved2.value("ok").toBool() && QFile::exists(csv) && cleared.value("ok").toBool(), "plots_save writes the CSV, plots_clear erases the history");
+        QFile::remove(csv);
+    }
     // A double click on a chart: it alone in the whole width, a way back over it; again - every chart back.
     const auto visibleCharts = [&] {
         int n = 0;

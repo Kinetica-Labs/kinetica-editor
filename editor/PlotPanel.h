@@ -36,6 +36,9 @@
 #include "core/Probe.h"
 #include "sim/Channels.h"
 
+#include <QJsonArray>
+#include <QJsonObject>
+#include <QStringList>
 #include <QWidget>
 
 #include <cmath>
@@ -65,7 +68,34 @@ public:
         bool object = false;           // one of the selected object's charts: they go with the selection
     };
 
+    // What the reader sees, as one value: the plots are a state machine - the picture is made from it alone, the reader's
+    // events (a tick, the wheel, a double click, ↺, a layout) change it. Every part of it that is not the plain view is
+    // said under the charts with one way back («Сбросить вид»); it is saved by name (a layout) and read and set by
+    // plots_get / plots_set.
+    struct View {
+        Arrangement arrangement = Arrangement::Overlay;
+        bool wholeRun = false;                                 // the whole run, not the last minute
+        std::set<QString> hidden;                              // the charts unticked, by key (chartKey, pluginKey)
+        QString focus;                                         // the chart alone in the whole width, by key; "": all
+        std::map<QString, std::pair<double, double>> time;     // the reader's time window, by axis words ("": the run's time)
+        std::map<QString, std::pair<double, double>> values;   // the reader's values, by chart key
+    };
+
     explicit PlotPanel(QWidget* parent = nullptr);
+
+    const View& view() const { return view_; }
+    void setView(const View& v);
+    QJsonObject viewJson() const;                                 // {arrangement, whole_run, hidden, focus, time, values}
+    static bool viewFrom(const QJsonObject& o, View* out, QString* why);
+    QJsonArray chartsJson() const;                                // every chart: {key, section, title, shown}
+    QJsonArray channelsJson();                                    // every quantity there is: {id, name, unit, value, shown}
+    QString viewWords() const;                                    // what is not the plain view, in words ("": nothing)
+    void resetView();                                             // the plain view; the arrangement kept
+    QStringList layouts() const;                                  // the views saved by name
+    bool saveLayout(const QString& name, QString* why);
+    bool loadLayout(const QString& name);
+    bool deleteLayout(const QString& name);
+    QWidget* stateBar() const { return stateBar_; }               // the words of the view and «Сбросить вид», for the bar
 
     // --- Recording ---
     // A new scene: the history goes; the scene's charts as the reader left them come back (or the
@@ -153,10 +183,12 @@ private:
     void onHover(TrackChart* view, double t, QPoint globalPos, int track);
     void onHoverLeft();
     using Rows = std::vector<std::pair<QString, QString>>; // a chart's words in «Что показывать», its key
+    static QString pluginKey(const QString& section, const QString& chart) { return "plugin:" + section + '\n' + chart; }
+    void viewChanged(); // the words under the charts follow the view
     QLabel* sectionHeader(const QString& title);
     void fillTree(const std::vector<std::pair<QString, Rows>>& sections); // «Что показывать»: section -> charts
     void filterTree(const QString& words);
-    int shownOf(const QString& title, const Rows& charts) const;          // its charts not unticked
+    int shownOf(const Rows& charts) const;          // its charts not unticked
     Rows rowsOf(const std::vector<int>& charts);
     QString chartKey(int chart) const;
     QWidget* pluginSection(size_t i, int only = -1); // only: that one chart of it (the whole width), else the ticked ones
@@ -182,11 +214,13 @@ private:
         std::vector<TrackChart*> views;
     };
     std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
-    void linkZoom(TrackChart* v);
+    void linkZoom(TrackChart* v, const QString& key);
     std::vector<TrackChart*> allViews() const;
-    std::map<QString, std::pair<double, double>> zoom_; // the reader's time window by axis words (none: the panel's)
-    QString focus_;                        // the chart in the whole width (focusChart), empty: every chart
-    std::set<QString> hiddenCharts_; // the charts unticked in «Что показывать»: «section\nchart's key» (chartKey; a plugin's: its title)
+    View view_;
+    std::vector<std::pair<QString, Rows>> sections_; // the sections as «Что показывать» lists them, last built
+    QWidget* stateBar_ = nullptr;
+    class QLabel* stateWords_ = nullptr;
+    QToolButton* layoutButton_ = nullptr;
     std::set<QString> folded_;       // its sections folded, by title
     class QSplitter* body_ = nullptr;     // «Что показывать» | the charts
     class QTreeWidget* tree_ = nullptr;
@@ -205,8 +239,6 @@ private:
     std::vector<Chart> sectionCharts_;      // its charts as first shown («Сбросить» brings them back)
     std::vector<std::string> sectionPrefixes_; // the ids that are its own start so
     bool ownChannel(const std::string& id) const;
-    Arrangement arrangement_ = Arrangement::Overlay;
-    bool wholeRun_ = false;
     // What is recorded.
     PlotCatalog catalog_;
     std::map<std::string, PlotSeries> series_;

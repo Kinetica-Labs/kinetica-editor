@@ -85,6 +85,7 @@
 | `gizmo` | гизмо вида | stable |
 | `journal` | журнал правок | stable |
 | `ops` | сами операции: список, справка | stable |
+| `plots` | вкладка «Графики»: что видно, раскладки (вид окна, не сцена) | testing |
 | `plugin` | плагины: запуск, регистрация, новые | stable |
 | `robot` | команды роботу | stable |
 | `runtime` | среда исполнения: фоновые задачи, пределы | stable |
@@ -140,6 +141,7 @@
 | `circle` | `{}` | окружность рисунка `{centre, radius, axis}`, м | stable |  |
 | `clean` | `bool` | снимок без надписей и куба поверх вида | stable |  |
 | `clear` | `bool` | убрать рисунки, чьё имя начинается так | stable |  |
+| `channels` | `[]` | величины графиков по их id (`plots_get` channels) | testing |  |
 | `close` | `bool` | закрыть схват; false - открыть | stable |  |
 | `color` | `[3]` | цвет [r, g, b], каждое 0-1 - слово файла сцены и всех стандартов 3D | stable |  |
 | `colour` | `[3]` | цвет [r, g, b], каждое 0-1 | obsolete | `color` |
@@ -150,6 +152,7 @@
 | `curves` | `bool` | кривые одной дорожки в секвенсоре, а не дорожки | stable |  |
 | `damping` | `number` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
 | `degrees` | `number` | угол, градусы | stable |  |
+| `delete` | `str` | убрать сохранённое под этим именем (`plots_set`: раскладку графиков) | testing |  |
 | `diameter` | `number` | диаметр, м | stable |  |
 | `dof` | `str` | степень свободы: tx, ty, tz - сдвиг, rx, ry, rz - поворот | stable |  |
 | `effector` | `int` | звено-эффектор цепи (кисть) | stable |  |
@@ -220,6 +223,8 @@
 | `position` | `[3]` | где стоит объект или цель, м | stable |  |
 | `power` | `bool` | у колеса есть мотор | stable |  |
 | `preset` | `str` | имя заготовки | stable |  |
+| `reset` | `bool` | вернуть обычный вид: у `plots_set` - все графики, без приближения, вживую | testing |  |
+| `save` | `str` | сохранить как есть под этим именем (`plots_set`: вид графиков) | testing |  |
 | `quaternion` | `[4]` | поворот кватернионом [w, x, y, z] | stable |  |
 | `quaternions` | `[[]]` | повороты кватернионами `[[w, x, y, z], ...]` | stable |  |
 | `radius` | `number` | радиус, м | stable |  |
@@ -275,6 +280,7 @@
 | `values` | `{}` | значения по именам | stable |  |
 | `velocity` | `number` | скорость привода, рад/с или м/с | stable |  |
 | `velocity` | `[3]` | скорость ключа [x, y, z], м/с: наклон плавного ключа, его ручки Безье в кривых | stable |  |
+| `view` | `{}` | вид графиков одним значением, как его отдаёт `plots_get` | testing |  |
 | `voltage` | `number` | напряжение, В | stable |  |
 | `width` | `int` | ширина снимка, пикселей | stable |  |
 | `width` | `number` | ширина кадра камеры, пикселей | stable |  |
@@ -292,7 +298,7 @@
 
 ### testing
 
-`view_follow`
+`plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `view_follow`
 
 ### obsolete
 

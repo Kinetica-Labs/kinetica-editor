@@ -47,6 +47,8 @@ QWidget* MainWindow::buildPlots() {
     bar->addWidget(plots_->moreButton());
     bar->addSpacing(8);
     bar->addWidget(plots_->arrangementSwitch());
+    bar->addSpacing(12);
+    bar->addWidget(plots_->stateBar()); // what is not the plain view, and «Сбросить вид»
     bar->addStretch(1);
     auto* clear = new QPushButton(uiText("Kinetica", "Очистить"));
     clear->setToolTip(uiText("Kinetica", "Стереть записанную историю; графики остаются"));

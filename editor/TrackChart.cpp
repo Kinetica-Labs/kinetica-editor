@@ -174,6 +174,17 @@ void TrackChart::setUserWindow(double t0, double t1) {
     refresh();
 }
 
+void TrackChart::clearUserWindow() {
+    userX_ = false;
+    t0_ = autoT0_, t1_ = autoT1_;
+    refresh();
+}
+
+void TrackChart::setUserValues(double y0, double y1) {
+    userY_ = true, userY0_ = y0, userY1_ = y1 > y0 ? y1 : y0 + 1e-9;
+    refresh();
+}
+
 void TrackChart::clearZoom() {
     userX_ = userY_ = false;
     t0_ = autoT0_, t1_ = autoT1_;
@@ -597,6 +608,7 @@ void TrackChart::mouseMoveEvent(QMouseEvent* e) {
         if (userY_) {
             const double dv = (pos.y() - dragFrom_.y()) / r.height() * (userY1_ - userY0_);
             userY0_ += dv, userY1_ += dv;
+            emit zoomedY(userY0_, userY1_);
         }
         dragFrom_ = pos;
         setUserWindow(t0_ - dt, t1_ - dt);
@@ -648,8 +660,8 @@ void TrackChart::wheelEvent(QWheelEvent* e) {
     const double k = std::pow(0.998, turn); // a notch (120): about 0,79
     if (e->modifiers() & Qt::ShiftModifier) {
         const double v = y1_ - (pos.y() - r.top()) / r.height() * (y1_ - y0_);
-        userY_ = true, userY0_ = v - (v - y0_) * k, userY1_ = v + (y1_ - v) * k;
-        refresh();
+        setUserValues(v - (v - y0_) * k, v + (y1_ - v) * k);
+        emit zoomedY(userY0_, userY1_);
     } else {
         const double t = timeAtX(pos.x());
         setUserWindow(t - (t - t0_) * k, t + (t1_ - t) * k);

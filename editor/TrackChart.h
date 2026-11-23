@@ -97,6 +97,8 @@ public:
     void setTimeAxisVisible(bool on);     // lanes label the time once, under the lowest lane
     void setHoverTime(double t);          // where the mouse is, on every chart of the panel (NaN: none)
     void setUserWindow(double t0, double t1); // the reader's time window: setWindow's waits till clearZoom
+    void clearUserWindow();               // the panel's time window again
+    void setUserValues(double y0, double y1); // the reader's values, bottom to top
     void clearZoom();                     // the panel's window and the values' own range again
     bool zoomed() const { return userX_ || userY_; }
     // Margins shared by stacked lanes, so their time axes line up (0: the chart's own).
@@ -126,6 +128,7 @@ signals:
     void legendDoubleClicked(int track);
     void doubleClicked(); // on the plot, not its legend or title
     void zoomedX(double t0, double t1); // the reader zoomed or moved the time on this chart
+    void zoomedY(double y0, double y1); // the reader zoomed or moved this chart's values
     void zoomCleared();                 // ... and asked for all of it again (↺)
     void menuRequested(QPoint localPos);
 

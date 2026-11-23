@@ -7069,6 +7069,61 @@ Sample </translation>
         <translation>The whole plot, live again (or right click → «Whole plot»)</translation>
     </message>
     <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Раскладка: сохранённые виды графиков - что показано, как разложено, что приближено</source>
+        <translation>Layout: saved views of the plots - what is shown, how it is laid out, what is zoomed</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Сохранить как…</source>
+        <translation>Save as…</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Раскладка графиков</source>
+        <translation>Plots layout</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Имя:</source>
+        <translation>Name:</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Сбросить вид</source>
+        <translation>Reset view</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Все графики, без приближения, вживую; раскладка остаётся</source>
+        <translation>All plots, not zoomed, live; the arrangement stays</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>приближено</source>
+        <translation>zoomed</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>один график во всю ширину</source>
+        <translation>one plot in the whole width</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>скрыто графиков: %1</source>
+        <translation>plots hidden: %1</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>весь прогон</source>
+        <translation>the whole run</translation>
+    </message>
+    <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>имя раскладки — без «/» и «\»</source>
+        <translation>a layout's name - without «/» and «\»</translation>
+    </message>
+    <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Следить за выделенным</source>
         <translation>Follow selected</translation>

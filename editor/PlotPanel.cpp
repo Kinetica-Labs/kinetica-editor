@@ -13,6 +13,10 @@
 #include <QGridLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QCursor>
+#include <QSettings>
+#include <QJsonDocument>
+#include <QInputDialog>
 #include <QTreeWidget>
 #include <QSplitter>
 #include <QSignalBlocker>
@@ -88,10 +92,39 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     find_->setClearButtonEnabled(true);
     tree_ = new QTreeWidget;
     tree_->setObjectName("plotTree");
+    tree_->setMinimumHeight(24);
     tree_->setHeaderHidden(true);
     tree_->setRootIsDecorated(true);
     tree_->setToolTip(uiText("Kinetica", "Что показывать: галочка — график виден; у раздела — все его графики"));
-    side->addWidget(find_);
+    layoutButton_ = new QToolButton;
+    layoutButton_->setObjectName("plotLayouts");
+    layoutButton_->setText("▤");
+    layoutButton_->setToolTip(uiText("Kinetica", "Раскладка: сохранённые виды графиков - что показано, как разложено, что приближено"));
+    layoutButton_->setAutoRaise(true);
+    layoutButton_->setPopupMode(QToolButton::InstantPopup);
+    layoutButton_->setStyleSheet("QToolButton::menu-indicator { image: none; width: 0; }");
+    auto* layoutMenu = new QMenu(layoutButton_);
+    layoutMenu->setObjectName("plotLayoutsMenu");
+    connect(layoutMenu, &QMenu::aboutToShow, this, [this, layoutMenu] {
+        layoutMenu->clear();
+        for (const QString& name : layouts()) connect(layoutMenu->addAction(name), &QAction::triggered, this, [this, name] { loadLayout(name); });
+        if (!layouts().isEmpty()) layoutMenu->addSeparator();
+        connect(layoutMenu->addAction(uiText("Kinetica", "Сохранить как…")), &QAction::triggered, this, [this] {
+            const QString name = QInputDialog::getText(this, uiText("Kinetica", "Раскладка графиков"), uiText("Kinetica", "Имя:"));
+            QString why;
+            if (!name.trimmed().isEmpty() && !saveLayout(name.trimmed(), &why)) QToolTip::showText(QCursor::pos(), why, this);
+        });
+        if (!layouts().isEmpty()) {
+            QMenu* gone = layoutMenu->addMenu(uiText("Kinetica", "Удалить"));
+            for (const QString& name : layouts()) connect(gone->addAction(name), &QAction::triggered, this, [this, name] { deleteLayout(name); });
+        }
+    });
+    layoutButton_->setMenu(layoutMenu);
+    auto* top = new QHBoxLayout; // one row: the layouts and the find line - the column no taller than the charts need
+    top->setSpacing(2);
+    top->addWidget(layoutButton_);
+    top->addWidget(find_, 1);
+    side->addLayout(top);
     side->addWidget(tree_, 1);
     body_ = new QSplitter(Qt::Horizontal);
     body_->setObjectName("plotBody");
@@ -100,6 +133,21 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     body_->setStretchFactor(1, 1);
     body_->setSizes({190, 800});
     col->addWidget(body_, 1);
+    stateBar_ = new QWidget;
+    stateBar_->setObjectName("plotState");
+    auto* state = new QHBoxLayout(stateBar_);
+    state->setContentsMargins(0, 0, 0, 0);
+    stateWords_ = new QLabel;
+    stateWords_->setObjectName("plotStateWords");
+    stateWords_->setStyleSheet("color: #e0b25c;");
+    auto* reset = new QToolButton;
+    reset->setObjectName("plotResetView");
+    reset->setText(uiText("Kinetica", "Сбросить вид"));
+    reset->setToolTip(uiText("Kinetica", "Все графики, без приближения, вживую; раскладка остаётся"));
+    connect(reset, &QToolButton::clicked, this, &PlotPanel::resetView);
+    state->addWidget(stateWords_);
+    state->addWidget(reset);
+    stateBar_->hide();
     rebuildSoon_ = new QTimer(this);
     rebuildSoon_->setSingleShot(true);
     rebuildSoon_->setInterval(0); // a section's tick changes all its charts' ticks: one rebuild for them all
@@ -107,9 +155,9 @@ PlotPanel::PlotPanel(QWidget* parent) : QWidget(parent) {
     connect(find_, &QLineEdit::textChanged, this, &PlotPanel::filterTree);
     connect(tree_, &QTreeWidget::itemChanged, this, [this](QTreeWidgetItem* item) {
         if (!item->parent()) return; // a section: Qt ticks its charts, each comes here
-        const QString key = item->parent()->text(0) + '\n' + item->data(0, Qt::UserRole).toString();
-        if (item->checkState(0) == Qt::Checked) hiddenCharts_.erase(key);
-        else hiddenCharts_.insert(key);
+        const QString key = item->data(0, Qt::UserRole).toString();
+        if (item->checkState(0) == Qt::Checked) view_.hidden.erase(key);
+        else view_.hidden.insert(key);
         rebuildSoon_->start();
     });
     connect(tree_, &QTreeWidget::itemCollapsed, this, [this](QTreeWidgetItem* i) { folded_.insert(i->text(0)); });
@@ -159,7 +207,7 @@ void PlotPanel::buildBar() {
         b->setObjectName(QString("plotLayout_") + choices[i].first);
         b->setText(choices[i].second);
         b->setCheckable(true);
-        b->setChecked(i == int(arrangement_));
+        b->setChecked(i == int(view_.arrangement));
         switchGroup_->addButton(b, i);
         row->addWidget(b);
     }
@@ -178,14 +226,137 @@ void PlotPanel::buildBar() {
 QWidget* PlotPanel::moreButton() const { return more_; }
 
 void PlotPanel::setArrangement(Arrangement a) {
-    arrangement_ = a;
+    view_.arrangement = a;
     if (QAbstractButton* b = switchGroup_->button(int(a))) b->setChecked(true);
     rebuildCharts();
 }
 
 void PlotPanel::setWholeRun(bool on) {
-    wholeRun_ = on;
+    view_.wholeRun = on;
     refreshCharts();
+    viewChanged();
+}
+
+// --- The view as one value ------------------------------------------------------------------------
+
+void PlotPanel::setView(const View& v) {
+    view_ = v;
+    if (QAbstractButton* b = switchGroup_->button(int(v.arrangement))) b->setChecked(true);
+    for (TrackChart* o : allViews()) o->clearZoom(); // the views built again take the view's own
+    rebuildCharts();
+}
+
+void PlotPanel::resetView() {
+    View plain;
+    plain.arrangement = view_.arrangement;
+    setView(plain);
+}
+
+namespace {
+const char* const kArrangements[] = {"overlay", "lanes", "normalized"};
+
+QJsonObject spans(const std::map<QString, std::pair<double, double>>& m) {
+    QJsonObject out;
+    for (const auto& [k, v] : m) out.insert(k, QJsonArray{v.first, v.second});
+    return out;
+}
+
+bool spansFrom(const QJsonValue& j, std::map<QString, std::pair<double, double>>* out, const char* what, QString* why) {
+    const QJsonObject o = j.toObject();
+    for (auto it = o.begin(); it != o.end(); ++it) {
+        const QJsonArray a = it.value().toArray();
+        if (a.size() != 2 || !(a[1].toDouble() > a[0].toDouble())) return *why = QString("%1 «%2»: [low, high], low below high").arg(what, it.key()), false;
+        (*out)[it.key()] = {a[0].toDouble(), a[1].toDouble()};
+    }
+    return true;
+}
+} // namespace
+
+QJsonObject PlotPanel::viewJson() const {
+    QJsonArray hidden;
+    for (const QString& k : view_.hidden) hidden.append(k);
+    return {{"arrangement", kArrangements[int(view_.arrangement)]}, {"whole_run", view_.wholeRun}, {"hidden", hidden},
+            {"focus", view_.focus}, {"time", spans(view_.time)}, {"values", spans(view_.values)}};
+}
+
+bool PlotPanel::viewFrom(const QJsonObject& o, View* out, QString* why) {
+    View v;
+    if (o.contains("arrangement")) {
+        const QString a = o.value("arrangement").toString();
+        int k = 0;
+        while (k < 3 && a != kArrangements[k]) ++k;
+        if (k == 3) return *why = "arrangement: overlay, lanes or normalized", false;
+        v.arrangement = Arrangement(k);
+    }
+    v.wholeRun = o.value("whole_run").toBool();
+    for (const QJsonValue& k : o.value("hidden").toArray()) v.hidden.insert(k.toString());
+    v.focus = o.value("focus").toString();
+    if (!spansFrom(o.value("time"), &v.time, "time", why) || !spansFrom(o.value("values"), &v.values, "values", why)) return false;
+    *out = v;
+    return true;
+}
+
+QJsonArray PlotPanel::chartsJson() const {
+    QJsonArray out;
+    for (const auto& [section, rows] : sections_)
+        for (const auto& [words, key] : rows) out.append(QJsonObject{{"key", key}, {"section", section}, {"title", words}, {"shown", !view_.hidden.count(key)}});
+    return out;
+}
+
+QJsonArray PlotPanel::channelsJson() {
+    QJsonArray out;
+    for (const ChannelList::Row& r : rowsFor(-1)) {
+        const PlotSeries* s = series(r.channel.id);
+        const double v = s ? s->latest() : std::nan("");
+        out.append(QJsonObject{{"id", QString::fromStdString(r.channel.id)}, {"name", r.channel.name}, {"unit", r.channel.unit},
+                               {"value", std::isfinite(v) ? QJsonValue(v) : QJsonValue()}, {"shown", r.on}});
+    }
+    return out;
+}
+
+// What is not the plain view, said under the charts, and the way back beside it - never a state without a way out.
+QString PlotPanel::viewWords() const {
+    QStringList parts;
+    if (!view_.time.empty() || !view_.values.empty()) parts << uiText("Kinetica", "приближено");
+    if (!view_.focus.isEmpty()) parts << uiText("Kinetica", "один график во всю ширину");
+    if (!view_.hidden.empty()) parts << QString(uiText("Kinetica", "скрыто графиков: %1")).arg(view_.hidden.size());
+    if (view_.wholeRun) parts << uiText("Kinetica", "весь прогон");
+    return parts.join(" · ");
+}
+
+void PlotPanel::viewChanged() {
+    const QString words = viewWords();
+    stateWords_->setText(words);
+    stateBar_->setVisible(!words.isEmpty());
+}
+
+QStringList PlotPanel::layouts() const {
+    QSettings settings;
+    settings.beginGroup("plots/layouts");
+    QStringList names = settings.childKeys();
+    names.sort();
+    return names;
+}
+
+bool PlotPanel::saveLayout(const QString& name, QString* why) {
+    if (name.isEmpty() || name.contains('/') || name.contains('\\')) return *why = uiText("Kinetica", "имя раскладки — без «/» и «\\»"), false;
+    QSettings().setValue("plots/layouts/" + name, QString::fromUtf8(QJsonDocument(viewJson()).toJson(QJsonDocument::Compact)));
+    return true;
+}
+
+bool PlotPanel::loadLayout(const QString& name) {
+    if (!layouts().contains(name)) return false;
+    View v;
+    QString why;
+    if (!viewFrom(QJsonDocument::fromJson(QSettings().value("plots/layouts/" + name).toString().toUtf8()).object(), &v, &why)) return false;
+    setView(v);
+    return true;
+}
+
+bool PlotPanel::deleteLayout(const QString& name) {
+    if (!layouts().contains(name)) return false;
+    QSettings().remove("plots/layouts/" + name);
+    return true;
 }
 
 // --- The recording --------------------------------------------------------------------------------
@@ -491,7 +662,7 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
     if (view->zoomed()) item("plotMenuUnzoom", uiText("Kinetica", "Весь график (↺)"), [this, view = QPointer<TrackChart>(view)] {
         if (view) view->clearZoom(), emit view->zoomCleared();
     });
-    if (chart >= 0) focusItem(menu, "scene:" + chartKey(chart));
+    if (chart >= 0) focusItem(menu, chartKey(chart));
     menu->addSeparator();
     auto* layouts = new QActionGroup(menu);
     const std::pair<const char*, const char*> choices[] = {{"plotMenuOverlay", uiText("Kinetica", "Наложить")}, {"plotMenuLanes", uiText("Kinetica", "Дорожками")},
@@ -499,12 +670,12 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
     for (int i = 0; i < 3; ++i) {
         QAction* a = item(choices[i].first, choices[i].second, [this, i] { setArrangement(Arrangement(i)); });
         a->setCheckable(true);
-        a->setChecked(int(arrangement_) == i);
+        a->setChecked(int(view_.arrangement) == i);
         layouts->addAction(a);
     }
-    QAction* whole = item("plotMenuWhole", uiText("Kinetica", "Весь прогон, а не последняя минута"), [this] { setWholeRun(!wholeRun_); });
+    QAction* whole = item("plotMenuWhole", uiText("Kinetica", "Весь прогон, а не последняя минута"), [this] { setWholeRun(!view_.wholeRun); });
     whole->setCheckable(true);
-    whole->setChecked(wholeRun_);
+    whole->setChecked(view_.wholeRun);
     menu->addSeparator();
     item("plotMenuCsv", uiText("Kinetica", "Сохранить CSV…"), [this] { emit saveCsvRequested(); });
     item("plotMenuCopy", uiText("Kinetica", "Скопировать картинку"), [view = QPointer<TrackChart>(view)] {
@@ -586,8 +757,8 @@ TrackChart* PlotPanel::makeView(int chart) {
     connect(v, &TrackChart::legendClicked, this, [this, v, chart](int k) { toggleLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::legendDoubleClicked, this, [this, v, chart](int k) { isolateLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::menuRequested, this, [this, v](QPoint at) { contextMenu(v, at)->popup(v->mapToGlobal(at)); });
-    linkZoom(v);
-    if (chart >= 0) connect(v, &TrackChart::doubleClicked, this, [this, chart] { focusChart(focus_.isEmpty() ? "scene:" + chartKey(chart) : QString()); });
+    linkZoom(v, chart >= 0 ? chartKey(chart) : QString("normalized"));
+    if (chart >= 0) connect(v, &TrackChart::doubleClicked, this, [this, chart] { focusChart(view_.focus.isEmpty() ? chartKey(chart) : QString()); });
     views_.push_back(v);
     viewChart_.push_back(chart);
     return v;
@@ -606,7 +777,7 @@ void PlotPanel::rebuildCharts() {
     for (PluginSection& s : plugins_) s.views.clear();
     auto* host = new QWidget;
     host->setObjectName("plotHost");
-    const bool lanes = arrangement_ == Arrangement::Lanes;
+    const bool lanes = view_.arrangement == Arrangement::Lanes;
     QBoxLayout* box = lanes ? static_cast<QBoxLayout*>(new QVBoxLayout(host)) : new QHBoxLayout(host);
     box->setContentsMargins(0, 0, 0, 0);
     box->setSpacing(lanes ? 6 : 12);
@@ -617,10 +788,11 @@ void PlotPanel::rebuildCharts() {
     if (!object.empty()) sections.push_back({objectTitle(), rowsOf(object)});
     for (const PluginSection& p : plugins_) {
         sections.push_back({p.title, {}});
-        for (const SharedChart& c : p.charts) sections.back().second.push_back({c.title, c.title});
+        for (const SharedChart& c : p.charts) sections.back().second.push_back({c.title, pluginKey(p.title, c.title)});
     }
     fillTree(sections);
-    if (!focus_.isEmpty()) { // one chart in the whole width, a way back over it
+    sections_ = sections;
+    if (!view_.focus.isEmpty()) { // one chart in the whole width, a way back over it
         auto* back = new QToolButton;
         back->setObjectName("plotFocusBack");
         back->setText(uiText("Kinetica", "◂ Все графики"));
@@ -631,45 +803,45 @@ void PlotPanel::rebuildCharts() {
         col->setSpacing(3);
         col->addWidget(back, 0, Qt::AlignLeft);
         QWidget* one = nullptr;
-        if (focus_.startsWith("scene:")) {
-            for (int i = 0; i < int(charts_.size()) && !one; ++i)
-                if (focus_ == "scene:" + chartKey(i)) one = section(QString(), {i}, false);
-        } else
-            for (size_t i = 0; i < plugins_.size() && !one; ++i)
-                for (size_t k = 0; k < plugins_[i].charts.size() && !one; ++k)
-                    if (focus_ == "plugin:" + plugins_[i].title + '\n' + plugins_[i].charts[k].title) one = pluginSection(i, int(k));
+        for (int i = 0; i < int(charts_.size()) && !one; ++i)
+            if (view_.focus == chartKey(i)) one = section(QString(), {i}, false);
+        for (size_t i = 0; i < plugins_.size() && !one; ++i)
+            for (size_t k = 0; k < plugins_[i].charts.size() && !one; ++k)
+                if (view_.focus == pluginKey(plugins_[i].title, plugins_[i].charts[k].title)) one = pluginSection(i, int(k));
         if (one) {
             col->addWidget(one, 1);
             box->addLayout(col, 1);
             scroll_->setWidget(host);
             refreshCharts();
             refreshPluginCharts();
+            viewChanged();
             return;
         }
         delete col, delete back;
-        focus_.clear(); // the chart is gone (its plugin stopped, the chart removed): every chart again
+        view_.focus.clear(); // the chart is gone (its plugin stopped, the chart removed): every chart again
     }
     // A section is drawn with its ticked charts and by their room; none ticked - not drawn (the tree still lists it);
     // the scene's with no chart at all keeps its «+».
-    if (arrangement_ == Arrangement::Normalized) { // one chart of the ticked charts' lines
+    if (view_.arrangement == Arrangement::Normalized) { // one chart of the ticked charts' lines
         std::vector<int> ticked;
         for (int i : scene)
-            if (!hiddenCharts_.count(sceneTitle + '\n' + chartKey(i))) ticked.push_back(i);
+            if (!view_.hidden.count(chartKey(i))) ticked.push_back(i);
         for (int i : object)
-            if (!hiddenCharts_.count(objectTitle() + '\n' + chartKey(i))) ticked.push_back(i);
+            if (!view_.hidden.count(chartKey(i))) ticked.push_back(i);
         if (!ticked.empty()) box->addWidget(normalizedView(ticked), 1);
     } else {
-        if (const int own = shownOf(sceneTitle, rowsOf(scene)); own || scene.empty()) box->addWidget(section(sceneTitle, scene, true), std::max(1, own));
-        if (const int own = shownOf(objectTitle(), rowsOf(object)); own) box->addWidget(section(objectTitle(), object, false), own);
+        if (const int own = shownOf(rowsOf(scene)); own || scene.empty()) box->addWidget(section(sceneTitle, scene, true), std::max(1, own));
+        if (const int own = shownOf(rowsOf(object)); own) box->addWidget(section(objectTitle(), object, false), own);
     }
     for (size_t i = 0; i < plugins_.size(); ++i) { // in every layout
         Rows rows;
-        for (const SharedChart& c : plugins_[i].charts) rows.push_back({c.title, c.title});
-        if (const int shown = shownOf(plugins_[i].title, rows)) box->addWidget(pluginSection(i), shown);
+        for (const SharedChart& c : plugins_[i].charts) rows.push_back({c.title, pluginKey(plugins_[i].title, c.title)});
+        if (const int shown = shownOf(rows)) box->addWidget(pluginSection(i), shown);
     }
     scroll_->setWidget(host);
     refreshCharts();
     showHint();
+    viewChanged();
     if (lanes) emit roomWanted(host->minimumSizeHint().height() + 64); // the lanes and the bar under them
 }
 
@@ -709,7 +881,7 @@ void PlotPanel::fillTree(const std::vector<std::pair<QString, Rows>>& sections) 
             auto* row = new QTreeWidgetItem(section, {words});
             row->setData(0, Qt::UserRole, key);
             row->setFlags(row->flags() | Qt::ItemIsUserCheckable);
-            row->setCheckState(0, hiddenCharts_.count(title + '\n' + key) ? Qt::Unchecked : Qt::Checked);
+            row->setCheckState(0, view_.hidden.count(key) ? Qt::Unchecked : Qt::Checked);
         }
         section->setExpanded(!folded_.count(title));
     }
@@ -733,9 +905,9 @@ void PlotPanel::filterTree(const QString& words) {
     }
 }
 
-int PlotPanel::shownOf(const QString& title, const Rows& charts) const {
+int PlotPanel::shownOf(const Rows& charts) const {
     int n = 0;
-    for (const auto& row : charts) n += !hiddenCharts_.count(title + '\n' + row.second);
+    for (const auto& row : charts) n += !view_.hidden.count(row.second);
     return n;
 }
 
@@ -743,10 +915,10 @@ int PlotPanel::shownOf(const QString& title, const Rows& charts) const {
 // put before it moves it); an empty one by its place.
 QString PlotPanel::chartKey(int chart) const {
     const Chart& c = charts_[size_t(chart)];
-    if (c.ids.empty()) return "#" + QString::number(chart);
+    if (c.ids.empty()) return "chart:" + QString::number(chart);
     QStringList ids;
     for (const std::string& id : c.ids) ids << QString::fromStdString(id);
-    return ids.join('|');
+    return "lines:" + ids.join('|');
 }
 
 PlotPanel::Rows PlotPanel::rowsOf(const std::vector<int>& charts) {
@@ -764,11 +936,11 @@ QWidget* PlotPanel::section(const QString& header, const std::vector<int>& all, 
     col->setSpacing(3);
     std::vector<int> charts;
     for (int i : all)
-        if (header.isEmpty() || !hiddenCharts_.count(header + '\n' + chartKey(i))) charts.push_back(i);
+        if (header.isEmpty() || !view_.hidden.count(chartKey(i))) charts.push_back(i);
     if (!header.isEmpty()) col->addWidget(sectionHeader(header));
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
-    const bool lanes = arrangement_ == Arrangement::Lanes;
+    const bool lanes = view_.arrangement == Arrangement::Lanes;
     const int columns = lanes ? 1 : std::clamp(int(charts.size()), 1, 3);
     for (size_t i = 0; i < charts.size(); ++i) {
         const Chart& c = charts_[size_t(charts[i])];
@@ -807,12 +979,12 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
     auto* col = new QVBoxLayout(w);
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(3);
-    const auto key = [&s](const SharedChart& c) { return s.title + '\n' + c.title; };
+    const auto key = [&s](const SharedChart& c) { return pluginKey(s.title, c.title); };
     col->addWidget(sectionHeader(s.title));
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
-    const bool lanes = arrangement_ == Arrangement::Lanes;
-    const auto drawn = [&](size_t k) { return only >= 0 ? int(k) == only : !hiddenCharts_.count(key(s.charts[k])); };
+    const bool lanes = view_.arrangement == Arrangement::Lanes;
+    const auto drawn = [&](size_t k) { return only >= 0 ? int(k) == only : !view_.hidden.count(key(s.charts[k])); };
     int shown = 0;
     for (size_t k = 0; k < s.charts.size(); ++k) shown += drawn(k);
     const int columns = lanes ? 1 : std::clamp(shown, 1, 3);
@@ -834,12 +1006,12 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
             for (TrackChart* o : plugins_[i].views) o->setHoverTime(std::nan(""));
             QToolTip::hideText();
         });
-        linkZoom(v);
-        connect(v, &TrackChart::doubleClicked, this, [this, k = key(c)] { focusChart(focus_.isEmpty() ? "plugin:" + k : QString()); });
+        linkZoom(v, key(c));
+        connect(v, &TrackChart::doubleClicked, this, [this, k = key(c)] { focusChart(view_.focus.isEmpty() ? k : QString()); });
         connect(v, &TrackChart::menuRequested, this, [this, v, k = key(c)](QPoint at) {
             auto* menu = new QMenu(this);
             menu->setAttribute(Qt::WA_DeleteOnClose);
-            focusItem(menu, "plugin:" + k);
+            focusItem(menu, k);
             if (v->zoomed()) connect(menu->addAction(uiText("Kinetica", "Весь график (↺)")), &QAction::triggered, this, [v = QPointer<TrackChart>(v)] {
                 if (v) v->clearZoom(), emit v->zoomCleared();
             });
@@ -860,13 +1032,13 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
 // One chart in the whole width of the plots, the others out of the way - as a dashboard's «view panel»; double-clicked
 // again, «◂ Все графики» or the menu's item, every chart back as it was.
 void PlotPanel::focusChart(const QString& chart) {
-    if (chart == focus_) return;
-    focus_ = chart;
+    if (chart == view_.focus) return;
+    view_.focus = chart;
     QTimer::singleShot(0, this, &PlotPanel::rebuildCharts); // not under the chart's own event: it goes
 }
 
 QAction* PlotPanel::focusItem(QMenu* menu, const QString& chart) {
-    const bool on = focus_ == chart;
+    const bool on = view_.focus == chart;
     QAction* a = menu->addAction(on ? uiText("Kinetica", "Все графики") : uiText("Kinetica", "Во всю ширину"));
     a->setObjectName("plotMenuFocus");
     connect(a, &QAction::triggered, this, [this, chart, on] { focusChart(on ? QString() : chart); });
@@ -875,20 +1047,28 @@ QAction* PlotPanel::focusItem(QMenu* menu, const QString& chart) {
 
 // One time for every chart of an axis: the wheel or a drag on one moves them all (the same moment under the mouse on
 // each), ↺ on one gives them all back to the panel; a chart built again keeps the reader's window.
-void PlotPanel::linkZoom(TrackChart* v) {
+void PlotPanel::linkZoom(TrackChart* v, const QString& key) {
     connect(v, &TrackChart::zoomedX, this, [this, v](double t0, double t1) {
-        zoom_[v->axisWords()] = {t0, t1};
+        view_.time[v->axisWords()] = {t0, t1};
         for (TrackChart* o : allViews())
             if (o != v && o->axisWords() == v->axisWords()) o->setUserWindow(t0, t1);
+        viewChanged();
     });
-    connect(v, &TrackChart::zoomCleared, this, [this, v] {
-        zoom_.erase(v->axisWords());
+    connect(v, &TrackChart::zoomedY, this, [this, key](double y0, double y1) {
+        view_.values[key] = {y0, y1};
+        viewChanged();
+    });
+    connect(v, &TrackChart::zoomCleared, this, [this, v, key] { // ↺: this chart all of it, and the time of its axis
+        view_.time.erase(v->axisWords());
+        view_.values.erase(key);
         for (TrackChart* o : allViews())
-            if (o != v && o->axisWords() == v->axisWords()) o->clearZoom();
+            if (o != v && o->axisWords() == v->axisWords()) o->clearUserWindow();
+        viewChanged();
     });
-    QTimer::singleShot(0, v, [this, v] { // its axis words are set after it is made
-        if (const auto it = zoom_.find(v->axisWords()); it != zoom_.end()) v->setUserWindow(it->second.first, it->second.second);
-    });
+    // The view's own zoom, now (its axis words are set before this): a deferred call would outlive a panel built and
+    // dropped between two turns of the event loop.
+    if (const auto it = view_.time.find(v->axisWords()); it != view_.time.end()) v->setUserWindow(it->second.first, it->second.second);
+    if (const auto it = view_.values.find(key); it != view_.values.end()) v->setUserValues(it->second.first, it->second.second);
 }
 
 std::vector<TrackChart*> PlotPanel::allViews() const {
@@ -926,7 +1106,7 @@ std::vector<std::pair<QString, std::vector<TrackChart*>>> PlotPanel::pluginSecti
 // last minute, sliding with the run.
 std::pair<double, double> PlotPanel::timeWindow() const {
     if (frames_ == 0) return {0.0, 1.0};
-    const double from = wholeRun_ || now_ - start_ <= kLiveSeconds ? start_ : now_ - kLiveSeconds;
+    const double from = view_.wholeRun || now_ - start_ <= kLiveSeconds ? start_ : now_ - kLiveSeconds;
     return {from, std::max(now_, from + 1e-3)};
 }
 
@@ -948,7 +1128,7 @@ void PlotPanel::refreshCharts() {
         v->setWindow(t0, t1);
         v->refresh();
     }
-    if (arrangement_ == Arrangement::Lanes) alignLanes();
+    if (view_.arrangement == Arrangement::Lanes) alignLanes();
     if (!checklist_->isVisible() && !chartList_->isVisible()) return;
     std::map<std::string, QString> values;
     for (const auto& [id, s] : series_) values[id] = formatValue(s.latest());

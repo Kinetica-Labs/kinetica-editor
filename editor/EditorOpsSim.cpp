@@ -6,6 +6,7 @@
 #include "SceneBuilder.h"
 #include "SimController.h"
 #include "UiWindowSpace.h"
+#include "PlotPanel.h"
 #include "SequencerPanel.h"
 #include "SequencerViews.h"
 #include "Viewport.h"
@@ -231,6 +232,74 @@ void EditorOps::addViewOps() {
         const sequencer::Axis in = panel->axis(panel->curvesView()->width());
         const std::array<double, 2> values = panel->curvesView()->valueRange();
         return ok({{"from", in.from}, {"to", in.from + in.span}, {"curves", panel->curvesShown()}, {"range", QJsonArray{values[0], values[1]}}});
+    });
+    // The plots' view as one value (PlotPanel::View): what the reader sees there - read, set, saved by name.
+    const auto plotsAnswer = [this](PlotPanel* plots) {
+        QJsonArray names;
+        for (const QString& n : plots->layouts()) names.append(n);
+        return ok({{"view", plots->viewJson()}, {"charts", plots->chartsJson()}, {"channels", plots->channelsJson()}, {"presets", names},
+                   {"words", plots->viewWords()}});
+    };
+    addSync("plots_get", "The plots' view (Графики) as one value: view - {arrangement: overlay | lanes | normalized, whole_run, hidden: "
+            "[chart keys], focus: a chart key alone in the whole width (\"\": all), time: {axis words: [from, to]} (\"\": the run's "
+            "time), values: {chart key: [low, high]}}; charts - every chart: key, section, title, shown; channels - every quantity "
+            "there is (plots_show puts it on a chart): id, name, unit, value now, shown; presets - the views saved "
+            "by name (▤, «Раскладка»); words - what is not the plain view. The window's view, no change of the scene", "{}", [this, plotsAnswer](const QJsonObject&) {
+        auto* plots = window_->findChild<PlotPanel*>();
+        return plots ? plotsAnswer(plots) : error("the window has no plots");
+    });
+    addSync("plots_set", "The plots' view changed, in this order: reset - the plain view (the arrangement kept); view - the whole value "
+            "as plots_get gives it (a part left out is the plain one); preset - a saved view by name; save - the view as it stands "
+            "saved by name; delete - a saved view gone. Answered as plots_get. The window's view, no change of the scene",
+            "{reset?: bool, view?: {…}, preset?: str, save?: str, delete?: str}", [this, plotsAnswer](const QJsonObject& a) {
+        auto* plots = window_->findChild<PlotPanel*>();
+        if (!plots) return error("the window has no plots");
+        if (a.value("reset").toBool()) plots->resetView();
+        if (a.contains("view")) {
+            PlotPanel::View v;
+            QString why;
+            if (!PlotPanel::viewFrom(a.value("view").toObject(), &v, &why)) return error("view: " + why);
+            plots->setView(v);
+        }
+        if (a.contains("preset") && !plots->loadLayout(a.value("preset").toString()))
+            return error(QString("no preset «%1»; saved: %2").arg(a.value("preset").toString(), plots->layouts().join(", ")));
+        if (a.contains("save")) {
+            QString why;
+            if (!plots->saveLayout(a.value("save").toString(), &why)) return error(why);
+        }
+        if (a.contains("delete") && !plots->deleteLayout(a.value("delete").toString()))
+            return error(QString("no preset «%1»").arg(a.value("delete").toString()));
+        return plotsAnswer(plots);
+    });
+    addSync("plots_show", "Quantities on the plots, by their ids (plots_get channels): each on the chart of its unit, or a new chart of "
+            "its own; on false - off every chart. As «Ещё величины…» does. Answered as plots_get", "{channels: [str], on?: bool (true)}",
+            [this, plotsAnswer](const QJsonObject& a) {
+        auto* plots = window_->findChild<PlotPanel*>();
+        if (!plots) return error("the window has no plots");
+        QStringList known;
+        for (const QJsonValue& c : plots->channelsJson()) known << c.toObject().value("id").toString();
+        for (const QJsonValue& c : a.value("channels").toArray())
+            if (!known.contains(c.toString())) return error(QString("no quantity «%1»: plots_get channels names them (a run measures them)").arg(c.toString()));
+        for (const QJsonValue& c : a.value("channels").toArray()) {
+            const std::string id = c.toString().toStdString();
+            if (a.value("on").toBool(true)) plots->showChannel(id);
+            else plots->setChannelShown(id, false);
+        }
+        return plotsAnswer(plots);
+    });
+    addSync("plots_clear", "The plots' recorded history erased, as «Очистить»: the charts stay, empty till the next numbers", "{}", [this](const QJsonObject&) {
+        auto* plots = window_->findChild<PlotPanel*>();
+        if (!plots) return error("the window has no plots");
+        plots->clear();
+        return ok();
+    });
+    addSync("plots_save", "The lines on the plots to a CSV file, as «Сохранить CSV»: the time and a column a line, with its name and unit",
+            "{file: str}", [this](const QJsonObject& a) {
+        auto* plots = window_->findChild<PlotPanel*>();
+        if (!plots) return error("the window has no plots");
+        const QString file = a.value("file").toString();
+        if (!plots->writeVisibleCsv(file)) return error("could not write " + file);
+        return ok({{"file", file}});
     });
     addSync("view_hud", "The performance plate in the view's lower left corner: the frames a second in large figures coloured by "
             "smoothness, the last two seconds of frame times, one frame's paint and the physics' step, the scene's speed against the "

@@ -441,6 +441,8 @@ on the right - the plots, under them - the bar with the layouts and the buttons.
 | zoom the values | Shift + the wheel over a plot - only this plot, in height |
 | move a zoomed plot | hold the left button on the plot and drag |
 | **get the whole plot back** | **↺** in the plot's top right corner (there while it is zoomed) or right click → «Whole plot (↺)»; the plot then follows live again |
+| **get everything back as it was** | when the view is not the plain one, the bar under the plots says in yellow what is changed («zoomed · plots hidden: 2»), and beside it **«Reset view»**: all plots, not zoomed, live |
+| save a view and come back to it | the ▤ button («Layout») left of the find line → «Save as…»; later the same menu - by its name; «Delete» - remove it |
 | one plot large | a double click on the plot (not on its legend); all back - another double click or «◂ All plots» |
 | hide one line | a click on its name in the legend; a double click - only it |
 | the plots the window's whole width | ⇔ on the bar under the plots (or «View → Full-width bottom panel») |
