@@ -399,7 +399,9 @@ void TrackChart::drawGrid(QPainter& p, const QRectF& r) const {
             p.setPen(kAxisText);
             const QString words = std::fabs(back) < 0.5 * tStep ? QString(uiText("Kinetica", "сейчас"))
                                                                  : (formatNumber(back, tStep) + uiText("Kinetica", " с")).replace('-', QChar(0x2212));
-            p.drawText(QRectF(x - 40, r.bottom() + 5, 80, 14), std::fabs(back) < 0.5 * tStep ? Qt::AlignRight | Qt::AlignTop : Qt::AlignHCenter | Qt::AlignTop, words);
+            const bool now = std::fabs(back) < 0.5 * tStep; // «сейчас» ends at the right edge, inside the chart
+            p.drawText(now ? QRectF(x - 80, r.bottom() + 5, 80, 14) : QRectF(x - 40, r.bottom() + 5, 80, 14),
+                       now ? Qt::AlignRight | Qt::AlignTop : Qt::AlignHCenter | Qt::AlignTop, words);
         }
         p.setPen(kMuted);
         if (!axisWords_.isEmpty()) p.drawText(QRectF(r.left(), r.bottom() + 5 + kStepWords, r.width(), 14), Qt::AlignRight | Qt::AlignTop, axisWords_);
