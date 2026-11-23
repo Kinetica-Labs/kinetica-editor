@@ -7184,6 +7184,16 @@ Sample </translation>
         <translation>Follow selected</translation>
     </message>
     <message>
+        <location filename="../editor/MainWindow.cpp" line="289"/>
+        <source>Камера преследования</source>
+        <translation>Chase camera</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="289"/>
+        <source>Следя за телом, камера держится позади него по курсу и плавно догоняет повороты, как в гонках; мышью её можно повернуть вокруг тела</source>
+        <translation>While following a body, the camera stays behind it along its heading and smoothly catches up its turns, as in racing games; the mouse turns it about the body</translation>
+    </message>
+    <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Камера держит выбранное тело в центре, пока мир играет, — сейчас или с ▶; вращать и приближать её можно. Ещё раз, Esc, F или Home — свой вид</source>
         <translation>The camera keeps the selected body in the middle while the world plays - now or from ▶; you can still turn and zoom it. Again, Esc, F or Home - your own view</translation>
