@@ -20,7 +20,8 @@
 //   - a legend entry: a click hides or shows its line, a double click shows it alone;
 //   - a right click: the panel's menu for this chart (menuRequested);
 //   - the wheel over the plot: the time closer or farther about the mouse (zoomedX: the panel moves every chart of the
-//     same axis with it); Shift + the wheel: the values of this chart; a drag with the left button: the window moved;
+//     same axis with it - while the panel's window slides with the run, its width); Shift + the wheel: the values of this
+//     chart; a drag with the left button: the window moved (and stopped: the past looked at);
 //     zoomed, the plot's corner has ↺ - all of it again, live (zoomCleared). As PlotJuggler, Foxglove, Rerun do.
 #include "PlotSeries.h"
 #include "UiLanguage.h"
@@ -99,7 +100,8 @@ public:
     void setUserWindow(double t0, double t1); // the reader's time window: setWindow's waits till clearZoom
     void clearUserWindow();               // the panel's time window again
     void setUserValues(double y0, double y1); // the reader's values, bottom to top
-    void clearZoom();                     // the panel's window and the values' own range again
+    void clearZoom();
+    std::pair<double, double> shownTime() const { return {t0_, t1_}; } // the time it shows now, s                     // the panel's window and the values' own range again
     bool zoomed() const { return userX_ || userY_; }
     // Margins shared by stacked lanes, so their time axes line up (0: the chart's own).
     int neededLeftMargin() const;
@@ -127,7 +129,7 @@ signals:
     void legendClicked(int track);
     void legendDoubleClicked(int track);
     void doubleClicked(); // on the plot, not its legend or title
-    void zoomedX(double t0, double t1); // the reader zoomed or moved the time on this chart
+    void zoomedX(double t0, double t1, bool dragged); // the reader zoomed (the wheel) or moved (a drag) the time on this chart
     void zoomedY(double y0, double y1); // the reader zoomed or moved this chart's values
     void zoomCleared();                 // ... and asked for all of it again (↺)
     void menuRequested(QPoint localPos);

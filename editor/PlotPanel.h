@@ -75,6 +75,8 @@ public:
     struct View {
         Arrangement arrangement = Arrangement::Overlay;
         bool wholeRun = false;                                 // the whole run, not the last minute
+        double span = 0;                                       // the sliding window's width, s (0: a minute) - while the run's time
+                                                               // is not the reader's own (time[""]), the window slides with the run
         std::set<QString> hidden;                              // the charts unticked, by key (chartKey, pluginKey)
         QString focus;                                         // the chart alone in the whole width, by key; "": all
         std::map<QString, std::pair<double, double>> time;     // the reader's time window, by axis words ("": the run's time)
@@ -85,7 +87,8 @@ public:
 
     const View& view() const { return view_; }
     void setView(const View& v);
-    QJsonObject viewJson() const;                                 // {arrangement, whole_run, hidden, focus, time, values}
+    QJsonObject viewJson() const;                                 // {arrangement, whole_run, hidden, focus, time, values, span}
+    std::pair<double, double> timeWindow() const;                 // the run's time the charts show now, s
     static bool viewFrom(const QJsonObject& o, View* out, QString* why);
     QJsonArray chartsJson() const;                                // every chart: {key, section, title, shown}
     QJsonArray channelsJson();                                    // every quantity there is: {id, name, unit, value, shown}
@@ -178,7 +181,6 @@ private:
     TrackChart* normalizedView(const std::vector<int>& charts); // the charts ticked, one chart of their lines
     TrackChart* makeView(int chart);
     TrackChart* viewOf(int chart) const;
-    std::pair<double, double> timeWindow() const;
     void alignLanes();
     void onHover(TrackChart* view, double t, QPoint globalPos, int track);
     void onHoverLeft();
@@ -220,6 +222,8 @@ private:
     std::vector<std::pair<QString, Rows>> sections_; // the sections as «Что показывать» lists them, last built
     QWidget* stateBar_ = nullptr;
     class QLabel* stateWords_ = nullptr;
+    class QToolButton* follow_ = nullptr; // «▶ Ехать» / «⏸ Остановить»: the window slides with the run or stands
+    void setFollowing(bool on);
     QToolButton* layoutButton_ = nullptr;
     std::set<QString> folded_;       // its sections folded, by title
     class QSplitter* body_ = nullptr;     // «Что показывать» | the charts

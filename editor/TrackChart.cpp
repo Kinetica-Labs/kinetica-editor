@@ -612,7 +612,7 @@ void TrackChart::mouseMoveEvent(QMouseEvent* e) {
         }
         dragFrom_ = pos;
         setUserWindow(t0_ - dt, t1_ - dt);
-        emit zoomedX(t0_, t1_);
+        emit zoomedX(t0_, t1_, true);
         return;
     }
     if (zoomed() && resetRect().contains(pos)) { // the way back says what it does
@@ -665,7 +665,7 @@ void TrackChart::wheelEvent(QWheelEvent* e) {
     } else {
         const double t = timeAtX(pos.x());
         setUserWindow(t - (t - t0_) * k, t + (t1_ - t) * k);
-        emit zoomedX(t0_, t1_);
+        emit zoomedX(t0_, t1_, false);
     }
     e->accept();
 }

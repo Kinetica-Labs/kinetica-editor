@@ -19,6 +19,9 @@
 
 #include "PlotPanel.h"
 
+#include <QToolButton>
+#include <QApplication>
+#include <QWheelEvent>
 #include <QAction>
 #include <QDockWidget>
 #include <QLabel>
@@ -342,6 +345,40 @@ void testNormalized(Checker& c, QMainWindow& w, const Plots& p, const QString& d
 // simulated minutes into a panel of their own with twelve lines on it: the memory of the history
 // after the first minute and at the end (the panel's own count - the same on every system, which a
 // process's memory is not), and the paint of the whole panel, averaged over the first and the last minute.
+// The strip chart and the standing window (PlotPanel::View::span): while the window slides with the run, the wheel sets
+// its width and it slides on - its right edge the run's now; «⏸ Остановить» stands it where it is, «▶ Ехать» slides it
+// again; a drag over the plot - the past looked at - stands it by itself.
+void testStripChart(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, const Plots& p) {
+    p.panel->setView(PlotPanel::View()); // the plain view, overlaid: the energy's own chart
+    b.play(); // the run going: the window has a now to slide with
+    newFrames(v, 30);
+    pump(150);
+    TrackChart* energy = viewTitled(p, kEnergyTitle);
+    auto* follow = w.findChild<QToolButton*>("plotFollow"); // the state bar is the window's, under the plots
+    if (!energy || !follow) return c.check(false, "the plots have the energy chart and «▶ Ехать / ⏸ Остановить»");
+    const QPointF middle(energy->width() * 0.6, energy->height() * 0.6);
+    QWheelEvent wheel(middle, energy->mapToGlobal(middle), {}, {0, 720}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+    QApplication::sendEvent(energy, &wheel);
+    newFrames(v, 30);
+    pump(120);
+    const double span = p.panel->view().span;
+    const auto [t0, t1] = energy->shownTime();
+    const auto [w0, w1] = p.panel->timeWindow();
+    std::printf("  the wheel while sliding: a window of %.2f s, shown %.2f..%.2f, the run's now %.2f (%s)\n", span, t0, t1, w1,
+                qPrintable(w.findChild<QLabel*>("plotStateWords")->text()));
+    const bool slides = span > 0 && span < 50 && !p.panel->view().time.count("") && std::fabs(t1 - w1) < 0.1 && std::fabs((t1 - t0) - span) < 1e-3 /* the charts refresh each 40 ms: a frame or two behind */ && w0 > 0;
+    follow->click();
+    const bool stood = p.panel->view().time.count("") == 1;
+    newFrames(v, 30);
+    pump(120);
+    const bool stays = std::fabs(energy->shownTime().second - t1) < 0.5 * span + 1e-6 && energy->shownTime().second < p.panel->timeWindow().second;
+    follow->click();
+    const bool again = !p.panel->view().time.count("");
+    c.check(slides && stood && stays && again,
+            "the strip chart: the wheel sets the sliding window's width and it slides on; «⏸ Остановить» stands it, «▶ Ехать» slides it again");
+    p.panel->setView(PlotPanel::View());
+}
+
 void testThirtyMinutes(Checker& c, Viewport* v) {
     const auto frame = v->snapshot();
     if (!frame) return c.check(false, "a frame to take the channels from");
@@ -416,6 +453,7 @@ int runPlotTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sh
     newFrames(v, 30);
     testLanes(c, w, b, p, shotsDir);
     testNormalized(c, w, p, shotsDir);
+    testStripChart(c, w, b, v, p);
     testThirtyMinutes(c, v);
     b.stop();
     pump(200);

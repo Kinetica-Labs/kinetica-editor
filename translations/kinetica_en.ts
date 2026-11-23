@@ -7431,5 +7431,29 @@ A - another axis · Tab - flip · Ctrl - no snap</translation>
         <source>M — двигать другую · крестик детали, стоящей поодаль, — подвести её</source>
         <translation>M - move the other · a cross of a part standing apart - bring it there</translation>
     </message>
+    <message>
+        <source>окно стоит на %1–%2 с</source>
+        <translation>the window stands at %1–%2 s</translation>
+    </message>
+    <message>
+        <source>окно %1 с едет за временем</source>
+        <translation>a %1 s window slides with the time</translation>
+    </message>
+    <message>
+        <source>▶ Ехать</source>
+        <translation>▶ Slide</translation>
+    </message>
+    <message>
+        <source>⏸ Остановить</source>
+        <translation>⏸ Stop</translation>
+    </message>
+    <message>
+        <source>Окно снова едет за временем: новое справа, старое уходит влево; колесо — его ширина</source>
+        <translation>The window slides with the time again: the new on the right, the old leaving on the left; the wheel - its width</translation>
+    </message>
+    <message>
+        <source>Окно встанет, где оно сейчас: колесо приближает внутри, перетаскивание листает прошлое</source>
+        <translation>The window stops where it is: the wheel zooms inside it, a drag pages the past</translation>
+    </message>
 </context>
 </TS>
