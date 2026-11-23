@@ -1830,3 +1830,37 @@ void testSimForceOnBody() {
     for (int k = 0; k < 10; ++k) none.stepFrame();
     CHECK(length(none.physics()->state(none.robot()->bodyOf(1)).angularVelocity) < 1e-9_r, "a torque on no body turns nothing");
 }
+
+// A shock absorber (assembly_joint type shock): its spring carries the body's weight at 4 Hz - in the running world the
+// body hanging on it settles a sag g / (2 pi 4)^2 = 1.55 cm below where it was made, and stays there (damped).
+void testSimShockCarriesItsWeight() {
+    SceneGraph g;
+    std::string error;
+    const auto run = [&g, &error](const char* op, const Value& a) {
+        Value r = Value::map();
+        const SceneOp* o = findSceneOp(op);
+        if (!o->edit(g, a, r, error)) r = Value::map();
+        return r;
+    };
+    Value base = Value::map(), hub = Value::map(), at = Value::list(), size = Value::list(), joint = Value::map(), anchor = Value::list();
+    base.set("shape", "box"), base.set("role", "rigid"), base.set("fixed", true);
+    for (Real v : {0.0_r, 1.0_r, 0.0_r}) at.push(v);
+    base.set("position", at);
+    hub.set("shape", "box"), hub.set("role", "rigid");
+    Value at2 = Value::list();
+    for (Real v : {0.0_r, 0.6_r, 0.0_r}) at2.push(v);
+    for (Real v : {0.1_r, 0.1_r, 0.1_r}) size.push(v);
+    hub.set("position", at2), hub.set("size", size);
+    const int b = run("scene_add", base)["id"].integer(), a = run("scene_add", hub)["id"].integer();
+    for (Real v : {0.0_r, 0.8_r, 0.0_r}) anchor.push(v);
+    Value up = Value::list();
+    for (Real v : {0.0_r, 1.0_r, 0.0_r}) up.push(v);
+    joint.set("a", a), joint.set("b", b), joint.set("type", "shock"), joint.set("anchor", anchor), joint.set("axis", up);
+    CHECK(run("assembly_joint", joint)["id"].integer() > 0, "assembly_joint type shock: %s", error.c_str());
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 120; ++k) s.stepFrame(); // 2 s: settled
+    const Real y = s.physics()->state(s.robot()->bodyOf(uint32_t(a))).position.y, sag = 0.6_r - y;
+    std::printf("  a 0.5 kg hub on a shock: sagged %.4f m (g / (8 pi)^2 = %.4f)\n", double(sag), 9.81 / (64 * kPi * kPi));
+    CHECK(std::fabs(sag - 9.81_r / (64 * kPi * kPi)) < 0.003_r, "a shock carries its body's weight with a 1.55 cm sag: %f", double(sag));
+}

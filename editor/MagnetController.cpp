@@ -111,9 +111,10 @@ MagnetController::MagnetController(EditorOps* ops, SceneBuilder* builder, Viewpo
                                                              {"ball", uiText("Kinetica", "3  Шар — во все стороны")}, {"weld", uiText("Kinetica", "4  Сварка — намертво")},
                                                              {"cylinder", uiText("Kinetica", "5  Цилиндрическое — крутится и скользит вдоль оси")},
                                                              {"universal", uiText("Kinetica", "6  Карданное — две оси крест-накрест")},
-                                                             {"planar", uiText("Kinetica", "7  Плоское — скользит по плоскости")}};
-    for (int k = 0; k < 8; ++k) {
-        QAction* a = kinds->addAction(svgIcon(QString("joints/") + joinKinds[k].first, 24), joinKinds[k].second);
+                                                             {"planar", uiText("Kinetica", "7  Плоское — скользит по плоскости")},
+                                                             {"shock", uiText("Kinetica", "8  Амортизатор — пружина с демпфером, несёт вес")}};
+    for (int k = 0; k < 9; ++k) {
+        QAction* a = kinds->addAction(svgIcon(QString("joints/") + (k == 8 ? "linear-actuator" : joinKinds[k].first), 24), joinKinds[k].second);
         a->setObjectName(QString("joint_") + joinKinds[k].first);
         a->setCheckable(true);
         a->setChecked(k == 0);
@@ -177,6 +178,7 @@ void MagnetController::setJoining(bool on) {
     if (on && action_->isChecked()) action_->setChecked(false);
     joining_ = on;
     joinFrom_ = JoinSnap();
+    repick_ = 0;
     joinAxis_ = 0, swapMover_ = false;
     if (jointAction_->isChecked() != on) jointAction_->setChecked(on);
     view_->setMagnetMode(on);
@@ -434,14 +436,22 @@ MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
 }
 
 Vector3 MagnetController::joinAxis(const JoinSnap& s) const {
-    const Vector3 a = s.axes.empty() ? s.at.normal : s.axes[size_t(joinAxis_) % s.axes.size()];
+    std::vector<Vector3> axes = s.axes.empty() ? std::vector<Vector3>{s.at.normal} : s.axes;
+    if (joinType_ == "shock") { // a shock carries weight: first the snap's direction nearest "up", as a car's (AssemblyPresets.cpp)
+        const Vector3 up = ke::normalize(builder_->graph().world.gravity) * -1.0f;
+        std::stable_sort(axes.begin(), axes.end(), [&up](const Vector3& x, const Vector3& y) {
+            return std::fabs(float(ke::dot(x, up))) > std::fabs(float(ke::dot(y, up)));
+        });
+        for (Vector3& x : axes) x = float(ke::dot(x, up)) < 0 ? x * -1.0f : x;
+    }
+    const Vector3 a = axes[size_t(joinAxis_) % axes.size()];
     return ke::normalize(a) * (flip_ ? -1.0f : 1.0f);
 }
 
 // The kind drawn and forecast: a cylinder's as a hinge (it also slides), a universal's as a ball (it turns two ways), a planar's
 // as a slider (it slides in the plane square to the axis).
 ke::JointType MagnetController::joinKind(const JoinSnap& s) const {
-    return joinType_ == "hinge" || joinType_ == "cylinder" ? ke::JointType::Hinge : joinType_ == "slider" || joinType_ == "planar" ? ke::JointType::Slider
+    return joinType_ == "hinge" || joinType_ == "cylinder" ? ke::JointType::Hinge : joinType_ == "slider" || joinType_ == "planar" || joinType_ == "shock" ? ke::JointType::Slider
            : joinType_ == "ball" || joinType_ == "universal" ? ke::JointType::Ball : joinType_ == "weld" ? ke::JointType::Fixed : s.type;
 }
 
@@ -450,7 +460,7 @@ QString MagnetController::joinWord(const JoinSnap& s) const { return joinType_ =
 
 QString MagnetController::joinText(const JoinSnap& s) const {
     return joinType_ == "cylinder" ? uiText("Kinetica", "цилиндрическое") : joinType_ == "universal" ? uiText("Kinetica", "карданное")
-           : joinType_ == "planar" ? uiText("Kinetica", "плоское") : jointText(joinKind(s));
+           : joinType_ == "planar" ? uiText("Kinetica", "плоское") : joinType_ == "shock" ? uiText("Kinetica", "амортизатор") : jointText(joinKind(s));
 }
 
 // What Play will do with the joint about to be made, said before the click (the ghost shows only what the joint lets): a base
@@ -474,7 +484,9 @@ QString MagnetController::playForecast(uint32_t second, const Vector3* centre) c
         said << (turn > 0.01f * float(ke::maxComp(m->size)) ? QString(uiText("Kinetica", "в Пуске: «%1» качнётся вниз")).arg(name)
                  : std::fabs(float(ke::dot(axis, g))) > 0.9f * weight ? QString(uiText("Kinetica", "в Пуске стоит: ось вертикальна — тяжесть не крутит; A — другая ось, или толчок"))
                                                                        : QString(uiText("Kinetica", "в Пуске стоит: ось через центр масс — щёлкните ближе к краю детали или A — другая ось")));
-    } else if (joinType_ == "planar")
+    } else if (joinType_ == "shock")
+        said << QString(uiText("Kinetica", "в Пуске: «%1» повиснет на пружине, просев на 1,6 см, и будет пружинить")).arg(name);
+    else if (joinType_ == "planar")
         said << (std::fabs(float(ke::dot(axis, g))) < 0.95f * weight ? QString(uiText("Kinetica", "в Пуске: «%1» поедет вниз по плоскости")).arg(name)
                                                                       : QString(uiText("Kinetica", "в Пуске стоит: плоскость горизонтальна — нужен толчок")));
     else if (type == ke::JointType::Slider)
@@ -537,8 +549,23 @@ uint32_t MagnetController::moverOf(uint32_t first, uint32_t second) const {
     return firstMoves != swapMover_ ? first : second;
 }
 
+void MagnetController::pickJoint(uint32_t joint) {
+    jointAction_->setChecked(true);
+    if (!joining_) return;
+    repick_ = joint;
+    emit statusMessage(uiText("Kinetica", "Сустав: щёлкните грань, ребро или угол — его точка и ось встанут туда · Esc — отмена"));
+}
+
 void MagnetController::joinPress(const Place& p) {
     if (!p.found) return;
+    if (repick_) { // the card's «Указать в виде»: one click puts that joint there
+        const JoinSnap s = joinSnap(p);
+        const uint32_t joint = repick_;
+        const bool done = builder_->placeJointAt(joint, s.at.point, joinAxis(s));
+        setJoining(false);
+        builder_->select(joint);
+        return emit statusMessage(done ? uiText("Kinetica", "Сустав перенесён") : uiText("Kinetica", "Сустав: перенести не вышло"));
+    }
     if (!joinFrom_.at.found || joinFrom_.at.target == p.target) { // the first click, or the first again elsewhere on the same shape
         joinFrom_ = joinSnap(p);
         return showJoint(p);
@@ -597,6 +624,15 @@ void MagnetController::showJoint(const Place& p) {
         if (v.type == ke::JointType::Hinge) appendArrow(glyphs_, o - v.axis * (1.5f * size), o + v.axis * (3.0f * size), eye, 0.6f * size);
         if (v.type == ke::JointType::Slider && joinType_ != "planar")
             for (float k : {-1.0f, 1.0f}) appendArrow(glyphs_, o, o + v.axis * (k * 3.0f * size), eye, 0.6f * size);
+        if (joinType_ == "shock") { // a coil spring along the axis, beside the travel's arrows
+            const Vector3 side = v.reference * (0.45f * size);
+            Vector3 prev = o - v.axis * (2.0f * size);
+            for (int z = 1; z <= 14; ++z) {
+                const Vector3 q = o + v.axis * (-2.0f * size + 4.0f * size * float(z) / 14.0f) + (z % 2 ? side : side * -1.0f);
+                glyphs_.insert(glyphs_.end(), {prev.x, prev.y, prev.z, 0.0f, q.x, q.y, q.z, 0.0f});
+                prev = q;
+            }
+        }
         if (joinType_ == "cylinder") // it slides along its axis too
             for (float k : {-1.0f, 1.0f}) appendArrow(glyphs_, o, o + v.axis * (k * 2.2f * size), eye, 0.5f * size);
         if (joinType_ == "planar") // it slides every way in the plane square to the axis
@@ -650,7 +686,9 @@ void MagnetController::showJoint(const Place& p) {
                                     .arg(QString::fromStdString(m->name)) + "\n" + playForecast(p.target, &centre)
                           : QString(uiText("Kinetica", "2/2 · щёлкните — соединить, где стоят (точка второй детали — подвести её)")) + "\n" + playForecast(p.target);
     }
-    view_->setMagnetLabel(!joinFrom_.at.found ? (s.at.found ? QString(uiText("Kinetica", "1/2 · %1 · щёлкните — здесь ось\nA — другая ось · Tab — перевернуть · Ctrl — без привязки")).arg(where)
+    view_->setMagnetLabel(repick_ ? (s.at.found ? QString(uiText("Kinetica", "%1 · щёлкните — сустав встанет сюда\nA — другая ось · Tab — перевернуть · Ctrl — без привязки")).arg(where)
+                                                : QString(uiText("Kinetica", "наведите на деталь — куда перенести сустав")))
+                          : !joinFrom_.at.found ? (s.at.found ? QString(uiText("Kinetica", "1/2 · %1 · щёлкните — здесь ось\nA — другая ось · Tab — перевернуть · Ctrl — без привязки")).arg(where)
                                                             : QString(uiText("Kinetica", "1/2 · наведите на деталь")))
                           : other ? forecastLabel : QString(uiText("Kinetica", "2/2 · ведите на вторую деталь")));
     emit statusMessage(!joinFrom_.at.found
@@ -713,7 +751,7 @@ void MagnetController::key(int key) {
             if (hasLast_) preview(last_);
             return;
         }
-        if (key >= Qt::Key_0 && key <= Qt::Key_7)
+        if (key >= Qt::Key_0 && key <= Qt::Key_8)
             if (QAction* a = jointAction_->menu()->actions().value(key - Qt::Key_0)) a->trigger();
         if (key == Qt::Key_A) ++joinAxis_;
         if (key == Qt::Key_Tab) flip_ = !flip_;

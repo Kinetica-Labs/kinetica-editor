@@ -11,6 +11,7 @@
 #include "InspectorWidgets.h"
 #include "scene/Assembly.h"
 
+#include <QPushButton>
 #include <QBoxLayout>
 #include <QFontDatabase>
 #include <QLabel>
@@ -154,12 +155,27 @@ void SceneBuilder::buildJointCard(QVBoxLayout* body) {
     field(uiText("Kinetica", "Обмотка"), 1e-4, 1e4, 0.1, 3, &JointDrive::resistance).unit([] { return FieldForm::Unit{uiText("Kinetica", " Ом")}; }).shown(when({3}));
     field(uiText("Kinetica", "Константа K"), 0, 100, 0.01, 4, &JointDrive::constant).shown(when({3}));
     jointCard_->body()->addWidget(jointFields_);
+    // Its place and axis by the hand, as «Сустав» picks them: a face's centre, an edge, a corner (Fusion's «Edit Joint Origin»).
+    auto* pick = new QPushButton(uiText("Kinetica", "Указать в виде…"));
+    pick->setObjectName("jointPick");
+    pick->setToolTip(uiText("Kinetica", "Щёлкните грань, ребро или угол в виде — точка и ось сустава встанут туда; звенья остаются где стоят"));
+    connect(pick, &QPushButton::clicked, this, [this] { emit pickJointRequested(selectedId_); });
+    jointCard_->body()->addWidget(pick);
     jointLive_ = new QLabel;
     jointLive_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     jointLive_->setWordWrap(true);
     jointCard_->body()->addWidget(jointLive_);
     connect(jointCard_, &ComponentCard::removeClicked, this, &SceneBuilder::removeSelected);
     body->addWidget(jointCard_);
+}
+
+bool SceneBuilder::placeJointAt(uint32_t joint, const Vector3& at, const Vector3& axis) {
+    JointObject* j = jointById(joint);
+    if (!j || !editing()) return false;
+    remember();
+    placeJoint(graph_, *j, at, axis);
+    afterCardEdit(joint, true);
+    return true;
 }
 
 void SceneBuilder::fillJointCard() {

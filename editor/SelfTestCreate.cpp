@@ -5,6 +5,7 @@
 // a drag; a cylinder snapped by Ctrl; a lamp placed and raised; a spot and a camera placed, raised and
 // aimed; a right click and a tool of the shelf leave the mode. Each check prints one line.
 #include "SelfTestSupport.h"
+#include "scene/Assembly.h"
 
 #include "EditorOps.h"
 #include "MainWindow.h"
@@ -13,6 +14,7 @@
 #include <QKeyEvent>
 #include <QMenu>
 #include <QPlainTextEdit>
+#include <QPushButton>
 #include <QRegularExpression>
 #include <QJsonArray>
 
@@ -336,6 +338,40 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     std::printf("  key 5, a cylinder joint:\n%s", qPrintable(cylinder));
     c.check(cylinder.contains(QRegularExpression("free[^\\n]*rx")) && cylinder.contains(QRegularExpression("free[^\\n]*tx")),
             "«Сустав» 5: a cylinder joint - it turns and slides along one axis");
+
+    // The card's «Указать в виде…»: the joint selected, the button, one click on the block's top edge by its far end - the joint
+    // moves there, the links stay; one undo step.
+    const uint32_t cyl = b.graph().joints.empty() ? 0 : b.graph().joints[0].id;
+    b.select(cyl);
+    pump(60);
+    const Vector3 loosePos = entity(b, loose)->position;
+    if (auto* pick = w.findChild<QPushButton*>("jointPick")) pick->click();
+    pump(30);
+    sendMouse(v, QEvent::MouseMove, onScreen(v, {-0.15f, 0.4f, 0.19f}), Qt::NoButton, Qt::NoButton);
+    pump(30);
+    clickAt(v, onScreen(v, {-0.15f, 0.4f, 0.19f})); // near the block's top edge at z = 0.2, by its -x end
+    pump(30);
+    const QString moved = ops->runNow("scene_get", {{"id", int(cyl)}}).value("text").toString();
+    std::printf("  the cylinder joint put again by «Указать в виде…»:\n%s", qPrintable(moved));
+    c.check(moved.contains(QRegularExpression("anchor_b -0\\.1[0-9]* 0\\.2 0\\.2 ")) && near(entity(b, loose)->position, loosePos),
+            "«Указать в виде…» on a joint's card: a click on an edge puts the joint there, the links stay");
+
+    // 8: a shock absorber - a slider whose spring and damper carry the moving part's weight.
+    b.newScene();
+    const uint32_t frame = put({0, 0.2f, 0}, {0.4f, 0.4f, 0.4f}), hub = put({0.3f, 0.2f, 0}, {0.2f, 0.1f, 0.1f});
+    ops->runNow("scene_set", {{"id", int(frame)}, {"line", "rigid"}, {"key", "fixed"}, {"values", QJsonArray{1}}});
+    v->camera().lookAt(QVector3D(1.2f, 1.0f, 1.4f), QVector3D(0.15f, 0.2f, 0.0f));
+    pump(100);
+    trigger(w, "jointTool");
+    key(v, Qt::Key_8);
+    join({0.2f, 0.25f, 0.15f}, {0.3f, 0.25f, 0.0f});
+    const QString shock = b.graph().joints.empty() ? QString() : ops->runNow("scene_get", {{"id", int(b.graph().joints[0].id)}}).value("text").toString();
+    std::printf("  key 8, a shock absorber:\n%s", qPrintable(shock));
+    ke::Vector3 shockAt, shockAxis;
+    if (!b.graph().joints.empty()) ke::jointWorldFrame(b.graph(), b.graph().joints[0], shockAt, shockAxis);
+    c.check(shock.contains("Амортизатор") && shock.contains(QRegularExpression("drive t[xyz] stiffness [1-9]")) && hub &&
+                std::fabs(shockAxis.y) > 0.99f,
+            "«Сустав» 8: a shock absorber - a slider with a spring that carries the part, its travel upright");
     b.newScene();
     pump(60);
     return c.failures;

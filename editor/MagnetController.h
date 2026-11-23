@@ -41,6 +41,8 @@ public:
     // The toolbar's "Сустав": two shapes that stand joined where they are - a click on the first (the joint goes there, about
     // its face's normal; near the face's centre, at the centre), a click on the second - of the kind its menu picks.
     QAction* jointAction() const { return jointAction_; }
+    // «Указать в виде» of a joint's card: «Сустав» for one click that moves that joint's place and axis there.
+    void pickJoint(uint32_t joint);
     void setActive(bool on);
 
 signals:
@@ -111,6 +113,7 @@ private:
     int joinAxis_ = 0;              // A: which of the snap's axes
     bool swapMover_ = false;        // M: the other shape moves
     bool keepJoining_ = false;      // Shift at the second click: one more joint after this one
+    uint32_t repick_ = 0;           // a joint whose place the next click sets (pickJoint), else 0
     QAction* presetActs_[ke::kMagnetCount + 1] = {}; // 0: the suggestion, then the elements (ke::kMagnetPresets)
     int pinned_ = -1;  // an element chosen by a key or the menu (-1: the suggestion); indices are into kMagnetPresets
     int axis_ = -1;    // A: a copied link's axis (-1: the preset's own)

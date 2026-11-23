@@ -80,6 +80,7 @@ void testSimForces();
 void testSimForceOnBody();
 void testSimFrameFollowsTheLiveScene();
 void testSimLostBodiesLeaveTheWorld();
+void testSimShockCarriesItsWeight();
 void testSimBodiesAloneAreOneEngineStep();
 void testSimServoHoldsAndDroops();
 void testSimKinematicBodyLeads();

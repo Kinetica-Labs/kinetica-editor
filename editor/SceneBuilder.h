@@ -306,6 +306,8 @@ public:
 
     // Scripted edits (the self-test, later a script console): one undo step each.
     void select(uint32_t id) { setSelected(id); }
+    // A joint put again at a world point about a world axis (the links stay where they stand) - one undo step, as the card's fields.
+    bool placeJointAt(uint32_t joint, const ke::Vector3& at, const ke::Vector3& axis);
     void selectMany(const std::vector<uint32_t>& ids) { setSelection(ids, ids.empty() ? 0 : ids.back()); }
     std::vector<uint32_t> orderedSelection() const; // the selection with the active object last, as selectMany takes it
     uint32_t selectedId() const { return selectedId_; }
@@ -343,6 +345,7 @@ signals:
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
     void sceneMarkers(std::vector<SceneMarker> markers);   // the lights, cameras and forces to draw
     void fireForceRequested(uint32_t id);                  // «Сработать» on a force's card
+    void pickJointRequested(uint32_t id);                  // «Указать в виде» on a joint's card: its place and axis by a click
     // The view through a camera (on) or the editor's own view (off).
     void cameraView(bool on, ke::Vector3 eye, ke::Vector3 forward, ke::Vector3 up, float fovDeg, float nearClip, float farClip);
 

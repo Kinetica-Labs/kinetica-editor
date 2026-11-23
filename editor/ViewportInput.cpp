@@ -242,7 +242,7 @@ namespace {
 bool isMagnetKey(const QKeyEvent* k) {
     const int key = k->key();
     return (k->modifiers() & ~Qt::KeypadModifier) == Qt::NoModifier &&
-           ((key >= Qt::Key_0 && key <= Qt::Key_7) || key == Qt::Key_A || key == Qt::Key_Tab || key == Qt::Key_M ||
+           ((key >= Qt::Key_0 && key <= Qt::Key_8) || key == Qt::Key_A || key == Qt::Key_Tab || key == Qt::Key_M ||
             key == Qt::Key_Escape);
 }
 } // namespace

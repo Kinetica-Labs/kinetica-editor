@@ -34,6 +34,7 @@ void MainWindow::buildOperators() {
         }, "ui");
     });
     magnet_ = new MagnetController(ops_, builder_, view_, this);
+    connect(builder_, &SceneBuilder::pickJointRequested, magnet_, &MagnetController::pickJoint);
     connect(magnet_, &MagnetController::statusMessage, this, [this](const QString& text) {
         if (text.isEmpty()) statusBar()->clearMessage();
         else statusBar()->showMessage(text); // stays while the magnet is on: it says what a click does here

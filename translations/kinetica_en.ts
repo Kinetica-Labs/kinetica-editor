@@ -7385,5 +7385,47 @@ A - another axis · Tab - flip · Ctrl - no snap</translation>
         <source>2/2 · щёлкните — соединить, где стоят (точка второй детали — подвести её)</source>
         <translation>2/2 · click - join where they stand (a snap point of the other part - bring it there)</translation>
     </message>
+    <message>
+        <source>8  Амортизатор — пружина с демпфером, несёт вес</source>
+        <translation>8  Shock absorber - a spring with a damper, carries the weight</translation>
+    </message>
+    <message>
+        <source>амортизатор</source>
+        <translation>shock absorber</translation>
+    </message>
+    <message>
+        <source>в Пуске: «%1» повиснет на пружине, просев на 1,6 см, и будет пружинить</source>
+        <translation>in Play: «%1» hangs on the spring, sagging 1.6 cm, and bounces</translation>
+    </message>
+    <message>
+        <source>Указать в виде…</source>
+        <translation>Pick in the view…</translation>
+    </message>
+    <message>
+        <source>Щёлкните грань, ребро или угол в виде — точка и ось сустава встанут туда; звенья остаются где стоят</source>
+        <translation>Click a face, an edge or a corner in the view - the joint's point and axis go there; the links stay where they stand</translation>
+    </message>
+    <message>
+        <source>Сустав: щёлкните грань, ребро или угол — его точка и ось встанут туда · Esc — отмена</source>
+        <translation>Joint: click a face, an edge or a corner - its point and axis go there · Esc - cancel</translation>
+    </message>
+    <message>
+        <source>Сустав перенесён</source>
+        <translation>Joint moved</translation>
+    </message>
+    <message>
+        <source>Сустав: перенести не вышло</source>
+        <translation>Joint: could not move it</translation>
+    </message>
+    <message>
+        <source>%1 · щёлкните — сустав встанет сюда
+A — другая ось · Tab — перевернуть · Ctrl — без привязки</source>
+        <translation>%1 · click - the joint goes here
+A - another axis · Tab - flip · Ctrl - no snap</translation>
+    </message>
+    <message>
+        <source>наведите на деталь — куда перенести сустав</source>
+        <translation>hover a part - where the joint goes</translation>
+    </message>
 </context>
 </TS>

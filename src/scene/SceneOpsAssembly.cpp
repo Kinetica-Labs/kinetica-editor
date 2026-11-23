@@ -46,7 +46,25 @@ FaceSnap placeFrom(const SceneGraph& g, const Value& a, const Vector3& size) {
 // A joint's kind by the API's word (weld, hinge, slider, ball, cylinder, universal, planar; none: a hinge).
 bool kindOk(const Value& v) {
     JointObject probe;
-    return v.isNull() || setJointKind(probe, v.text(""));
+    return v.isNull() || v.text("") == "shock" || setJointKind(probe, v.text(""));
+}
+
+// A shock absorber: a slider whose spring carries a's weight as a car's does (AssemblyPresets.cpp, shock) - 4 Hz, a sag of
+// 1.6 cm, damping ratio 0.5 - limited to three sags or a quarter of a's size either way, whichever is more.
+void makeShock(SceneGraph& g, uint32_t joint, uint32_t a) {
+    const Entity* e = findEntity(g, a);
+    for (JointObject& j : g.joints) {
+        if (j.id != joint) continue;
+        setJointKind(j, std::string("slider"));
+        const int d = mainFreedom(j);
+        if (d < 0 || !e) return;
+        const Real m = bodyMass(*e), omega = 2 * kPi * 4, travel = std::max(3 * 9.81_r / (omega * omega), 0.25_r * maxComp(e->size));
+        JointFreedom& f = j.dof[d];
+        f.motion = JointMotion::Limited, f.lower = -travel, f.upper = travel;
+        f.drive.enabled = true, f.drive.stiffness = m * omega * omega, f.drive.damping = 2 * 0.5_r * std::sqrt(f.drive.stiffness * m);
+        const std::string number = j.name.substr(j.name.find_last_of(' ') + 1);
+        j.name = "Амортизатор " + number;
+    }
 }
 
 void setKind(SceneGraph& g, uint32_t joint, const Value& v) {
@@ -523,10 +541,11 @@ std::vector<SceneOp> assemblySceneOps() {
         for (int k = 0; k < 3; ++k) along.push(axis[k]);
         return r.set("id", done.entity), r.set("entity", done.entity), r.set("joint", done.joint), r.set("axis", along), true;
     }});
-    ops.push_back({"assembly_joint", "A joint between two shapes (b 0: the world) at a world point along a world direction. A shape that "
+    ops.push_back({"assembly_joint", "A joint between two shapes (b 0: the world) at a world point along a world direction (a shock: a slider "
+                                     "whose spring and damper carry a's weight, 4 Hz, damping ratio 0.5). A shape that "
                                      "is geometry only becomes a body - a, the moving link, rigid; b, what it hangs on, rigid and fixed - "
                                      "since a joint holds bodies; the answer's note says which",
-                   "{a: int, b: int, type?: 'hinge'|'weld'|'slider'|'ball'|'cylinder'|'universal'|'planar', anchor: [x,y,z], axis?: [x,y,z]}",
+                   "{a: int, b: int, type?: 'hinge'|'weld'|'slider'|'ball'|'cylinder'|'universal'|'planar'|'shock', anchor: [x,y,z], axis?: [x,y,z]}",
                    {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         Vector3 anchor, axis(0, 1, 0);
         const uint32_t ea = uint32_t(a["a"].integer()), eb = uint32_t(a["b"].integer());
@@ -534,8 +553,10 @@ std::vector<SceneOp> assemblySceneOps() {
             return e = "needs two shapes (b 0: the world), a known kind and an anchor", false;
         vectorArg(a, "axis", axis);
         const uint32_t joint = addJoint(g, JointType::Hinge, ea, eb, anchor, axis);
-        setKind(g, joint, a["type"]);
-        if (const std::string note = bodiesForJoint(g, ea, eb); !note.empty()) r.set("note", note); // geometry alone is never built
+        const std::string note = bodiesForJoint(g, ea, eb); // geometry alone is never built - and a shock's spring weighs the body
+        if (a["type"].text("") == "shock") makeShock(g, joint, ea);
+        else setKind(g, joint, a["type"]);
+        if (!note.empty()) r.set("note", note);
         return r.set("id", joint), r.set("joint", joint), true;
     }});
     ops.push_back({"assembly_actuator", "Join two shapes with a motor in one step: a hinge (rotary) or a slider (linear) along a world "
