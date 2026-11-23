@@ -649,7 +649,7 @@ std::vector<SceneOp> assemblySceneOps() {
     ops.push_back({"assembly_power", "A joint's DC motor fed from a battery: a driver at duty 0 - still until its duty is set (scene_set, robot_command, a controller's duty action, the card's slider); battery 0: the scene's first, or a new 3S pack",
                    "{joint: int, battery?: int}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         const uint32_t id = powerMotor(g, uint32_t(a["joint"].integer()), uint32_t(a["battery"].integer(0)));
-        return r.set("id", id), id != 0 || (e = "joint " + std::to_string(a["joint"].integer()) + " has no DC motor", false);
+        return r.set("id", id), id != 0 || (e = "joint " + std::to_string(a["joint"].integer()) + " has no DC motor: give it one first - assembly_drive {joint, kind: 'dcmotor', voltage, resistance, constant}", false);
     }});
     return ops;
 }
