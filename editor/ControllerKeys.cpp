@@ -36,6 +36,7 @@ const char* doing(ke::ControlDrive d) {
     case ke::ControlDrive::Grip: return uiText("Kinetica", "схват");
     case ke::ControlDrive::Jog: return uiText("Kinetica", "сустав");
     case ke::ControlDrive::Duty: return uiText("Kinetica", "мотор");
+    case ke::ControlDrive::Value: return uiText("Kinetica", "значение");
     }
     return "";
 }

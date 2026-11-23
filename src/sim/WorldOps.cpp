@@ -353,8 +353,21 @@ int framesArg(const Value& args) { return std::clamp(qtInt(args["frames"], 1), 0
 
 Value sensorReadings(const Simulation& s) {
     Value out = Value::list();
-    if (const RobotWorld* robot = s.robot())
+    if (const RobotWorld* robot = s.robot()) {
         for (const auto& x : robot->sensors()) out.push(sensorReading(*x));
+        for (const ControllerObject& c : robot->graph().controllers) { // a radio receiver: what each action is held at
+            Value values = Value::map();
+            for (const ControllerAction& a : c.actions) {
+                const Vector3 v = robot->controlValue(c.id, a.name);
+                Value pair = Value::list();
+                pair.push(double(v.x)), pair.push(double(v.y));
+                values.set(a.name, a.value == ControlValue::Vector2 ? pair : Value(double(v.x)));
+            }
+            Value r = Value::map();
+            r.set("id", c.id), r.set("kind", "controller"), r.set("values", values);
+            out.push(r);
+        }
+    }
     return out;
 }
 

@@ -291,9 +291,12 @@ struct DriverObject {
 //           forward and right into these), `speed` m/s;   lift - the goal up, m/s;   turn - the goal about the
 //           vertical, degrees/s;   grip - the fingers of the goal's effector (sliders, as assembly_grip) closed that
 //           part of their travel, `speed` the force cap N;   jog - a joint's freedom `dof`: its servo's target moved,
-//           m/s or degrees/s;   duty - a motor driver's duty, `speed` times the value.
+//           m/s or degrees/s;   duty - a motor driver's duty, `speed` times the value;   value - nothing: the value
+//           only, for a plugin to read in its tick (the controller is one of the sensors there, as a radio receiver
+//           on the robot: {kind: "controller", values}) - a car's steer and throttle; `target` and `speed` say whose
+//           and at what scale, for the reader.
 enum class ControlValue { Button, Axis, Vector2 };
-enum class ControlDrive { Plane, Lift, Turn, Grip, Jog, Duty };
+enum class ControlDrive { Plane, Lift, Turn, Grip, Jog, Duty, Value };
 struct ControlBinding {
     std::string device;                // "keys", "gamepad", "mouse"
     // keys: one key (a button), the positive and the negative key (an axis), up down left right (a vector);

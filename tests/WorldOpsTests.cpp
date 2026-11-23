@@ -66,7 +66,9 @@ SceneGraph smallWorld() {
     panel.id = 8, panel.name = "Пульт";
     ControllerAction jog;
     jog.name = "jog", jog.value = ControlValue::Axis, jog.drive = ControlDrive::Jog, jog.target = 3, jog.speed = 0.5_r;
-    panel.actions = {jog};
+    ControllerAction steer;
+    steer.name = "steer", steer.value = ControlValue::Axis, steer.drive = ControlDrive::Value, steer.target = 2, steer.speed = 1;
+    panel.actions = {jog, steer};
     g.controllers.push_back(panel);
     return g;
 }
@@ -258,6 +260,13 @@ void testWorldOpsSensorsAndControllers() {
     CHECK(call(&s, "controller_input", "{\"id\":8,\"values\":{}}", 8).error == "values: {action: value}, e.g. {\"move\": [0, 1]}", "no values");
     CHECK(call(&s, "controller_input", "{\"id\":8,\"values\":[1]}", 8).error == "values: {action: value}, e.g. {\"move\": [0, 1]}", "values that are no object");
     CHECK(call(&s, "controller_input", "{\"id\":8,\"values\":{\"jog\":[1,\"x\"]}}", 8).ok, "a vector for an axis: its first number");
+
+    CHECK(call(&s, "controller_input", "{\"id\":8,\"values\":{\"steer\":-0.25}}", 8).ok, "a value action takes its value");
+    s.stepFrame();
+    const Value readings = sensorReadings(s);
+    const Value& panel = readings.items().back();
+    CHECK(readings.items().size() == 2 && panel["id"].number() == 8 && panel["kind"].text() == "controller" && panel["values"]["steer"].number() == -0.25 &&
+              panel["values"]["jog"].number() == 1, "the controller among the tick's sensors: each action as held");
 }
 
 void testWorldOpsMeasure() {

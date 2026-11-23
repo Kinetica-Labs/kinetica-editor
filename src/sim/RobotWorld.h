@@ -131,6 +131,7 @@ public:
     // again; every step it moves an IK goal along the floor, up and down or about the vertical (the arm follows,
     // leadGoals), closes the gripper by its share, walks a joint's servo or sets a driver's duty. False: no such action.
     bool setControllerInput(uint32_t controller, const std::string& action, const Vector3& value, std::string& error);
+    Vector3 controlValue(uint32_t controller, const std::string& action) const; // as last set; 0 when never
     // A controller's command while the world runs (a plugin's tick, robot_command) - not an edit of the scene: a joint's
     // main freedom to a "target" (its servo; rad or m, within its limits) or at a "velocity" (its velocity motor), a
     // driver's "duty" (-1..1), a force's "strength" (a thruster's throttle), held until commanded again. The authored scene is untouched: Stop builds the world from it

@@ -250,6 +250,11 @@
         <translation>motor</translation>
     </message>
     <message>
+        <location filename="../editor/ControllerKeys.cpp" line="39"/>
+        <source>значение</source>
+        <translation>value</translation>
+    </message>
+    <message>
         <location filename="../editor/ControllerKeys.cpp" line="73"/>
         <source>пробел</source>
         <translation>Space</translation>
@@ -3290,6 +3295,11 @@ Ctrl-click a second body to create a joint between them</translation>
         <location filename="../editor/SceneBuilderControllers.cpp" line="33"/>
         <source>ШИМ драйвера</source>
         <translation>Driver PWM</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderControllers.cpp" line="34"/>
+        <source>значение для плагина, его масштаб</source>
+        <translation>a value for a plugin, its scale</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderControllers.cpp" line="38"/>

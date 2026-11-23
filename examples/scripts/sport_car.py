@@ -5,7 +5,8 @@ shock: the springs share the chassis, a quarter each, 4 Hz). At the front a stee
 vertical kingpin - a servo holds its angle - and the wheel turns on the knuckle; at the rear the wheel turns on the hub,
 driven by a velocity motor. The front angles are Ackermann's: each wheel square to its line to the circle's centre, the
 inner one turned more, so both roll on their own circles. Play: it settles on its springs and drives round, the camera
-following.
+following - or, with the brain plugin, stands on the panel «Пульт машинки»: the arrows or a game controller's sticks
+drive it (teleop plugin), its stabiliser holding the turn and the speed.
 
     build/kinetica --script examples/scripts/sport_car.py
 """
@@ -58,6 +59,21 @@ for x in (BASE / 2, -BASE / 2):
         axle = ed.assembly_joint(a=wheel, b=carrier, type="hinge", anchor=[x, Y, side * 0.29], axis=[0, 0, 1])["id"]
         if not front:
             ed.assembly_drive(joint=axle, kind="velocity", velocity=-SPEED, force=4)  # about -z: forward, +x
+
+# The driver's panel, as a game engine's input actions: steer and throttle are values only (drive value) - the brain
+# plugin's stabiliser reads them in its tick and holds the turn rate (1.5 rad/s at full) and the speed (2 m/s); the
+# keys are the editor's, a game controller the teleop plugin's (left stick up/down: speed, right stick left/right: turn;
+# ZR/RT throttle, ZL/LT brake and reverse).
+ed.scene_put(block=f"""controller "Пульт машинки"
+  action steer axis drive value target {chassis} speed 1.5
+  action throttle axis drive value target {chassis} speed 2
+  bind steer keys Right Left
+  bind steer gamepad right_x
+  bind throttle keys Up Down
+  bind throttle gamepad left_y
+  bind throttle gamepad right_trigger
+  bind throttle gamepad left_trigger invert
+end""")
 
 ed.selection_set(ids=[])
 ed.view_follow(body=chassis)

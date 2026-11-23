@@ -31,6 +31,7 @@ QString driveText(const ControllerAction& a) {
     case ControlDrive::Grip: return uiText("Kinetica", "схват, предел силы Н");
     case ControlDrive::Jog: return a.dof >= DofRx ? uiText("Kinetica", "сустав, °/с") : uiText("Kinetica", "сустав, м/с");
     case ControlDrive::Duty: return uiText("Kinetica", "ШИМ драйвера");
+    case ControlDrive::Value: return uiText("Kinetica", "значение для плагина, его масштаб");
     }
     return QString();
 }

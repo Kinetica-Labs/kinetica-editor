@@ -3,7 +3,7 @@
 // moved so (plane, lift, turn) takes its arm along, as leadGoals leads any goal; the goal starts where it is and is held
 // on a leash: a move that would put it farther than kLeash from the hand does not happen, so a goal pushed into the
 // table or out of reach waits for the hand instead of running off. The gripper's fingers close by the value's share
-// (grip), a joint's servo target walks (jog), a driver's duty is set (duty). Deterministic: the same values in the same
+// (grip), a joint's servo target walks (jog), a driver's duty is set (duty); a value is only held, for a plugin (value). Deterministic: the same values in the same
 // steps give the same bits, in a window or without one.
 #include "sim/RobotWorld.h"
 
@@ -44,12 +44,19 @@ bool RobotWorld::setControllerInput(uint32_t controller, const std::string& acti
     return true;
 }
 
+Vector3 RobotWorld::controlValue(uint32_t controller, const std::string& action) const {
+    for (const ControlLive& live : controls_)
+        if (live.controller == controller && live.action == action) return live.value;
+    return Vector3(0.0_r);
+}
+
 void RobotWorld::driveControllers(PhysicsWorld& physics, Real dt) {
     for (ControlLive& live : controls_) {
         std::string ignored;
         const ControllerAction* a = actionOf(graph_, live.controller, live.action, ignored);
         if (!a) continue;
         const Vector3 v = live.value;
+        if (a->drive == ControlDrive::Value) continue; // a plugin's to read (controlValue)
         if (a->drive == ControlDrive::Grip) {
             const Real part = std::clamp(v.x, 0.0_r, 1.0_r);
             if (live.applied != part) driveGrip(physics, *a, part), live.applied = part;

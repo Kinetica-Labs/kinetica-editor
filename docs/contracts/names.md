@@ -641,6 +641,7 @@
 | `tz` | степень | сдвиг по z | stable |  |
 | `unsprung` | tyre | неподрессоренная масса, кг | stable |  |
 | `upper` | limit | верхний предел, рад или м | stable |  |
+| `value` | action | ничего не ведёт: значение читает плагин в такте (пульт - среди датчиков); `target` и `speed` - чьё и в каком масштабе | stable |  |
 | `vector2` | action | вид действия: два числа x, y | stable |  |
 | `velocity` | rigid, key; drive | скорость [x, y, z], м/с; у привода - уставка скорости, рад/с или м/с | stable |  |
 | `visible` | object | виден | stable |  |

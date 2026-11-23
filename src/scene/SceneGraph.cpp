@@ -437,7 +437,7 @@ static void saveDriver(std::ostringstream& o, const DriverObject& d) {
 
 // A controller: one line an action (what value it has, what it drives, how fast), one line a binding of it.
 static const char* const kControlValues[] = {"button", "axis", "vector2"};
-static const char* const kControlDrives[] = {"plane", "lift", "turn", "grip", "jog", "duty"};
+static const char* const kControlDrives[] = {"plane", "lift", "turn", "grip", "jog", "duty", "value"};
 
 static void saveController(std::ostringstream& o, const ControllerObject& c) {
     o << "controller " << quoted(c.name) << "\n  object id " << c.id << "\n";
