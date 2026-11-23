@@ -31,6 +31,7 @@ def box(name, at, size, **more):
 
 chassis = box("Шасси", (0, Y, 0), (1.0, 0.05, 0.4))
 ed.scene_set(id=chassis, line="rigid", key="density", values=[250])
+ed.assembly_sensor(target=chassis, kind="imu", face="+y")  # flat on the roof, z up: its gyroscope reads the turn rate
 for name, at, size in (("Кабина", (-0.08, Y + 0.075, 0), (0.4, 0.1, 0.3)), ("Антикрыло", (-0.47, Y + 0.13, 0), (0.06, 0.02, 0.42)),
                        ("Стойка крыла", (-0.47, Y + 0.075, 0), (0.03, 0.09, 0.03))):
     part = box(name, at, size)
