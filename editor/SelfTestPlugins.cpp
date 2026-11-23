@@ -508,32 +508,43 @@ def count(scene, dt, sensors):
                 qPrintable(chart->title()), chart->tracks().size(), line ? line->size() : 0, to, timed ? "yes" : "no", qPrintable(said));
     c.check(timed && framed, "a plugin's chart: what on_tick shows is a point of its line at that frame's time, a frame each");
     c.check(worded, "the value a chart draws is a word of the panel too: one show() for both");
-    // The wheel over a plugin's chart while the window slides: its width for every chart - the plugin's and the scene's -
-    // and each slides on, its right edge at its latest point (the user saw only the scene's follow).
+    // The wheel over a chart while the windows slide sets its own group's - the charts of its clock: over the plugin's
+    // chart on the run's time, the scene's charts with it and not the board's (its own clock); over the board's, the
+    // board's alone (the user: a sensor's charts together, not every chart).
     if (auto* plots = w.findChild<PlotPanel*>()) {
         plots->setView(PlotPanel::View());
         pump(100);
-        chart = plotted(w, "Счётчик");
-        const QPointF middle(chart->width() * 0.6, chart->height() * 0.6);
-        QWheelEvent wheel(middle, chart->mapToGlobal(middle), {}, {0, 480}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
-        QApplication::sendEvent(chart, &wheel);
-        QJsonObject stepped;
-        ops->run("sim_step", {{"frames", 30}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
-        waitUntil([&] { return !stepped.isEmpty(); }, 20000);
-        pump(200);
-        const double span = plots->view().span;
+        const auto wheelOver = [&](TrackChart* over) {
+            const QPointF middle(over->width() * 0.6, over->height() * 0.6);
+            QWheelEvent wheel(middle, over->mapToGlobal(middle), {}, {0, 480}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+            QApplication::sendEvent(over, &wheel);
+            QJsonObject stepped;
+            ops->run("sim_step", {{"frames", 30}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
+            waitUntil([&] { return !stepped.isEmpty(); }, 20000);
+            pump(200);
+        };
+        const auto width = [](TrackChart* v) { return v ? v->shownTime().second - v->shownTime().first : 0.0; };
+        const auto sceneWidth = [&] {
+            double most = 0;
+            for (TrackChart* v : plots->views()) most = std::max(most, width(v));
+            return most;
+        };
+        const double boardBefore = width(plotted(w, "Счётчик", 1));
+        wheelOver(plotted(w, "Счётчик"));
+        const double runSpan = plots->view().span(""), boardAfter = width(plotted(w, "Счётчик", 1));
         const auto [p0, p1] = plotted(w, "Счётчик")->shownTime();
-        double sceneWidth = 0;
-        for (TrackChart* v : plots->views()) sceneWidth = std::max(sceneWidth, v->shownTime().second - v->shownTime().first);
+        std::printf("  the wheel over the plugin's chart on the run's time: its group's window %.3f s - the plugin's %.3f, the scene's %.3f; "
+                    "the board's (own clock) %.3f, was %.3f\n", runSpan, p1 - p0, sceneWidth(), boardAfter, boardBefore);
+        const bool runGroup = runSpan > 0 && std::fabs((p1 - p0) - runSpan) < 1e-6 && std::fabs(p1 - line->time(line->size() - 1)) < 1e-9 &&
+                              std::fabs(sceneWidth() - runSpan) < 1e-6 && boardAfter > runSpan * 1.5;
         TrackChart* board = plotted(w, "Счётчик", 1);
-        const auto [b0, b1] = board ? board->shownTime() : std::pair<double, double>{0, 0};
-        std::printf("  the board's chart on its own clock («%s»): %.3f..%.3f\n", board ? qPrintable(board->axisWords()) : "none", b0, b1);
-        std::printf("  the wheel over the plugin's chart: a window of %.3f s; the plugin's shows %.3f..%.3f (its latest %.3f), the scene's %.3f s wide\n",
-                    span, p0, p1, line->latest(), sceneWidth);
-        c.check(span > 0 && std::fabs((p1 - p0) - span) < 1e-6 && std::fabs(p1 - line->time(line->size() - 1)) < 1e-9 && std::fabs(sceneWidth - span) < 1e-6 &&
-                    board && std::fabs((b1 - b0) - span) < 1e-6 && b1 > 100,
-                "the wheel over a plugin's chart sets the sliding window of all the charts - the plugin's, one on a board's own clock, and "
-                "the scene's slide with it");
+        wheelOver(board);
+        const double boardSpan = plots->view().span(board ? board->axisWords() : QString());
+        const auto [b0, b1] = plotted(w, "Счётчик", 1)->shownTime();
+        std::printf("  then over the board's chart («%s»): its window %.3f s (%.3f..%.3f); the run's still %.3f\n",
+                    board ? qPrintable(board->axisWords()) : "none", boardSpan, b0, b1, plots->view().span(""));
+        c.check(runGroup && boardSpan > 0 && std::fabs((b1 - b0) - boardSpan) < 1e-6 && b1 > 100 && plots->view().span("") == runSpan,
+                "the wheel sets its own clock's group: the run's charts (the scene's and a plugin's) together, a board's on its own clock apart");
         plots->setView(PlotPanel::View());
     }
     b.stop();

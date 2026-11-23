@@ -75,8 +75,11 @@ public:
     struct View {
         Arrangement arrangement = Arrangement::Overlay;
         bool wholeRun = false;                                 // the whole run, not the last minute
-        double span = 0;                                       // the sliding window's width, s (0: a minute) - while the run's time
-                                                               // is not the reader's own (time[""]), the window slides with the run
+        // The sliding windows' widths, s, by axis words - a group of charts on one clock (the run's: "", a board's «время с
+        // подключения, с»): the wheel over one sets its own group's; none: a minute. While a group's time is not the
+        // reader's own (time[words]), its window slides with its clock.
+        std::map<QString, double> spans;
+        double span(const QString& words) const { const auto it = spans.find(words); return it == spans.end() ? 0.0 : it->second; }
         std::set<QString> hidden;                              // the charts unticked, by key (chartKey, pluginKey)
         QString focus;                                         // the chart alone in the whole width, by key; "": all
         std::map<QString, std::pair<double, double>> time;     // the reader's time window, by axis words ("": the run's time)
@@ -87,7 +90,7 @@ public:
 
     const View& view() const { return view_; }
     void setView(const View& v);
-    QJsonObject viewJson() const;                                 // {arrangement, whole_run, hidden, focus, time, values, span}
+    QJsonObject viewJson() const;                                 // {arrangement, whole_run, hidden, focus, time, values, span, spans}
     std::pair<double, double> timeWindow() const;                 // the run's time the charts show now, s
     static bool viewFrom(const QJsonObject& o, View* out, QString* why);
     QJsonArray chartsJson() const;                                // every chart: {key, section, title, shown}

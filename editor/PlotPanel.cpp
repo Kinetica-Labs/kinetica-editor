@@ -277,10 +277,12 @@ bool spansFrom(const QJsonValue& j, std::map<QString, std::pair<double, double>>
 } // namespace
 
 QJsonObject PlotPanel::viewJson() const {
+    QJsonObject widths; // every group's sliding window; "span" - the run's, as it was first given
+    for (const auto& [words, width] : view_.spans) widths.insert(words, width);
     QJsonArray hidden;
     for (const QString& k : view_.hidden) hidden.append(k);
     return {{"arrangement", kArrangements[int(view_.arrangement)]}, {"whole_run", view_.wholeRun}, {"hidden", hidden},
-            {"focus", view_.focus}, {"time", spans(view_.time)}, {"values", spans(view_.values)}, {"span", view_.span}};
+            {"focus", view_.focus}, {"time", spans(view_.time)}, {"values", spans(view_.values)}, {"span", view_.span("")}, {"spans", widths}};
 }
 
 bool PlotPanel::viewFrom(const QJsonObject& o, View* out, QString* why) {
@@ -295,7 +297,10 @@ bool PlotPanel::viewFrom(const QJsonObject& o, View* out, QString* why) {
     v.wholeRun = o.value("whole_run").toBool();
     for (const QJsonValue& k : o.value("hidden").toArray()) v.hidden.insert(k.toString());
     v.focus = o.value("focus").toString();
-    v.span = std::max(0.0, o.value("span").toDouble());
+    const QJsonObject widths = o.value("spans").toObject();
+    for (auto it = widths.begin(); it != widths.end(); ++it)
+        if (it.value().toDouble() > 0) v.spans[it.key()] = it.value().toDouble();
+    if (o.value("span").toDouble() > 0) v.spans[""] = o.value("span").toDouble();
     if (!spansFrom(o.value("time"), &v.time, "time", why) || !spansFrom(o.value("values"), &v.values, "values", why)) return false;
     *out = v;
     return true;
@@ -325,8 +330,11 @@ QString PlotPanel::viewWords() const {
     const auto run = std::find_if(view_.time.begin(), view_.time.end(), [](const auto& kv) { return timeAxis(kv.first); });
     if (run != view_.time.end())
         parts << QString(uiText("Kinetica", "окно стоит на %1–%2 с")).arg(run->second.first, 0, 'f', 1).arg(run->second.second, 0, 'f', 1).replace('.', ',');
-    else if (view_.span > 0 && !view_.wholeRun)
-        parts << QString(uiText("Kinetica", "окно %1 с едет за временем")).arg(view_.span, 0, 'f', view_.span < 10 ? 1 : 0).replace('.', ',');
+    else if (!view_.wholeRun)
+        for (const auto& [words, width] : view_.spans) { // each group its own: «окно 2 с едет», «время с подключения: окно 18 с едет»
+            const QString w = QString(uiText("Kinetica", "окно %1 с едет за временем")).arg(width, 0, 'f', width < 10 ? 1 : 0).replace('.', ',');
+            parts << (words.isEmpty() ? w : words.section(',', 0, 0) + ": " + w);
+        }
     const bool steps = std::any_of(view_.time.begin(), view_.time.end(), [](const auto& kv) { return !timeAxis(kv.first); });
     if (steps || !view_.values.empty()) parts << uiText("Kinetica", "приближено");
     if (!view_.focus.isEmpty()) parts << uiText("Kinetica", "один график во всю ширину");
@@ -1086,11 +1094,11 @@ QAction* PlotPanel::focusItem(QMenu* menu, const QString& chart) {
 // each), ↺ on one gives them all back to the panel; a chart built again keeps the reader's window.
 void PlotPanel::linkZoom(TrackChart* v, const QString& key) {
     connect(v, &TrackChart::zoomedX, this, [this, v](double t0, double t1, bool dragged) {
-        if (!dragged && timeAxis(v->axisWords()) && !stands() && !view_.wholeRun) {
+        if (!dragged && timeAxis(v->axisWords()) && !view_.time.count(v->axisWords()) && !view_.wholeRun) {
             // the wheel while the window slides: its width, and it slides on (a strip chart's, as an oscilloscope's)
-            view_.span = std::clamp(t1 - t0, 0.05, 1e6);
+            view_.spans[v->axisWords()] = std::clamp(t1 - t0, 0.05, 1e6); // its own group: the charts of its clock
             for (TrackChart* o : allViews())
-                if (timeAxis(o->axisWords())) o->clearUserWindow();
+                if (o->axisWords() == v->axisWords()) o->clearUserWindow();
             refreshCharts();
             refreshPluginCharts();
             return viewChanged();
@@ -1124,12 +1132,12 @@ std::vector<TrackChart*> PlotPanel::allViews() const {
 }
 
 void PlotPanel::refreshPluginCharts() {
-    const double live = view_.span > 0 ? view_.span : kLiveSeconds; // the same sliding window as the scene's charts
     for (PluginSection& s : plugins_)
         for (size_t k = 0; k < s.views.size() && k < s.charts.size(); ++k) {
+            const double width = view_.span(s.charts[k].xWords), live = width > 0 ? width : kLiveSeconds; // its clock's group
             const auto [t0, t1] = view_.wholeRun ? s.charts[k].span() : s.charts[k].window(live);
             s.views[k]->setWindow(t0, t1);
-            s.views[k]->setSliding(!view_.wholeRun && !stands());
+            s.views[k]->setSliding(!view_.wholeRun && !view_.time.count(s.charts[k].xWords));
             s.views[k]->refresh();
         }
 }
@@ -1154,7 +1162,7 @@ std::vector<std::pair<QString, std::vector<TrackChart*>>> PlotPanel::pluginSecti
 // last minute, sliding with the run.
 std::pair<double, double> PlotPanel::timeWindow() const {
     if (frames_ == 0) return {0.0, 1.0};
-    const double live = view_.span > 0 ? view_.span : kLiveSeconds;
+    const double live = view_.span("") > 0 ? view_.span("") : kLiveSeconds;
     const double from = view_.wholeRun || now_ - start_ <= live ? start_ : now_ - live;
     return {from, std::max(now_, from + 1e-3)};
 }
@@ -1175,7 +1183,7 @@ void PlotPanel::refreshCharts() {
     const auto [t0, t1] = timeWindow();
     for (TrackChart* v : views_) {
         v->setWindow(t0, t1);
-        v->setSliding(!view_.wholeRun && !stands());
+        v->setSliding(!view_.wholeRun && !view_.time.count(v->axisWords()));
         v->refresh();
     }
     if (view_.arrangement == Arrangement::Lanes) alignLanes();

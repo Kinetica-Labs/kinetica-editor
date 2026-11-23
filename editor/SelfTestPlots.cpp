@@ -361,7 +361,7 @@ void testStripChart(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, co
     QApplication::sendEvent(energy, &wheel);
     newFrames(v, 30);
     pump(120);
-    const double span = p.panel->view().span;
+    const double span = p.panel->view().span("");
     const auto [t0, t1] = energy->shownTime();
     const auto [w0, w1] = p.panel->timeWindow();
     std::printf("  the wheel while sliding: a window of %.2f s, shown %.2f..%.2f, the run's now %.2f (%s)\n", span, t0, t1, w1,
