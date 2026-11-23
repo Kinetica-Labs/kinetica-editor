@@ -25,9 +25,9 @@ void Viewport::drawPlayFrame(QPainter& p) {
     if (!playFrame_) return;
     p.save();
     p.setRenderHint(QPainter::Antialiasing, false);
-    p.setPen(QPen(runFrame_.isValid() ? runFrame_ : QColor(240, 160, 32), 4.0));
+    p.setPen(QPen(runFrame_.isValid() ? runFrame_ : QColor(240, 160, 32), 2.0)); // thin: it says the mode, it does not hide the scene
     p.setBrush(Qt::NoBrush);
-    p.drawRect(QRectF(rect()).adjusted(2, 2, -2, -2));
+    p.drawRect(QRectF(rect()).adjusted(1, 1, -1, -1));
     p.restore();
 }
 

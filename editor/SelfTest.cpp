@@ -242,7 +242,7 @@ void testEditPlayStop(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) 
     std::printf("  after 60 frames of play the cube is at y = %.3f m\n", double(y));
     c.check(ran && y < 0.3f, "play: the cube falls onto the floor");
     auto* bar = w.findChild<QToolBar*>("createBar");
-    const QColor drawn = v->grabFramebuffer().pixelColor(2, v->height() / 2); // the frame as painted, not only as asked
+    const QColor drawn = v->grabFramebuffer().pixelColor(1, v->height() / 2); // the frame as painted, not only as asked
     std::printf("  the frame round the view while it plays: rgb %d %d %d\n", drawn.red(), drawn.green(), drawn.blue());
     const bool green = bar && bar->property("run").toString() == "play" && v->runFrame() == QColor(88, 200, 110) &&
                        drawn.green() > 150 && drawn.red() < 140;
