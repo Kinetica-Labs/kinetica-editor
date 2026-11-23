@@ -11,7 +11,6 @@
 #include "InspectorWidgets.h"
 #include "scene/Assembly.h"
 
-#include <QPushButton>
 #include <QBoxLayout>
 #include <QFontDatabase>
 #include <QLabel>
@@ -129,6 +128,10 @@ void SceneBuilder::buildJointCard(QVBoxLayout* body) {
             at[k] = Real(v);
             placeJoint(graph_, jointDraft_, at, axis);
         }).unit([] { return FieldForm::Unit{uiText("Kinetica", " м")}; }).name(QString("jointAnchor%1").arg(QChar('X' + k))).tip(uiText("Kinetica", "Где на звеньях стоит ось сочленения, в мире"));
+    // Its place and axis by the hand, beside the numbers it sets (proximity), as «Сустав» picks them: a face's centre, an
+    // edge, a corner (Fusion's «Edit Joint Origin»).
+    jointFields_->button(uiText("Kinetica", "Указать в виде…"), [this] { emit pickJointRequested(selectedId_); }).name("jointPick")
+        .tip(uiText("Kinetica", "Щёлкните грань, ребро или угол в виде — точка и ось сустава встанут туда; звенья остаются где стоят"));
     jointFields_->toggle(uiText("Kinetica", "Предел"), [=] { return f().motion == JointMotion::Limited; }, [=](double on) { f().motion = on ? JointMotion::Limited : JointMotion::Free; })
         .shown(free).tip(uiText("Kinetica", "Ограничить ход: звено упирается, как у настоящего робота по паспорту"));
     for (Real JointFreedom::*end : {&JointFreedom::lower, &JointFreedom::upper})
@@ -155,12 +158,6 @@ void SceneBuilder::buildJointCard(QVBoxLayout* body) {
     field(uiText("Kinetica", "Обмотка"), 1e-4, 1e4, 0.1, 3, &JointDrive::resistance).unit([] { return FieldForm::Unit{uiText("Kinetica", " Ом")}; }).shown(when({3}));
     field(uiText("Kinetica", "Константа K"), 0, 100, 0.01, 4, &JointDrive::constant).shown(when({3}));
     jointCard_->body()->addWidget(jointFields_);
-    // Its place and axis by the hand, as «Сустав» picks them: a face's centre, an edge, a corner (Fusion's «Edit Joint Origin»).
-    auto* pick = new QPushButton(uiText("Kinetica", "Указать в виде…"));
-    pick->setObjectName("jointPick");
-    pick->setToolTip(uiText("Kinetica", "Щёлкните грань, ребро или угол в виде — точка и ось сустава встанут туда; звенья остаются где стоят"));
-    connect(pick, &QPushButton::clicked, this, [this] { emit pickJointRequested(selectedId_); });
-    jointCard_->body()->addWidget(pick);
     jointLive_ = new QLabel;
     jointLive_->setFont(QFontDatabase::systemFont(QFontDatabase::FixedFont));
     jointLive_->setWordWrap(true);

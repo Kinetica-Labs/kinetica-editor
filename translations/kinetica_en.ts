@@ -7382,10 +7382,6 @@ A - another axis · Tab - flip · Ctrl - no snap</translation>
         <translation>2/2 · click - «%1» comes here, face to face, and joins</translation>
     </message>
     <message>
-        <source>2/2 · щёлкните — соединить, где стоят (точка второй детали — подвести её)</source>
-        <translation>2/2 · click - join where they stand (a snap point of the other part - bring it there)</translation>
-    </message>
-    <message>
         <source>8  Амортизатор — пружина с демпфером, несёт вес</source>
         <translation>8  Shock absorber - a spring with a damper, carries the weight</translation>
     </message>
@@ -7426,6 +7422,14 @@ A - another axis · Tab - flip · Ctrl - no snap</translation>
     <message>
         <source>наведите на деталь — куда перенести сустав</source>
         <translation>hover a part - where the joint goes</translation>
+    </message>
+    <message>
+        <source>2/2 · щёлкните — соединить, где стоят</source>
+        <translation>2/2 · click - join where they stand</translation>
+    </message>
+    <message>
+        <source>M — двигать другую · крестик детали, стоящей поодаль, — подвести её</source>
+        <translation>M - move the other · a cross of a part standing apart - bring it there</translation>
     </message>
 </context>
 </TS>

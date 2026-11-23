@@ -53,7 +53,7 @@ static void applyDarkPalette(QApplication& app) {
     p.setColor(QPalette::Highlight, accent);
     p.setColor(QPalette::HighlightedText, Qt::white);
     p.setColor(QPalette::Link, accent);
-    p.setColor(QPalette::PlaceholderText, QColor(130, 135, 145));
+    p.setColor(QPalette::PlaceholderText, QColor(150, 155, 165)); // muted, yet 5.3:1 on the window (WCAG AA asks 4.5; 130 gave 4.1)
     p.setColor(QPalette::Disabled, QPalette::Text, QColor(120, 124, 130));
     p.setColor(QPalette::Disabled, QPalette::ButtonText, QColor(120, 124, 130));
     p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(120, 124, 130));

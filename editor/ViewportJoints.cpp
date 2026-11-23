@@ -2,7 +2,7 @@
 // line to the joint (a hinge's meets its axis square, then runs along it), a pin there in the colour of the joint's
 // kind, and under the pin of a joint that holds its body to the world the hatch mechanics draw for the ground. What the joint lets the bodies do - its ring, its travel, its limits
 // - is its glyph, drawn in the scene's space (Viewport::drawJoints, JointGlyphs.h); this is the other half: which two
-// things it holds together. The ties of the selected body are drawn brighter.
+// things it holds together. The ties of the selected body are drawn bright, the rest faint: the glyph is the figure.
 #include "Viewport.h"
 
 #include <QPainter>
@@ -49,9 +49,10 @@ void Viewport::drawJointTies(QPainter& p) {
             continue;
         const bool bright = chosen(j.a) || chosen(j.b);
         QColor colour = kindColour(j.type);
-        colour.setAlpha(bright ? 255 : 170);
-        const QColor dark(10, 12, 16, bright ? 200 : 120);
-        const double wide = bright ? 2.4 : 1.6;
+        // figure and ground: an unselected tie stays under the joints' own glyphs it crosses (a slider's arrow), faint
+        colour.setAlpha(bright ? 255 : 90);
+        const QColor dark(10, 12, 16, bright ? 200 : 50);
+        const double wide = bright ? 2.4 : 1.1;
         const auto tie = [&](const QPointF& body, const QPointF& bend) { // a line with a dark edge, and a dot where it takes its body
             if (QLineF(body, bend).length() + QLineF(bend, pin).length() < 6) return;
             const QPolygonF line{body, bend, pin};

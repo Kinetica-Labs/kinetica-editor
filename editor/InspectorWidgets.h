@@ -147,6 +147,7 @@ public:
     FieldForm& slider(const QString& label, int min, int max, Get get, Set set, int detent = 0);
     FieldForm& text(const QString& label, Text get, std::function<void(const QString&)> set); // a line typed: set on Enter or when the field is left
     FieldForm& note(Text text); // a line of words, word-wrapped
+    FieldForm& button(const QString& text, std::function<void()> click); // an action beside the fields it acts on
     FieldForm& unit(std::function<Unit()> unit);
     FieldForm& unit(const QString& suffix, double scale = 1); // the same for every thing
     FieldForm& shown(std::function<bool()> shown);

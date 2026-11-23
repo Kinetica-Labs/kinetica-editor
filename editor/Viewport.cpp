@@ -7,6 +7,7 @@
 #include "Viewport.h"
 #include "UiLanguage.h"
 
+#include <QRegularExpression>
 #include <QOpenGLTimeMonitor>
 
 #include "JointGlyphs.h"
@@ -330,14 +331,33 @@ void Viewport::drawEditLabel(QPainter& p) {
     }
     if (text.isEmpty()) return;
     if (!typed_.isEmpty()) text = "= " + typed_ + "   " + text;
-    const QFontMetrics fm(p.font());
-    const QRect lines = fm.boundingRect(QRect(), 0, text); // a tool's step may say more on the lines below
-    const QRectF box(lastMouse_ + QPointF(18, -30), QSizeF(lines.width() + 16, lines.height() + 8));
+    // A tool's step may say more below its first line - in order of importance (visual hierarchy): what the click does,
+    // bold and bright; what follows from it (Play's forecast) plain; the keys, muted.
+    const QStringList lines = text.split('\n');
+    QFont bold = p.font();
+    bold.setBold(lines.size() > 1);
+    static const QRegularExpression keys("^(A|Tab|Ctrl|Shift|Esc|M|[0-9])( |\\b)");
+    double width = 0, height = 0;
+    for (int i = 0; i < lines.size(); ++i) {
+        const QFontMetrics fm(i == 0 ? bold : p.font());
+        width = std::max(width, double(fm.horizontalAdvance(lines[i]))), height += fm.height();
+    }
+    QRectF box(lastMouse_ + QPointF(18, -30), QSizeF(width + 16, height + 8));
+    if (box.right() > this->width() - 4) box.moveRight(lastMouse_.x() - 18); // by the right edge: on the cursor's left, whole
+    if (box.left() < 4) box.moveLeft(4);
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(20, 22, 27, 215));
     p.drawRoundedRect(box, 5, 5);
-    p.setPen(QColor(255, 222, 120));
-    p.drawText(box.adjusted(8, 4, -8, -4), Qt::AlignLeft | Qt::AlignVCenter, text);
+    double y = box.top() + 4;
+    const QFont plain = p.font();
+    for (int i = 0; i < lines.size(); ++i) {
+        p.setFont(i == 0 ? bold : plain);
+        p.setPen(i == 0 ? QColor(255, 222, 120) : keys.match(lines[i]).hasMatch() ? QColor(150, 156, 168) : QColor(226, 229, 236));
+        const double h = QFontMetrics(p.font()).height();
+        p.drawText(QRectF(box.left() + 8, y, width, h), Qt::AlignLeft | Qt::AlignVCenter, lines[i]);
+        y += h;
+    }
+    p.setFont(plain);
 }
 
 // Each joint as what it lets the links do (JointGlyphs.h), over everything: a generic joint as a

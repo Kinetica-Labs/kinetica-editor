@@ -318,6 +318,12 @@ FieldForm& FieldForm::text(const QString& label, Text get, std::function<void(co
     return add(label, std::move(row));
 }
 
+FieldForm& FieldForm::button(const QString& text, std::function<void()> click) {
+    auto* b = new QPushButton(text);
+    connect(b, &QPushButton::clicked, this, [click = std::move(click)] { click(); });
+    return add({}, Row{b});
+}
+
 FieldForm& FieldForm::note(Text text) {
     auto* words = new QLabel;
     words->setWordWrap(true);

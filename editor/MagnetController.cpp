@@ -684,7 +684,8 @@ void MagnetController::showJoint(const Place& p) {
         const Vector3 centre = m ? align.to + align.turn.rotate(m->position - align.from) : Vector3(0.0f);
         forecastLabel = m ? QString(uiText("Kinetica", "2/2 · щёлкните — «%1» подъедет сюда, грань к грани, и встанет на сустав"))
                                     .arg(QString::fromStdString(m->name)) + "\n" + playForecast(p.target, &centre)
-                          : QString(uiText("Kinetica", "2/2 · щёлкните — соединить, где стоят (точка второй детали — подвести её)")) + "\n" + playForecast(p.target);
+                          : QString(uiText("Kinetica", "2/2 · щёлкните — соединить, где стоят")) + "\n" + playForecast(p.target) + "\n" +
+                                uiText("Kinetica", "M — двигать другую · крестик детали, стоящей поодаль, — подвести её");
     }
     view_->setMagnetLabel(repick_ ? (s.at.found ? QString(uiText("Kinetica", "%1 · щёлкните — сустав встанет сюда\nA — другая ось · Tab — перевернуть · Ctrl — без привязки")).arg(where)
                                                 : QString(uiText("Kinetica", "наведите на деталь — куда перенести сустав")))
