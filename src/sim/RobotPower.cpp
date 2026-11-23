@@ -5,14 +5,15 @@
 //
 //   V = E - R0 sum d I,   I = (d V - K w) / R   ->   V = (E + R0 sum d K w / R) / (1 + R0 sum d^2 / R)
 //
-// exact for any number of motors on one pack. A current limit holds a motor's current at the limit, and V is solved
-// again with that current fixed. At duty 0 the bridge coasts (the winding open, no current) or brakes (the winding
+// exact for any number of motors on one pack. A current limit holds a motor's current at the limit - the bridge cutting
+// its duty as an ESC does, the winding getting I R + K w and the bus giving just that power - and V is solved again. At duty 0 the bridge coasts (the winding open, no current) or brakes (the winding
 // shorted, I = -K w / R), drawing nothing from the bus either way. The pack is then stepped at the bus current
 // (Battery::step), its books kept, and each motor's: the heat I^2 R and the shaft's work K I w - their sum is what the
 // pack delivered to it, d V I. The motors' torque is K I, put on the links by RobotWorld::drive.
 #include "sim/RobotWorld.h"
 
 #include <algorithm>
+#include <cmath>
 
 namespace ke {
 
@@ -75,8 +76,9 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
         if (p < 0) { // an ideal bus: each motor at its own line's voltage
             for (Motor& m : motors) {
                 const double V = double(joints_[m.live->joint].spec.dof[joints_[m.live->joint].dof].drive.voltage);
-                m.live->current = Real(m.duty != 0 ? held(m, (m.duty * V - m.K * m.w) / m.R) : m.brake ? held(m, -m.K * m.w / m.R) : 0.0);
-                m.live->voltage = Real(m.duty != 0 ? m.duty * V : m.brake ? 0.0 : m.K * m.w);
+                const double free = m.duty != 0 ? (m.duty * V - m.K * m.w) / m.R : m.brake ? -m.K * m.w / m.R : 0.0, I = held(m, free);
+                m.live->current = Real(I);
+                m.live->voltage = Real(m.duty == 0 && !m.brake ? m.K * m.w : I == free && m.duty != 0 ? m.duty * V : I * m.R + m.K * m.w);
             }
             books();
             continue;
@@ -84,14 +86,17 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
         LivePack& pack = packs_[size_t(p)];
         const double E = double(pack.battery.openCircuitVoltage()) - double(pack.battery.polarisation());
         const double R0 = double(pack.battery.seriesResistance());
+        // A motor held at its limit draws its own power P = I (I R + K w) - the bridge cuts its duty to I R + K w over V,
+        // as an ESC's current limit does - so V = a - b / V: the higher root of V^2 - a V + b = 0 (a collapsed bus: a / 2).
         auto busVoltage = [&] {
-            double num = E, den = 1;
+            double num = E, den = 1, held = 0;
             for (const Motor& m : motors) {
                 if (m.duty == 0) continue;
-                if (m.fixed) num -= R0 * m.duty * double(m.live->current);
+                if (m.fixed) held += R0 * double(m.live->current) * (double(m.live->current) * m.R + m.K * m.w);
                 else num += R0 * m.duty * m.K * m.w / m.R, den += R0 * m.duty * m.duty / m.R;
             }
-            return num / den;
+            const double a = num / den, b = held / den;
+            return 0.5 * (a + std::sqrt(std::max(a * a - 4 * b, 0.0)));
         };
         double V = busVoltage();
         bool clamped = false;
@@ -109,8 +114,9 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
         double bus = 0;
         for (Motor& m : motors) {
             if (m.duty != 0) {
-                bus += m.duty * double(m.live->current);
-                m.live->voltage = Real(m.duty * V);
+                const double I = double(m.live->current), u = m.fixed ? I * m.R + m.K * m.w : m.duty * V; // on the winding
+                bus += u * I / V;
+                m.live->voltage = Real(u);
             } else {
                 m.live->current = Real(m.brake ? held(m, -m.K * m.w / m.R) : 0.0);
                 m.live->voltage = Real(m.brake ? 0.0 : m.K * m.w);

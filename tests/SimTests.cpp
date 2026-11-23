@@ -521,6 +521,18 @@ void testSimBatteryDrivesMotor() {
     CHECK(std::fabs(pack.energy - bridge.heat - bridge.work) < 1e-4 * pack.energy, "what the pack delivered is the motor's heat and work");
     CHECK(std::fabs(bridge.work / spin - 1) < 0.02, "the shaft's work %f J is the arm's spin %f J", bridge.work, spin);
 
+    SceneGraph limited = scene(1, true); // an ESC's current limit: the bridge cuts its duty, the bus gives only what the motor takes
+    limited.drivers[0].currentLimit = 0.5_r;
+    Simulation held;
+    held.load(limited);
+    for (int k = 0; k < 120; ++k) held.stepFrame();
+    RobotWorld::PowerReading heldPack, heldBridge;
+    held.robot()->powerReading(10, heldPack), held.robot()->powerReading(11, heldBridge);
+    std::printf("  at a 0.5 A limit: pack delivered %.4f J = heat %.4f J + work %.4f J, the motor at %.3f A\n", heldPack.energy, heldBridge.heat,
+                heldBridge.work, double(heldBridge.current));
+    CHECK(std::fabs(double(heldBridge.current)) <= 0.5 + 1e-6 && std::fabs(heldPack.energy - heldBridge.heat - heldBridge.work) < 1e-4 * heldPack.energy,
+          "held at its limit, the motor still takes all the pack delivers: %f J against %f J", heldPack.energy, heldBridge.heat + heldBridge.work);
+
     Simulation dead;
     dead.load(scene(0, true));
     for (int k = 0; k < 120; ++k) dead.stepFrame();
