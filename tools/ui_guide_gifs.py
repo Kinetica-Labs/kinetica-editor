@@ -163,9 +163,7 @@ def shapes(c):
     top = c.view_point([0.35, 0.7, 0.35])
     c.move(top, 0.8)
     c.ed.ui_pointer(action="click", x=top[0], y=top[1], space="window")
-    c.hold(0.8)
-    c.click(c.button(name="toolMove"))  # the drawing tool waits for the next cube: «Перемещение» leaves it, the gizmo shows
-    c.hold(0.4)
+    c.hold(1.2)  # one cube made, the tool ends by itself: the cube selected, its gizmo shows
     centre, along = c.view_point([0, 0.35, 0]), c.view_point([1, 0.35, 0])
     d = math.hypot(along[0] - centre[0], along[1] - centre[1]) or 1
     unit = ((along[0] - centre[0]) / d, (along[1] - centre[1]) / d)
