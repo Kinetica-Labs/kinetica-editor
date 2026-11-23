@@ -6984,11 +6984,6 @@ Sample </translation>
         <translation>A joint&apos;s kind, links, frames and limits change only when the scene is restarted</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="396"/>
-        <source>Время проигрывания вышло — %1 с: пауза. ▶ — дальше, ■ Стоп вернёт сцену; время — поле «До» в секвенсоре</source>
-        <translation>The play range is over - %1 s: paused. ▶ goes on, ■ Stop brings the scene back; the range is the Sequencer&apos;s «To» field</translation>
-    </message>
-    <message>
         <location filename="../editor/SelfTestForces.cpp" line="354"/>
         <source>нет физики</source>
         <translation>no physics</translation>

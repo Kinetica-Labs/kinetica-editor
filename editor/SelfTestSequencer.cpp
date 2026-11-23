@@ -198,9 +198,9 @@ void keyedCameraTests(QMainWindow& w, SceneBuilder& b, Viewport* v, Checker& c) 
             "view_through looks through a camera of the scene and back; a camera that is not there is refused");
 }
 
-// The play range (the world's duration, the Sequencer's «До»): ▶ runs to its end and stays paused on that frame, ▶ again
-// goes on; a take - from «От» - closes there and waits for ■ Стоп; with «Петля» the run starts over; the end's flag on the
-// ruler is dragged to move it.
+// The play range (the world's duration, the Sequencer's «До»): ▶ without a take runs past it - physics is not the
+// animation; a take - from «От» - closes at its end, the world pauses there and the take waits for ■ Стоп; «Петля» loops
+// the keys, not the world; the end's flag on the ruler is dragged to move it.
 void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel* panel, QWidget* timeline, Checker& c) {
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
     const auto call = [&](const char* name, const QJsonObject& args) { ops->run(name, args, [](const QJsonObject&) {}, "ui"); };
@@ -219,24 +219,23 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     pump(60);
     const bool set = std::fabs(double(b.graph().world.duration) - 0.5) < 1e-6;
     play->trigger();
-    const bool paused = waitUntil([&] { return b.mode() == SceneBuilder::Mode::Paused; }, 4000);
-    pump(200); // would go on, were it not stopped
+    const bool past0 = waitUntil([&] { return worldTime() > 0.7; }, 4000);
+    const bool runs = b.mode() == SceneBuilder::Mode::Playing;
+    std::printf("  «До» 0.5 s and ▶, no take: %s at %.3f s\n", runs ? "still playing" : "STOPPED", worldTime());
+    c.check(set && past0 && runs, "▶ without a take runs past the play range's end: the world goes on, physics is not the animation");
+    b.pause();
+    pump(60);
     const double stood = worldTime();
-    std::printf("  «До» 0.5 s and ▶: the run %s at %.3f s\n", paused ? "paused" : "DID NOT PAUSE", stood);
-    c.check(set && paused && stood > 0.49 && stood < 0.505, "▶ runs to the play range's end and stays paused on that frame, not one past it");
     const auto x = [&](double t) { return sequencer::axisOf(activeSequence(b.graph()), timeline->width(), panel->atLeast()).x(t); };
     mouse(timeline, QEvent::MouseButtonPress, QPointF(x(0.2), 8)), mouse(timeline, QEvent::MouseButtonRelease, QPointF(x(0.2), 8));
     pump(60);
     auto* note = panel->findChild<QLabel*>("sequencerNote");
     c.check(b.mode() == SceneBuilder::Mode::Paused && worldTime() == stood && note && note->text().contains("Стоп"),
             "a press on the ruler in a run moves nothing back and says why: the run is not kept");
-    play->trigger(); // past the end: a deliberate ▶ goes on
-    pump(300);
-    const double past = worldTime();
+    play->trigger();
+    pump(100);
     const QJsonObject late = ops->runNow("sim_record", {{"on", true}});
-    std::printf("  ▶ again at the end: %s, the world at %.3f s; «Запись» there: %s\n", b.mode() == SceneBuilder::Mode::Playing ? "playing" : "NOT PLAYING",
-                past, qPrintable(late.value("error").toString()));
-    c.check(b.mode() == SceneBuilder::Mode::Playing && past > 0.55, "▶ after the play range's end goes on past it");
+    std::printf("  «Запись» past the end: %s\n", qPrintable(late.value("error").toString()));
     c.check(!late.value("ok").toBool() && late.value("error").toString().contains("past"), "«Запись» past the play range's end is refused and says why");
     stop->trigger();
     pump(300);
@@ -287,7 +286,7 @@ void playRangeTests(QMainWindow& w, SceneBuilder& b, Viewport* v, SequencerPanel
     stop->trigger();
     pump(300);
     std::printf("  «Петля» and ▶ for 1.3 s: %s, the world's time %.3f s\n", loops ? "still playing" : "NOT PLAYING", at);
-    c.check(loops && at < 0.52, "with «Петля» the run starts over at the play range's end");
+    c.check(loops && at > 1.0, "with «Петля» the keys loop, the world is not built again: its time goes on");
 
     const QPointF from(x(0.5) - 4, 8), to(x(1.5), 8); // by its flag, left of the line
     mouse(timeline, QEvent::MouseButtonPress, from), mouse(timeline, QEvent::MouseMove, to), mouse(timeline, QEvent::MouseButtonRelease, to);

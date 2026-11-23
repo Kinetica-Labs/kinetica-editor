@@ -150,10 +150,14 @@ public:
     uint32_t entityOfBody(int body) const; // the drawn id of a body: an entity, an array's copy... (0: none)
     // Play mode: the simulation's newest picture (the live pose of the selected object on pause).
     void onSimulationSnapshot(const ke::Frame& s);
-    void playRangeEnded(bool take); // the run reached its end (playEnd): paused - or, no take and the sequence looping, again
-    // Where a run pauses by itself: the play range's end (world duration) or, none set, the limit of a take (EditorOps).
+    void playRangeEnded(); // a take's run reached its end (playEnd): paused there, the take closed (EditorOps::closeTake)
+    // Where a take ends: the play range's end (world duration) or, none set, the limit of a take (EditorOps). Only a take's
+    // run stops by itself: without one the world goes on past it - physics is not the animation (the sequence holds its
+    // last keys there, or loops: scene/Animation.h), as in Isaac Sim, Gazebo, Unity's Play.
     double playEnd() const { return graph_.world.duration > 0 ? double(graph_.world.duration) : takeEnd_; }
     void setTakeEnd(double seconds);
+    void setTaking(bool on); // a take runs (EditorOps::setRecording): its end stops the run
+    double runEnd() const { return taking_ ? playEnd() : 0.0; } // where the run stops itself (0: never)
     void say(const QString& text) { emit statusMessage(text); } // the status line, for the operations of the window
     void play();
     void pause();
@@ -557,6 +561,7 @@ private:
     ke::SceneGraph keptBefore_;
     bool hasKeptBefore_ = false;
     double takeEnd_ = 0; // the running take's limit with no play range, s of the world's time (0: no take)
+    bool taking_ = false; // a take runs: the run stops at playEnd()
     ke::Vector3 liveTarget_{0.0f}; // on pause: where the selected object's body is now
     bool liveTargetValid_ = false;
     std::map<uint32_t, std::pair<ke::Vector3, ke::Quaternion>> goalLive_; // the goals on paths, where the scene has walked them

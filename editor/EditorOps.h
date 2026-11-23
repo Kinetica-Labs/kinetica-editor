@@ -163,10 +163,7 @@ private:
     QPoint pointer_{-1, -1}; // where ui_pointer last put the hand, in the window's own pixels: the screen picture draws it
     bool recording_ = false;
     std::function<void()> recordingChanged_;
-    void setRecording(bool on) {
-        recording_ = on;
-        if (recordingChanged_) recordingChanged_();
-    }
+    void setRecording(bool on); // and the builder told: only a take's run stops at the play range's end
     std::vector<Listener> listeners_;
     std::deque<QJsonObject> recent_; // the journal's last lines (the file keeps them all)
     QString journalFile_;

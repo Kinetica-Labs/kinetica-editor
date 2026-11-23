@@ -77,7 +77,7 @@ void SceneBuilder::afterCardEdit(uint32_t id, bool click) {
 // the scene plays moves the goal's mark in the running world (RobotWorld::setGoals) and its arm's targets.
 void SceneBuilder::applyEditDuringPlay(uint32_t entityId) {
     (void)entityId; // every change is found by comparing, whichever edit made it
-    ctrl_->setEndTime(playEnd()); // the play range moved while the scene runs: taken at once
+    ctrl_->setEndTime(runEnd()); // the play range moved while the scene runs: taken at once
     const LiveEdit le = ke::liveEdit(doc_.running, graph_);
     if (le.reload != LiveEdit::Reload::None) return reloadNeeded(le.reload);
     if (le.duties) { // a driver's duty: the bridge takes it at the next substep
@@ -377,29 +377,25 @@ void SceneBuilder::play() {
     refreshBanner();
     const Mode was = doc_.mode;
     if (editing() && !loadIntoSimulation()) return;
-    ctrl_->setEndTime(playEnd());
+    ctrl_->setEndTime(runEnd());
     setMode(Mode::Playing, was); // first: the plugins' lockstep is set on it (the frame the run starts from handed over
     ctrl_->setRunning(true);     // first), so the simulation's thread steps no frame before the controllers have it
 }
 
-// The run's end reached (SimController::rangeEnded; the simulation has stopped itself on that frame): the scene stays
-// paused on its last frame - a take closed there (EditorOps::closeTake) - or, no take, a looping sequence starts over.
-void SceneBuilder::playRangeEnded(bool take) {
-    if (doc_.mode != Mode::Playing) return;
-    const ke::SequenceObject* q = ke::activeSequence(graph_);
-    if (q && q->loop && !take) {
-        stop();
-        return play();
-    }
-    setMode(Mode::Paused, Mode::Playing);
-    if (!take) // a take's end says its own words (EditorOps::closeTake)
-        emit statusMessage(QString(uiText("Kinetica", "Время проигрывания вышло — %1 с: пауза. ▶ — дальше, ■ Стоп вернёт сцену; время — поле «До» в секвенсоре"))
-                               .arg(QLocale().toString(double(graph_.world.duration), 'f', 2)));
+// A take's run reached its end (SimController::rangeEnded; the simulation has stopped itself on that frame): the scene
+// stays paused on it - the take closed there says its own words (EditorOps::closeTake).
+void SceneBuilder::playRangeEnded() {
+    if (doc_.mode == Mode::Playing) setMode(Mode::Paused, Mode::Playing);
 }
 
 void SceneBuilder::setTakeEnd(double seconds) {
     takeEnd_ = seconds;
-    if (!editing()) ctrl_->setEndTime(playEnd());
+    if (!editing()) ctrl_->setEndTime(runEnd());
+}
+
+void SceneBuilder::setTaking(bool on) {
+    taking_ = on;
+    if (!editing()) ctrl_->setEndTime(runEnd());
 }
 
 void SceneBuilder::pause() {

@@ -82,6 +82,12 @@ void EditorOps::addRecordOp() {
     });
 }
 
+void EditorOps::setRecording(bool on) {
+    recording_ = on;
+    builder_->setTaking(on); // only a take's run stops at the play range's end (SceneBuilder::runEnd)
+    if (recordingChanged_) recordingChanged_();
+}
+
 void EditorOps::closeTake() {
     const bool limited = builder_->graph().world.duration <= 0;
     const double from = takeFrom_, to = builder_->playEnd();

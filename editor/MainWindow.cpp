@@ -647,10 +647,9 @@ void MainWindow::poll() {
         if (sequencer_) sequencer_->setPlayTime(double(frames.back()->time)); // the world plays the sequence: the playhead follows
         onSnapshot(frames.back());
     }
-    if (ended) {
-        const bool take = ops_ && ops_->recording();
-        builder_->playRangeEnded(take);
-        if (take) ops_->closeTake(); // the world paused; the take waits for ■ Stop
+    if (ended) { // only a take's run ends by itself (SceneBuilder::runEnd)
+        builder_->playRangeEnded();
+        if (ops_ && ops_->recording()) ops_->closeTake(); // the world paused; the take waits for ■ Stop
     }
 }
 
