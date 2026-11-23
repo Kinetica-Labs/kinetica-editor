@@ -71,9 +71,21 @@ private:
     JoinSnap joinSnap(const Place& p) const;
     ke::Vector3 joinAxis(const JoinSnap& s) const;
     ke::JointType joinKind(const JoinSnap& s) const;
+    QString joinWord(const JoinSnap& s) const; // the kind's word for assembly_joint
+    QString joinText(const JoinSnap& s) const; // the kind in the window's words
     uint32_t moverOf(uint32_t first, uint32_t second) const; // which of two shapes moves: the smaller, unless M swapped it
     void joinPress(const Place& p);
-    QString playForecast(uint32_t second) const; // what Play will do with the joint about to be made, in words
+    // What Play will do with the joint about to be made, in words; `centre`: the mover's centre if it is moved first (aligned).
+    QString playForecast(uint32_t second, const ke::Vector3* centre = nullptr) const;
+    // Fusion's Joint: on step 2 a snap point of the other part, apart from the first - the smaller part turns face to face and
+    // moves so the two points meet, then the joint is made there; all one undo step (scene_batch).
+    struct Align {
+        bool on = false;
+        uint32_t mover = 0, base = 0;
+        ke::Quaternion turn{};          // about `from`, the mover's own snap point
+        ke::Vector3 from{0.0f}, to{0.0f}, axis{0.0f};
+    };
+    Align alignTo(const JoinSnap& second) const;
     void showJoint(const Place& p);
     void setJoining(bool on);
     void drag(QPointF pos);
@@ -94,7 +106,7 @@ private:
     QAction* action_ = nullptr;
     QAction* jointAction_ = nullptr;
     bool joining_ = false;          // «Сустав» is on: a plain click joins
-    QString joinType_ = "auto";     // what «Сустав» makes: auto (the guess), hinge, slider, ball, weld
+    QString joinType_ = "auto";     // what «Сустав» makes: auto (the guess), hinge, slider, ball, weld, cylinder, universal, planar
     JoinSnap joinFrom_;             // the first click's place
     int joinAxis_ = 0;              // A: which of the snap's axes
     bool swapMover_ = false;        // M: the other shape moves

@@ -308,6 +308,34 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     std::printf("  «Сустав» near the end of the block's edge:\n%s", qPrintable(endJoint));
     c.check(endJoint.contains(QRegularExpression("anchor_b 0\\.2 0\\.1 0\\.1[5-9]")) && endJoint.contains("free rx") && !endJoint.contains("free ry"),
             "«Сустав» near an edge's end catches the edge: a hinge along it, where the mouse points (by the end, not the middle)");
+
+    // Fusion's Joint: a bar lying apart, a click on the block's edge, a click on a snap point of the bar - the bar comes to the
+    // edge, face to face, and hangs there; one Ctrl+Z takes back the joint and the move together.
+    b.newScene();
+    const uint32_t post = put({0, 0.2f, 0}, {0.4f, 0.4f, 0.4f}), loose = put({0.9f, 0.05f, 0.6f}, {0.4f, 0.1f, 0.1f});
+    ops->runNow("scene_set", {{"id", int(post)}, {"line", "rigid"}, {"key", "fixed"}, {"values", QJsonArray{1}}});
+    v->camera().lookAt(QVector3D(1.6f, 1.4f, 2.0f), QVector3D(0.4f, 0.2f, 0.2f));
+    pump(100);
+    const Vector3 apart = entity(b, loose)->position;
+    trigger(w, "jointTool");
+    join({0.19f, 0.4f, 0.0f}, {0.9f, 0.1f, 0.6f}); // the block's top edge, then the bar's top face's centre
+    const Vector3 came = entity(b, loose)->position;
+    const size_t aligned = b.graph().joints.size();
+    std::printf("  aligned: the bar from (%.3f %.3f %.3f) to (%.3f %.3f %.3f), %zu joint\n", double(apart.x), double(apart.y), double(apart.z),
+                double(came.x), double(came.y), double(came.z), aligned);
+    ops->runNow("edit_undo", {});
+    const bool undone = near(entity(b, loose)->position, apart) && b.graph().joints.empty();
+    c.check(aligned == 1 && length(came - apart) > 0.3f && came.y > 0.39f && undone,
+            "«Сустав» onto a snap point of a part lying apart brings it there face to face and joins it; one Ctrl+Z takes both back");
+
+    // The menu's other kinds: 5 - a cylinder joint (turns and slides along its axis).
+    trigger(w, "jointTool");
+    key(v, Qt::Key_5);
+    join({0.19f, 0.4f, 0.0f}, {0.9f, 0.1f, 0.6f});
+    const QString cylinder = b.graph().joints.empty() ? QString() : ops->runNow("scene_get", {{"id", int(b.graph().joints[0].id)}}).value("text").toString();
+    std::printf("  key 5, a cylinder joint:\n%s", qPrintable(cylinder));
+    c.check(cylinder.contains(QRegularExpression("free[^\\n]*rx")) && cylinder.contains(QRegularExpression("free[^\\n]*tx")),
+            "«Сустав» 5: a cylinder joint - it turns and slides along one axis");
     b.newScene();
     pump(60);
     return c.failures;

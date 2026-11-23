@@ -74,6 +74,12 @@ struct Quaternion {
     Vector3 rotate(const Vector3& v) const { return toMatrix3x3() * v; }
     // Rotation angle in [0, pi].
     Real angle() const { return 2.0_r * ke::atan2(std::sqrt(x * x + y * y + z * z), std::fabs(w)); }
+    // The unit axis the shortest turn goes about (with angle(): fromAxisAngle(axis(), angle()) is this turn); x for no turn.
+    Vector3 axis() const {
+        const Vector3 v = w < 0 ? Vector3(-x, -y, -z) : Vector3(x, y, z);
+        const Real s = std::sqrt(dot(v, v));
+        return s > 1e-9_r ? v / s : Vector3(1, 0, 0);
+    }
 
     // Logarithm SO(3) -> so(3): rotation vector (axis * angle) of this unit quaternion, shortest arc.
     // theta = 2 atan2(|v|, w); for small |v| the factor theta/|v| = (2/w)(1 - |v|^2/(3 w^2) + ...)

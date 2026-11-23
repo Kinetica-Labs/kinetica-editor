@@ -43,6 +43,10 @@ void testMath() {
     Quaternion q3 = Quaternion::fromRotationVector(q.log());
     CHECK(near(std::fabs(dot(q, q3)), 1.0_r), "exp(log(q)) == q");
     CHECK(near(q.angle(), 1.1_r), "angle %f", q.angle());
+    const Quaternion back = Quaternion::fromAxisAngle(q.axis(), q.angle()), minus{-q.w, -q.x, -q.y, -q.z};
+    CHECK(near(std::fabs(dot(q, back)), 1.0_r) && near(std::fabs(dot(minus, Quaternion::fromAxisAngle(minus.axis(), minus.angle()))), 1.0_r) &&
+              near(q.axis().y, 2.0_r / std::sqrt(14.0_r)),
+          "axis() and angle() give the turn back, for q and -q");
     Quaternion h = slerp(Quaternion(), Quaternion::fromAxisAngle({0, 0, 1}, 1.0_r), 0.5_r);
     CHECK(near(h.angle(), 0.5_r), "slerp halfway angle %f", h.angle());
     Vector3 to = Quaternion::fromTwoVectors({1, 0, 0}, {0, 0, -1}).rotate({1, 0, 0});

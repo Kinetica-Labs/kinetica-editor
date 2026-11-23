@@ -7292,10 +7292,6 @@ Sample </translation>
         <translation>1/2 · hover a part</translation>
     </message>
     <message>
-        <source>2/2 · щёлкните — соединить</source>
-        <translation>2/2 · click - join</translation>
-    </message>
-    <message>
         <source>2/2 · ведите на вторую деталь</source>
         <translation>2/2 · move to the other part</translation>
     </message>
@@ -7360,6 +7356,34 @@ A - another axis · Tab - flip · Ctrl - no snap</translation>
     <message>
         <source>в Пуске стоит: ход горизонтален — A — другая ось, или толчок</source>
         <translation>in Play it stands: the travel is level - A - another axis, or a push</translation>
+    </message>
+    <message>
+        <source>5  Цилиндрическое — крутится и скользит вдоль оси</source>
+        <translation>5  Cylinder - turns and slides along the axis</translation>
+    </message>
+    <message>
+        <source>6  Карданное — две оси крест-накрест</source>
+        <translation>6  Universal - two crossed axes</translation>
+    </message>
+    <message>
+        <source>7  Плоское — скользит по плоскости</source>
+        <translation>7  Planar - slides on a plane</translation>
+    </message>
+    <message>
+        <source>в Пуске: «%1» поедет вниз по плоскости</source>
+        <translation>in Play: «%1» slides down the plane</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: плоскость горизонтальна — нужен толчок</source>
+        <translation>in Play it stands: the plane is level - it needs a push</translation>
+    </message>
+    <message>
+        <source>2/2 · щёлкните — «%1» подъедет сюда, грань к грани, и встанет на сустав</source>
+        <translation>2/2 · click - «%1» comes here, face to face, and joins</translation>
+    </message>
+    <message>
+        <source>2/2 · щёлкните — соединить, где стоят (точка второй детали — подвести её)</source>
+        <translation>2/2 · click - join where they stand (a snap point of the other part - bring it there)</translation>
     </message>
 </context>
 </TS>
