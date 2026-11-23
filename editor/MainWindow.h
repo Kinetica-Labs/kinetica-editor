@@ -138,7 +138,8 @@ private:
     void togglePlay();
 
     // File operations
-    void importModel(); // «Импорт…»: an OBJ / STL model as a new object, or a file a plugin opens (URDF)
+    void importModel();
+    void exportScene(); // «Экспорт…»: a plugin's format, by the file's extension // «Импорт…»: an OBJ / STL model as a new object, or a file a plugin opens (URDF)
     void importFile(const QString& path); // ... that file: by its extension
     void runScript();                     // «Выполнить скрипт…»: a Python file that builds or changes the scene, once
     void exportCsv();

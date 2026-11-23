@@ -1,5 +1,5 @@
-"""io_formats - the scene in and out of the formats the world uses, one plugin for all of them («Файл → Импорт…», a file
-dropped on the view, an agent's `ed.io_formats_<format>_load(path=...)`). A file a format (urdf.py, gltf.py) - the code
+"""io_formats - the scene in and out of the formats the world uses, one plugin for all of them: in - «Файл → Импорт…», a
+file dropped on the view, `ed.io_formats_<format>_load(path=...)`; out - «Файл → Экспорт…», `ed.io_formats_<format>_save`. A file a format (urdf.py, gltf.py) - the code
 they share has one place to live as it grows. It comes with the editor; the old `urdf_load` and `gltf_load` stay as
 obsolete names forwarding here (plugins/urdf, plugins/gltf: names only grow)."""
 import os
@@ -16,6 +16,12 @@ ENGLISH = os.environ.get("KE_UI_LANGUAGE") == "en"
 def urdf_load(scene, path):
     """A robot from its URDF: links as shapes, joints as motors holding the pose they are made in, their limits."""
     return urdf.load(scene, path)
+
+
+@command(label="URDF Robot" if ENGLISH else "URDF — робот", saves=[".urdf"])
+def urdf_save(scene, path: str):
+    """The scene's rigid bodies and joints as one URDF robot, meshes copied beside the file; the scene unchanged."""
+    return urdf.save(scene, path)
 
 
 @command(label="glTF Scene" if ENGLISH else "glTF — сцена", opens=[".gltf", ".glb"])

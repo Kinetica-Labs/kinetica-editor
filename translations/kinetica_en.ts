@@ -7150,6 +7150,26 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
+        <source>Экспорт…</source>
+        <translation>Export…</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="1"/>
+        <source>Сцена в формат другой программы: робот URDF и форматы плагинов</source>
+        <translation>The scene in another program's format: a robot as URDF and the plugins' formats</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="1"/>
+        <source>Нет форматов вывоза: их дают плагины (io_formats)</source>
+        <translation>No export formats: plugins give them (io_formats)</translation>
+    </message>
+    <message>
+        <location filename="../editor/PluginHost.cpp" line="1"/>
+        <source> сохранён</source>
+        <translation> saved</translation>
+    </message>
+    <message>
+        <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Следить за выделенным</source>
         <translation>Follow selected</translation>
     </message>

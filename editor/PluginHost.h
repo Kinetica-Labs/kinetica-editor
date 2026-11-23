@@ -56,9 +56,10 @@ public:
     void useTool(const QString& op, const QJsonObject& click);
     // The files plugins open (@command(opens=".urdf")): the file dialog's filters ("URDF — робот (*.urdf)"), the command
     // that opens a file (its extension; empty: none), and the call with its path - an import is one undo step.
-    QStringList formats() const;
-    QString openerFor(const QString& file) const;
-    void openFile(const QString& op, const QString& path);
+    // The formats of «Импорт…» (saving: of «Экспорт…»), «Label (*.ext …)», and the command for a file by its extension.
+    QStringList formats(bool saving = false) const;
+    QString openerFor(const QString& file, bool saving = false) const;
+    void openFile(const QString& op, const QString& path, bool saving = false); // the command run with the path; its note said
     void setToolChecked(const QString& op);
 
 signals:
@@ -73,6 +74,7 @@ private:
         QString obsolete; // the operation that replaced it: it still answers, but is no button, menu item or format
         bool tool = false; // a tool of the shelf: a click in the view calls it
         QStringList opens; // the file extensions it opens (".urdf"): «Файл → Импорт…», a file dropped on the view
+        QStringList saves; // the file extensions it writes: «Файл → Экспорт…»
         QJsonObject args; // field -> {type, default, label, unit, minimum, maximum, enum}
         QJsonArray order; // the fields as the function lists them (the form's rows)
         QAction* action = nullptr;

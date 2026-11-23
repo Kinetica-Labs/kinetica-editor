@@ -691,34 +691,36 @@ void PluginHost::useTool(const QString& op, const QJsonObject& click) {
         }
 }
 
-QStringList PluginHost::formats() const {
+QStringList PluginHost::formats(bool saving) const {
     QStringList out;
     for (const auto& p : plugins_)
         for (const Command& c : p->commands) {
-            if (c.opens.isEmpty()) continue;
+            const QStringList& exts = saving ? c.saves : c.opens;
+            if (exts.isEmpty()) continue;
             QStringList masks;
-            for (const QString& ext : c.opens) masks << "*" + ext;
+            for (const QString& ext : exts) masks << "*" + ext;
             out << c.label + " (" + masks.join(' ') + ")";
         }
     return out;
 }
 
-QString PluginHost::openerFor(const QString& file) const {
+QString PluginHost::openerFor(const QString& file, bool saving) const {
     const QString lower = file.toLower();
     for (const auto& p : plugins_)
         for (const Command& c : p->commands)
-            for (const QString& ext : c.opens)
+            for (const QString& ext : saving ? c.saves : c.opens)
                 if (lower.endsWith(ext)) return c.op;
     return {};
 }
 
-void PluginHost::openFile(const QString& op, const QString& path) {
-    ops_->run(op, {{"path", path}}, [this, path](const QJsonObject& r) {
+void PluginHost::openFile(const QString& op, const QString& path, bool saving) {
+    ops_->run(op, {{"path", path}}, [this, path, saving](const QJsonObject& r) {
         auto* w = qobject_cast<QMainWindow*>(window_);
         if (!w) return;
         if (!r.value("ok").toBool()) return w->statusBar()->showMessage(r.value("error").toString(), 12000);
         const QString note = r.value("note").toString();
-        w->statusBar()->showMessage(QFileInfo(path).fileName() + (note.isEmpty() ? QString(uiText("Kinetica", " открыт")) : ": " + note), 12000);
+        const QString done = saving ? uiText("Kinetica", " сохранён") : uiText("Kinetica", " открыт");
+        w->statusBar()->showMessage(QFileInfo(path).fileName() + (note.isEmpty() ? done : ": " + note), 12000);
     }, "ui");
 }
 
@@ -751,6 +753,7 @@ void PluginHost::addOps() {
             cmd.tool = c.value("tool").toBool();
             cmd.obsolete = c.value("obsolete").toString();
             for (const QJsonValue& x : c.value("opens").toArray()) cmd.opens << x.toString().toLower();
+            for (const QJsonValue& x : c.value("saves").toArray()) cmd.saves << x.toString().toLower();
             cmd.op = p->name + "_" + slug(cmd.name);
             for (auto f = cmd.args.begin(); f != cmd.args.end(); ++f) // a field of a scene object whose kind is no kind: said at once
                 if (const QString kind = f.value().toObject().value("ref").toString(); !kind.isEmpty()) {

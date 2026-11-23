@@ -801,6 +801,18 @@ def train(scene, generations: int = 5, first: int = 0):
             "the plugin gone, its section of the plots goes with its panel");
 }
 
+// Where an object is in the world, its groups composed (worldPose).
+Vector3 worldPosition(const SceneGraph& g, uint32_t id) {
+    for (const Entity& e : g.entities)
+        if (e.id == id) {
+            Vector3 p;
+            Quaternion q;
+            worldPose(g, e, p, q);
+            return p;
+        }
+    return Vector3(0.0f);
+}
+
 // A robot from URDF (plugins/io_formats, the editor's own plugin; examples/robot-arm.urdf): «Импорт…» lists the format, the
 // import is one undo step - six links in a group, five joints, the root fixed, z up turned to y up (the upper arm's centre
 // 0.4 m over the floor), the shoulder's limit written; Play, and the motors hold the arm up. A mesh found by package://
@@ -883,6 +895,38 @@ void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, Plugi
                 double(p.x), double(p.y), double(p.z), cube ? double(cube->size.x) : -1.0);
     c.check(o && std::fabs(p.x - 0.05f) < 1e-3f && std::fabs(p.y - 0.05f) < 1e-3f && std::fabs(p.z + 0.05f) < 1e-3f && std::fabs(cube->size.x - 0.1f) < 1e-3f,
             "a URDF mesh (package://, binary STL) stands where its points are, at its own size");
+    // Out and in again - a metamorphic check of the pair: the arm written to URDF and read back is the same arm, link by
+    // link (the place of each, its joints and limits); «Экспорт…» lists the format; the scene is not changed by writing.
+    {
+        b.newScene();
+        load(resourceDir("examples") + "/robot-arm.urdf");
+        std::map<std::string, Vector3> first;
+        for (const Entity& e : b.graph().entities)
+            if (e.rigid.enabled) first[e.name] = worldPosition(b.graph(), e.id);
+        const size_t stepsBefore = b.undoTaken();
+        const QString out = folder + "/out/arm.urdf";
+        QDir().mkpath(folder + "/out");
+        QJsonObject saved;
+        ops->run("io_formats_urdf_save", {{"path", out}}, [&saved](const QJsonObject& r) { saved = r; }, "ui");
+        waitUntil([&] { return !saved.isEmpty(); }, 20000);
+        const bool untouched = b.undoTaken() == stepsBefore;
+        b.newScene();
+        const QJsonObject again = load(out);
+        double worst = 0;
+        int matched = 0;
+        for (const Entity& e : b.graph().entities)
+            if (const auto it = first.find(e.name); e.rigid.enabled && it != first.end())
+                worst = std::max(worst, double(length(worldPosition(b.graph(), e.id) - it->second))), ++matched;
+        std::printf("  URDF out and in: %s; again %d links, %d joints; %d links matched, the worst place %.2g m; listed for «Экспорт…» %s\n",
+                    qPrintable(saved.value("note").toString()), again.value("links").toInt(), again.value("joints").toInt(), matched, worst,
+                    host->formats(true).contains("URDF — робот (*.urdf)") ? "yes" : "no");
+        c.check(saved.value("ok").toBool() && untouched && host->formats(true).contains("URDF — робот (*.urdf)") &&
+                    host->openerFor("x.URDF", true) == "io_formats_urdf_save",
+                "«Экспорт…» lists URDF; writing it changes nothing in the scene");
+        c.check(again.value("links").toInt() == 6 && again.value("joints").toInt() == 5 && matched == 6 && worst < 1e-3,
+                "URDF out and in again is the same arm: six links each where it was (under 1 mm), five joints");
+    }
+
     // The old name still answers - forwarded, the same robot -, and it is no menu item.
     b.newScene();
     QJsonObject old;

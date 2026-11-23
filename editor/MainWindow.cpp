@@ -177,6 +177,10 @@ void MainWindow::buildMenus() {
     importAct->setShortcut(QKeySequence("Ctrl+I")); // Ctrl+O opens a scene (menu "Сцена")
     importAct->setToolTip(uiText("Kinetica", "Модель OBJ или STL как новый объект, робот URDF и форматы плагинов; файл можно и перетащить в вид"));
     connect(importAct, &QAction::triggered, this, &MainWindow::importModel);
+    auto* exportAct = new QAction(uiText("Kinetica", "Экспорт…"), this);
+    exportAct->setObjectName("actionExport");
+    exportAct->setToolTip(uiText("Kinetica", "Сцена в формат другой программы: робот URDF и форматы плагинов"));
+    connect(exportAct, &QAction::triggered, this, &MainWindow::exportScene);
     auto* scriptAct = new QAction(uiText("Kinetica", "Выполнить скрипт…"), this);
     scriptAct->setObjectName("actionRunScript");
     scriptAct->setToolTip(uiText("Kinetica", "Файл Python, который строит или меняет сцену: пример кодом. Всё, что он сделал, — один шаг отмены"));
@@ -197,6 +201,7 @@ void MainWindow::buildMenus() {
     auto* file = menuBar()->addMenu(uiText("Kinetica", "&Файл"));
     file->setObjectName("fileMenu");
     file->addAction(importAct);
+    file->addAction(exportAct);
     file->addAction(scriptAct);
     file->addAction(stopScriptAct);
     file->addAction(csvAct);
@@ -731,6 +736,17 @@ void MainWindow::runScript() {
         statusBar()->showMessage(r.value("ok").toBool() ? QString(uiText("Kinetica", "Скрипт «%1» выполнен")).arg(r.value("script").toString())
                                                         : r.value("error").toString(), 10000);
     }, "ui");
+}
+
+// «Экспорт…»: the scene written by a plugin's format (a robot's URDF) - one dialog, the format by the file's extension.
+void MainWindow::exportScene() {
+    const QStringList filters = plugins_->formats(true);
+    if (filters.isEmpty()) return void(statusBar()->showMessage(uiText("Kinetica", "Нет форматов вывоза: их дают плагины (io_formats)"), 8000));
+    QString chosen;
+    QString path = QFileDialog::getSaveFileName(this, uiText("Kinetica", "Экспорт"), QString(), filters.join(";;"), &chosen);
+    if (path.isEmpty()) return;
+    if (plugins_->openerFor(path, true).isEmpty()) path += chosen.section("(*", 1).section(' ', 0, 0).remove(')'); // the filter's extension
+    if (const QString op = plugins_->openerFor(path, true); !op.isEmpty()) plugins_->openFile(op, path, true);
 }
 
 void MainWindow::importFile(const QString& path) {

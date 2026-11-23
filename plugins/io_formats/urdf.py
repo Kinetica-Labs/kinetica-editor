@@ -300,3 +300,206 @@ def load(scene, path):
     said = f"«{root.get('name', 'робот')}»: {plural(len(entity), 'звено', 'звена', 'звеньев')}, {plural(made, 'сустав', 'сустава', 'суставов')}"
     return {"group": group, "links": len(entity), "joints": made, "note": said + ("; " + "; ".join(sorted(set(notes))) if notes else "")}
 
+
+
+# --- Out: the scene's robot as URDF ------------------------------------------------------------------------------------
+# The inverse of load: each rigid body a <link>, each joint a <joint>; a link's frame is its joint's frame (URDF turns a
+# child about its joint's origin), its shape the <visual> and <collision> under it; the editor's y up turned back to
+# URDF's z up; meshes copied beside the file into <name>-meshes/. What URDF cannot say is said in the note.
+
+def turn(pitch, yaw, roll):
+    """The editor's rotation words as a matrix: Ry(yaw) Rx(pitch) Rz(roll) (the inverse of degrees)."""
+    def about(axis, a):
+        c, s = math.cos(math.radians(a)), math.sin(math.radians(a))
+        if axis == 0:
+            return ((1.0, 0.0, 0.0), (0.0, c, -s), (0.0, s, c))
+        if axis == 1:
+            return ((c, 0.0, s), (0.0, 1.0, 0.0), (-s, 0.0, c))
+        return ((c, -s, 0.0), (s, c, 0.0), (0.0, 0.0, 1.0))
+    return mul(mul(about(1, yaw), about(0, pitch)), about(2, roll))
+
+
+def transpose(m):
+    return tuple(tuple(m[j][i] for j in range(3)) for i in range(3))
+
+
+def inverse(frame):
+    r, p = frame
+    t = transpose(r)
+    return t, tuple(-x for x in rot(t, p))
+
+
+def roll_pitch_yaw(m):
+    """URDF's rpy of a matrix R = Rz(yaw) Ry(pitch) Rx(roll) (the inverse of rpy)."""
+    pitch = math.asin(max(-1.0, min(1.0, -m[2][0])))
+    if abs(m[2][0]) < 0.999999:
+        return math.atan2(m[2][1], m[2][2]), pitch, math.atan2(m[1][0], m[0][0])
+    return 0.0, pitch, math.atan2(-m[0][1], m[1][1]) # gimbal lock: the roll folded into the yaw
+
+
+def after(words, key, n):
+    """The n numbers after a key in a line read by scene_get (a list of words)."""
+    k = words.index(key)
+    return tuple(float(x) for x in words[k + 1:k + 1 + n])
+
+
+def clean(x):
+    """A number for the file: the rounding of a turn's sines and cosines (3e-18, -0) is 0."""
+    return word(0.0 if abs(x) < 1e-9 else x)
+
+
+def origin(element, frame):
+    r, p = frame
+    ET.SubElement(element, "origin", xyz=" ".join(clean(x) for x in p), rpy=" ".join(clean(x) for x in roll_pitch_yaw(r)))
+
+
+def save(scene, path):
+    """The scene's rigid bodies and joints as one URDF robot; meshes copied beside the file. Nothing in the scene changes."""
+    ed = scene.ed
+    stem = os.path.splitext(os.path.basename(path))[0]
+    folder = os.path.dirname(os.path.abspath(path))
+    notes = set()
+    objects = {o["id"]: o for o in ed.scene_list()["objects"]}
+    lines, raw = {}, {}
+
+    def read(i):
+        """An object's lines by their first word (the first of each); raw[i] keeps them all, in order."""
+        if i not in lines:
+            raw[i] = ed.scene_get(id=i)["lines"][1:]
+            lines[i] = {}
+            for w in raw[i]:
+                lines[i].setdefault(w[0], w)
+        return lines[i]
+
+    def world(i):
+        """An object's frame in the scene: its own pose composed under its parents'."""
+        l = read(i)
+        own = l.get("shape") or l.get("pose")
+        here = (turn(*after(own, "rotation", 3)), after(own, "position", 3)) if own else (I3, (0.0, 0.0, 0.0))
+        parent = after(l["object"], "parent", 1)[0] if "parent" in l["object"] else 0
+        return compose(world(int(parent)), here) if parent else here
+
+    bodies = [i for i, o in objects.items() if o.get("kind") == "entity" and "rigid" in read(i)]
+    joints = [i for i, o in objects.items() if o.get("kind") == "joint"]
+    parent_of = {}
+    for j in joints:
+        link = read(j)["link"]
+        a, b = int(after(link, "a", 1)[0]), int(after(link, "b", 1)[0])
+        if a in parent_of or a not in bodies or (b and b not in bodies):
+            notes.add("сустав с телом, у которого уже есть родитель, пропущен: URDF - дерево" if a in parent_of else "сустав не между телами пропущен")
+            continue
+        parent_of[a] = j
+
+    names, frames = {}, {0: (UP, (0.0, 0.0, 0.0))}  # the world: URDF's axes as the editor has them (y up)
+    for i in bodies:
+        name, n = objects[i].get("name") or f"link{i}", 2
+        while name in names.values():
+            name, n = f"{objects[i].get('name')} {n}", n + 1
+        names[i] = name
+        j = parent_of.get(i)
+        frames[i] = world(i) if j is None else compose(world(i), (turn(*after(read(j)["link"], "frame_a", 3)), after(read(j)["link"], "anchor_a", 3)))
+
+    robot = ET.Element("robot", name=stem)
+    ET.SubElement(robot, "link", name="world")
+    meshes = os.path.join(folder, stem + "-meshes")
+    for i in bodies:
+        l = read(i)
+        shape, kind = l["shape"], l["shape"][1]
+        size = after(shape, "size", 3)
+        link = ET.SubElement(robot, "link", name=names[i])
+        inside = compose(inverse(frames[i]), world(i))  # the body in its link's frame
+        geometry, volume = None, 0.0
+        if kind == "box":
+            geometry, volume = ("box", {"size": " ".join(word(x) for x in size)}), size[0] * size[1] * size[2]
+        elif kind == "sphere":
+            geometry, volume = ("sphere", {"radius": word(size[0] / 2)}), 4 / 3 * math.pi * (size[0] / 2) ** 3
+        elif kind == "cylinder":
+            upright = ((1.0, 0.0, 0.0), (0.0, 0.0, -1.0), (0.0, 1.0, 0.0))  # URDF's cylinder stands on its z, the editor's on y
+            inside = (mul(inside[0], transpose(upright)), inside[1])
+            geometry, volume = ("cylinder", {"radius": word(size[0] / 2), "length": word(size[1])}), math.pi * (size[0] / 2) ** 2 * size[1]
+        elif kind == "mesh":
+            source = shape[shape.index("file") + 1]
+            if os.path.isfile(source):
+                lo, hi, closed = read_mesh(source)
+                k = max(size) / (max(hi[m] - lo[m] for m in range(3)) or 1.0)  # the editor scales a mesh so its largest side is the size's
+                centre = tuple((lo[m] + hi[m]) / 2 * k for m in range(3))
+                inside = (inside[0], add(inside[1], tuple(-x for x in rot(inside[0], centre))))  # the file's points, not its centre
+                os.makedirs(meshes, exist_ok=True)
+                target = os.path.join(meshes, os.path.basename(source))
+                if os.path.abspath(source) != os.path.abspath(target):
+                    with open(source, "rb") as f, open(target, "wb") as out:
+                        out.write(f.read())
+                geometry, volume = ("mesh", {"filename": f"{stem}-meshes/{os.path.basename(source)}", "scale": " ".join([word(k)] * 3)}), closed * k ** 3
+            else:
+                notes.add(f"нет файла сетки {os.path.basename(source)}")
+        else:
+            notes.add(f"форма {kind} не выражается в URDF: звено без формы")
+        rigid = l["rigid"]
+        mass = after(rigid, "mass", 1)[0] if "mass" in rigid else after(rigid, "density", 1)[0] * volume
+        if geometry:
+            colour = after(shape, "color", 3) if "color" in shape else (0.7, 0.7, 0.72)
+            for tag in ("visual", "collision"):
+                element = ET.SubElement(link, tag)
+                origin(element, inside)
+                ET.SubElement(ET.SubElement(element, "geometry"), geometry[0], **geometry[1])
+                if tag == "visual":
+                    ET.SubElement(ET.SubElement(element, "material", name=f"color_{i}"), "color",
+                                  rgba=" ".join(word(x) for x in colour) + " 1")
+        if mass > 0:
+            inertial = ET.SubElement(link, "inertial")
+            origin(inertial, inside)
+            ET.SubElement(inertial, "mass", value=word(mass))
+            x, y, z = (size[0], size[2], size[1]) if kind == "cylinder" else size  # in the shape's own URDF frame
+            if kind == "sphere":
+                d = 0.4 * mass * (size[0] / 2) ** 2
+                ixx = iyy = izz = d
+            elif kind == "cylinder":
+                r = size[0] / 2
+                ixx = iyy = mass * (3 * r * r + size[1] ** 2) / 12
+                izz = mass * r * r / 2
+            else:  # a box, a mesh by its box
+                ixx, iyy, izz = mass * (y * y + z * z) / 12, mass * (x * x + z * z) / 12, mass * (x * x + y * y) / 12
+            ET.SubElement(inertial, "inertia", ixx=word(ixx), iyy=word(iyy), izz=word(izz), ixy="0", ixz="0", iyz="0")
+
+    made = 0
+    for i in bodies:
+        j = parent_of.get(i)
+        if j is None:  # a root: fixed in the world, or free (URDF's floating joint)
+            fixed = after(read(i)["rigid"], "fixed", 1)[0] if "fixed" in read(i)["rigid"] else 0
+            element = ET.SubElement(robot, "joint", name=f"{names[i]}_to_world", type="fixed" if fixed else "floating")
+            ET.SubElement(element, "parent", link="world")
+            ET.SubElement(element, "child", link=names[i])
+            origin(element, compose(inverse(frames[0]), frames[i]))
+            if not fixed:
+                notes.add("свободное тело - сустав floating, его понимают не все программы")
+            continue
+        l = read(j)
+        b = int(after(l["link"], "b", 1)[0])
+        dofs = [w[1] for w in raw[j] if w[0] in ("free", "limit")]
+        kind = "fixed"
+        if len(dofs) == 1 and dofs[0] in ("rx", "ry", "rz"):
+            kind = "revolute" if l.get("limit") else "continuous"
+        elif len(dofs) == 1 and dofs[0] in ("tx", "ty", "tz"):
+            kind = "prismatic"
+        elif dofs:
+            notes.add("сустав с несколькими степенями свободы записан как fixed: в URDF их нет")
+        element = ET.SubElement(robot, "joint", name=objects[j].get("name") or f"joint{j}", type=kind)
+        ET.SubElement(element, "parent", link=names[b] if b else "world")
+        ET.SubElement(element, "child", link=names[i])
+        origin(element, compose(inverse(frames[b]), frames[i]))
+        if kind != "fixed":
+            axis = {"x": "1 0 0", "y": "0 1 0", "z": "0 0 1"}[dofs[0][1]]
+            ET.SubElement(element, "axis", xyz=axis)
+            limit = l.get("limit")
+            lower, upper = (after(limit, "lower", 1)[0], after(limit, "upper", 1)[0]) if limit else (-1.0, 1.0)
+            if kind == "prismatic" and not limit:
+                notes.add("у сдвигового сустава без предела записан предел ±1 м: URDF его требует")
+            attrs = {"effort": "1000", "velocity": "10"} | ({} if kind == "continuous" else {"lower": word(lower), "upper": word(upper)})
+            ET.SubElement(element, "limit", **attrs)
+        made += 1
+    ET.indent(robot)
+    ET.ElementTree(robot).write(path, encoding="utf-8", xml_declaration=True)
+    if any(any(ord(ch) > 127 for ch in n) for n in names.values()):
+        notes.add("имена звеньев не латиницей: ROS и его инструменты ждут латиницу")
+    said = f"«{stem}.urdf»: {plural(len(bodies), 'звено', 'звена', 'звеньев')}, {plural(made, 'сустав', 'сустава', 'суставов')}"
+    return {"links": len(bodies), "joints": made, "note": said + ("; " + "; ".join(sorted(notes)) if notes else "")}
