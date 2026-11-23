@@ -73,6 +73,7 @@ void testPhysicsThreadsDeterministic();
 void testSimBoxRestsOnFloor();
 void testMetamorphicMoved();
 void testMetamorphicTurned();
+void testMetamorphicHalfTurned();
 void testMetamorphicMirrored();
 void testMetamorphicOrder();
 void testSimForces();

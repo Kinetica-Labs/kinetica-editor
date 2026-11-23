@@ -61,14 +61,16 @@ std::pair<double, double> gap(const std::vector<Pose>& got, const std::vector<Po
 
 constexpr int kFrames = 150; // 2.5 s: fallen, bounced, at rest
 
-// The control: the first run with one body 10 µm off - how far a tumble carries a difference that small. A metamorphic
-// gap within this is the chaos of contacts, not a fault of the change.
+// The control of the tumble's chaos: the first run with one body 10 µm higher and turned 1e-5 degrees about every axis -
+// the contact's geometry itself disturbed (which corner touches first), not a shift along the endless floor. A gap of a
+// change within this is chaos; a gap far above it is the change.
 double controlGap() {
     const std::vector<Pose> first = run(tumbling(), kFrames);
     SceneGraph g = tumbling();
-    g.entities[0].position.x += 1e-5_r;
+    g.entities[0].position.y += 1e-5_r;
+    g.entities[0].rotationDeg = g.entities[0].rotationDeg + Vector3(1e-5_r);
     const auto [place, turn] = gap(run(g, kFrames), first, [](const Pose& p) { return p; });
-    std::printf("  the control - one body 10 µm off: %.2g m, %.2g rad from the first run\n", place, turn);
+    std::printf("  the control of chaos - one body 10 µm higher, turned 1e-5°: %.2g m, %.2g rad from the first run\n", place, turn);
     return std::max(place, turn);
 }
 
@@ -96,11 +98,24 @@ void testMetamorphicTurned() {
     CHECK(place < 2e-3 && turn < 2e-3, "turned scene: a body %g m / %g rad off the turned first run", place, turn);
 }
 
+// Turned half round about y: (x, z) -> (-x, -z) - a rotation like the quarter, so no change of hand: beside the mirror
+// it says whether a gap is the mirror's own (the solver's handedness) or any big change's.
+void testMetamorphicHalfTurned() {
+    const std::vector<Pose> first = run(tumbling(), kFrames);
+    SceneGraph g = tumbling();
+    const auto half = [](const Vector3& v) { return Vector3(-v.x, v.y, -v.z); }; // Ry(180°)
+    for (Entity& e : g.entities) e.position = half(e.position), e.rotationDeg.y += 180;
+    const auto [place, turn] = gap(run(g, kFrames), first, [&half](const Pose& p) { return Pose{half(p.at), half(p.x), half(p.y)}; });
+    std::printf("  the scene turned half round about y: %.2g m, %.2g rad from the turned first run\n", place, turn);
+    CHECK(place < 2e-3 && turn < 2e-3, "half-turned scene: a body %g m / %g rad off the turned first run", place, turn);
+}
+
 // Mirrored x -> -x: a place's x changes its sign; a turn Ry(a) Rx(b) Rz(c) becomes Ry(-a) Rx(b) Rz(-c); a body's own axes
 // are the mirrored ones, its x reversed besides (a mirror image of a right-handed frame, made right-handed again). The
-// flight mirrors to the bit; the contacts do not: Box3D's contact solver is handed (its manifolds' order, its friction
-// directions), and one bounce leaves about 5 mm - 500 times the control's 10 µm, so not the chaos of a tumble but the
-// solver (docs/contracts/physics.md, «Что не гарантируется»). Held under 1 cm, so that a worse asymmetry is seen.
+// flight mirrors to the bit; the contacts do not: one bounce leaves about 5 mm - a hundred times the control of chaos
+// (0.04 mm) and the half turn (0.04 mm), so it is the change of hand itself, in the contact solver (where in it - the
+// order of its manifold's points, its friction directions - is not checked: docs/contracts/physics.md). Held under 1 cm,
+// so that a worse asymmetry is seen.
 void testMetamorphicMirrored() {
     SceneGraph g = tumbling();
     const auto mirror = [](const Vector3& v) { return Vector3(-v.x, v.y, v.z); };

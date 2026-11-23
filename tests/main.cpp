@@ -65,6 +65,7 @@ int main() {
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("metamorphic: the scene moved along the floor, the run moved with it", testMetamorphicMoved);
     run("metamorphic: the scene turned about y, the run turned with it", testMetamorphicTurned);
+    run("metamorphic: the scene turned half round, the run turned with it", testMetamorphicHalfTurned);
     run("metamorphic: the scene mirrored, the run mirrored", testMetamorphicMirrored);
     run("metamorphic: the objects made in the other order, the same run to the bit", testMetamorphicOrder);
     run("world: a force acts on rigid bodies by the formulas, once or all the time, and takes live edits", testSimForces);
