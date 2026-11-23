@@ -215,6 +215,7 @@
 | `on` | `bool` | включить; false - выключить | stable |  |
 | `open_force` | `number` | сила, с которой схват открывается, Н | stable |  |
 | `ops` | `[]` | операции пакета `[{op, args}]` - одним шагом отмены | stable |  |
+| `overrides` | `[]` | переопределения частей сборки: `{name, line, key, values}` - `scene_set` по имени детали внутри неё (как prefab overrides) | stable |  |
 | `part` | `str` | часть окна на снимке: view, toolbar, tools, inspector, sequencer, plots, console, laboratory | stable |  |
 | `pivot` | `[3]` | точка, вокруг которой поворачивают, м | stable |  |
 | `place` | `[2]` | место в кадре: доли ширины и высоты вида от левого верхнего угла | stable |  |
@@ -295,7 +296,7 @@
 
 ### stable
 
-`app_quit` `assembly_actuator` `assembly_attach` `assembly_camera` `assembly_can_reach` `assembly_drive` `assembly_encoder` `assembly_goal` `assembly_goal_pose` `assembly_grip` `assembly_joint` `assembly_path` `assembly_power` `assembly_preset` `assembly_presets` `assembly_preview` `assembly_reach` `assembly_sensor` `assembly_snap` `assembly_suggest` `assembly_wheel` `camera_aim` `component_list` `component_remove` `component_set` `console_note` `controller_add` `controller_input` `edit_redo` `edit_undo` `force_fire` `gizmo_get` `gizmo_set` `journal_lines` `journal_restore` `journal_sessions` `ops_list` `plugin_list` `plugin_new` `plugin_reload` `plugin_scan` `relation_list` `robot_command` `runtime_configure` `runtime_keepalive` `runtime_status` `runtime_stop` `scene_add` `scene_add_camera` `scene_add_force` `scene_add_light` `scene_array` `scene_batch` `scene_collider` `scene_delete` `scene_describe` `scene_duplicate` `scene_get` `scene_group` `scene_list` `scene_move` `scene_new` `scene_open` `scene_put` `scene_remove` `scene_role` `scene_save` `scene_scale` `scene_set` `scene_show_all` `scene_tag` `scene_turn` `scene_ungroup` `schema_get` `schema_list` `script_run` `script_stop` `selection_get` `selection_set` `sensor_models` `sensor_read` `sensor_spec` `sequence_add` `sequence_clear` `sequence_delete_key` `sequence_frame` `sequence_get` `sequence_key` `sequence_key_set` `sequence_seek` `sequence_set` `sim_impulse` `sim_measure` `sim_pause` `sim_play` `sim_record` `sim_state` `sim_step` `sim_stop` `ui_actions` `ui_key` `ui_pointer` `ui_trigger` `ui_type` `view_draw` `view_frame` `view_get` `view_hud` `view_look` `view_measure` `view_project` `view_screenshot` `view_through` `world_get` `world_set`
+`app_quit` `assembly_actuator` `assembly_add` `assembly_attach` `assembly_camera` `assembly_can_reach` `assembly_drive` `assembly_encoder` `assembly_goal` `assembly_goal_pose` `assembly_grip` `assembly_joint` `assembly_list` `assembly_path` `assembly_power` `assembly_preset` `assembly_presets` `assembly_preview` `assembly_reach` `assembly_save` `assembly_sensor` `assembly_snap` `assembly_suggest` `assembly_wheel` `camera_aim` `component_list` `component_remove` `component_set` `console_note` `controller_add` `controller_input` `edit_redo` `edit_undo` `force_fire` `gizmo_get` `gizmo_set` `journal_lines` `journal_restore` `journal_sessions` `ops_list` `plugin_list` `plugin_new` `plugin_reload` `plugin_scan` `relation_list` `robot_command` `runtime_configure` `runtime_keepalive` `runtime_status` `runtime_stop` `scene_add` `scene_add_camera` `scene_add_force` `scene_add_light` `scene_array` `scene_batch` `scene_collider` `scene_delete` `scene_describe` `scene_duplicate` `scene_get` `scene_group` `scene_list` `scene_move` `scene_new` `scene_open` `scene_put` `scene_remove` `scene_role` `scene_save` `scene_scale` `scene_set` `scene_show_all` `scene_tag` `scene_turn` `scene_ungroup` `schema_get` `schema_list` `script_run` `script_stop` `selection_get` `selection_set` `sensor_models` `sensor_read` `sensor_spec` `sequence_add` `sequence_clear` `sequence_delete_key` `sequence_frame` `sequence_get` `sequence_key` `sequence_key_set` `sequence_seek` `sequence_set` `sim_impulse` `sim_measure` `sim_pause` `sim_play` `sim_record` `sim_state` `sim_step` `sim_stop` `ui_actions` `ui_key` `ui_pointer` `ui_trigger` `ui_type` `view_draw` `view_frame` `view_get` `view_hud` `view_look` `view_measure` `view_project` `view_screenshot` `view_through` `world_get` `world_set`
 
 ### testing
 
@@ -327,6 +328,7 @@
 | `angular_velocity` | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | stable |  |
 | `args` | строка аргументов операции - она же её схема | stable |  |
 | `asleep` | тело уснуло: не движется, мир его не считает | stable |  |
+| `assemblies` | сборки: имя и файл каждой (`assembly_list`) | stable |  |
 | `axle` | ось колеса - её сустав | stable |  |
 | `b` | второе тело контакта | stable |  |
 | `battery` | батарея | stable |  |

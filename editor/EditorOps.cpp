@@ -5,12 +5,14 @@
 #include "EditorOps.h"
 
 #include "EditorRuntime.h"
+#include "Resources.h"
 
 #include "SceneBuilder.h"
 #include "api/Scene.h"
 #include "core/Format.h"
 #include "scene/ArgsSchema.h"
 #include "scene/Assembly.h"
+#include "scene/SceneFiles.h"
 #include "scene/SceneOps.h"
 
 #include <QFileInfo>
@@ -152,6 +154,15 @@ void EditorOps::addSceneOps() {
         QString err;
         return builder_->saveFile(a.value("file").toString(), err) ? ok({{"file", QFileInfo(a.value("file").toString()).absoluteFilePath()}}) : error(err);
     });
+    for (const char* name : {"assembly_list", "assembly_add", "assembly_save"}) // the core's, as kinetica-core has them (SceneFiles.h)
+        addHostSync(name, [this, name](const QJsonObject& a) {
+            ke::Value answer = ke::Value::map();
+            std::string why;
+            const ke::AssemblyEdit edit = [this](const auto& change, std::string& err) { return builder_->transact(change, err); };
+            if (!ke::assemblyCall(name, coreValue(a), builder_->graph(), resourceDir("data").toStdString(), edit, answer, why))
+                return error(QString::fromStdString(why));
+            return ok(coreJson(answer).toObject());
+        });
     addHostSync("scene_new", [this](const QJsonObject&) {
         builder_->newScene();
         return ok();

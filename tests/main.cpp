@@ -25,6 +25,7 @@ int main() {
     run("live edit: what a built world takes and what it needs a new world for", testLiveEditClassifier);
     run("scene api: the window's recorded answers, line by line, through a Scene with no window", testSceneApiTranscript);
     run("scene api: ops_list is the window's entries for its own operations and no others", testSceneApiOperationsList);
+    run("scene api: hyper-operations - a batch building a robot by references, an assembly in one call", testSceneApiHyperOperations);
     run("scene api: a built world takes a light on the way and is stopped by a body; Stop gives the scene back", testSceneApiBuiltWorld);
     run("scene api: the words of this host's refusals", testSceneApiRefusals);
     run("scene api: files - a save, an open in another host, the errors in words", testSceneApiFiles);
@@ -105,6 +106,7 @@ int main() {
     run("scene graph: the physics line - left out at the defaults, kept when set, refused out of range", testScenePhysicsLine);
     run("ablation: a role of other physics is refused with its line and word", testSceneRefusesOtherPhysics);
     run("scene graph: the file does not depend on the locale (decimal comma)", testSceneGraphLocale);
+    run("scene graph: an assembly cut out and put in twice keeps its links", testSceneAssemblies);
     run("scene graph: a force the core cannot act on does not load", testSceneForceFile);
     run("scene graph: groups, instances and arrays round trip; a child of a turned group", testHierarchyInstancesRoundTrip);
     run("array: line, grid and circle copies where the pattern puts them, seeded jitter", testExpandArrayPatterns);

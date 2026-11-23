@@ -84,6 +84,7 @@ private:
     void stopWorld(bool keepEdits);
     const Value& schemaOf(Op& op);
 
+    std::string dataDir_; // the program's data: sensors' tables, assemblies
     Document doc_;
     std::unique_ptr<Simulation> sim_;
     std::map<std::string, Op> ops_;

@@ -1,10 +1,11 @@
-// A scene with no window (Scene.h): the table of operations - the core's, the world's and the host's own nine - their
+// A scene with no window (Scene.h): the table of operations - the core's, the world's and the host's own twelve - their
 // call in the order the window keeps, the world built and stepped in place, what a running world takes of an edit, and
 // the scene's files for this host.
 #include "api/Scene.h"
 
 #include "core/Json.h"
 #include "scene/ArgsSchema.h"
+#include "scene/SceneFiles.h"
 #include "scene/SensorSpec.h"
 
 #include <cstdio>
@@ -26,50 +27,6 @@ Value failure(const std::string& why) {
     return a;
 }
 
-bool refuse(std::string& error, const std::string& why) {
-    error = why;
-    return false;
-}
-
-bool readSceneFile(const std::string& path, SceneGraph& out, std::string& error) {
-    if (path.empty()) return refuse(error, "не назван файл");
-    const fs::path p = fs::u8path(path);
-    std::error_code ec;
-    const fs::path whole = fs::absolute(p, ec).lexically_normal();
-    if (!fs::exists(p, ec)) return refuse(error, "нет файла «" + path + "»" + (p.is_relative() ? " (искали: " + whole.generic_u8string() + ")" : ""));
-    if (fs::is_directory(p, ec)) return refuse(error, "«" + path + "» - каталог, а не файл");
-    std::ifstream in(p, std::ios::binary);
-    if (!in) return refuse(error, "файл «" + path + "» не читается");
-    std::ostringstream text;
-    text << in.rdbuf();
-    SceneGraph g;
-    if (!g.load(validUtf8(text.str()), error)) return false;
-    g.baseDirectory = whole.parent_path().generic_u8string(); // model files next to the scene
-    out = std::move(g);
-    return true;
-}
-
-// Written whole or not at all: a failed save leaves the old file as it was. `savedAs`: the absolute path.
-bool writeSceneFile(const SceneGraph& g, const std::string& path, std::string& savedAs, std::string& error) {
-    if (path.empty()) return refuse(error, "не назван файл");
-    std::error_code ec;
-    const fs::path whole = fs::absolute(fs::u8path(path), ec).lexically_normal();
-    if (!fs::is_directory(whole.parent_path(), ec)) return refuse(error, "нет каталога «" + whole.parent_path().generic_u8string() + "» для файла «" + path + "»");
-    SceneGraph saved = g;
-    rebaseFiles(saved, whole.parent_path().generic_u8string()); // into another folder, the models' and textures' paths are written from there
-    fs::path part = whole;
-    part += ".part";
-    {
-        std::ofstream out(part, std::ios::binary);
-        out << saved.save();
-        if (!out.flush()) return fs::remove(part, ec), refuse(error, "файл «" + path + "» не записывается");
-    }
-    fs::rename(part, whole, ec);
-    if (ec) return fs::remove(part, ec), refuse(error, "файл «" + path + "» не записывается");
-    savedAs = whole.generic_u8string(); // forward slashes on every system, as the window answers
-    return true;
-}
-
 std::string unknown(const std::string& name) {
     if (name == "sim_play" || name == "sim_pause") return "нет операции «" + name + "» в kinetica-core: часов нет, время идёт по sim_step (scene.run, scene.step)";
     return "нет операции «" + name + "» в kinetica-core (ops_list называет все её операции; выбор, вид, консоль, плагины и журнал есть только у окна)";
@@ -82,6 +39,19 @@ const std::vector<HostOp>& hostOps() {
         {"scene_new", "A new scene: the floor and nothing else, the play range 0..10 s (the world's duration)", "{}", "edit"},
         {"scene_open", "A scene file opened (one undo step back to the scene before)", "{file: str}", "edit"},
         {"scene_save", "The scene saved to a file", "{file: str}", "action"},
+        {"assembly_list", "The assemblies (сборки) - parts of scenes kept as scene files, a car, a gripper, a stand: the program's own and the "
+                          "user's (assembly_save), each its name and file", "{}", "query"},
+        {"assembly_add", "An assembly put into the scene in one step: by its name (assembly_list), a file, or text - blocks of the "
+                         "scene file as scene_get gives them, with ids of their own (unused ones are given: whatever refers to whatever "
+                         "inside keeps doing so) - so a whole robot of shapes, joints, drives, sensors and a controller is one call. Under a "
+                         "group of its name standing at position (none: the origin) - the group moves and turns it whole. Answers the "
+                         "group's id and each id of the text with the one it got. overrides: its parts changed as it goes in, each a scene_set by "
+                         "the part's name - {name: \"Батарея 1\", line: cells, key: parallel, values: [2]} - so a ready robot takes "
+                         "another battery, motor or panel in the same call", "{name?: str, file?: str, text?: str, position?: [x,y,z], "
+                         "overrides?: [{name: str, line: str, key?: str, values?: []}]}", "edit"},
+        {"assembly_save", "The objects ids with all under them and what belongs to them - joints between them, their sensors, drivers and "
+                          "batteries, the controllers that drive only them - kept as the user's assembly of this name (a scene file "
+                          "standing about the origin on the floor). Answers its file", "{ids: [int], name: str}", "action"},
         {"edit_undo", "Undo the last step. Answers what it changed: the objects' ids, whether the world did; undone false: nothing left to undo", "{}", "edit"},
         {"edit_redo", "Redo the step undone last. Answers what it changed, as edit_undo", "{}", "edit"},
         {"sim_stop", "Stop: the scene as it was before play", "{}", "window"},
@@ -139,7 +109,7 @@ bool editsGraph(const std::string& name) {
 
 const char* untilStopNote() { return "сцена играет: правка действует до ■ Стоп - sim_stop вернёт сцену, какой она была до ▶"; }
 
-Scene::Scene(const std::string& dataDir) {
+Scene::Scene(const std::string& dataDir) : dataDir_(dataDir) {
     sensorCatalog().clear();
     if (!dataDir.empty()) {
         const fs::path dir = fs::u8path(dataDir) / "sensors";
@@ -247,6 +217,9 @@ bool Scene::hostCall(const std::string& name, const Value& args, Value& answer, 
         std::string file;
         if (!writeSceneFile(doc_.graph, args["file"].text(), file, error)) return false;
         answer.set("file", file);
+    } else if (name.compare(0, 9, "assembly_") == 0) {
+        if (name == "assembly_add" && doc_.mode != PlayMode::Edit) stopWorld(false);
+        return assemblyCall(name, args, doc_.graph, dataDir_, [this](const auto& change, std::string& why) { return doc_.transact(change, why); }, answer, error);
     } else if (name == "edit_undo" || name == "edit_redo") {
         const bool undo = name == "edit_undo";
         const SceneGraph before = doc_.graph;

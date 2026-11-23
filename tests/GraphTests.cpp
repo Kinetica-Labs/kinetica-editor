@@ -2,9 +2,13 @@
 // the physics line is written only when it differs from the defaults and comes back.
 #include "TestRunner.h"
 
+#include "scene/Assembly.h"
+#include "scene/SceneActions.h"
 #include "scene/SceneEdits.h"
+#include "scene/SceneFiles.h"
 #include "scene/SceneGraph.h"
 
+#include <algorithm>
 #include <clocale>
 #include <cmath>
 #include <cstdio>
@@ -281,4 +285,60 @@ void testSceneGraphLocale() {
     std::printf("  C library in %s: the file %s, it %s\n", chosen, there == text ? "is the same" : "CHANGED", loaded ? "loads" : "does not load");
     CHECK(there == text, "the scene file depends on the locale %s:\n%s", chosen, there.c_str());
     CHECK(loaded && back.save() == text, "a file does not load in the locale %s: %s", chosen, error.c_str());
+}
+
+// An assembly (SceneFiles.h) cut out of a scene and put into it twice: a chassis and a wheel on a hinge with a DC motor,
+// its driver and battery, a controller driving the chassis - every reference still points inside its own copy, a box not
+// asked for stays out, the assembly stands on the floor about the origin, each copy under its group where it was put.
+void testSceneAssemblies() {
+    SceneGraph g;
+    auto box = [&](uint32_t id, Vector3 at) {
+        Entity e;
+        e.id = id, e.name = "Ящик " + std::to_string(id), e.position = at, e.size = {0.2_r, 0.2_r, 0.2_r}, e.rigid.enabled = true, e.collider.enabled = true;
+        g.entities.push_back(e);
+    };
+    box(3, {1, 0.5_r, 0}), box(4, {1, 0.3_r, 0.3_r}), box(9, {-2, 0.1_r, 0});
+    JointObject j;
+    j.id = 5, j.name = "Ось", j.a = 4, j.b = 3, j.dof[DofRx].motion = JointMotion::Free, j.dof[DofRx].drive.enabled = true, j.dof[DofRx].drive.constant = 0.3_r;
+    g.joints.push_back(j);
+    BatteryObject b;
+    b.id = 6, b.name = "Батарея";
+    g.batteries.push_back(b);
+    DriverObject d;
+    d.id = 7, d.name = "Драйвер", d.joint = 5, d.battery = 6;
+    g.drivers.push_back(d);
+    ControllerObject c;
+    c.id = 8, c.name = "Пульт";
+    ControllerAction a;
+    a.name = "throttle", a.drive = ControlDrive::Value, a.target = 3;
+    c.actions = {a};
+    g.controllers.push_back(c);
+
+    const SceneGraph part = assemblyOf(g, {3, 4});
+    const bool cut = part.entities.size() == 2 && part.joints.size() == 1 && part.drivers.size() == 1 && part.batteries.size() == 1 && part.controllers.size() == 1;
+    const Real low = std::min(part.entities[0].position.y, part.entities[1].position.y) - 0.1_r;
+    CHECK(cut && std::fabs(low) < 1e-5_r && std::fabs(part.entities[0].position.x) < 1e-5_r, "the chassis, the wheel and what is theirs, standing on the floor about the origin");
+    const std::string text = part.save();
+    std::string error;
+    std::map<uint32_t, uint32_t> first, second;
+    const uint32_t g1 = insertAssembly(g, text, "", {5, 0, 0}, "Машинка", error, &first);
+    const uint32_t g2 = insertAssembly(g, text, "", {-5, 0, 0}, "Машинка", error, &second);
+    CHECK(g1 && g2 && error.empty() && g.entities.size() == 7 && g.joints.size() == 3 && g.drivers.size() == 3 && g.controllers.size() == 3,
+          "two copies put in: %s", error.c_str());
+    bool linked = true;
+    for (const auto* given : {&first, &second}) {
+        const JointObject* axle = findJoint(g, given->at(5));
+        const auto find = [](const auto& list, uint32_t id) { const auto it = std::find_if(list.begin(), list.end(), [id](const auto& o) { return o.id == id; }); return it == list.end() ? nullptr : &*it; };
+        const DriverObject* bridge = find(g.drivers, given->at(7));
+        const ControllerObject* panel = find(g.controllers, given->at(8));
+        linked = linked && axle && axle->a == given->at(4) && axle->b == given->at(3) && bridge && bridge->joint == given->at(5) &&
+                 bridge->battery == given->at(6) && panel && panel->actions[0].target == given->at(3);
+    }
+    CHECK(linked && first.at(3) != second.at(3) && first.at(3) != 3, "each copy's joint, driver and controller point inside it");
+    Vector3 p;
+    Quaternion q;
+    worldPose(g, *findObject(g, first.at(3)), p, q);
+    CHECK(std::fabs(p.x - 5) < 1e-4_r && findObject(g, first.at(3))->parent == g1, "the copy stands where it was put, under its group: x %f", double(p.x));
+    CHECK(shiftedIds("controller \"П\"\n  object id 8\n  action t axis drive value target 3 speed 1\nend\n", 10) ==
+              "controller \"П\"\n  object id 18\n  action t axis drive value target 13 speed 1\nend\n", "a line's leading id and a key's id move, nothing else");
 }

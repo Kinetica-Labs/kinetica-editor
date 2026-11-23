@@ -27,6 +27,7 @@ void testDocumentPlayBookkeeping();
 // LiveEditTests.cpp
 void testLiveEditClassifier();
 // SceneApiTests.cpp
+void testSceneApiHyperOperations();
 void testSceneApiTranscript();
 void testSceneApiOperationsList();
 void testSceneApiBuiltWorld();
@@ -114,6 +115,7 @@ void testSceneOpacity();
 void testScenePhysicsLine();
 void testSceneGraphLocale();
 void testSceneForceFile();
+void testSceneAssemblies();
 // AblationTests.cpp
 void testSceneRefusesOtherPhysics();
 // ArrayTests.cpp

@@ -341,3 +341,31 @@ void testSceneApiTwoScenesAgree() {
     const std::string first = script(), second = script();
     CHECK(first == second && first.size() > 2000, "the same script on two fresh scenes says the same text, but for the machine's timing (%zu)", first.size());
 }
+
+// Hyper-operations: one scene_batch builds a robot - a box, a wheel, the hinge between them by "$1" and "$0" - and a
+// reference to no step is refused with words; assembly_add puts the built-in sports car in, whole, in one call.
+void testSceneApiHyperOperations() {
+    Scene scene(KE_DATA);
+    const Value built = call(scene, "scene_batch", R"({"ops": [
+        {"op": "scene_add", "args": {"shape": "box", "position": [0, 0.3, 0], "size": [0.6, 0.05, 0.3], "role": "rigid"}},
+        {"op": "scene_add", "args": {"shape": "cylinder", "position": [0, 0.3, 0.2], "size": [0.2, 0.06, 0.2], "role": "rigid"}},
+        {"op": "assembly_joint", "args": {"a": "$1", "b": "$0", "type": "hinge", "anchor": [0, 0.3, 0.18], "axis": [0, 0, 1]}}]})");
+    const auto& steps = built["results"].items();
+    CHECK(built["ok"].truth() && steps.size() == 3 && scene.graph().joints.size() == 1 && scene.graph().joints[0].a == uint32_t(steps[1]["id"].integer()) &&
+              scene.graph().joints[0].b == uint32_t(steps[0]["id"].integer()), "one batch: two shapes and the hinge between them: %s", built["error"].text("").c_str());
+    const Value wrong = call(scene, "scene_batch", R"({"ops": [{"op": "assembly_joint", "args": {"a": "$4", "b": 0, "type": "hinge"}}]})");
+    CHECK(!wrong["ok"].truth() && wrong["error"].text().find("no earlier step 4") != std::string::npos, "a reference to no step: %s", wrong["error"].text().c_str());
+    const size_t before = scene.graph().entities.size();
+    const Value car = call(scene, "assembly_add", R"({"name": "Спорткар", "position": [3, 0, 0]})");
+    CHECK(car["ok"].truth() && scene.graph().entities.size() == before + 14 && scene.graph().drivers.size() == 2 && scene.graph().controllers.size() == 1,
+          "the sports car in one call: %s", car["error"].text("").c_str());
+    const Value bigger = call(scene, "assembly_add", R"({"name": "Спорткар", "position": [-3, 0, 0], "overrides": [{"name": "Батарея 1", "line": "cells", "key": "parallel", "values": [2]}]})");
+    const auto pack = std::find_if(scene.graph().batteries.begin(), scene.graph().batteries.end(), [&](const BatteryObject& b) { return b.id == uint32_t(bigger["ids"]["31"].integer()); });
+    CHECK(bigger["ok"].truth() && pack != scene.graph().batteries.end() && pack->parallel == 2, "an override changes its part as it goes in: %s", bigger["error"].text("").c_str());
+    CHECK(!call(scene, "assembly_add", R"({"name": "Спорткар", "overrides": [{"name": "Нет такой", "line": "cells", "key": "parallel", "values": [2]}]})")["ok"].truth(),
+          "an override of no part is refused, nothing put in");
+    const Value listed = call(scene, "assembly_list");
+    bool found = false;
+    for (const Value& a : listed["assemblies"].items()) found = found || a["name"].text() == "Спорткар";
+    CHECK(found, "assembly_list names the built-in sports car");
+}

@@ -57,7 +57,7 @@ add_library(kecore STATIC
   src/devices/ForceTorque.h src/devices/ForceTorque.cpp
   src/electro/Battery.h    src/electro/Battery.cpp
   src/scene/JointModel.h   src/scene/JointModel.cpp src/scene/Visuals.h
-  src/scene/SceneGraph.h   src/scene/SceneGraph.cpp src/scene/SceneHierarchy.cpp src/scene/EntityShapes.cpp
+  src/scene/SceneGraph.h   src/scene/SceneGraph.cpp src/scene/SceneHierarchy.cpp src/scene/SceneFiles.h src/scene/SceneFiles.cpp src/scene/EntityShapes.cpp
   src/scene/SceneEdits.h   src/scene/SceneEdits.cpp
   src/scene/Document.h     src/scene/Document.cpp
   src/scene/LiveEdit.h     src/scene/LiveEdit.cpp
