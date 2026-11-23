@@ -3,8 +3,8 @@
 //     paused, red recording (MainWindow::syncRecord) -, so nobody edits a running scene thinking it is the one kept;
 //   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around -
 //     the turn is no longer a mystery when the point is far away;
-//   - following a body: the camera keeps its own orbit about a moving body of the frame - or, chasing, sits behind it
-//     along its heading and catches up its turns and its centre with a lag (a game's spring arm).
+//   - following a body: the camera keeps its own orbit about a moving body of the frame - or, chasing, recentres
+//     behind its motion as games do: after a while with no hand on it, only going forward, aiming a little ahead.
 #include "Viewport.h"
 
 #include <QPainter>
@@ -13,14 +13,10 @@
 
 namespace {
 
-constexpr float kChaseTurn = 0.35f, kChaseMove = 0.12f; // s: the lags of the heading and of the centre
-
-// The yaw (OrbitCamera's: the eye at cos, sin of it from the target) of an eye behind a body turned `rot`: its own x
-// on the ground, reversed.
-float behindYaw(const ke::Quaternion& rot) {
-    const ke::Vector3 ahead = rot.rotate(ke::Vector3(1, 0, 0));
-    return float(qRadiansToDegrees(std::atan2(-double(ahead.z), -double(ahead.x))));
-}
+// The chase camera, as games make theirs (Cinemachine's recentering, a SpringArm's lag): it recentres behind the motion
+// only after kWait s with no hand on the orbit, only going forward, the faster the faster (full at kFullSpeed), in
+// kRecentre s; it aims kLead s ahead of the body and catches that up in kCatch s.
+constexpr float kWait = 1.0f, kRecentre = 1.2f, kFullSpeed = 2.0f, kLead = 0.3f, kCatch = 0.15f;
 
 float wrapped(float deg) { return deg - 360.0f * std::floor((deg + 180.0f) / 360.0f); }
 
@@ -84,11 +80,8 @@ bool Viewport::followBody(uint32_t object) {
     stopFlying();
     if (!followedBody_) sceneOrbit_=camera_;
     const QVector3D centre(body->pos.x,body->pos.y,body->pos.z);
-    if (chase_) { // behind it, a little above, along its heading
-        const float yaw = qDegreesToRadians(behindYaw(body->rot));
-        camera_.lookAt(centre + QVector3D(2.4f * std::cos(yaw), 1.0f, 2.4f * std::sin(yaw)), centre);
-        chaseHeading_ = behindYaw(body->rot), chaseTime_ = -1;
-    } else if (bodyOrbitSaved_) camera_=bodyOrbit_;
+    chaseTime_ = -1; // chasing too: no jump behind - it starts where it looks and recentres as it drives
+    if (bodyOrbitSaved_) camera_=bodyOrbit_;
     else camera_.lookAt(centre+QVector3D(1.8f,1.0f,1.8f),centre);
     followedBody_=object;
     updateBodyOrbit();
@@ -117,11 +110,23 @@ void Viewport::updateBodyOrbit() {
         const double now = double(snap_->time);
         const float dt = chaseTime_ < 0 || now < chaseTime_ ? -1.0f : float(now - chaseTime_); // back in time: a new run
         chaseTime_ = now;
-        if (dt < 0) return camera_.translate(centre-camera_.target()); // the first frame, or a jump: at once
-        const float turn = (1.0f - std::exp(-dt / kChaseTurn)) * wrapped(behindYaw(b.rot) - chaseHeading_);
-        chaseHeading_ += turn;
-        camera_.turnYaw(turn); // the heading's change only: an orbit the mouse made stays
-        camera_.translate((centre-camera_.target()) * (1.0f - std::exp(-dt / kChaseMove)));
+        if (dt < 0) { // the first frame: as the plain follow, the books started
+            chaseCentre_ = centre, chaseVelocity_ = QVector3D(), chaseYaw_ = camera_.yaw(), chaseTouched_ = now;
+            return camera_.translate(centre-camera_.target());
+        }
+        if (dt == 0) return;
+        if (camera_.yaw() != chaseYaw_) chaseTouched_ = now; // the mouse turned it since: it waits again
+        chaseVelocity_ += ((centre - chaseCentre_) / dt - chaseVelocity_) * (1.0f - std::exp(-dt / 0.2f));
+        chaseCentre_ = centre;
+        const QVector3D flat(chaseVelocity_.x(), 0, chaseVelocity_.z());
+        const ke::Vector3 nose = b.rot.rotate(ke::Vector3(1, 0, 0));
+        const float speed = flat.length();
+        if (now - chaseTouched_ > kWait && speed > 0.3f && QVector3D::dotProduct(flat, QVector3D(nose.x, 0, nose.z)) > 0) {
+            const float behind = qRadiansToDegrees(std::atan2(-flat.z(), -flat.x())); // behind the motion, not the body
+            camera_.turnYaw((1.0f - std::exp(-dt / kRecentre)) * std::min(1.0f, speed / kFullSpeed) * wrapped(behind - camera_.yaw()));
+        }
+        chaseYaw_ = camera_.yaw();
+        camera_.translate((centre + flat * kLead - camera_.target()) * (1.0f - std::exp(-dt / kCatch))); // where it will be
         return;
     }
     followBody(0); // removed body or reset: restore the scene view (the wish waits for the next run)

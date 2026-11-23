@@ -212,9 +212,9 @@ void testFollow(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     pump(200);
 }
 
-// Вид → «Камера преследования» on a box spinning about the vertical at 1 rad/s, free in the air (no gravity): the camera
-// sits behind its heading (its own -x on the ground) and turns with it, a lag behind - at a steady turn ω τ, 20° for
-// τ = 0.35 s.
+// Вид → «Камера преследования», as games make it: on a box flying along +x at 1.5 m/s (no gravity) the camera does not
+// jump behind it at ▶ - its first frames it turns by little -, and after a second it swings round behind the motion:
+// four seconds on it looks along +x from within 25°.
 void testChase(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.newScene();
     dynamic_cast<MainWindow&>(w).operators()->runNow("world_set", {{"line", "world"}, {"key", "gravity"}, {"values", QJsonArray{0, 0, 0}}});
@@ -222,21 +222,18 @@ void testChase(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     const uint32_t id = last(b).id;
     b.editEntity(id, [](Entity& e) {
         e.position = Vector3(0, 1.0f, 0), e.rigid.enabled = true, e.collider.enabled = true;
-        e.rigid.angularVelocity = Vector3(0, 1, 0);
+        e.rigid.velocity = Vector3(1.5f, 0, 0);
     });
     b.select(id);
     trigger(w, "actionFollowSelected");
     trigger(w, "actionChaseCamera");
     b.play();
-    waitFrames(v, 90, 30000);
-    float lag = 999, turned = 0;
-    if (auto s = v->snapshot(); s && b.bodyOfEntity(id) >= 0) {
-        const ke::Vector3 ahead = s->bodies[size_t(b.bodyOfEntity(id))].rot.rotate(ke::Vector3(1, 0, 0));
-        const float behind = float(qRadiansToDegrees(std::atan2(-double(ahead.z), -double(ahead.x))));
-        lag = std::fmod(behind - v->camera().yaw() + 540.0f, 360.0f) - 180.0f, turned = std::fmod(180.0f - behind + 540.0f, 360.0f) - 180.0f;
-    }
-    std::printf("  chase: the box turned %.0f°, the camera %.0f° behind its heading\n", turned, lag);
-    c.check(v->chase() && std::fabs(turned) > 45 && std::fabs(lag) > 5 && std::fabs(lag) < 35, "the chase camera turns with the box, a lag behind");
+    waitFrames(v, 10, 30000);
+    const float start = v->camera().yaw();
+    waitFrames(v, 240, 30000);
+    const float behind = std::fabs(std::fmod(180.0f - v->camera().yaw() + 540.0f, 360.0f) - 180.0f);
+    std::printf("  chase: at ▶ the camera at %.0f°, four seconds on %.0f° off behind the motion (180°)\n", start, behind);
+    c.check(v->chase() && std::fabs(start - 180.0f) > 60 && behind < 25, "the chase camera does not jump at ▶ and swings behind the motion");
     trigger(w, "actionChaseCamera");
     trigger(w, "actionEscape");
     b.stop();

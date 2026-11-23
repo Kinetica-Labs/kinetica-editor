@@ -99,9 +99,9 @@ void EditorOps::addStateOps() {
     });
     addSync("view_follow", "The view's camera follows a body's centre of mass whenever the world plays - now, or from the next ▶ - and orbits "
                            "it as the mouse turns it (Вид → «Следить за выделенным», Shift+F); body 0: the editor's own view again. "
-                           "chase: a chase camera - behind the body along its heading (its own x on the ground), catching up its turns "
-                           "(0.35 s) and its centre (0.12 s) as a game's spring arm, the mouse's orbit about it kept (Вид → «Камера "
-                           "преследования»); not given: as it was. view_look, view_through, F and Home end it",
+                           "chase: a chase camera as games make it - no jump, it starts where it looks; going forward, a second after the "
+                           "mouse last turned it, it swings behind the motion (1.2 s, slower under 2 m/s), and aims 0.3 s ahead of the "
+                           "body (Вид → «Камера преследования»); not given: as it was. view_look, view_through, F and Home end it",
             "{body: int, chase?: bool}", [this](const QJsonObject& a) {
         const uint32_t id = uint32_t(a.value("body").toInt());
         if (id && !ke::findEntity(builder_->graph(), id)) return error(QString("no body %1 in the scene").arg(id));
