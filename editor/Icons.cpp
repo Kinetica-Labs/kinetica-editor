@@ -1006,7 +1006,11 @@ QIcon layoutIcon(LayoutIcon kind, int size) {
 // drawn at the tab's size and at twice it for a sharp screen.
 QIcon panelIcon(PanelIcon kind, int size) {
     static const char* const names[] = {"plots", "console", "sequencer", "laboratory", "scene", "object", "world"};
-    QSvgRenderer svg(resourceDir("data") + "/icons/panels/" + names[int(kind)] + ".svg");
+    return svgIcon(QString("panels/") + names[int(kind)], size);
+}
+
+QIcon svgIcon(const QString& name, int size) {
+    QSvgRenderer svg(resourceDir("data") + "/icons/" + name + ".svg");
     QIcon icon;
     for (const qreal scale : {1.0, 2.0}) {
         QPixmap pm(int(size * scale), int(size * scale));

@@ -331,12 +331,13 @@ void Viewport::drawEditLabel(QPainter& p) {
     if (text.isEmpty()) return;
     if (!typed_.isEmpty()) text = "= " + typed_ + "   " + text;
     const QFontMetrics fm(p.font());
-    const QRectF box(lastMouse_ + QPointF(18, -30), QSizeF(fm.horizontalAdvance(text) + 16, fm.height() + 8));
+    const QRect lines = fm.boundingRect(QRect(), 0, text); // a tool's step may say more on the lines below
+    const QRectF box(lastMouse_ + QPointF(18, -30), QSizeF(lines.width() + 16, lines.height() + 8));
     p.setPen(Qt::NoPen);
     p.setBrush(QColor(20, 22, 27, 215));
     p.drawRoundedRect(box, 5, 5);
     p.setPen(QColor(255, 222, 120));
-    p.drawText(box, Qt::AlignCenter, text);
+    p.drawText(box.adjusted(8, 4, -8, -4), Qt::AlignLeft | Qt::AlignVCenter, text);
 }
 
 // Each joint as what it lets the links do (JointGlyphs.h), over everything: a generic joint as a

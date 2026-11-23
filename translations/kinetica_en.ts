@@ -7319,5 +7319,45 @@ Sample </translation>
         <source>Сустав, шаг 2/2: ведите стрелку на ВТОРУЮ деталь и щёлкните · Esc — заново</source>
         <translation>Joint, step 2/2: move the arrow onto the OTHER part and click · Esc - again</translation>
     </message>
+    <message>
+        <source>«%1» — не тело: станет неподвижной опорой</source>
+        <translation>«%1» is no body: becomes a fixed base</translation>
+    </message>
+    <message>
+        <source>«%1» закреплено — двигаться не будет</source>
+        <translation>«%1» is fixed: it will not move</translation>
+    </message>
+    <message>
+        <source>в Пуске: «%1» держится намертво</source>
+        <translation>in Play: «%1» holds rigid</translation>
+    </message>
+    <message>
+        <source>в Пуске: «%1» качнётся вниз</source>
+        <translation>in Play: «%1» swings down</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: ось вертикальна — тяжесть не крутит; нужен привод или толчок</source>
+        <translation>in Play it stands: the axis is upright, gravity does not turn it; needs a drive or a push</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: ось через центр масс — нужен привод или толчок (ребро — петля)</source>
+        <translation>in Play it stands: the axis goes through the centre of mass; needs a drive or a push (an edge - a hinge)</translation>
+    </message>
+    <message>
+        <source>в Пуске: «%1» поедет вниз по оси</source>
+        <translation>in Play: «%1» slides down the axis</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: ось горизонтальна — нужен привод или толчок</source>
+        <translation>in Play it stands: the axis is level; needs a drive or a push</translation>
+    </message>
+    <message>
+        <source>в Пуске: «%1» повиснет, болтаясь</source>
+        <translation>in Play: «%1» hangs and dangles</translation>
+    </message>
+    <message>
+        <source>«%1» стоит на полу — пол может удержать</source>
+        <translation>«%1» stands on the floor: the floor may hold it</translation>
+    </message>
 </context>
 </TS>

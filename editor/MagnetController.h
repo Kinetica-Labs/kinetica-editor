@@ -73,6 +73,7 @@ private:
     ke::JointType joinKind(const JoinSnap& s) const;
     uint32_t moverOf(uint32_t first, uint32_t second) const; // which of two shapes moves: the smaller, unless M swapped it
     void joinPress(const Place& p);
+    QString playForecast(uint32_t second) const; // what Play will do with the joint about to be made, in words
     void showJoint(const Place& p);
     void setJoining(bool on);
     void drag(QPointF pos);

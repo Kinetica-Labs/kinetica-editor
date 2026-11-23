@@ -97,7 +97,7 @@ MagnetController::MagnetController(EditorOps* ops, SceneBuilder* builder, Viewpo
                         "Ctrl+щелчок по двум деталям — соединить.<br>"
                         "1–5 выбрать, 0 подсказка, A ось, Tab перевернуть, M зеркало, Esc выход"));
     action_->setMenu(buildMenu());
-    jointAction_ = new QAction(linkIcon(LinkIcon::Rotary, 48), uiText("Kinetica", "Сустав"), this);
+    jointAction_ = new QAction(svgIcon("joints/joint-tool", 48), uiText("Kinetica", "Сустав"), this);
     jointAction_->setObjectName("jointTool");
     jointAction_->setCheckable(true);
     jointAction_->setToolTip(uiText("Kinetica", "<b>Сустав</b>: соединить две стоящие детали.<br>"
@@ -109,16 +109,14 @@ MagnetController::MagnetController(EditorOps* ops, SceneBuilder* builder, Viewpo
     const std::pair<const char*, const char*> joinKinds[] = {{"auto", uiText("Kinetica", "0  ★ по месту: центр — вал, ребро — петля, угол — шар")},
                                                              {"hinge", uiText("Kinetica", "1  Шарнир — качается")}, {"slider", uiText("Kinetica", "2  Ползун — скользит")},
                                                              {"ball", uiText("Kinetica", "3  Шар — во все стороны")}, {"weld", uiText("Kinetica", "4  Сварка — намертво")}};
-    const LinkIcon joinIcons[] = {LinkIcon::Rotary, LinkIcon::Rotary, LinkIcon::Linear, LinkIcon::Ball, LinkIcon::Weld};
     for (int k = 0; k < 5; ++k) {
-        QAction* a = k == 0 ? kinds->addAction(joinKinds[k].second) : kinds->addAction(linkIcon(joinIcons[k], 24), joinKinds[k].second);
+        QAction* a = kinds->addAction(svgIcon(QString("joints/") + joinKinds[k].first, 24), joinKinds[k].second);
         a->setObjectName(QString("joint_") + joinKinds[k].first);
         a->setCheckable(true);
         a->setChecked(k == 0);
         kindGroup->addAction(a);
-        connect(a, &QAction::triggered, this, [this, word = QString(joinKinds[k].first), icon = joinIcons[k]] {
+        connect(a, &QAction::triggered, this, [this, word = QString(joinKinds[k].first)] {
             joinType_ = word;
-            jointAction_->setIcon(linkIcon(icon, 48));
             if (!jointAction_->isChecked()) jointAction_->setChecked(true);
             else if (hasLast_) preview(last_);
         });
@@ -425,6 +423,36 @@ ke::JointType MagnetController::joinKind(const JoinSnap& s) const {
            : joinType_ == "weld" ? ke::JointType::Fixed : s.type;
 }
 
+// What Play will do with the joint about to be made, said before the click (the ghost shows only what the joint lets): a base
+// that is no body yet becomes a fixed one; a mover that is fixed stays; gravity turns a hinge's mover only if its centre is
+// off the axis and the axis is not upright, slides a slider's only along a not-level axis.
+QString MagnetController::playForecast(uint32_t second) const {
+    const uint32_t mover = moverOf(joinFrom_.at.target, second), base = mover == second ? joinFrom_.at.target : second;
+    const ke::Entity* m = ke::findEntity(builder_->graph(), mover);
+    const ke::Entity* b = ke::findEntity(builder_->graph(), base);
+    if (!m || !b) return QString();
+    QStringList said;
+    if (!b->rigid.enabled) said << QString(uiText("Kinetica", "«%1» — не тело: станет неподвижной опорой")).arg(QString::fromStdString(b->name));
+    const Vector3 g = builder_->graph().world.gravity, axis = joinAxis(joinFrom_), r = m->position - joinFrom_.at.point;
+    const ke::JointType type = joinKind(joinFrom_);
+    const float weight = float(ke::length(g)) + 1e-6f;
+    const QString name = QString::fromStdString(m->name);
+    if (m->rigid.enabled && m->rigid.fixed) said << QString(uiText("Kinetica", "«%1» закреплено — двигаться не будет")).arg(name);
+    else if (type == ke::JointType::Fixed) said << QString(uiText("Kinetica", "в Пуске: «%1» держится намертво")).arg(name);
+    else if (type == ke::JointType::Hinge) {
+        const float turn = std::fabs(float(ke::dot(axis, ke::cross(r, g)))) / weight; // the lever gravity has about the axis, m
+        said << (turn > 0.01f * float(ke::maxComp(m->size)) ? QString(uiText("Kinetica", "в Пуске: «%1» качнётся вниз")).arg(name)
+                 : std::fabs(float(ke::dot(axis, g))) > 0.9f * weight ? QString(uiText("Kinetica", "в Пуске стоит: ось вертикальна — тяжесть не крутит; нужен привод или толчок"))
+                                                                       : QString(uiText("Kinetica", "в Пуске стоит: ось через центр масс — нужен привод или толчок (ребро — петля)")));
+    } else if (type == ke::JointType::Slider)
+        said << (std::fabs(float(ke::dot(axis, g))) > 0.05f * weight ? QString(uiText("Kinetica", "в Пуске: «%1» поедет вниз по оси")).arg(name)
+                                                                      : QString(uiText("Kinetica", "в Пуске стоит: ось горизонтальна — нужен привод или толчок")));
+    else said << QString(uiText("Kinetica", "в Пуске: «%1» повиснет, болтаясь")).arg(name);
+    if (m->rigid.dynamic() && m->position.y - 0.5f * m->size.y < 0.05f) // its bottom on the floor: the floor may hold it
+        said << QString(uiText("Kinetica", "«%1» стоит на полу — пол может удержать")).arg(name);
+    return said.join("\n");
+}
+
 // The smaller of the two moves (a part on a base), a shape that is no body yet stays; M swaps.
 uint32_t MagnetController::moverOf(uint32_t first, uint32_t second) const {
     const auto volume = [this](uint32_t id) {
@@ -506,7 +534,8 @@ void MagnetController::showJoint(const Place& p) {
     const bool other = p.found && joinFrom_.at.found && p.target != joinFrom_.at.target;
     view_->setMagnetLabel(!joinFrom_.at.found ? (s.at.found ? QString(uiText("Kinetica", "1/2 · %1 · щёлкните — здесь ось")).arg(where)
                                                             : QString(uiText("Kinetica", "1/2 · наведите на деталь")))
-                          : other ? QString(uiText("Kinetica", "2/2 · щёлкните — соединить")) : QString(uiText("Kinetica", "2/2 · ведите на вторую деталь")));
+                          : other ? QString(uiText("Kinetica", "2/2 · щёлкните — соединить")) + "\n" + playForecast(p.target)
+                                  : QString(uiText("Kinetica", "2/2 · ведите на вторую деталь")));
     emit statusMessage(!joinFrom_.at.found
                            ? (s.at.found ? QString(uiText("Kinetica", "Сустав, шаг 1/2 · %1: щёлкните — здесь будет ось · 0–4 вид, A ось, Tab, Ctrl без привязки, Esc выход")).arg(where)
                                          : QString(uiText("Kinetica", "Сустав, шаг 1/2: наведите на деталь — центр грани, ребро или угол подскажут вид")))

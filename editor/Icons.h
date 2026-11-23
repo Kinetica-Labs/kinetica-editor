@@ -56,5 +56,7 @@ enum class LayoutIcon { LeftBar, Customize, BottomPanel, RightBar, Count };
 // on a time line, a flask; the scene's tree, a cube, a globe.
 enum class PanelIcon { Plots, Console, Sequencer, Laboratory, Scene, Object, World, Count };
 QIcon panelIcon(PanelIcon kind, int size = 16);
+// A line icon of data/icons/<name>.svg (the user's drawings: panels/, forces/, joints/), sharp at 1x and 2x.
+QIcon svgIcon(const QString& name, int size);
 QIcon layoutIcon(LayoutIcon kind, int size = 20);
 
