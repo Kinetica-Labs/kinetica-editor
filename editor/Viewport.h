@@ -94,6 +94,7 @@ public:
     const NavCube& navCube() const { return navCube_; }
     // What the mouse buttons and keys do right now, for the status bar (hintChanged when it changes).
     QString mouseHint() const;
+    void setMagnetLabel(const QString& text) { magnetLabel_ = text; update(); }
     // Play: the nearest body of the physics engine the mouse may grab hit by the ray (its mesh's
     // triangles; a body only a few pixels wide is taken when the ray passes near it).
     bool pickBody(const Ray& ray, int& body, ke::Vector3& hit) const;
@@ -492,6 +493,7 @@ private:
     QTimer* flyTimer_ = nullptr;
     QElapsedTimer flyClock_;
     QString lastHint_;
+    QString magnetLabel_; // «Сустав»'s step, by the cursor (drawEditLabel)
     bool editMode_ = false, gizmoVisible_ = false;
     Gizmo gizmo_;
     std::vector<GizmoPiece> gizmoPieces_; // reused every frame: drawing the gizmo allocates nothing

@@ -652,7 +652,7 @@ void Viewport::updateHint() {
 void Viewport::setMagnetMode(bool on) {
     if (on) setCreateMode(false);
     magnetMode_ = on;
-    if (!on) magnetGhost_.clear(), magnetJoint_.clear();
+    if (!on) magnetGhost_.clear(), magnetJoint_.clear(), magnetLabel_.clear();
     setCursor(on ? Qt::CrossCursor : Qt::ArrowCursor);
     update();
 }

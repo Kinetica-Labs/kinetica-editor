@@ -483,8 +483,16 @@ void MagnetController::showJoint(const Place& p) {
         if (v.type == ke::JointType::Hinge) appendArrow(glyphs_, o - v.axis * (1.5f * size), o + v.axis * (3.0f * size), eye, 0.6f * size);
         if (v.type == ke::JointType::Slider)
             for (float k : {-1.0f, 1.0f}) appendArrow(glyphs_, o, o + v.axis * (k * 3.0f * size), eye, 0.6f * size);
-        if (joinFrom_.at.found && p.found && p.target != joinFrom_.at.target) // what joins to what: from the axis to the part under the mouse
-            appendArrow(glyphs_, o, p.point, eye, 0.6f * size);
+        if (joinFrom_.at.found) { // a rubber band from the axis to the mouse, wherever it is: to the part under it, else in the air
+            Vector3 to = p.point;
+            if (!p.found || p.target == joinFrom_.at.target) {
+                const Ray r = view_->camera().screenRay(last_, view_->size());
+                const Vector3 n = view.forward();
+                const float d = float(ke::dot(r.dir, n));
+                to = std::fabs(d) > 1e-4f ? r.at(float(ke::dot(o - r.origin, n)) / d) : o;
+            }
+            appendArrow(glyphs_, o, to, eye, 0.6f * size);
+        }
         if (joinFrom_.at.found && p.found && p.target != joinFrom_.at.target) {
             const uint32_t mover = moverOf(joinFrom_.at.target, p.target);
             if (const ke::Entity* e = ke::findEntity(builder_->graph(), mover))
@@ -495,10 +503,15 @@ void MagnetController::showJoint(const Place& p) {
     else if (!animation_->isActive()) animation_->start(), animate();
     static const char* const kinds[] = {"центр грани", "ребро", "угол", "точка", "ось цилиндра", "центр шара"};
     const QString where = s.at.found ? QString("%1 · %2").arg(uiText("Kinetica", kinds[s.kind]), jointText(joinKind(s))) : QString();
+    const bool other = p.found && joinFrom_.at.found && p.target != joinFrom_.at.target;
+    view_->setMagnetLabel(!joinFrom_.at.found ? (s.at.found ? QString(uiText("Kinetica", "1/2 · %1 · щёлкните — здесь ось")).arg(where)
+                                                            : QString(uiText("Kinetica", "1/2 · наведите на деталь")))
+                          : other ? QString(uiText("Kinetica", "2/2 · щёлкните — соединить")) : QString(uiText("Kinetica", "2/2 · ведите на вторую деталь")));
     emit statusMessage(!joinFrom_.at.found
-                           ? (s.at.found ? QString(uiText("Kinetica", "Сустав · %1: щелчок — здесь ось · 0–4 вид, A ось, Tab, Ctrl без привязки")).arg(where)
-                                         : QString(uiText("Kinetica", "Сустав: наведите на грань — центр, ребро или угол подскажут вид")))
-                           : QString(uiText("Kinetica", "Сустав · %1: щёлкните вторую деталь — движется меньшая (M — другая), Shift — ещё один")).arg(where));
+                           ? (s.at.found ? QString(uiText("Kinetica", "Сустав, шаг 1/2 · %1: щёлкните — здесь будет ось · 0–4 вид, A ось, Tab, Ctrl без привязки, Esc выход")).arg(where)
+                                         : QString(uiText("Kinetica", "Сустав, шаг 1/2: наведите на деталь — центр грани, ребро или угол подскажут вид")))
+                       : other ? QString(uiText("Kinetica", "Сустав, шаг 2/2 · %1: щёлкните — детали соединятся; призрак показывает, как пойдёт · M — двигать другую")).arg(where)
+                               : QString(uiText("Kinetica", "Сустав, шаг 2/2: ведите стрелку на ВТОРУЮ деталь и щёлкните · Esc — заново")));
 }
 
 void MagnetController::openPie() {
@@ -545,8 +558,13 @@ void MagnetController::pin(int preset) {
 }
 
 void MagnetController::key(int key) {
-    if (key == Qt::Key_Escape) return action_->setChecked(false), jointAction_->setChecked(false);
+    if (key == Qt::Key_Escape && !(joining_ && joinFrom_.at.found)) return action_->setChecked(false), jointAction_->setChecked(false);
     if (joining_) {
+        if (key == Qt::Key_Escape) { // step 2: back to step 1, not out
+            joinFrom_ = JoinSnap();
+            if (hasLast_) preview(last_);
+            return;
+        }
         if (key >= Qt::Key_0 && key <= Qt::Key_4)
             if (QAction* a = jointAction_->menu()->actions().value(key - Qt::Key_0)) a->trigger();
         if (key == Qt::Key_A) ++joinAxis_;

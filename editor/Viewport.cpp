@@ -319,7 +319,8 @@ void Viewport::drawGizmo(const QMatrix4x4& vp) {
 // The amount of the drag in words next to the cursor ("X +0.35 м"), and the typed number; the size of a
 // shape being drawn.
 void Viewport::drawEditLabel(QPainter& p) {
-    QString text = createMode_ ? createTool_.sizeText(createWhat_) : gizmo_.dragging() ? QString::fromStdString(gizmo_.dragLabel()) : QString();
+    QString text = createMode_ ? createTool_.sizeText(createWhat_) : gizmo_.dragging() ? QString::fromStdString(gizmo_.dragLabel())
+                   : magnetMode_ ? magnetLabel_ : QString();
     if (editTool_.draggingHandle()) { // a point's value as it goes, by the cursor
         const ShapeHandle& h = editTool_.draggedHandle();
         const Vector3 at = editTool_.draggedTo();

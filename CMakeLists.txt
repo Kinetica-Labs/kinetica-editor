@@ -224,7 +224,7 @@ if(Qt6_FOUND)
     resources/icons/kinetica-16.png resources/icons/kinetica-24.png resources/icons/kinetica-32.png resources/icons/kinetica-48.png
     resources/icons/kinetica-64.png resources/icons/kinetica-128.png resources/icons/kinetica-256.png
     resources/icons/menu-arrow.png resources/icons/menu-arrow@2x.png
-    resources/icons/force-push.png resources/icons/force-thrust.png resources/icons/force-blast.png resources/icons/force-pull.png
+    resources/icons/force-push.png
     resources/icons/lidar.png)
   if(WIN32) # the program's own icon: what Explorer, the taskbar and a shortcut show
     target_sources(kinetica PRIVATE resources/kinetica.rc)

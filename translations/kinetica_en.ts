@@ -7268,14 +7268,6 @@ Sample </translation>
         <translation>Joint: </translation>
     </message>
     <message>
-        <source>Сустав · %1: щелчок — здесь ось · 0–4 вид, A ось, Tab, Ctrl без привязки</source>
-        <translation>Joint · %1: click - the axis here · 0-4 kind, A axis, Tab, Ctrl no snap</translation>
-    </message>
-    <message>
-        <source>Сустав · %1: щёлкните вторую деталь — движется меньшая (M — другая), Shift — ещё один</source>
-        <translation>Joint · %1: click the other part - the smaller moves (M - the other), Shift - one more</translation>
-    </message>
-    <message>
         <source>центр грани</source>
         <translation>face centre</translation>
     </message>
@@ -7294,6 +7286,38 @@ Sample </translation>
     <message>
         <source>центр шара</source>
         <translation>sphere centre</translation>
+    </message>
+    <message>
+        <source>1/2 · %1 · щёлкните — здесь ось</source>
+        <translation>1/2 · %1 · click - the axis here</translation>
+    </message>
+    <message>
+        <source>1/2 · наведите на деталь</source>
+        <translation>1/2 · hover a part</translation>
+    </message>
+    <message>
+        <source>2/2 · щёлкните — соединить</source>
+        <translation>2/2 · click - join</translation>
+    </message>
+    <message>
+        <source>2/2 · ведите на вторую деталь</source>
+        <translation>2/2 · move to the other part</translation>
+    </message>
+    <message>
+        <source>Сустав, шаг 1/2 · %1: щёлкните — здесь будет ось · 0–4 вид, A ось, Tab, Ctrl без привязки, Esc выход</source>
+        <translation>Joint, step 1/2 · %1: click - the axis goes here · 0-4 kind, A axis, Tab, Ctrl no snap, Esc out</translation>
+    </message>
+    <message>
+        <source>Сустав, шаг 1/2: наведите на деталь — центр грани, ребро или угол подскажут вид</source>
+        <translation>Joint, step 1/2: hover a part - a face centre, edge or corner suggests the kind</translation>
+    </message>
+    <message>
+        <source>Сустав, шаг 2/2 · %1: щёлкните — детали соединятся; призрак показывает, как пойдёт · M — двигать другую</source>
+        <translation>Joint, step 2/2 · %1: click - the parts join; the ghost shows the motion · M - move the other</translation>
+    </message>
+    <message>
+        <source>Сустав, шаг 2/2: ведите стрелку на ВТОРУЮ деталь и щёлкните · Esc — заново</source>
+        <translation>Joint, step 2/2: move the arrow onto the OTHER part and click · Esc - again</translation>
     </message>
 </context>
 </TS>
