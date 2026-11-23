@@ -598,13 +598,15 @@ void PlotPanel::rebuildCharts() {
     } else {
         std::vector<int> scene, object;
         for (int i = 0; i < int(charts_.size()); ++i) (charts_[size_t(i)].object ? object : scene).push_back(i);
-        const bool headers = !object.empty();
-        box->addWidget(section(headers ? QString(uiText("Kinetica", "Сцена")) : QString(), scene, true), std::max(1, int(scene.size())));
-        if (!object.empty()) box->addWidget(section(objectTitle(), object, false), int(object.size()));
+        const QString sceneTitle = uiText("Kinetica", "Сцена");
+        const int own = shownOf(sceneTitle, chartTitles(scene)); // the room by its charts ticked - none: its header and «+» only
+        box->addWidget(section(sceneTitle, scene, true), own, own ? Qt::Alignment() : Qt::AlignTop);
+        if (!object.empty()) box->addWidget(section(objectTitle(), object, false), shownOf(objectTitle(), chartTitles(object)));
     }
     for (size_t i = 0; i < plugins_.size(); ++i) { // in every layout; the room by its charts ticked - none: its header only
-        int shown = 0;
-        for (const SharedChart& c : plugins_[i].charts) shown += !hiddenPluginCharts_.count(plugins_[i].title + '\n' + c.title);
+        std::vector<QString> titles;
+        for (const SharedChart& c : plugins_[i].charts) titles.push_back(c.title);
+        const int shown = shownOf(plugins_[i].title, titles);
         box->addWidget(pluginSection(i), shown, shown ? Qt::Alignment() : Qt::AlignTop);
     }
     scroll_->setWidget(host);
@@ -627,19 +629,55 @@ TrackChart* PlotPanel::normalizedView() {
     return v;
 }
 
-// A part of the charts: its header (when there are two parts), its charts - side by side, three to a
-// row, or as lanes one under another - and, in the scene's part, the quiet «+» for one more chart.
-QWidget* PlotPanel::section(const QString& header, const std::vector<int>& charts, bool plus) {
+// A section's header, «Сцена ▾» or a plugin's: its ▾ lists the section's charts with a tick each; an unticked one is not
+// drawn and holds no room (kept by the section's and the chart's titles: a plugin started again keeps the choice).
+QToolButton* PlotPanel::sectionHeader(const QString& title, const std::vector<QString>& charts) {
+    auto* button = new QToolButton;
+    button->setObjectName("plotSection");
+    button->setText(title + " ▾");
+    button->setToolTip(uiText("Kinetica", "Какие графики раздела видны"));
+    button->setAutoRaise(true);
+    button->setPopupMode(QToolButton::InstantPopup);
+    button->setStyleSheet("QToolButton { color: #8fc1ff; font-weight: 600; padding-left: 4px; border: none; } QToolButton::menu-indicator { image: none; width: 0; }");
+    auto* menu = new QMenu(button);
+    menu->setObjectName("plotSectionMenu");
+    for (const QString& chart : charts) {
+        QAction* a = menu->addAction(chart);
+        a->setCheckable(true);
+        a->setChecked(!hiddenCharts_.count(title + '\n' + chart));
+        connect(a, &QAction::toggled, this, [this, k = title + '\n' + chart](bool on) {
+            if (on) hiddenCharts_.erase(k);
+            else hiddenCharts_.insert(k);
+            QTimer::singleShot(0, this, &PlotPanel::rebuildCharts); // not under the menu's own signal: the section goes
+        });
+    }
+    button->setMenu(menu);
+    return button;
+}
+
+int PlotPanel::shownOf(const QString& title, const std::vector<QString>& charts) const {
+    int n = 0;
+    for (const QString& chart : charts) n += !hiddenCharts_.count(title + '\n' + chart);
+    return n;
+}
+
+std::vector<QString> PlotPanel::chartTitles(const std::vector<int>& charts) {
+    std::vector<QString> out;
+    for (int i : charts) out.push_back(titleOf(charts_[size_t(i)]));
+    return out;
+}
+
+// A part of the charts: its header «Сцена ▾» / «Объект: Куб 1 ▾» (none: the chart alone in the whole width), its ticked
+// charts - side by side, three to a row, or as lanes one under another - and, in the scene's part, the quiet «+».
+QWidget* PlotPanel::section(const QString& header, const std::vector<int>& all, bool plus) {
     auto* w = new QWidget;
     auto* col = new QVBoxLayout(w);
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(3);
-    if (!header.isEmpty()) {
-        auto* title = new QLabel(header);
-        title->setObjectName("plotSection");
-        title->setStyleSheet("color: #8fc1ff; font-weight: 600; padding-left: 4px;");
-        col->addWidget(title);
-    }
+    std::vector<int> charts;
+    for (int i : all)
+        if (header.isEmpty() || !hiddenCharts_.count(header + '\n' + titleOf(charts_[size_t(i)]))) charts.push_back(i);
+    if (!header.isEmpty()) col->addWidget(sectionHeader(header, chartTitles(all)), 0, Qt::AlignLeft);
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     const bool lanes = arrangement_ == Arrangement::Lanes;
@@ -683,31 +721,13 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
     col->setContentsMargins(0, 0, 0, 0);
     col->setSpacing(3);
     const auto key = [&s](const SharedChart& c) { return s.title + '\n' + c.title; };
-    auto* title = new QToolButton;
-    title->setObjectName("plotSection");
-    title->setText(s.title + " ▾");
-    title->setToolTip(uiText("Kinetica", "Какие графики плагина видны"));
-    title->setAutoRaise(true);
-    title->setPopupMode(QToolButton::InstantPopup);
-    title->setStyleSheet("QToolButton { color: #8fc1ff; font-weight: 600; padding-left: 4px; border: none; } QToolButton::menu-indicator { image: none; width: 0; }");
-    auto* menu = new QMenu(title);
-    menu->setObjectName("plotSectionMenu");
-    for (const SharedChart& c : s.charts) {
-        QAction* a = menu->addAction(c.title);
-        a->setCheckable(true);
-        a->setChecked(!hiddenPluginCharts_.count(key(c)));
-        connect(a, &QAction::toggled, this, [this, k = key(c)](bool on) {
-            if (on) hiddenPluginCharts_.erase(k);
-            else hiddenPluginCharts_.insert(k);
-            QTimer::singleShot(0, this, &PlotPanel::rebuildCharts); // not under the menu's own signal: the section goes
-        });
-    }
-    title->setMenu(menu);
-    col->addWidget(title, 0, Qt::AlignLeft);
+    std::vector<QString> titles;
+    for (const SharedChart& c : s.charts) titles.push_back(c.title);
+    col->addWidget(sectionHeader(s.title, titles), 0, Qt::AlignLeft);
     auto* grid = new QGridLayout;
     grid->setSpacing(6);
     const bool lanes = arrangement_ == Arrangement::Lanes;
-    const auto drawn = [&](size_t k) { return only >= 0 ? int(k) == only : !hiddenPluginCharts_.count(key(s.charts[k])); };
+    const auto drawn = [&](size_t k) { return only >= 0 ? int(k) == only : !hiddenCharts_.count(key(s.charts[k])); };
     int shown = 0;
     for (size_t k = 0; k < s.charts.size(); ++k) shown += drawn(k);
     const int columns = lanes ? 1 : std::clamp(shown, 1, 3);

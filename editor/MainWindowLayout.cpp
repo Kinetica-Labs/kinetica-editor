@@ -72,7 +72,14 @@ void MainWindow::addLayoutButtons() {
     });
     bottomWideAct_->setChecked(QSettings().value("layout/bottomWide", false).toBool());
     viewMenu->addAction(bottomWideAct_);
-    if (sequencer_) sequencer_->addBarAction(bottomWideAct_, "⇔"); // the Sequencer is built before
+    if (sequencer_) sequencer_->addBarAction(bottomWideAct_, "⇔"); // the Sequencer and the plots are built before
+    if (plotsBar_) {
+        auto* wide = new QToolButton;
+        wide->setDefaultAction(bottomWideAct_);
+        wide->setText("⇔");
+        wide->setObjectName("actionBottomWidePlots");
+        plotsBar_->insertWidget(plotsBar_->count() - 2, wide); // before «Очистить» and «Сохранить CSV»
+    }
     // Small and flat: the filled area of the icon tells open from closed, so a checked
     // button gets no highlight of its own, and the menu button no arrow.
     // Small and flat: the filled area of the icon tells open from closed, so a checked

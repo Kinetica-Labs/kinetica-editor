@@ -398,6 +398,13 @@ TrackChart* plotted(QMainWindow& w, const QString& section, size_t k = 0) {
     return nullptr;
 }
 
+// A section's ▾ menu in the plots, by the section's title («Обучение ▾»).
+QMenu* sectionMenu(PlotPanel* plots, const QString& title) {
+    for (auto* b : plots->findChildren<QToolButton*>("plotSection"))
+        if (b->text().startsWith(title + " ")) return b->menu();
+    return nullptr;
+}
+
 // The window's first level (docs/contracts/ui.md): its docked panels by name, each open (+) or closed (-).
 QStringList firstLevel(QMainWindow& w) {
     QStringList out;
@@ -455,6 +462,9 @@ def count(scene, dt, sensors):
     pump(50);
     auto* results = w.findChild<QDockWidget*>("resultsDock");
     c.check(results && results->isVisible(), "the panel's «Графики ▸» opens the plots");
+    auto* wide = w.findChild<QToolButton*>("actionBottomWidePlots");
+    c.check(wide && wide->defaultAction() && wide->defaultAction()->objectName() == "actionBottomWide",
+            "the plots' bar has the bottom panel's ⇔ (the window's whole width), as the Sequencer's has");
     chart = plotted(w, "Счётчик");
     b.newScene();
     ops->runNow("scene_add", {{"shape", "box"}, {"position", QJsonArray{0.0, 1.0, 0.0}}, {"role", "rigid"}});
@@ -634,25 +644,39 @@ def train(scene, generations: int = 5, first: int = 0):
     c.check(stepped, "a step chart takes a point per line whenever one show() carries the x and the line's value, from any thread");
     c.check(shown, "the plugin's chart is in the plots, in a section headed with the panel's title, all its points in sight");
     // The section's ▾: a chart unticked is not drawn, ticked again it is back.
-    auto* menu = plots->findChild<QMenu*>("plotSectionMenu");
+    auto* menu = sectionMenu(plots, "Обучение");
     QAction* tick = menu && !menu->actions().isEmpty() ? menu->actions()[0] : nullptr;
     if (tick) tick->setChecked(false);
     pump(50);
     const TrackChart* off = plotted(w, "Обучение");
     const bool hidden = off && off->isHidden();
-    if ((menu = plots->findChild<QMenu*>("plotSectionMenu")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
+    if ((menu = sectionMenu(plots, "Обучение")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
     pump(50);
     c.check(tick && hidden && plotted(w, "Обучение") && !plotted(w, "Обучение")->isHidden(),
             "the section's ▾ chooses the plugin's charts drawn: unticked - gone, ticked - back");
     // Its only chart unticked, the section keeps its header and no room: the other charts take it.
-    if ((menu = plots->findChild<QMenu*>("plotSectionMenu")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(false);
+    if ((menu = sectionMenu(plots, "Обучение")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(false);
     pump(50);
     auto* drawn = plots->findChild<QWidget*>("plotHost");
     auto* box = drawn ? qobject_cast<QBoxLayout*>(drawn->layout()) : nullptr;
     const bool folded = box && box->count() > 0 && box->stretch(box->count() - 1) == 0 && plots->findChild<QToolButton*>("plotSection");
-    if ((menu = plots->findChild<QMenu*>("plotSectionMenu")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
+    if ((menu = sectionMenu(plots, "Обучение")) && !menu->actions().isEmpty()) menu->actions()[0]->setChecked(true);
     pump(50);
     c.check(folded, "a section with no chart ticked is its header only: it holds no room");
+    // The scene's charts the same: «Сцена ▾» unticks the energy, and back.
+    const auto sceneCharts = [&] {
+        int n = 0;
+        for (TrackChart* v : plots->findChildren<TrackChart*>("trackChart")) n += v->isVisibleTo(plots);
+        return n;
+    };
+    const int energy = sceneCharts();
+    QMenu* scene = sectionMenu(plots, uiText("Kinetica", "Сцена"));
+    if (scene && !scene->actions().isEmpty()) scene->actions()[0]->setChecked(false);
+    pump(50);
+    const int without = sceneCharts();
+    if ((scene = sectionMenu(plots, uiText("Kinetica", "Сцена"))) && !scene->actions().isEmpty()) scene->actions()[0]->setChecked(true);
+    pump(50);
+    c.check(energy > 0 && without == energy - 1 && sceneCharts() == energy, "«Сцена ▾» unticks a chart of the scene too, and ticks it back");
     // A double click on a chart: it alone in the whole width, a way back over it; again - every chart back.
     const auto visibleCharts = [&] {
         int n = 0;

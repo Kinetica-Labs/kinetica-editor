@@ -7030,8 +7030,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/PlotPanel.cpp" line="1"/>
-        <source>Какие графики плагина видны</source>
-        <translation>Which of the plugin's plots are shown</translation>
+        <source>Какие графики раздела видны</source>
+        <translation>Which plots of the section are shown</translation>
     </message>
     <message>
         <location filename="../editor/PlotPanel.cpp" line="1"/>

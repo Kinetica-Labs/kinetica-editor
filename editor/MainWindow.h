@@ -244,6 +244,7 @@ private:
     QAction* localAct_ = nullptr;
     class QActionGroup* toolGroup_ = nullptr;
     PlotPanel* plots_ = nullptr;
+    class QHBoxLayout* plotsBar_ = nullptr; // the quiet bar under the charts: the layout's ⇔ joins it (MainWindowLayout.cpp)
     SceneBuilder* builder_ = nullptr;
     void buildOperators(); // the API's operations and the magnet, before the top bar
     void buildConsoleDock(); // the API console: every call as a Python line, and a line to type calls

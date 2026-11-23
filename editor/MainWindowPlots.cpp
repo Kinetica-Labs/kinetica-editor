@@ -42,7 +42,7 @@ QWidget* MainWindow::buildPlots() {
     auto* col = new QVBoxLayout(host);
     col->setContentsMargins(0, 0, 0, 0);
     col->addWidget(plots_, 1);
-    auto* bar = new QHBoxLayout;
+    auto* bar = plotsBar_ = new QHBoxLayout;
     bar->setContentsMargins(0, 4, 0, 0);
     bar->addWidget(plots_->moreButton());
     bar->addSpacing(8);
