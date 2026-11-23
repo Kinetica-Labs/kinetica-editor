@@ -735,17 +735,24 @@ def train(scene, generations: int = 5, first: int = 0):
                 if (ch.toObject().value("id").toString() == id) return ch.toObject().value("shown").toBool();
             return false;
         };
-        const QString energy = "scene/kinetic energy";
-        const QJsonObject off = call("plots_show", {{"channels", QJsonArray{energy}}, {"on", false}});
+        // A quantity on no chart (a step measures them all), put on and taken off again: the scene's charts are left as
+        // they were - the plots keep them by the scene's name for the next tests.
+        call("sim_step", {{"frames", 3}});
+        QString energy;
+        for (const QJsonValue& ch : call("plots_get", {}).value("channels").toArray())
+            if (!ch.toObject().value("shown").toBool() && energy.isEmpty()) energy = ch.toObject().value("id").toString();
         const QJsonObject on = call("plots_show", {{"channels", QJsonArray{energy}}});
+        const QJsonObject off = call("plots_show", {{"channels", QJsonArray{energy}}, {"on", false}});
         const QJsonObject unknown = call("plots_show", {{"channels", QJsonArray{"no/such"}}});
         const QString csv = QDir::temp().filePath("kinetica-selftest-plots.csv");
         const QJsonObject saved2 = call("plots_save", {{"file", csv}});
         const QJsonObject cleared = call("plots_clear", {});
+        call("sim_stop", {});
         std::printf("  plots_show %s off: shown %s, on: shown %s; an unknown one: %s; plots_save %s; plots_clear %s\n", qPrintable(energy),
                     shownOf(off, energy) ? "yes" : "no", shownOf(on, energy) ? "yes" : "no", qPrintable(unknown.value("error").toString()),
                     QFile::exists(csv) ? "wrote the file" : "-", cleared.value("ok").toBool() ? "ok" : "-");
-        c.check(!shownOf(off, energy) && shownOf(on, energy) && !unknown.value("ok").toBool(), "plots_show puts a quantity on its chart and takes it off; an unknown one is refused");
+        c.check(!energy.isEmpty() && !shownOf(off, energy) && shownOf(on, energy) && !unknown.value("ok").toBool(),
+                "plots_show puts a quantity on its chart and takes it off; an unknown one is refused");
         c.check(saved2.value("ok").toBool() && QFile::exists(csv) && cleared.value("ok").toBool(), "plots_save writes the CSV, plots_clear erases the history");
         QFile::remove(csv);
     }
