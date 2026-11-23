@@ -819,7 +819,7 @@ Vector3 worldPosition(const SceneGraph& g, uint32_t id) {
 // stands where URDF puts its points: a 0.1 m cube from 0 to 0.1 on each axis has its centre at 0.05, 0.05, -0.05.
 void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, PluginHost* host, const QString& folder) {
     QDir().mkpath(folder + "/io_formats");
-    for (const char* file : {"plugin.py", "urdf.py", "gltf.py"}) QFile::copy(resourceDir("plugins") + "/io_formats/" + file, folder + "/io_formats/" + file);
+    for (const char* file : {"plugin.py", "urdf.py", "gltf.py", "kpkg.py"}) QFile::copy(resourceDir("plugins") + "/io_formats/" + file, folder + "/io_formats/" + file);
     QDir().mkpath(folder + "/urdf"); // the old name, obsolete: it answers, it is no format and no button
     QFile::copy(resourceDir("plugins") + "/urdf/plugin.py", folder + "/urdf/plugin.py");
     QDir().mkpath(folder + "/kpkg/meshes");
@@ -925,6 +925,29 @@ void testUrdf(Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, Plugi
                 "«Экспорт…» lists URDF; writing it changes nothing in the scene");
         c.check(again.value("links").toInt() == 6 && again.value("joints").toInt() == 5 && matched == 6 && worst < 1e-3,
                 "URDF out and in again is the same arm: six links each where it was (under 1 mm), five joints");
+    }
+
+    // A package out and in: the UR5e with its models in one .kpkg, opened from it - the same objects, every model found.
+    {
+        QJsonObject opened, packed, unpacked;
+        ops->run("scene_open", {{"file", resourceDir("examples") + "/ur5e.kscene"}}, [&opened](const QJsonObject& r) { opened = r; }, "ui");
+        waitUntil([&] { return !opened.isEmpty(); }, 20000);
+        const size_t objects = b.graph().entities.size();
+        const QString package = folder + "/out/ur5e.kpkg";
+        ops->run("io_formats_kpkg_save", {{"path", package}}, [&packed](const QJsonObject& r) { packed = r; }, "ui");
+        waitUntil([&] { return !packed.isEmpty(); }, 20000);
+        b.newScene();
+        ops->run("io_formats_kpkg_load", {{"path", package}}, [&unpacked](const QJsonObject& r) { unpacked = r; }, "ui");
+        waitUntil([&] { return !unpacked.isEmpty(); }, 20000);
+        int models = 0, found = 0;
+        for (const Entity& e : b.graph().entities)
+            if (e.shape == ShapeKind::Mesh) ++models, found += !entityLocalMesh(e, b.graph().baseDirectory).triangles.empty();
+        std::printf("  package: %s; %s; %zu objects (were %zu), %d of %d models found\n", qPrintable(packed.value("note").toString()),
+                    qPrintable(unpacked.value("note").toString()), b.graph().entities.size(), objects, found, models);
+        c.check(packed.value("files").toInt() == models && host->formats(true).contains("Пакет Kinetica (*.kpkg)") &&
+                    b.graph().entities.size() == objects && models >= 6 && found == models, // the UR5e: one model file a link
+                "a .kpkg holds the scene and its models: out and in, the same objects, every model found from the package's folder");
+        b.newScene();
     }
 
     // The old name still answers - forwarded, the same robot -, and it is no menu item.

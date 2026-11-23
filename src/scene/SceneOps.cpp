@@ -169,10 +169,11 @@ std::vector<SceneOp> readOps() {
             return r.set("objects", objects), true;
         }),
         query("scene_get", "One object's block of the scene file: text, and the same read - kind, name, tags, lines (each line as its words, a "
-              "number as a number); the whole file without an id. With line: values - the count words (1) after key on the object's "
+              "number as a number); the whole file without an id, and folder - where its relative file paths (models, textures) are found "
+              "(\"\": the program's working folder). With line: values - the count words (1) after key on the object's "
               "line that starts with the words of line, as scene_set names them (no key: right after the line's own; null: not there)",
               "{id?: int, line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
-            if (!a.has("id")) return a.has("line") ? (e = "a line is an object's: give its id", false) : (r.set("text", g.save()), true);
+            if (!a.has("id")) return a.has("line") ? (e = "a line is an object's: give its id", false) : (r.set("text", g.save()), r.set("folder", g.baseDirectory), true);
             const std::string block = getObject(g, uint32_t(a["id"].integer()));
             if (block.empty()) return e = "no object " + std::to_string(a["id"].integer()), false;
             if (a.has("line")) return r.set("values", fieldValues(block, a)), true;

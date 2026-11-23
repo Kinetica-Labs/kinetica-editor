@@ -1,5 +1,5 @@
 """io_formats - the scene in and out of the formats the world uses, one plugin for all of them: in - «Файл → Импорт…», a
-file dropped on the view, `ed.io_formats_<format>_load(path=...)`; out - «Файл → Экспорт…», `ed.io_formats_<format>_save`. A file a format (urdf.py, gltf.py) - the code
+file dropped on the view, `ed.io_formats_<format>_load(path=...)`; out - «Файл → Экспорт…», `ed.io_formats_<format>_save`. A file a format (urdf.py, gltf.py, kpkg.py) - the code
 they share has one place to live as it grows. It comes with the editor; the old `urdf_load` and `gltf_load` stay as
 obsolete names forwarding here (plugins/urdf, plugins/gltf: names only grow)."""
 import os
@@ -7,6 +7,7 @@ import os
 from kinetica.plugin import command
 
 import gltf
+import kpkg
 import urdf
 
 ENGLISH = os.environ.get("KE_UI_LANGUAGE") == "en"
@@ -28,3 +29,15 @@ def urdf_save(scene, path: str):
 def gltf_load(scene, path):
     """A scene from glTF (.gltf, .glb): its node tree as groups and shapes, colours, animations of place and turn."""
     return gltf.load(scene, path)
+
+
+@command(label="Kinetica Package" if ENGLISH else "Пакет Kinetica", saves=[".kpkg"])
+def kpkg_save(scene, path: str):
+    """The scene in one file: scene.kscene and the models and textures it refers to, zipped; the scene unchanged."""
+    return kpkg.save(scene, path)
+
+
+@command(label="Kinetica Package" if ENGLISH else "Пакет Kinetica", opens=[".kpkg"])
+def kpkg_load(scene, path: str):
+    """A package unpacked beside it into <name>-files/ and its scene opened there."""
+    return kpkg.load(scene, path)

@@ -210,7 +210,8 @@ The mouse layout is chosen in Settings → Controls.
 <img src="images/ui/icons/shape.png" height="22" alt=""> Shape adds a cube, a sphere, a cylinder, a cone or a plane - in the air over a free spot. Model takes the shape from
 a file. A whole scene or a robot comes through File → Import… (Ctrl+I): glTF (`.gltf`, `.glb`) - nodes, meshes, colours and
 animations, URDF - a robot with its joints. Back out - File → Export…: the scene's robot as URDF for ROS and Gazebo
-(links, joints with their limits, masses; meshes beside it in a `<name>-meshes` folder).
+(links, joints with their limits, masses; meshes beside it in a `<name>-meshes` folder), or the whole scene in one file -
+«Kinetica Package» (`.kpkg`: the scene, its models, its textures) that Import… opens on any machine.
 
 ![The five shapes](images/ui/en/shapes.png)
 
