@@ -429,14 +429,28 @@ into the scene.
 
 ### Plots
 
-Plots (`F9`): on the left - the scene's energy, on the right - the height and the speed of the selected object. The
-curves can be overlaid, stacked, normalised and saved as CSV. The plugins' plots follow, a section per plugin. On the
-left, «What to show» lists the sections (the scene, the selected object, the plugins) and their plots with ticks and a
-find line; a plot unticked is not drawn and takes no room, a section's tick is all its plots. The wheel over a plot
-zooms the time about the mouse - on every plot of the same axis at once; Shift + the wheel zooms the values of this plot;
-the left button drags; ↺ in the plot's corner shows all of it again. ⇔ on the bar under the
-plots makes the bottom panel the window's whole width. A double click on a plot shows it
-alone in the whole width; another, or «◂ All plots», brings them all back.
+Plots (`F9`, the «Plots» button at the top right) - all that changes over time: the scene's energy, the selected
+object's height and speed, the plugins' lines (the depz sensor, the Brain's training). On the left - «What to show»,
+on the right - the plots, under them - the bar with the layouts and the buttons.
+
+| I want to | How |
+|---|---|
+| keep only the plots I need | on the left, in «What to show», untick the others; a section's tick («Scene», a plugin) is all its plots |
+| find a plot | the «Find a plot…» line over the list keeps the plots whose name has those letters |
+| zoom the time | the mouse wheel over a plot, away - closer, towards you - farther; every plot of the same axis zooms with it, so one moment stands above another |
+| zoom the values | Shift + the wheel over a plot - only this plot, in height |
+| move a zoomed plot | hold the left button on the plot and drag |
+| **get the whole plot back** | **↺** in the plot's top right corner (there while it is zoomed) or right click → «Whole plot (↺)»; the plot then follows live again |
+| one plot large | a double click on the plot (not on its legend); all back - another double click or «◂ All plots» |
+| hide one line | a click on its name in the legend; a double click - only it |
+| the plots the window's whole width | ⇔ on the bar under the plots (or «View → Full-width bottom panel») |
+| the plots taller | drag up the `……` strip between the 3D view and the plots |
+| the plots in a window of their own, on a second screen | a double click on the «Plots» title; back - a double click on its window's title |
+| one under another / every line 0 to 1 | «Stacked» / «Normalize» on the bar; «Overlay» - back |
+| add a quantity | «More Channels…» or right click → «Add Channel…» |
+| save the numbers | «Save the CSV» - the plots' lines to a file |
+
+A plugin's plots are always here, not in its panel: the plugin's panel has a «Plots ▸» button that opens this tab.
 
 ![Plots of the scene's energy and of the ball](images/ui/en/graphs.png)
 

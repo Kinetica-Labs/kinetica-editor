@@ -7,6 +7,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPolygonF>
+#include <QToolTip>
 #include <QWheelEvent>
 
 #include <algorithm>
@@ -600,6 +601,12 @@ void TrackChart::mouseMoveEvent(QMouseEvent* e) {
         dragFrom_ = pos;
         setUserWindow(t0_ - dt, t1_ - dt);
         emit zoomedX(t0_, t1_);
+        return;
+    }
+    if (zoomed() && resetRect().contains(pos)) { // the way back says what it does
+        setCursor(Qt::PointingHandCursor);
+        emit hoverLeft();
+        QToolTip::showText(e->globalPosition().toPoint() + QPoint(12, 10), uiText("Kinetica", "Весь график, снова вживую (или правая кнопка → «Весь график»)"), this);
         return;
     }
     if ((menu_ && titleRect().contains(pos)) || legendAt(pos) >= 0) {

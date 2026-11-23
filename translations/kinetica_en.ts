@@ -7064,6 +7064,11 @@ Sample </translation>
         <translation>Whole plot (↺)</translation>
     </message>
     <message>
+        <location filename="../editor/TrackChart.cpp" line="1"/>
+        <source>Весь график, снова вживую (или правая кнопка → «Весь график»)</source>
+        <translation>The whole plot, live again (or right click → «Whole plot»)</translation>
+    </message>
+    <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Следить за выделенным</source>
         <translation>Follow selected</translation>
