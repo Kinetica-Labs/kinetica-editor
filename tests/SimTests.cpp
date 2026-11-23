@@ -514,6 +514,12 @@ void testSimBatteryDrivesMotor() {
     CHECK(read && !pack.spent, "the pack and its driver read in the running world");
     CHECK(std::fabs(drawn / momentum - 1) < 0.02, "the pack gave %f C, not d J w / K = %f C", drawn, momentum);
     CHECK(std::fabs(w / (0.5 * double(pack.voltage) / double(m.constant)) - 1) < 0.01, "the arm runs at %f, not d V / K", w);
+    const double spin = 0.5 * double(J) * w * w; // the shaft's work went into the arm's spin, free of friction
+    std::printf("  books: pack delivered %.4f J = motor heat %.4f J + shaft work %.4f J; spin energy %.4f J\n", pack.energy, bridge.heat, bridge.work, spin);
+    // The same to a step's order: the motor's current holds through a step at the bus voltage of its start, while the
+    // pack's books integrate within it (its OCV with the charge, its V1 decaying) - 2e-5 of it here.
+    CHECK(std::fabs(pack.energy - bridge.heat - bridge.work) < 1e-4 * pack.energy, "what the pack delivered is the motor's heat and work");
+    CHECK(std::fabs(bridge.work / spin - 1) < 0.02, "the shaft's work %f J is the arm's spin %f J", bridge.work, spin);
 
     Simulation dead;
     dead.load(scene(0, true));

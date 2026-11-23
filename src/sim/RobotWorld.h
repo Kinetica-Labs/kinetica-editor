@@ -166,6 +166,9 @@ public:
         Real current = 0; // a battery: out of it (< 0: charged back); a driver: through its motor [A]
         Real soc = 0;     // a battery's charge, 0..1
         bool spent = false;
+        // The books since the start [J]: a battery - what its load got (integral of V I) and its heat in R0 and R1; a
+        // driver - its motor's heat in the winding and the switches (I^2 R) and its shaft's work (K I w; < 0: braking).
+        double energy = 0, heat = 0, work = 0;
     };
     bool powerReading(uint32_t id, PowerReading& out) const; // false: no such battery or driver in the running world
     // Each IK goal's gripper as it reports itself (Frame::GripInfo): open, closing, holding, closed on nothing.
@@ -199,6 +202,7 @@ private:
         size_t spec = 0, joint = 0; // graph_.drivers, joints_
         int pack = -1;              // packs_ (-1: an ideal bus)
         Real voltage = 0, current = 0;
+        double heat = 0, work = 0; // [J] since the start: I^2 R and K I w (PowerReading)
     };
     std::vector<LivePack> packs_;
     std::vector<LiveDriver> drivers_;

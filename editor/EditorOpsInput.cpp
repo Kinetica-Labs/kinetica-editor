@@ -248,21 +248,23 @@ void EditorOps::addInputOps() {
                 d.stroke = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
                                             float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
             else if (a.contains("stroke")) return error("stroke: [r, g, b], each from 0 to 1");
-            const QString space = a.value("space").toString("world");
-            if (space != "world" && space != "label" && space != "screen") return error("space: world, label or screen");
-            d.space = space == "world" ? Viewport::Drawing::Space::World : space == "label" ? Viewport::Drawing::Space::Label : Viewport::Drawing::Space::Screen;
-            d.scale = float(a.value("scale").toDouble(1));
-            if (!(d.scale > 0) || d.scale > 1000) return error("scale: above 0, at most 1000");
-            if (a.contains("turn")) { // as an object's rotation in the scene file
-                ke::SceneObject turned;
-                turned.rotationDeg = point(a.value("turn"));
-                d.turn = ke::objectRotation(turned);
-            }
-            if (const QJsonArray xy = a.value("place").toArray(); a.contains("place") && xy.size() != 2) return error("place: [x, y], fractions of the view from its left top");
-            else if (xy.size() == 2) d.place = QPointF(xy.at(0).toDouble(), xy.at(1).toDouble());
-            d.object = uint32_t(a.value("object").toInt());
-            if (d.object && !findObject(builder_->graph(), d.object)) return error(QString("no object %1").arg(d.object));
         }
+        // Where a fill or words stand: on their plane in the world, at a point facing the viewer, or in the frame; an
+        // object's ones go where it goes.
+        const QString space = a.value("space").toString("world");
+        if (space != "world" && space != "label" && space != "screen") return error("space: world, label or screen");
+        d.space = space == "world" ? Viewport::Drawing::Space::World : space == "label" ? Viewport::Drawing::Space::Label : Viewport::Drawing::Space::Screen;
+        d.scale = float(a.value("scale").toDouble(1));
+        if (!(d.scale > 0) || d.scale > 1000) return error("scale: above 0, at most 1000");
+        if (a.contains("turn")) { // as an object's rotation in the scene file
+            ke::SceneObject turned;
+            turned.rotationDeg = point(a.value("turn"));
+            d.turn = ke::objectRotation(turned);
+        }
+        if (const QJsonArray xy = a.value("place").toArray(); a.contains("place") && xy.size() != 2) return error("place: [x, y], fractions of the view from its left top");
+        else if (xy.size() == 2) d.place = QPointF(xy.at(0).toDouble(), xy.at(1).toDouble());
+        d.object = uint32_t(a.value("object").toInt());
+        if (d.object && !findObject(builder_->graph(), d.object)) return error(QString("no object %1").arg(d.object));
         if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
             return error("nothing to draw: line, segments, points, circle, box, text or fill");
         view_->setDrawing(key, std::move(d));

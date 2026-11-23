@@ -171,6 +171,15 @@ std::vector<Measurement> measureScene(const Simulation& sim) {
         out.push_back(measured("power/" + b.name + " voltage", KE_UI_LABEL("Kinetica", "В"), b.name + KE_UI_LABEL("Kinetica", ": напряжение"), ChannelGroup::Scene, double(r.voltage)));
         out.push_back(measured("power/" + b.name + " current", KE_UI_LABEL("Kinetica", "А"), b.name + KE_UI_LABEL("Kinetica", ": ток"), ChannelGroup::Scene, double(r.current)));
         out.push_back(measured("power/" + b.name + " charge", "%", b.name + KE_UI_LABEL("Kinetica", ": заряд"), ChannelGroup::Scene, 100.0 * double(r.soc)));
+        out.push_back(measured("power/" + b.name + " energy", KE_UI_LABEL("Kinetica", "Дж"), b.name + KE_UI_LABEL("Kinetica", ": отдано нагрузке"), ChannelGroup::Scene, r.energy));
+        out.push_back(measured("power/" + b.name + " heat", KE_UI_LABEL("Kinetica", "Дж"), b.name + KE_UI_LABEL("Kinetica", ": тепло в батарее"), ChannelGroup::Scene, r.heat));
+    }
+    for (const DriverObject& d : sim.robot()->graph().drivers) { // each motor's books: I^2 R and K I w (RobotPower.cpp)
+        RobotWorld::PowerReading r;
+        if (!sim.robot()->powerReading(d.id, r)) continue;
+        out.push_back(measured("power/" + d.name + " current", KE_UI_LABEL("Kinetica", "А"), d.name + KE_UI_LABEL("Kinetica", ": ток мотора"), ChannelGroup::Scene, double(r.current)));
+        out.push_back(measured("power/" + d.name + " heat", KE_UI_LABEL("Kinetica", "Дж"), d.name + KE_UI_LABEL("Kinetica", ": тепло обмотки и ключей"), ChannelGroup::Scene, r.heat));
+        out.push_back(measured("power/" + d.name + " work", KE_UI_LABEL("Kinetica", "Дж"), d.name + KE_UI_LABEL("Kinetica", ": работа на валу"), ChannelGroup::Scene, r.work));
     }
     return out;
 }

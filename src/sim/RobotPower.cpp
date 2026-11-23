@@ -8,7 +8,8 @@
 // exact for any number of motors on one pack. A current limit holds a motor's current at the limit, and V is solved
 // again with that current fixed. At duty 0 the bridge coasts (the winding open, no current) or brakes (the winding
 // shorted, I = -K w / R), drawing nothing from the bus either way. The pack is then stepped at the bus current
-// (Battery::step), its books kept. The motors' torque is K I, put on the links by RobotWorld::drive.
+// (Battery::step), its books kept, and each motor's: the heat I^2 R and the shaft's work K I w - their sum is what the
+// pack delivered to it, d V I. The motors' torque is K I, put on the links by RobotWorld::drive.
 #include "sim/RobotWorld.h"
 
 #include <algorithm>
@@ -65,12 +66,19 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
                               double(spec.currentLimit), spec.brake, false});
         }
         auto held = [](const Motor& m, double i) { return m.limit > 0 ? std::clamp(i, -m.limit, m.limit) : i; };
+        auto books = [&] { // the winding's equation I R = u - K w, times I: the power in is heat plus the shaft's work
+            for (Motor& m : motors) {
+                const double I = double(m.live->current);
+                m.live->heat += I * I * m.R * double(h), m.live->work += m.K * I * m.w * double(h);
+            }
+        };
         if (p < 0) { // an ideal bus: each motor at its own line's voltage
             for (Motor& m : motors) {
                 const double V = double(joints_[m.live->joint].spec.dof[joints_[m.live->joint].dof].drive.voltage);
                 m.live->current = Real(m.duty != 0 ? held(m, (m.duty * V - m.K * m.w) / m.R) : m.brake ? held(m, -m.K * m.w / m.R) : 0.0);
                 m.live->voltage = Real(m.duty != 0 ? m.duty * V : m.brake ? 0.0 : m.K * m.w);
             }
+            books();
             continue;
         }
         LivePack& pack = packs_[size_t(p)];
@@ -108,6 +116,7 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
                 m.live->voltage = Real(m.brake ? 0.0 : m.K * m.w);
             }
         }
+        books();
         pack.voltage = Real(V);
         pack.current = Real(bus);
         pack.battery.step(Real(bus), h);
@@ -117,12 +126,12 @@ void RobotWorld::power(const PhysicsWorld& physics, Real h) {
 bool RobotWorld::powerReading(uint32_t id, PowerReading& out) const {
     for (const LivePack& p : packs_)
         if (p.id == id) {
-            out = {p.voltage, p.current, p.battery.soc(), p.battery.spent()};
+            out = {p.voltage, p.current, p.battery.soc(), p.battery.spent(), p.battery.deliveredEnergy(), p.battery.heatR0() + p.battery.heatR1(), 0};
             return true;
         }
     for (const LiveDriver& d : drivers_)
         if (graph_.drivers[d.spec].id == id) {
-            out = {d.voltage, d.current, 0, d.pack >= 0 && packs_[size_t(d.pack)].battery.spent()};
+            out = {d.voltage, d.current, 0, d.pack >= 0 && packs_[size_t(d.pack)].battery.spent(), d.heat + d.work, d.heat, d.work};
             return true;
         }
     return false;

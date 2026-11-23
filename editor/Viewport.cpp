@@ -951,14 +951,26 @@ void Viewport::drawOverlayMarks(QPainter& p) {
         p.setBrush(d.colour);
         for (const Vector3& w : d.points)
             if (screen(w, at)) p.drawEllipse(at, d.size * 0.5, d.size * 0.5);
-        if (d.text.isEmpty() || !screen(d.at, at)) continue;
+        Vector3 where = d.at; // an object's words hang from where it is now, along the world's axes (or on it, in the world)
+        if (d.object) {
+            Vector3 position;
+            ke::Quaternion rotation;
+            if (!objectPose(d.object, position, rotation)) continue;
+            where = position + (d.space == Drawing::Space::World ? rotation.rotate(d.at) : d.at);
+        }
+        if (d.text.isEmpty() || !screen(where, at)) continue;
         QFont letters = plain; // size: a point's width - and a label's letters, when they are to be larger than plain ones
         letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
         p.setFont(letters);
-        p.setPen(QColor(0, 0, 0, 200));
-        p.drawText(at + QPointF(7, -5), d.text);
-        p.setPen(d.colour);
-        p.drawText(at + QPointF(6, -6), d.text);
+        const QStringList lines = d.text.split('\n'); // lines up from the point: the last one where a single line stands
+        const qreal step = QFontMetricsF(letters).lineSpacing();
+        for (int k = 0; k < lines.size(); ++k) {
+            const QPointF line = at + QPointF(6, -6 - step * (lines.size() - 1 - k));
+            p.setPen(QColor(0, 0, 0, 200));
+            p.drawText(line + QPointF(1, 1), lines[k]);
+            p.setPen(d.colour);
+            p.drawText(line, lines[k]);
+        }
     }
     p.restore();
 }
