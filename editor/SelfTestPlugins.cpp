@@ -673,6 +673,32 @@ def train(scene, generations: int = 5, first: int = 0):
                        treeRow(plots, uiText("Kinetica", "Сцена"))->isHidden();
     if (find) find->clear();
     c.check(found, "its find line keeps the charts whose words have it, hides the others");
+    // The wheel over a chart: its time closer about the mouse, frozen while it is the reader's; a drag moves it; ↺ - all
+    // of it again. Shift + the wheel: the values.
+    if (TrackChart* v = plotted(w, "Обучение")) {
+        const auto [a0, a1] = v->timeRange();
+        const QRectF r = v->plotArea();
+        const QPointF mid = r.center();
+        QWheelEvent in(mid, v->mapToGlobal(mid), {}, {0, 240}, Qt::NoButton, Qt::NoModifier, Qt::NoScrollPhase, false);
+        QApplication::sendEvent(v, &in);
+        const auto [b0, b1] = v->timeRange();
+        QMouseEvent press(QEvent::MouseButtonPress, mid, v->mapToGlobal(mid), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        const QPointF to = mid + QPointF(r.width() / 4, 0);
+        QMouseEvent move(QEvent::MouseMove, to, v->mapToGlobal(to), Qt::NoButton, Qt::LeftButton, Qt::NoModifier);
+        QMouseEvent release(QEvent::MouseButtonRelease, to, v->mapToGlobal(to), Qt::LeftButton, Qt::NoButton, Qt::NoModifier);
+        QApplication::sendEvent(v, &press), QApplication::sendEvent(v, &move), QApplication::sendEvent(v, &release);
+        const auto [c0, c1] = v->timeRange();
+        pump(100); // the panel's own window keeps coming: the reader's stays
+        const bool kept = v->timeRange().first == c0;
+        const QPointF corner(r.right() - 12, r.top() + 10);
+        QMouseEvent back(QEvent::MouseButtonPress, corner, v->mapToGlobal(corner), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+        QApplication::sendEvent(v, &back);
+        std::printf("  the wheel: %.2f..%.2f -> %.2f..%.2f; dragged a quarter: %.2f..%.2f, kept %s; ↺: %.2f..%.2f\n", a0, a1, b0, b1, c0, c1,
+                    kept ? "yes" : "no", v->timeRange().first, v->timeRange().second);
+        c.check(b1 - b0 < (a1 - a0) * 0.8 && b0 > a0 && b1 < a1, "the wheel over a chart brings its time closer, about the mouse");
+        c.check(c0 < b0 && std::fabs((c1 - c0) - (b1 - b0)) < 1e-9 && kept, "a drag moves the window; the reader's window stays while the data come");
+        c.check(!v->zoomed() && v->timeRange() == std::make_pair(a0, a1), "↺ in the plot's corner gives all of it back");
+    } else c.check(false, "the step chart is there to zoom");
     // A double click on a chart: it alone in the whole width, a way back over it; again - every chart back.
     const auto visibleCharts = [&] {
         int n = 0;

@@ -7,6 +7,7 @@
 #include <QMouseEvent>
 #include <QPainter>
 #include <QPolygonF>
+#include <QWheelEvent>
 
 #include <algorithm>
 #include <array>
@@ -162,8 +163,20 @@ QString plotHoverText(const PlotTrack& line, double x, const QString& xWords) {
 }
 
 void TrackChart::setWindow(double t0, double t1) {
-    t0_ = t0;
-    t1_ = t1 > t0 ? t1 : t0 + 1e-3;
+    autoT0_ = t0, autoT1_ = t1 > t0 ? t1 : t0 + 1e-3;
+    if (!userX_) t0_ = autoT0_, t1_ = autoT1_;
+}
+
+void TrackChart::setUserWindow(double t0, double t1) {
+    userX_ = true;
+    t0_ = t0, t1_ = t1 > t0 ? t1 : t0 + 1e-9;
+    refresh();
+}
+
+void TrackChart::clearZoom() {
+    userX_ = userY_ = false;
+    t0_ = autoT0_, t1_ = autoT1_;
+    refresh();
 }
 
 void TrackChart::refresh() {
@@ -218,6 +231,7 @@ void TrackChart::updateRanges() {
     y0_ = normalized_ ? -0.04 : lo - (lo == 0 ? pad / 3 : pad);
     y1_ = normalized_ ? 1.04 : hi + (hi == 0 ? pad / 3 : pad);
     yTicks_ = niceTicks(normalized_ ? 0.0 : y0_, normalized_ ? 1.0 : y1_, 5);
+    if (userY_) y0_ = userY0_, y1_ = userY1_, yTicks_ = niceTicks(y0_, y1_, 5); // the reader's values
 }
 
 double TrackChart::shown(size_t k, double v) const {
@@ -554,6 +568,20 @@ void TrackChart::paintEvent(QPaintEvent*) {
         p.drawText(r.adjusted(0, 6, 0, 0), Qt::AlignHCenter | Qt::AlignTop, uiText("Kinetica", "всё это время — ровно 0"));
     }
     drawHoverLine(p, r);
+    if (zoomed()) { // the way back, quiet in the corner
+        const QRectF b = resetRect();
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(42, 58, 82));
+        p.drawRoundedRect(b, 4, 4);
+        p.setPen(Qt::white);
+        p.setFont(smallFont(this, 10));
+        p.drawText(b, Qt::AlignCenter, "↺");
+    }
+}
+
+QRectF TrackChart::resetRect() const {
+    const QRectF r = plotRect();
+    return {r.right() - 22, r.top() + 2, 20, 18};
 }
 
 // --- The mouse ------------------------------------------------------------------------------------
@@ -562,6 +590,18 @@ void TrackChart::paintEvent(QPaintEvent*) {
 // line nearest to the mouse, for the panel's tooltip.
 void TrackChart::mouseMoveEvent(QMouseEvent* e) {
     const QPointF pos = e->position();
+    if (dragging_) { // the window moved with the hand: the time always, the values when they are the reader's
+        const QRectF r = plotRect();
+        const double dt = (pos.x() - dragFrom_.x()) / r.width() * (t1_ - t0_);
+        if (userY_) {
+            const double dv = (pos.y() - dragFrom_.y()) / r.height() * (userY1_ - userY0_);
+            userY0_ += dv, userY1_ += dv;
+        }
+        dragFrom_ = pos;
+        setUserWindow(t0_ - dt, t1_ - dt);
+        emit zoomedX(t0_, t1_);
+        return;
+    }
     if ((menu_ && titleRect().contains(pos)) || legendAt(pos) >= 0) {
         setCursor(Qt::PointingHandCursor);
         emit hoverLeft();
@@ -577,10 +617,38 @@ void TrackChart::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void TrackChart::mousePressEvent(QMouseEvent* e) {
-    if (e->button() != Qt::LeftButton) return;
+    if (e->button() != Qt::LeftButton && e->button() != Qt::MiddleButton) return;
     const QPointF pos = e->position();
-    if (menu_ && titleRect().contains(pos)) emit titleClicked();
-    else if (const int k = legendAt(pos); k >= 0) emit legendClicked(k);
+    if (e->button() == Qt::LeftButton && zoomed() && resetRect().contains(pos)) {
+        clearZoom();
+        emit zoomCleared();
+    } else if (e->button() == Qt::LeftButton && menu_ && titleRect().contains(pos)) emit titleClicked();
+    else if (const int k = legendAt(pos); e->button() == Qt::LeftButton && k >= 0) emit legendClicked(k);
+    else if (plotRect().contains(pos)) dragging_ = true, dragFrom_ = pos, setCursor(Qt::ClosedHandCursor); // the middle too, as in the 3D view
+}
+
+void TrackChart::mouseReleaseEvent(QMouseEvent*) {
+    if (dragging_) dragging_ = false, setCursor(Qt::CrossCursor);
+}
+
+// The wheel over the plot: the time about the mouse (every chart of the axis follows: zoomedX), Shift - the values of
+// this chart about the mouse. Away from the reader - closer. Elsewhere on the chart the wheel scrolls the panel.
+void TrackChart::wheelEvent(QWheelEvent* e) {
+    const QRectF r = plotRect();
+    const QPointF pos = e->position();
+    const int turn = e->angleDelta().y() ? e->angleDelta().y() : e->angleDelta().x(); // Shift turns the wheel sideways on some systems
+    if (!r.contains(pos) || !turn) return e->ignore();
+    const double k = std::pow(0.998, turn); // a notch (120): about 0,79
+    if (e->modifiers() & Qt::ShiftModifier) {
+        const double v = y1_ - (pos.y() - r.top()) / r.height() * (y1_ - y0_);
+        userY_ = true, userY0_ = v - (v - y0_) * k, userY1_ = v + (y1_ - v) * k;
+        refresh();
+    } else {
+        const double t = timeAtX(pos.x());
+        setUserWindow(t - (t - t0_) * k, t + (t1_ - t) * k);
+        emit zoomedX(t0_, t1_);
+    }
+    e->accept();
 }
 
 void TrackChart::mouseDoubleClickEvent(QMouseEvent* e) {

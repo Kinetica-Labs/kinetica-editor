@@ -18,7 +18,10 @@
 // What the reader can do on the chart itself - all optional, the charts come by themselves:
 //   - the title ends in a quiet ▾: a click opens the list of quantities for this chart (titleClicked);
 //   - a legend entry: a click hides or shows its line, a double click shows it alone;
-//   - a right click: the panel's menu for this chart (menuRequested).
+//   - a right click: the panel's menu for this chart (menuRequested);
+//   - the wheel over the plot: the time closer or farther about the mouse (zoomedX: the panel moves every chart of the
+//     same axis with it); Shift + the wheel: the values of this chart; a drag with the left button: the window moved;
+//     zoomed, the plot's corner has ↺ - all of it again, live (zoomCleared). As PlotJuggler, Foxglove, Rerun do.
 #include "PlotSeries.h"
 #include "UiLanguage.h"
 
@@ -93,6 +96,9 @@ public:
     void setAxisWords(const QString& words);  // what the horizontal axis is called (empty: the time, «t, с»)
     void setTimeAxisVisible(bool on);     // lanes label the time once, under the lowest lane
     void setHoverTime(double t);          // where the mouse is, on every chart of the panel (NaN: none)
+    void setUserWindow(double t0, double t1); // the reader's time window: setWindow's waits till clearZoom
+    void clearZoom();                     // the panel's window and the values' own range again
+    bool zoomed() const { return userX_ || userY_; }
     // Margins shared by stacked lanes, so their time axes line up (0: the chart's own).
     int neededLeftMargin() const;
     int neededRightMargin() const;
@@ -119,6 +125,8 @@ signals:
     void legendClicked(int track);
     void legendDoubleClicked(int track);
     void doubleClicked(); // on the plot, not its legend or title
+    void zoomedX(double t0, double t1); // the reader zoomed or moved the time on this chart
+    void zoomCleared();                 // ... and asked for all of it again (↺)
     void menuRequested(QPoint localPos);
 
 protected:
@@ -128,6 +136,8 @@ protected:
     void mouseDoubleClickEvent(class QMouseEvent* e) override;
     void contextMenuEvent(class QContextMenuEvent* e) override;
     void leaveEvent(class QEvent* e) override;
+    void wheelEvent(class QWheelEvent* e) override;
+    void mouseReleaseEvent(class QMouseEvent* e) override;
 
 private:
     void updateRanges();
@@ -144,6 +154,7 @@ private:
     void drawRibbon(QPainter& p, const QRectF& r, size_t k, size_t from, size_t to) const;
     void drawDirectLabels(QPainter& p, const QRectF& r) const;
     void drawHoverLine(QPainter& p, const QRectF& r) const;
+    QRectF resetRect() const; // ↺ in the plot's corner while zoomed
     size_t shownTracks() const;
     bool directLabels() const { return shownTracks() >= 2 && shownTracks() <= 4 && width() >= 520 && height() >= 220; }
 
@@ -155,6 +166,11 @@ private:
     bool timeAxis_ = true;
     double hover_ = std::nan("");
     double t0_ = 0, t1_ = 1, y0_ = 0, y1_ = 1;
+    double autoT0_ = 0, autoT1_ = 1;       // the panel's window, kept while the reader's is shown
+    bool userX_ = false, userY_ = false;   // the reader zoomed the time / the values
+    double userY0_ = 0, userY1_ = 1;
+    bool dragging_ = false;
+    QPointF dragFrom_;
     std::vector<double> yTicks_;
     int sharedLeft_ = 0, sharedRight_ = 0;
     bool allZero_ = false; // every shown line is exactly 0 over the window (said in words)

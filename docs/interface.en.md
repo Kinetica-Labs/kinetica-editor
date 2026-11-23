@@ -432,7 +432,9 @@ into the scene.
 Plots (`F9`): on the left - the scene's energy, on the right - the height and the speed of the selected object. The
 curves can be overlaid, stacked, normalised and saved as CSV. The plugins' plots follow, a section per plugin. On the
 left, «What to show» lists the sections (the scene, the selected object, the plugins) and their plots with ticks and a
-find line; a plot unticked is not drawn and takes no room, a section's tick is all its plots. ⇔ on the bar under the
+find line; a plot unticked is not drawn and takes no room, a section's tick is all its plots. The wheel over a plot
+zooms the time about the mouse - on every plot of the same axis at once; Shift + the wheel zooms the values of this plot;
+the left button drags; ↺ in the plot's corner shows all of it again. ⇔ on the bar under the
 plots makes the bottom panel the window's whole width. A double click on a plot shows it
 alone in the whole width; another, or «◂ All plots», brings them all back.
 

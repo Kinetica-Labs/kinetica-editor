@@ -182,6 +182,9 @@ private:
         std::vector<TrackChart*> views;
     };
     std::vector<PluginSection> plugins_; // a plugin panel's charts, after the scene's: they come and go with the panel
+    void linkZoom(TrackChart* v);
+    std::vector<TrackChart*> allViews() const;
+    std::map<QString, std::pair<double, double>> zoom_; // the reader's time window by axis words (none: the panel's)
     QString focus_;                        // the chart in the whole width (focusChart), empty: every chart
     std::set<QString> hiddenCharts_; // the charts unticked in «Что показывать»: «section\nchart's key» (chartKey; a plugin's: its title)
     std::set<QString> folded_;       // its sections folded, by title

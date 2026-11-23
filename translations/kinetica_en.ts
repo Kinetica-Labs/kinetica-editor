@@ -7059,6 +7059,11 @@ Sample </translation>
         <translation>Whole width</translation>
     </message>
     <message>
+        <location filename="../editor/PlotPanel.cpp" line="1"/>
+        <source>Весь график (↺)</source>
+        <translation>Whole plot (↺)</translation>
+    </message>
+    <message>
         <location filename="../editor/MainWindow.cpp" line="1"/>
         <source>Следить за выделенным</source>
         <translation>Follow selected</translation>

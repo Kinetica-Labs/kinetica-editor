@@ -488,6 +488,9 @@ QMenu* PlotPanel::contextMenu(TrackChart* view, const QPoint& at) {
          [this, chart, line] { chart >= 0 ? setOnChart(chart, line, false) : setChannelShown(line, false); })
         ->setEnabled(k >= 0);
     item("plotMenuRemoveChart", uiText("Kinetica", "Убрать этот график"), [this, chart] { removeChart(chart); })->setEnabled(chart >= 0);
+    if (view->zoomed()) item("plotMenuUnzoom", uiText("Kinetica", "Весь график (↺)"), [this, view = QPointer<TrackChart>(view)] {
+        if (view) view->clearZoom(), emit view->zoomCleared();
+    });
     if (chart >= 0) focusItem(menu, "scene:" + chartKey(chart));
     menu->addSeparator();
     auto* layouts = new QActionGroup(menu);
@@ -583,6 +586,7 @@ TrackChart* PlotPanel::makeView(int chart) {
     connect(v, &TrackChart::legendClicked, this, [this, v, chart](int k) { toggleLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::legendDoubleClicked, this, [this, v, chart](int k) { isolateLine(chart, v->tracks()[size_t(k)].id); });
     connect(v, &TrackChart::menuRequested, this, [this, v](QPoint at) { contextMenu(v, at)->popup(v->mapToGlobal(at)); });
+    linkZoom(v);
     if (chart >= 0) connect(v, &TrackChart::doubleClicked, this, [this, chart] { focusChart(focus_.isEmpty() ? "scene:" + chartKey(chart) : QString()); });
     views_.push_back(v);
     viewChart_.push_back(chart);
@@ -830,11 +834,15 @@ QWidget* PlotPanel::pluginSection(size_t i, int only) {
             for (TrackChart* o : plugins_[i].views) o->setHoverTime(std::nan(""));
             QToolTip::hideText();
         });
+        linkZoom(v);
         connect(v, &TrackChart::doubleClicked, this, [this, k = key(c)] { focusChart(focus_.isEmpty() ? "plugin:" + k : QString()); });
         connect(v, &TrackChart::menuRequested, this, [this, v, k = key(c)](QPoint at) {
             auto* menu = new QMenu(this);
             menu->setAttribute(Qt::WA_DeleteOnClose);
             focusItem(menu, "plugin:" + k);
+            if (v->zoomed()) connect(menu->addAction(uiText("Kinetica", "Весь график (↺)")), &QAction::triggered, this, [v = QPointer<TrackChart>(v)] {
+                if (v) v->clearZoom(), emit v->zoomCleared();
+            });
             connect(menu->addAction(uiText("Kinetica", "Скопировать картинку")), &QAction::triggered, this, [v = QPointer<TrackChart>(v)] {
                 if (v) QApplication::clipboard()->setImage(v->grab().toImage()); // the charts may be built again under the menu
             });
@@ -863,6 +871,30 @@ QAction* PlotPanel::focusItem(QMenu* menu, const QString& chart) {
     a->setObjectName("plotMenuFocus");
     connect(a, &QAction::triggered, this, [this, chart, on] { focusChart(on ? QString() : chart); });
     return a;
+}
+
+// One time for every chart of an axis: the wheel or a drag on one moves them all (the same moment under the mouse on
+// each), ↺ on one gives them all back to the panel; a chart built again keeps the reader's window.
+void PlotPanel::linkZoom(TrackChart* v) {
+    connect(v, &TrackChart::zoomedX, this, [this, v](double t0, double t1) {
+        zoom_[v->axisWords()] = {t0, t1};
+        for (TrackChart* o : allViews())
+            if (o != v && o->axisWords() == v->axisWords()) o->setUserWindow(t0, t1);
+    });
+    connect(v, &TrackChart::zoomCleared, this, [this, v] {
+        zoom_.erase(v->axisWords());
+        for (TrackChart* o : allViews())
+            if (o != v && o->axisWords() == v->axisWords()) o->clearZoom();
+    });
+    QTimer::singleShot(0, v, [this, v] { // its axis words are set after it is made
+        if (const auto it = zoom_.find(v->axisWords()); it != zoom_.end()) v->setUserWindow(it->second.first, it->second.second);
+    });
+}
+
+std::vector<TrackChart*> PlotPanel::allViews() const {
+    std::vector<TrackChart*> out = views_;
+    for (const PluginSection& s : plugins_) out.insert(out.end(), s.views.begin(), s.views.end());
+    return out;
 }
 
 void PlotPanel::refreshPluginCharts() {
