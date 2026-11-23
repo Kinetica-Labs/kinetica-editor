@@ -182,7 +182,6 @@ uint32_t powerMotor(SceneGraph& g, uint32_t joint, uint32_t battery) {
     for (int k = 0; j && k < 6 && dof < 0; ++k)
         if (j->dof[k].drive.enabled && j->dof[k].drive.constant > 0) dof = k;
     if (dof < 0) return 0;
-    const Real sign = (j ? j->dof[dof].drive.voltage : wheel->voltage) < 0 ? -1.0_r : 1.0_r;
     if (battery == 0 && !g.batteries.empty()) battery = g.batteries.front().id;
     if (battery == 0) {
         BatteryObject pack;
@@ -194,7 +193,7 @@ uint32_t powerMotor(SceneGraph& g, uint32_t joint, uint32_t battery) {
     DriverObject d;
     d.id = nextId(g);
     d.name = "Драйвер " + std::to_string(g.drivers.size() + 1);
-    d.joint = joint, d.dof = dof, d.battery = battery, d.duty = sign;
+    d.joint = joint, d.dof = dof, d.battery = battery, d.duty = 0; // still until told: a motor that ran away at ▶ surprised
     g.drivers.push_back(d);
     return d.id;
 }
@@ -327,7 +326,7 @@ WheelModule addWheelModule(SceneGraph& g, uint32_t body, Side side, const WheelM
     if (o.encoderLines > 0 && (m.encoder = attachEncoder(g, shaft, o.encoderLines))) rename(g.sensors, m.encoder, unique(g, "Энкодер " + c.where));
     if (o.powered && (m.driver = powerMotor(g, shaft, o.battery))) {
         for (DriverObject& d : g.drivers)
-            if (d.id == m.driver) d.duty = 0, d.name = unique(g, "Драйвер " + c.where), m.battery = d.battery;
+            if (d.id == m.driver) d.name = unique(g, "Драйвер " + c.where), m.battery = d.battery;
     }
     return m;
 }

@@ -856,7 +856,7 @@ static const Key<DriverObject> kBridgeKeys[] = {
     {"limit", "number: the current limit", "A", number<DriverObject, &DriverObject::currentLimit>},
 };
 static const Key<ControllerAction> kActionKeys[] = {
-    {"drive", "one of: plane lift turn grip (an IK goal) jog (a joint, with dof) duty (a driver)", "", [](LineReader& r, ControllerAction& a, std::string& why) {
+    {"drive", "one of: plane lift turn grip (an IK goal) jog (a joint, with dof) duty (a driver) value (nothing: a plugin reads it - a car's steer and throttle)", "", [](LineReader& r, ControllerAction& a, std::string& why) {
          std::string drive;
          int d = -1;
          if (r.text(drive) && oneOf(drive, kControlDrives, d)) return a.drive = ControlDrive(d), true;
@@ -1080,7 +1080,7 @@ static const Part<ControllerObject> kControllerParts[] = {
          return true;
      }},
     // "bind <action> <device> <control>... [invert] [toggle]" - after the action's own line.
-    {"bind", "<action> <device: keys mouse gamepad> <control>... [invert] [toggle]", none, [](const std::vector<std::string>& w, ControllerObject& c, std::string& bad) {
+    {"bind", "<action> <device: keys mouse gamepad> <control>... [invert] [toggle] - keys by Qt's names (W, Space, Up, Down, Left, Right; a vector: up down left right, an axis: plus minus), gamepad: left_stick right_stick left_x left_y right_x right_y left_trigger right_trigger a b x y left_bumper right_bumper start back, mouse: left right middle", none, [](const std::vector<std::string>& w, ControllerObject& c, std::string& bad) {
          auto a = std::find_if(c.actions.begin(), c.actions.end(), [&](const ControllerAction& x) { return w.size() > 1 && x.name == w[1]; });
          if (w.size() < 4 || a == c.actions.end()) return fail(bad, w.size() > 1 ? "bind " + w[1] : "bind");
          ControlBinding b;
