@@ -300,14 +300,14 @@ int runCreateTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
                 cornerJoint.contains(QRegularExpression("free[^\\n]*rz")) && cornerJoint.contains("anchor_b -0.2 0.1 -0.2"),
             "«Сустав» at a corner guesses a ball at the corner: turns free every way");
 
-    // The edge is caught along its whole length: the mouse near its end, not its middle, is still the edge's hinge.
+    // The edge is caught along its whole length: the mouse near its end, not its middle, is still the edge's hinge - there.
     trigger(w, "jointTool");
     join({0.19f, 0.2f, 0.17f}, {0.5f, 0.2f, 0});
     const QJsonArray three = ops->runNow("scene_list", {{"kind", "joint"}}).value("objects").toArray();
     const QString endJoint = three.size() < 3 ? QString() : ops->runNow("scene_get", {{"id", three[2].toObject().value("id").toInt()}}).value("text").toString();
     std::printf("  «Сустав» near the end of the block's edge:\n%s", qPrintable(endJoint));
-    c.check(endJoint.contains("anchor_b 0.2 0.1 0 ") && endJoint.contains("free rx") && !endJoint.contains("free ry"),
-            "«Сустав» near an edge's end catches the edge: a hinge along it, at its middle");
+    c.check(endJoint.contains(QRegularExpression("anchor_b 0\\.2 0\\.1 0\\.1[5-9]")) && endJoint.contains("free rx") && !endJoint.contains("free ry"),
+            "«Сустав» near an edge's end catches the edge: a hinge along it, where the mouse points (by the end, not the middle)");
     b.newScene();
     pump(60);
     return c.failures;

@@ -351,9 +351,11 @@ void Viewport::drawJoints(const QMatrix4x4& vp) {
     glDisable(GL_DEPTH_TEST);
     JointGizmoLines gizmo;
     std::vector<float> typed[6];
+    const GizmoView view = gizmoView();
     for (const auto& j : snap_->joints) {
-        if (j.generic) appendJointGizmo(gizmo, j, float(j.size));
-        else appendJointGlyph(typed[std::clamp(int(j.type), 0, 5)], j, float(j.size));
+        const float size = std::max(float(j.size), 28.0f * view.worldPerPixel(j.anchorB)); // never smaller than 28 px: seen on a big part too
+        if (j.generic) appendJointGizmo(gizmo, j, size);
+        else appendJointGlyph(typed[std::clamp(int(j.type), 0, 5)], j, size);
     }
     for (int k = 0; k < 3; ++k) drawLines(gizmo.axis[k], GL_LINES, vp, axes[k]);
     drawLines(gizmo.dim, GL_LINES, vp, QVector4D(0.6f, 0.62f, 0.66f, 0.8f));

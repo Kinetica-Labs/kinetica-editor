@@ -125,7 +125,8 @@ void travelGlyph(JointGizmoLines& out, const ke::JointVis& j, int k, const Vecto
     }
 }
 
-// A turn freedom about e: its ring or arc, the spoke of the turn now, a motor's arrowhead.
+// A turn freedom about e: its spin vector (the axis, its head where a turn counts positive - the right hand), its ring or arc
+// with a small arrowhead the way the angle grows, the spoke of the turn now, a motor's bigger arrowhead.
 void turnGlyph(JointGizmoLines& out, const ke::JointVis& j, int k, const Vector3& o, float r) {
     if (j.motion[k + 3] == ke::JointMotion::Locked) return;
     const Vector3 e = j.frameB.rotate(unitAxis(k)), ref = j.frameB.rotate(unitAxis((k + 1) % 3)), v = ke::cross(e, ref);
@@ -138,6 +139,10 @@ void turnGlyph(JointGizmoLines& out, const ke::JointVis& j, int k, const Vector3
     } else {
         arc(d, o, e, ref, ring, 0.0f, 6.2831853f);
     }
+    segment(d, o - e * (0.6f * ring), o + e * (1.9f * ring));
+    arrowhead(d, o + e * (1.9f * ring), e, ref, 0.35f * r);
+    const float sense = limited ? 0.5f * float(j.lowers[k + 3] + j.uppers[k + 3]) : 1.0f;
+    arrowhead(d, o + (ref * ke::cos(sense) + v * ke::sin(sense)) * ring, ref * -ke::sin(sense) + v * ke::cos(sense), e, 0.22f * r);
     const float now = float(j.coordinates[k + 3]);
     segment(d, o, o + (ref * ke::cos(now) + v * ke::sin(now)) * (0.75f * ring));
     if (j.driven[k + 3]) arrowhead(d, o + (ref * ke::cos(now + 0.6f) + v * ke::sin(now + 0.6f)) * ring,

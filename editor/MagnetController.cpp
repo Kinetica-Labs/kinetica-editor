@@ -402,6 +402,7 @@ MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
     const GizmoView view = view_->gizmoView();
     const ke::Vector2 mouse = view.project(p.point);
     const Candidate* best = nullptr;
+    Vector3 bestPoint(0.0f);
     float nearest = 24.0f; // px
     for (const Candidate& c : candidates) {
         s.marks.push_back(c.point);
@@ -411,10 +412,19 @@ MagnetController::JoinSnap MagnetController::joinSnap(const Place& p) const {
             const float t = std::clamp(float(ke::dot(mouse - a, ab)) / std::max(float(ke::dot(ab, ab)), 1e-6f), 0.0f, 1.0f);
             d = float(ke::length(mouse - (a + ab * t))) + 4.0f; // a corner or the centre nearby wins
         }
-        if (d < nearest) nearest = d, best = &c;
+        if (d < nearest) nearest = d, best = &c, bestPoint = c.point;
+    }
+    // On an edge the joint goes where the mouse points along it (the end of a lever, if that is where it points) - the edge's
+    // middle only within 12 px of its cross.
+    if (best && best->kind == 1 && float(ke::length(view.project(best->point) - mouse)) > 12.0f) {
+        const Ray ray = view.ray(mouse);
+        const Vector3 along = best->to - best->from, w0 = best->from - ray.origin;
+        const float a = float(ke::dot(along, along)), b = float(ke::dot(along, ray.dir)), d = float(ke::dot(along, w0)), e = float(ke::dot(ray.dir, w0));
+        const float denom = a - b * b;
+        if (denom > 1e-9f) bestPoint = best->from + along * std::clamp((b * e - d) / denom, 0.0f, 1.0f);
     }
     if (best && !(QGuiApplication::keyboardModifiers() & Qt::ControlModifier)) {
-        s.at.point = best->point, s.type = best->type, s.kind = best->kind;
+        s.at.point = bestPoint, s.type = best->type, s.kind = best->kind;
         s.axes.front() = best->axis;
     }
     return s;
@@ -449,11 +459,11 @@ QString MagnetController::playForecast(uint32_t second) const {
     else if (type == ke::JointType::Hinge) {
         const float turn = std::fabs(float(ke::dot(axis, ke::cross(r, g)))) / weight; // the lever gravity has about the axis, m
         said << (turn > 0.01f * float(ke::maxComp(m->size)) ? QString(uiText("Kinetica", "в Пуске: «%1» качнётся вниз")).arg(name)
-                 : std::fabs(float(ke::dot(axis, g))) > 0.9f * weight ? QString(uiText("Kinetica", "в Пуске стоит: ось вертикальна — тяжесть не крутит; нужен привод или толчок"))
-                                                                       : QString(uiText("Kinetica", "в Пуске стоит: ось через центр масс — нужен привод или толчок (ребро — петля)")));
+                 : std::fabs(float(ke::dot(axis, g))) > 0.9f * weight ? QString(uiText("Kinetica", "в Пуске стоит: ось вертикальна — тяжесть не крутит; A — другая ось, или толчок"))
+                                                                       : QString(uiText("Kinetica", "в Пуске стоит: ось через центр масс — щёлкните ближе к краю детали или A — другая ось")));
     } else if (type == ke::JointType::Slider)
         said << (std::fabs(float(ke::dot(axis, g))) > 0.05f * weight ? QString(uiText("Kinetica", "в Пуске: «%1» поедет вниз по оси")).arg(name)
-                                                                      : QString(uiText("Kinetica", "в Пуске стоит: ось горизонтальна — нужен привод или толчок")));
+                                                                      : QString(uiText("Kinetica", "в Пуске стоит: ход горизонтален — A — другая ось, или толчок")));
     else said << QString(uiText("Kinetica", "в Пуске: «%1» повиснет, болтаясь")).arg(name);
     if (m->rigid.dynamic() && m->position.y - 0.5f * m->size.y < 0.05f) // its bottom on the floor: the floor may hold it
         said << QString(uiText("Kinetica", "«%1» стоит на полу — пол может удержать")).arg(name);
@@ -539,7 +549,7 @@ void MagnetController::showJoint(const Place& p) {
     static const char* const kinds[] = {"центр грани", "ребро", "угол", "точка", "ось цилиндра", "центр шара"};
     const QString where = s.at.found ? QString("%1 · %2").arg(uiText("Kinetica", kinds[s.kind]), jointText(joinKind(s))) : QString();
     const bool other = p.found && joinFrom_.at.found && p.target != joinFrom_.at.target;
-    view_->setMagnetLabel(!joinFrom_.at.found ? (s.at.found ? QString(uiText("Kinetica", "1/2 · %1 · щёлкните — здесь ось")).arg(where)
+    view_->setMagnetLabel(!joinFrom_.at.found ? (s.at.found ? QString(uiText("Kinetica", "1/2 · %1 · щёлкните — здесь ось\nA — другая ось · Tab — перевернуть · Ctrl — без привязки")).arg(where)
                                                             : QString(uiText("Kinetica", "1/2 · наведите на деталь")))
                           : other ? QString(uiText("Kinetica", "2/2 · щёлкните — соединить")) + "\n" + playForecast(p.target)
                                   : QString(uiText("Kinetica", "2/2 · ведите на вторую деталь")));
@@ -576,6 +586,8 @@ void MagnetController::release(QPointF pos) {
     const int sector = pieOpen_ ? PieMenu::sectorOf(pressPos_, pos, ke::kMagnetCount) : -1;
     pie_->hide();
     pieOpen_ = false;
+    if (joining_) return preview(pos);
+    if (!action_->isChecked()) return; // «Сустав» just made its joint and ended: no magnet's words after it
     if (p.found) put(p, sector >= 0 ? sector : suggestion(p));
     preview(pos); // the new link is under the mouse now: its own faces
 }

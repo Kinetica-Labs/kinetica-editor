@@ -7288,10 +7288,6 @@ Sample </translation>
         <translation>sphere centre</translation>
     </message>
     <message>
-        <source>1/2 · %1 · щёлкните — здесь ось</source>
-        <translation>1/2 · %1 · click - the axis here</translation>
-    </message>
-    <message>
         <source>1/2 · наведите на деталь</source>
         <translation>1/2 · hover a part</translation>
     </message>
@@ -7336,20 +7332,8 @@ Sample </translation>
         <translation>in Play: «%1» swings down</translation>
     </message>
     <message>
-        <source>в Пуске стоит: ось вертикальна — тяжесть не крутит; нужен привод или толчок</source>
-        <translation>in Play it stands: the axis is upright, gravity does not turn it; needs a drive or a push</translation>
-    </message>
-    <message>
-        <source>в Пуске стоит: ось через центр масс — нужен привод или толчок (ребро — петля)</source>
-        <translation>in Play it stands: the axis goes through the centre of mass; needs a drive or a push (an edge - a hinge)</translation>
-    </message>
-    <message>
         <source>в Пуске: «%1» поедет вниз по оси</source>
         <translation>in Play: «%1» slides down the axis</translation>
-    </message>
-    <message>
-        <source>в Пуске стоит: ось горизонтальна — нужен привод или толчок</source>
-        <translation>in Play it stands: the axis is level; needs a drive or a push</translation>
     </message>
     <message>
         <source>в Пуске: «%1» повиснет, болтаясь</source>
@@ -7358,6 +7342,24 @@ Sample </translation>
     <message>
         <source>«%1» стоит на полу — пол может удержать</source>
         <translation>«%1» stands on the floor: the floor may hold it</translation>
+    </message>
+    <message>
+        <source>1/2 · %1 · щёлкните — здесь ось
+A — другая ось · Tab — перевернуть · Ctrl — без привязки</source>
+        <translation>1/2 · %1 · click - the axis here
+A - another axis · Tab - flip · Ctrl - no snap</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: ось вертикальна — тяжесть не крутит; A — другая ось, или толчок</source>
+        <translation>in Play it stands: the axis is upright, gravity does not turn it; A - another axis, or a push</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: ось через центр масс — щёлкните ближе к краю детали или A — другая ось</source>
+        <translation>in Play it stands: the axis goes through the centre of mass - click nearer the part's edge or A - another axis</translation>
+    </message>
+    <message>
+        <source>в Пуске стоит: ход горизонтален — A — другая ось, или толчок</source>
+        <translation>in Play it stands: the travel is level - A - another axis, or a push</translation>
     </message>
 </context>
 </TS>
