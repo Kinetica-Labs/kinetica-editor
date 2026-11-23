@@ -78,6 +78,10 @@ public:
     // The body the camera follows whenever the world plays - now, or from the next ▶ (0: none, the editor's own view);
     // a camera move of the editor's own (F, Home, another scene, looking through a camera) ends it. followChanged says so.
     void setFollow(uint32_t body);
+    // The chase camera (as a game's SpringArm with lag): behind the followed body along its heading - its own x on the
+    // ground - catching up its heading and centre with a lag; the mouse's orbit about it is kept. Off: the plain follow.
+    void setChase(bool on);
+    bool chase() const { return chase_; }
     uint32_t followWish() const { return followWish_; }
     uint32_t followedBody() const { return followedBody_; }
 
@@ -438,6 +442,9 @@ private:
     uint32_t followedBody_ = 0;
     uint32_t followWish_ = 0; // setFollow: followed whenever the world plays
     bool bodyOrbitSaved_ = false;
+    bool chase_ = false;
+    float chaseHeading_ = 0;  // the camera's yaw behind the body, as caught up so far [deg]
+    double chaseTime_ = -1;   // the world's time of the last frame the chase moved on (-1: place it anew)
 
     CameraTool cameraTool_;
     GrabTool grabTool_;

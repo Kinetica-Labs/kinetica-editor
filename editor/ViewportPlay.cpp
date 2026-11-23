@@ -3,10 +3,28 @@
 //     paused, red recording (MainWindow::syncRecord) -, so nobody edits a running scene thinking it is the one kept;
 //   - the orbit pivot: while the camera orbits, a ring with a dot on the point it turns around -
 //     the turn is no longer a mystery when the point is far away;
-//   - following a body: the camera keeps its own orbit about a moving body of the frame.
+//   - following a body: the camera keeps its own orbit about a moving body of the frame - or, chasing, sits behind it
+//     along its heading and catches up its turns and its centre with a lag (a game's spring arm).
 #include "Viewport.h"
 
 #include <QPainter>
+
+#include <cmath>
+
+namespace {
+
+constexpr float kChaseTurn = 0.35f, kChaseMove = 0.12f; // s: the lags of the heading and of the centre
+
+// The yaw (OrbitCamera's: the eye at cos, sin of it from the target) of an eye behind a body turned `rot`: its own x
+// on the ground, reversed.
+float behindYaw(const ke::Quaternion& rot) {
+    const ke::Vector3 ahead = rot.rotate(ke::Vector3(1, 0, 0));
+    return float(qRadiansToDegrees(std::atan2(-double(ahead.z), -double(ahead.x))));
+}
+
+float wrapped(float deg) { return deg - 360.0f * std::floor((deg + 180.0f) / 360.0f); }
+
+} // namespace
 
 void Viewport::setPlayFrame(bool on) {
     if (playFrame_ == on) return;
@@ -66,7 +84,11 @@ bool Viewport::followBody(uint32_t object) {
     stopFlying();
     if (!followedBody_) sceneOrbit_=camera_;
     const QVector3D centre(body->pos.x,body->pos.y,body->pos.z);
-    if (bodyOrbitSaved_) camera_=bodyOrbit_;
+    if (chase_) { // behind it, a little above, along its heading
+        const float yaw = qDegreesToRadians(behindYaw(body->rot));
+        camera_.lookAt(centre + QVector3D(2.4f * std::cos(yaw), 1.0f, 2.4f * std::sin(yaw)), centre);
+        chaseHeading_ = behindYaw(body->rot), chaseTime_ = -1;
+    } else if (bodyOrbitSaved_) camera_=bodyOrbit_;
     else camera_.lookAt(centre+QVector3D(1.8f,1.0f,1.8f),centre);
     followedBody_=object;
     updateBodyOrbit();
@@ -80,12 +102,26 @@ void Viewport::setFollow(uint32_t body) {
     if (changed) emit followChanged(body);
 }
 
+void Viewport::setChase(bool on) {
+    if (chase_ == on) return;
+    chase_ = on;
+    if (const uint32_t body = followedBody_) followBody(0), followBody(body); // placed anew, behind it or as it was
+}
+
 void Viewport::updateBodyOrbit() {
     if (followWish_ && followedBody_ != followWish_ && !editMode_ && !lookThrough_) followBody(followWish_); // its ▶, or it is back
     if (!followedBody_) return;
     if (snap_) for (const auto& b:snap_->bodies) if (b.object==followedBody_ && b.movable) {
         const QVector3D centre(b.pos.x,b.pos.y,b.pos.z);
-        camera_.translate(centre-camera_.target());
+        if (!chase_) return camera_.translate(centre-camera_.target());
+        const double now = double(snap_->time);
+        const float dt = chaseTime_ < 0 || now < chaseTime_ ? -1.0f : float(now - chaseTime_); // back in time: a new run
+        chaseTime_ = now;
+        if (dt < 0) return camera_.translate(centre-camera_.target()); // the first frame, or a jump: at once
+        const float turn = (1.0f - std::exp(-dt / kChaseTurn)) * wrapped(behindYaw(b.rot) - chaseHeading_);
+        chaseHeading_ += turn;
+        camera_.turnYaw(turn); // the heading's change only: an orbit the mouse made stays
+        camera_.translate((centre-camera_.target()) * (1.0f - std::exp(-dt / kChaseMove)));
         return;
     }
     followBody(0); // removed body or reset: restore the scene view (the wish waits for the next run)

@@ -286,9 +286,18 @@ void MainWindow::buildLayoutActions() {
         }, "ui");
     });
     connect(view_, &Viewport::followChanged, follow, [follow](uint32_t body) { follow->setChecked(body != 0); });
+    auto* chase = new QAction(uiText("Kinetica", "Камера преследования"), this);
+    chase->setObjectName("actionChaseCamera");
+    chase->setCheckable(true);
+    chase->setToolTip(uiText("Kinetica", "Следя за телом, камера держится позади него по курсу и плавно догоняет повороты, как в гонках; "
+                                         "мышью её можно повернуть вокруг тела"));
+    connect(chase, &QAction::triggered, this, [this, chase](bool on) {
+        ops_->run("view_follow", {{"body", int(view_->followWish())}, {"chase", on}}, [this, chase](const QJsonObject&) { chase->setChecked(view_->chase()); }, "ui");
+    });
     QMenu* viewMenu = menuBar()->findChild<QMenu*>("viewMenu");
     viewMenu->addSeparator();
     viewMenu->addAction(follow);
+    viewMenu->addAction(chase);
     viewMenu->addAction(hud);
     viewMenu->addAction(collidersAct_);
     viewMenu->addAction(graphsAct_);

@@ -99,11 +99,15 @@ void EditorOps::addStateOps() {
     });
     addSync("view_follow", "The view's camera follows a body's centre of mass whenever the world plays - now, or from the next ▶ - and orbits "
                            "it as the mouse turns it (Вид → «Следить за выделенным», Shift+F); body 0: the editor's own view again. "
-                           "view_look, view_through, F and Home end it", "{body: int}", [this](const QJsonObject& a) {
+                           "chase: a chase camera - behind the body along its heading (its own x on the ground), catching up its turns "
+                           "(0.35 s) and its centre (0.12 s) as a game's spring arm, the mouse's orbit about it kept (Вид → «Камера "
+                           "преследования»); not given: as it was. view_look, view_through, F and Home end it",
+            "{body: int, chase?: bool}", [this](const QJsonObject& a) {
         const uint32_t id = uint32_t(a.value("body").toInt());
         if (id && !ke::findEntity(builder_->graph(), id)) return error(QString("no body %1 in the scene").arg(id));
+        if (a.contains("chase")) view_->setChase(a.value("chase").toBool());
         view_->setFollow(id);
-        return ok({{"follow_body", int(view_->followWish())}});
+        return ok({{"follow_body", int(view_->followWish())}, {"chase", view_->chase()}});
     });
     addSync("view_through", "The view looks through a camera of the scene - its eye, its turn and its lens, wherever its keys or the running world take "
                             "it - as «Смотрю через» in the view's corner; no camera (or 0): the editor's own view again, as it was",

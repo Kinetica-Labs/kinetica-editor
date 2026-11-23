@@ -6,6 +6,8 @@
 #include "SelfTestSupport.h"
 
 #include "CommandSearch.h"
+#include "EditorOps.h"
+#include <QJsonArray>
 #include "MainWindow.h"
 #include "SimulationBar.h"
 
@@ -210,6 +212,37 @@ void testFollow(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     pump(200);
 }
 
+// Вид → «Камера преследования» on a box spinning about the vertical at 1 rad/s, free in the air (no gravity): the camera
+// sits behind its heading (its own -x on the ground) and turns with it, a lag behind - at a steady turn ω τ, 20° for
+// τ = 0.35 s.
+void testChase(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
+    b.newScene();
+    dynamic_cast<MainWindow&>(w).operators()->runNow("world_set", {{"line", "world"}, {"key", "gravity"}, {"values", QJsonArray{0, 0, 0}}});
+    b.createActions()[0]->trigger();
+    const uint32_t id = last(b).id;
+    b.editEntity(id, [](Entity& e) {
+        e.position = Vector3(0, 1.0f, 0), e.rigid.enabled = true, e.collider.enabled = true;
+        e.rigid.angularVelocity = Vector3(0, 1, 0);
+    });
+    b.select(id);
+    trigger(w, "actionFollowSelected");
+    trigger(w, "actionChaseCamera");
+    b.play();
+    waitFrames(v, 90, 30000);
+    float lag = 999, turned = 0;
+    if (auto s = v->snapshot(); s && b.bodyOfEntity(id) >= 0) {
+        const ke::Vector3 ahead = s->bodies[size_t(b.bodyOfEntity(id))].rot.rotate(ke::Vector3(1, 0, 0));
+        const float behind = float(qRadiansToDegrees(std::atan2(-double(ahead.z), -double(ahead.x))));
+        lag = std::fmod(behind - v->camera().yaw() + 540.0f, 360.0f) - 180.0f, turned = std::fmod(180.0f - behind + 540.0f, 360.0f) - 180.0f;
+    }
+    std::printf("  chase: the box turned %.0f°, the camera %.0f° behind its heading\n", turned, lag);
+    c.check(v->chase() && std::fabs(turned) > 45 && std::fabs(lag) > 5 && std::fabs(lag) < 35, "the chase camera turns with the box, a lag behind");
+    trigger(w, "actionChaseCamera");
+    trigger(w, "actionEscape");
+    b.stop();
+    pump(200);
+}
+
 void testCommandSearch(Checker& c, QMainWindow& w, SceneBuilder& b, const QString& dir) {
     b.newScene();
     std::vector<uint32_t> ids;
@@ -310,6 +343,7 @@ int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& di
     testPlayBar(c, w, b, v, dir);
     testKeep(c, w, b, v);
     testFollow(c, w, b, v);
+    testChase(c, w, b, v);
     testCommandSearch(c, w, b, dir);
     if (auto* mw = qobject_cast<MainWindow*>(&w)) testPivotAndBlank(c, *mw, b, v);
     return c.failures;

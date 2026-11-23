@@ -142,6 +142,7 @@
 | `clean` | `bool` | снимок без надписей и куба поверх вида | stable |  |
 | `clear` | `bool` | убрать рисунки, чьё имя начинается так | stable |  |
 | `channels` | `[]` | величины графиков по их id (`plots_get` channels) | testing |  |
+| `chase` | `bool` | камера преследования: позади тела по его курсу, догоняет с запаздыванием (`view_follow`) | stable |  |
 | `close` | `bool` | закрыть схват; false - открыть | stable |  |
 | `color` | `[3]` | цвет [r, g, b], каждое 0-1 - слово файла сцены и всех стандартов 3D | stable |  |
 | `colour` | `[3]` | цвет [r, g, b], каждое 0-1 | obsolete | `color` |
@@ -334,6 +335,7 @@
 | `cancelled` | шаги прерваны до конца | stable |  |
 | `changed` | что изменила правка: id объектов | stable |  |
 | `channels` | каналы замера `[{id, name, unit, value}]` | stable |  |
+| `chase` | камера преследования включена | stable |  |
 | `completed_frames` | сколько кадров сделано | stable |  |
 | `components` | компоненты `[{id, type, values}]` | stable |  |
 | `contacts` | касания тел `[{a, b, depth, force, points}]` | stable |  |

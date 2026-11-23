@@ -41,6 +41,7 @@ public:
     void zoomToward(const QVector3D& point, float wheelSteps);
     // Moves the eye and the target together (flying), in world units.
     void translate(const QVector3D& delta) { target_ += delta; }
+    void turnYaw(float deg) { yaw_ += deg; } // about the target, as a sideways orbit
     // Looks along a direction (the view's forward), keeping the target: the axis views.
     void lookAlong(const QVector3D& forward);
     QVector3D right() const; // the screen's right in the world
