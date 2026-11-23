@@ -51,6 +51,38 @@ class HarnessTests(unittest.TestCase):
         return dict(name="rotation", expected="disc rotates", seen="disc changed orientation",
                     **{"pass": True}, actions=[1], shot="view.png")
 
+    def test_wilson_interval(self):
+        low, high = ae.wilson(5, 5)
+        self.assertAlmostEqual(low, 0.566, places=3)   # 5 of 5: the true share is only known to be above ~57 %
+        self.assertEqual(high, 1.0)
+        low, high = ae.wilson(0, 10)
+        self.assertEqual(low, 0.0)
+        self.assertAlmostEqual(high, 0.278, places=3)
+        low, high = ae.wilson(50, 100)
+        self.assertAlmostEqual((low + high) / 2, 0.5, places=6)
+        self.assertEqual(ae.wilson(0, 0), (0.0, 1.0))
+
+    def test_verdict_once_and_summary(self):
+        runs = []
+        for k, done in enumerate((True, True, False)):
+            run = Path(self.directory.name) / f"r{k}"
+            ae.initialize(run, "ui", 47801, "T1", 20)
+            self.run = run
+            for _ in range(k + 2):
+                self.call("ui_pointer", {"action": "click", "x": 1, "y": 1, "space": "window"})
+            ae.verdict(run, done)
+            runs.append(run)
+        with self.assertRaises(FileExistsError):
+            ae.verdict(runs[0], False) # a verdict is never rewritten
+        s = ae.summary(runs)
+        self.assertEqual((s["runs"], s["judged"], s["done"]), (3, 3, 2))
+        self.assertEqual(s["hand_actions"]["median"], 3)
+        self.assertEqual(s["done_95"], [round(x, 3) for x in ae.wilson(2, 3)])
+        q = ae.summary(runs[:2])["hand_actions"]  # two runs: the quartiles stay inside the data
+        self.assertTrue(q["min"] <= q["q1"] <= q["median"] <= q["q3"] <= q["max"])
+        with self.assertRaises(ValueError):
+            ae.summary([])
+
     def test_init_rejects_reuse(self):
         with self.assertRaisesRegex(ValueError, "empty"):
             ae.initialize(self.run, "ui", 47801, "T1", 20)

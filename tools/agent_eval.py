@@ -12,7 +12,9 @@ import collections
 import datetime
 import json
 from pathlib import Path
+import math
 import re
+import statistics
 import sys
 import time
 
@@ -279,6 +281,47 @@ def metrics(run):
                 elapsed_seconds=round(elapsed, 3), phases=dict(collections.Counter(row["phase"] for row in rows)))
 
 
+def wilson(k, n, z=1.96):
+    """The Wilson score interval of a share k of n at ~95 % (z 1.96): (low, high). Unlike k/n ± z·sqrt(p(1-p)/n), it
+    stays inside 0..1 and says something at 5 of 5 - only that the true share is above ~57 %, not that it is 100 %."""
+    if n <= 0:
+        return 0.0, 1.0
+    p, z2 = k / n, z * z
+    centre = (p + z2 / (2 * n)) / (1 + z2 / n)
+    half = z * math.sqrt(p * (1 - p) / n + z2 / (4 * n * n)) / (1 + z2 / n)
+    return max(0.0, centre - half), min(1.0, centre + half)
+
+
+def verdict(run, done, note=""):
+    """The evaluator's word on a run - the task done or not -, written once, never rewritten (verdict.json)."""
+    path = Path(run).resolve() / "verdict.json"
+    with path.open("x", encoding="utf-8") as stream:
+        json.dump(dict(done=bool(done), note=note, at=utc_now()), stream, ensure_ascii=False, indent=2)
+        stream.write("\n")
+    return read_json(path)
+
+
+def summary(runs):
+    """Several runs of one task as numbers a decision can rest on: how many were done with its 95 % interval, and the
+    median and quartiles of the hands' actions and of the time - one run is an anecdote, five are a measure."""
+    if not runs:
+        raise ValueError("summary: no runs")
+    rows = [dict(metrics(r), done=read_json(Path(r) / "verdict.json")["done"] if (Path(r) / "verdict.json").exists() else None)
+            for r in runs]
+    judged = [r for r in rows if r["done"] is not None]
+    done = sum(r["done"] for r in judged)
+    low, high = wilson(done, len(judged))
+
+    def spread(key):
+        values = sorted(r[key] for r in rows)
+        q = statistics.quantiles(values, n=4, method="inclusive") if len(values) > 1 else values * 3 # inside the data
+        return dict(median=statistics.median(values), q1=q[0], q3=q[2], min=values[0], max=values[-1])
+
+    return dict(runs=len(rows), judged=len(judged), unjudged=len(rows) - len(judged), done=done, done_share=round(done / len(judged), 3) if judged else None,
+                done_95=[round(low, 3), round(high, 3)], hand_actions=spread("hand_actions"),
+                elapsed_seconds=spread("elapsed_seconds"), tasks=sorted({r["task"] for r in rows}))
+
+
 def references(item, role, numbers, problems, label):
     key = "actions" if role == "ui" else "calls"
     refs = item.get(key)
@@ -401,6 +444,11 @@ def parser():
     call.add_argument("--phase", choices=PHASES, default="build")
     for name in ("metrics", "check", "serve"):
         commands.add_parser(name).add_argument("run")
+    judge = commands.add_parser("verdict")
+    judge.add_argument("run")
+    judge.add_argument("--done", choices=("yes", "no"), required=True)
+    judge.add_argument("--note", default="")
+    commands.add_parser("summary").add_argument("runs", nargs="+")
     return root
 
 
@@ -409,7 +457,11 @@ def main(argv=None):
     try:
         if options.command == "serve":
             return serve(options.run)
-        if options.command == "init":
+        if options.command == "verdict":
+            result = verdict(options.run, options.done == "yes", options.note)
+        elif options.command == "summary":
+            result = summary(options.runs)
+        elif options.command == "init":
             result = initialize(options.run, options.role, options.port, options.task, options.budget)
         elif options.command == "call":
             result = perform_call(options.run, options.op, json.loads(options.args), options.expect,
