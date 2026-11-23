@@ -183,7 +183,9 @@ void SceneBuilder::fillPluginCards() {
                 const QJsonArray choices = f.value("enum").toArray();
                 for (const QJsonValue& x : choices) items << x.toVariant().toString();
                 const int at = std::max(0, int(items.indexOf(now.toVariant().toString())));
-                form->choice(label, items, [at] { return double(at); }, [pending, name, choices](double k) { pending->insert(name, choices.at(int(k))); });
+                QStringList shown; // the words of the plugin's catalog, the values as they are
+                for (int k = 0; k < items.size(); ++k) shown << f.value("enum_words").toArray().at(k).toString(items.at(k));
+                form->choice(label, shown, [at] { return double(at); }, [pending, name, choices](double k) { pending->insert(name, choices.at(int(k))); });
             } else if (kind == "boolean") {
                 form->toggle(label, [now] { return now.toBool() || now.toDouble() != 0 ? 1.0 : 0.0; }, [pending, name](double on) { pending->insert(name, on != 0); });
             } else if (kind == "vector") {

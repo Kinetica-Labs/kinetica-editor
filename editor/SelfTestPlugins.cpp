@@ -14,6 +14,7 @@
 #include "Resources.h"
 #include "PluginPanel.h"
 #include "TrackChart.h"
+#include "UiLanguage.h"
 
 #include <QAction>
 #include <QComboBox>
@@ -495,6 +496,47 @@ def count(scene, dt, sensors):
     if (results && before.contains("resultsDock-")) results->hide(); // as it was: the button opened it
     pump(50);
     c.check(firstLevel(w) == before, "the plugin gone, the window's panels are as they were before it");
+}
+
+// A plugin's words in the window's language (docs/contracts/editor-plugin.md, «Перевод»): its catalog
+// i18n/<language>.json beside plugin.py; the editor translates what the plugin describes - the panel's title, a button, a
+// command's label, a choice's words (the value it gets stays the plugin's) -, tr() what it makes up; the catalog saved,
+// the plugin starts again in its new words.
+void testWords(Checker& c, QMainWindow& w, EditorOps* ops, PluginHost* host, const QString& folder) {
+    QDir().mkpath(folder + "/speaker/i18n");
+    const QString catalog = folder + "/speaker/i18n/" + UiLanguage::active() + ".json";
+    write(catalog, R"({"Слова": "Words", "Сказать": "Say", "да": "yes", "нет": "no", "привет, {who}": "hello, {who}", "тишина": "silence"})");
+    write(folder + "/speaker/plugin.py", R"py(from kinetica.plugin import command, field, tr, ui
+
+
+@command(label="Сказать")
+def say(scene, answer: str = field("да", choices=("да", "нет"), label="Ответ")):
+    return {"said": tr("привет, {who}").format(who=answer)}
+
+
+ui.panel("Слова", ui.choice("answer", ("да", "нет"), label="Ответ"), ui.button(say), ui.value("state", default="тишина"))
+)py");
+    host->start(true);
+    QPushButton* button = nullptr;
+    waitUntil([&] { return (button = w.findChild<QPushButton*>("pluginButton_say")) != nullptr; }, 10000);
+    QAction* act = action(w, "plugin:speaker_say");
+    auto* choice = button ? button->parentWidget()->findChild<QComboBox*>() : nullptr;
+    QJsonObject said;
+    ops->run("speaker_say", {{"answer", "нет"}}, [&said](const QJsonObject& r) { said = r; }, "ui");
+    waitUntil([&] { return !said.isEmpty(); }, 5000);
+    std::printf("  a plugin's words in «%s»: button «%s», action «%s», choice «%s», said «%s»\n", qPrintable(UiLanguage::active()),
+                button ? qPrintable(button->text()) : "-", act ? qPrintable(act->text()) : "-", choice ? qPrintable(choice->itemText(0)) : "-",
+                qPrintable(said.value("said").toString()));
+    c.check(button && button->text() == "Say" && act && act->text().startsWith("Say") && choice && choice->itemText(0) == "yes",
+            "the editor shows a plugin's labels and choices in its catalog's words");
+    auto* state = w.findChild<QLabel*>("pluginValue_state");
+    c.check(state && state->text() == "silence", "a value's first words are the catalog's too");
+    c.check(said.value("said").toString() == "hello, нет", "tr() in the plugin gives its catalog's word; the value a choice sends stays the plugin's");
+    write(catalog, R"({"Сказать": "Speak"})");
+    c.check(waitUntil([&] { return (button = w.findChild<QPushButton*>("pluginButton_say")) && button->text() == "Speak"; }, 10000),
+            "the catalog saved, the plugin starts again in its new words");
+    QDir(folder + "/speaker").removeRecursively();
+    waitUntil([&] { return !w.findChild<QPushButton*>("pluginButton_say"); }, 5000);
 }
 
 // A picture in the panel (ui.svg): an SVG the plugin sends through show() from a command is drawn by the editor, scaled to
@@ -1207,6 +1249,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testChart(c, w, b, ops, host, dir.path());
     testStepChart(c, w, ops, host, dir.path());
     testSvg(c, w, ops, host, dir.path());
+    testWords(c, w, ops, host, dir.path());
     testUrdf(c, b, ops, host, dir.path());
     testSceneFields(c, w, b, ops, host, dir.path());
     testGizmos(c, w, b, v, ops, host, dir.path());

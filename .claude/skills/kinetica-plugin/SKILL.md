@@ -55,6 +55,14 @@ contract: `docs/contracts/editor-plugin.md`; SDK: `clients/python/kinetica/plugi
 
 ## Rules
 
+The constitution's chapter «V. Плагин» (`docs/constitution.md`, articles 20-25) is the short list; in brief:
+- The plugin's name is its folder, Latin `snake_case`, for ever (`brain` -> `brain_train`); labels are separate from it.
+- Labels in Russian; translations in `i18n/<language>.json` beside `plugin.py` (`{"Мозг": "Brain"}`): the editor
+  translates labels, titles, charts, units and choices itself; words made up at run time go through `tr("…")`
+  (`from kinetica.plugin import tr`; a template is the key: `tr("поколение {g}").format(g=g)`).
+- The window's first level is the person's (`docs/contracts/ui.md`): the panel is an inspector tab, charts are drawn in
+  «Графики» only.
+
 - Change the scene only through operations (`scene.ed.<op>(...)` or the object model), never by other means.
 - A robot's controller sees sensors, not the truth (CLAUDE.md, «Контракт наблюдаемости»): write it as `@on_tick` (or
   read `sensor_read`); `sim_state` is the engine's truth, for checking only.

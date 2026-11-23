@@ -23,6 +23,7 @@ word for: the console's ``ed``, so a line tried there is pasted here as it is (`
 are the way to the scene; there is no other. ``print`` goes to the editor's API console. The editor starts the file
 itself (``python -m kinetica.plugin plugin.py``). Only the Python standard library is used.
 """
+import functools
 import inspect
 import json
 import os
@@ -413,6 +414,25 @@ class ui:
     @staticmethod
     def text(name, default="", label=None):
         return ui._field("text", name, default, label)
+
+
+def tr(text):
+    """A word of the plugin in the window's language: its translation in the plugin's catalog - i18n/<language>.json
+    beside plugin.py, {"поколение {g}": "generation {g}"} - else the word itself. What the plugin describes (labels,
+    titles, charts, help) the editor translates by that catalog itself; tr is for the words it makes up as it runs::
+
+        show(status=tr("поколение {g}: лучший {best:.2f}").format(g=g, best=best))"""
+    return _words().get(text, text)
+
+
+@functools.lru_cache(maxsize=None)
+def _words():
+    """The catalog the editor named for this window's language (KE_PLUGIN_WORDS), read once; none: no words."""
+    try:
+        with open(os.environ["KE_PLUGIN_WORDS"], encoding="utf-8") as f:
+            return json.load(f)
+    except (KeyError, OSError, ValueError):
+        return {}
 
 
 def show(**values):

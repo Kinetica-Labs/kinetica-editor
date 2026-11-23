@@ -142,9 +142,10 @@ void PluginPanel::build(const QJsonObject& n, QBoxLayout* into) {
         } else if (kind == "toggle") {
             f->toggle(label, [this, name] { return values_.value(name).toBool() ? 1.0 : 0.0; }, [this, name](double v) { values_.insert(name, v != 0); });
         } else if (kind == "choice") {
-            QStringList items;
+            QStringList items, shown; // the values, and the words the form shows for them (the plugin's catalog's)
             for (const QJsonValue& e : n.value("enum").toArray()) items << e.toVariant().toString();
-            f->choice(label, items, [this, name, items] { return double(std::max<qsizetype>(0, items.indexOf(values_.value(name).toVariant().toString()))); },
+            for (int k = 0; k < items.size(); ++k) shown << n.value("enum_words").toArray().at(k).toString(items.at(k));
+            f->choice(label, shown, [this, name, items] { return double(std::max<qsizetype>(0, items.indexOf(values_.value(name).toVariant().toString()))); },
                       [this, name, items](double v) { values_.insert(name, items.value(int(v))); });
         } else {
             f->vector(label, lo, hi, 0.01, 3,

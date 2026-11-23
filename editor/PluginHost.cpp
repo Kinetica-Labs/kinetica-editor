@@ -24,6 +24,7 @@
 #include <QDesktopServices>
 #include <QFormLayout>
 #include <QJsonArray>
+#include <QJsonDocument>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QLineEdit>
@@ -151,7 +152,8 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
     connect(watcher_, &QFileSystemWatcher::fileChanged, this, [this](const QString& path) {
         QTimer::singleShot(150, this, [this, path] { // an editor writes in steps: the file as it stands a moment later
             if (QFileInfo::exists(path)) watcher_->addPath(path); // a replaced file is a new one to watch
-            const QString folder = QFileInfo(path).absolutePath(); // plugin.py or a module of it
+            QString folder = QFileInfo(path).absolutePath(); // plugin.py or a module of it, or its catalog in i18n/
+            if (QFileInfo(folder).fileName() == "i18n") folder = QFileInfo(folder).absolutePath();
             for (auto& p : plugins_) {
                 if (QFileInfo(p->file).absolutePath() != folder) continue;
                 if (!QFileInfo::exists(p->file)) return forget(p->file); // its folder deleted: it was «запускается» for ever
@@ -241,9 +243,40 @@ QString PluginHost::create(const QString& name, QString& error, const QString& k
     return out.fileName();
 }
 
+// A plugin's words in the window's language: its catalog <its folder>/i18n/<language>.json - {"Мозг": "Brain", ...} -
+// when it has one (docs/contracts/editor-plugin.md, «Перевод»).
+static QString catalogOf(const QString& file) { return QFileInfo(file).dir().filePath("i18n/" + UiLanguage::active() + ".json"); }
+
+// What a plugin describes for people - labels, titles, texts, help, units, the axis' words, a value's first words - in
+// its catalog's words;
+// names, values and choices as they are (a choice's words go beside it, `enum_words`: the form shows them, the
+// command gets the value).
+static QJsonValue inWords(const QJsonValue& v, const QJsonObject& words) {
+    const auto word = [&words](const QJsonValue& s) { return words.value(s.toString()).toString(s.toString()); };
+    if (v.isArray()) {
+        QJsonArray out;
+        for (const QJsonValue& x : v.toArray()) out.append(inWords(x, words));
+        return out;
+    }
+    if (!v.isObject()) return v;
+    QJsonObject o = v.toObject();
+    for (auto it = o.begin(); it != o.end(); ++it) {
+        if (it.value().isString() && QStringList{"label", "title", "text", "help", "unit", "x_label"}.contains(it.key())) it.value() = word(it.value());
+        else if (it.value().isObject() || (it.value().isArray() && it.key() != "enum")) it.value() = inWords(it.value(), words);
+    }
+    if (o.value("kind") == "value" && o.value("default").isString()) o.insert("default", word(o.value("default"))); // a value's first words
+    if (o.value("enum").isArray()) {
+        QJsonArray shown;
+        for (const QJsonValue& e : o.value("enum").toArray()) shown.append(e.isString() ? word(e) : QJsonValue(e.toVariant().toString()));
+        o.insert("enum_words", shown);
+    }
+    return o;
+}
+
 void PluginHost::launch(Plugin& p) {
     for (const QFileInfo& f : QFileInfo(p.file).dir().entryInfoList({"*.py"}, QDir::Files)) // saving any of its modules restarts it;
         if (!watcher_->files().contains(f.absoluteFilePath())) watcher_->addPath(f.absoluteFilePath()); // a new one: from its next start
+    if (QFileInfo::exists(catalogOf(p.file)) && !watcher_->files().contains(catalogOf(p.file))) watcher_->addPath(catalogOf(p.file)); // its words too
     const quint16 port = apiPort_();
     if (!port) {
         p.state = "нет API";
@@ -255,6 +288,7 @@ void PluginHost::launch(Plugin& p) {
     env.insert("KE_PLUGIN_NAME", p.name);
     env.insert("KE_PLUGIN_TOKEN", p.token);
     env.insert("KE_RUN_PORT", QString::number(hooks_->port())); // its on_play / on_tick / on_stop: their own wire (RunHooks.h)
+    if (QFileInfo::exists(catalogOf(p.file))) env.insert("KE_PLUGIN_WORDS", catalogOf(p.file)); // tr() in it: the words it makes up
     hooks_->expect(p.name, p.token);
     p.process->setProcessEnvironment(env);
     p.process->setWorkingDirectory(QFileInfo(p.file).absolutePath());
@@ -591,7 +625,8 @@ void PluginHost::invoke(const QString& plugin, const Command& c) {
             w = box;
         } else if (f.contains("enum")) {
             auto* box = new QComboBox;
-            for (const QJsonValue& e : f.value("enum").toArray()) box->addItem(e.toVariant().toString(), e.toVariant());
+            const QJsonArray shown = f.value("enum_words").toArray();
+            for (const QJsonValue& e : f.value("enum").toArray()) box->addItem(shown.at(box->count()).toString(e.toVariant().toString()), e.toVariant());
             box->setCurrentIndex(std::max(0, box->findData(start.toVariant())));
             read.push_back([&args, name, box] { args.insert(name, QJsonValue::fromVariant(box->currentData())); });
             w = box;
@@ -698,10 +733,13 @@ void PluginHost::addOps() {
                                    "(clients/python/kinetica/plugin.py sends it)",
                 "{name: str, token: str, file?: str, commands: [{name, label, key, help, args: {field: {type, default, label, unit, minimum, "
                 "maximum, enum}}, order: [field]}], panel?: {…} (its panel: kinetica.plugin.ui), components?: [{}], events?: [str] (change: it has an @on_change)}",
-                [this](const QJsonObject& a, const EditorOps::Reply& reply) {
+                [this](const QJsonObject& given, const EditorOps::Reply& reply) {
         QJsonObject refusal;
-        Plugin* p = authorised(a, refusal);
+        Plugin* p = authorised(given, refusal);
         if (!p) return reply(refusal);
+        QJsonObject words;
+        if (QFile f(catalogOf(p->file)); f.open(QIODevice::ReadOnly)) words = QJsonDocument::fromJson(f.readAll()).object();
+        const QJsonObject a = words.isEmpty() ? given : inWords(given, words).toObject(); // in the window's language
         unregister(*p);
         builder_->setPluginComponents(p->name, a.value("components").toArray()); // its components: cards, «+ Добавить компонент», points
         QJsonArray made;
