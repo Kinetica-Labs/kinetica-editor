@@ -3,11 +3,11 @@
 // mesh's own triangles only on a body that stands (sim/RobotWorld.cpp colliderShapes). Approximate convex decomposition
 // the way V-HACD does it (Mamou & Ghorbel 2009; Unreal's, Isaac Sim's, Bullet's): the solid filled with voxels and cut by
 // axis planes - the most concave part first, at the plane whose two pieces' hulls hold the least volume, each piece
-// split into its connected ones. A part is cut no more when its hull stands out into the air no farther than `depth`
+// split into its connected ones. A part is cut no more when its hull stands out into the air no farther than `concavity`
 // from the solid - CoACD's concavity (Wei et al. 2022): the hull's surface against the shape, 5 % of the mesh's
-// diagonal there too - or when the parts number `maxParts`. A part is given by the mesh's own surface points in it, so the voxels' steps never reach the
+// diagonal there too - or when the parts number `hulls`. A part is given by the mesh's own surface points in it, so the voxels' steps never reach the
 // collider. The same mesh gives the same parts on every compiler; the last meshes' parts are kept, so a model is cut once.
-// The points an engine takes of each part: physics/HullPoints.h.
+// The points an engine takes of each part: spatial/HullPoints.h.
 #include "core/Mesh.h"
 
 #include <vector>
@@ -15,9 +15,9 @@
 namespace ke {
 
 struct ConvexPartsOptions {
-    int resolution = 64; // voxels along the mesh's longest side
-    int maxParts = 32;
-    Real depth = 0.05_r; // how far a part's hull may stand out into the air from the solid, a share of the mesh's diagonal
+    int resolution = 64;     // voxels along the mesh's longest side
+    int hulls = 32;          // parts at most
+    Real concavity = 0.05_r; // how far a part's hull may stand out into the air from the solid, a share of the mesh's diagonal
 };
 
 // The points of each part, in the mesh's frame, each to be taken as its convex hull: one part - the mesh's own points -

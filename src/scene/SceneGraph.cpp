@@ -211,7 +211,11 @@ static std::string named(const std::string& word) {
 // The collider role, a line of its own with every field (written only when the role is on).
 static void saveCollider(std::ostringstream& o, const ColliderRole& c) {
     o << "  collider kind " << kColliderNames[int(c.kind)] << " fit " << (c.fitToGeometry ? 1 : 0) << " size " << vec(c.size)
-      << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << (c.trigger ? " trigger 1" : "") << "\n";
+      << " offset " << vec(c.offset) << " rotation " << vec(c.rotationDeg) << (c.trigger ? " trigger 1" : "");
+    const ColliderRole plain; // the convex parts' numbers written when set: a file without them reads everywhere
+    if (c.hulls != plain.hulls) o << " hulls " << c.hulls;
+    if (c.concavity != plain.concavity) o << " concavity " << num(c.concavity);
+    o << "\n";
     if (c.ignores.empty()) return; // both written when set: a file without them reads everywhere
     o << "  ignores";
     for (const std::string& t : c.ignores) o << " " << named(t);
@@ -747,6 +751,10 @@ static const Key<ColliderRole> kColliderKeys[] = {
     {"offset", "vector, in the body's axes", "m", vector<ColliderRole, &ColliderRole::offset>},
     {"rotation", "vector of Euler angles", "°", vector<ColliderRole, &ColliderRole::rotationDeg>},
     {"trigger", "flag: it notices contacts, pushes nothing", "", flag<ColliderRole, &ColliderRole::trigger>},
+    {"hulls", "whole number 1..64: a moving body's mesh as at most so many convex parts", "",
+     [](LineReader& r, ColliderRole& c, std::string&) { return r.integer(c.hulls) && c.hulls >= 1 && c.hulls <= 64; }},
+    {"concavity", "number 0.005..0.5: how far a convex part may stand out into the air, a share of the body's diagonal", "",
+     [](LineReader& r, ColliderRole& c, std::string&) { return within(r, c.concavity, 0.005_r, 0.5_r); }},
 };
 static const Key<Entity> kPathKeys[] = {
     {"speed", "number above 0", "m/s", [](LineReader& r, Entity& e, std::string&) { return r.number(e.pathSpeed) && e.pathSpeed > 0; }},

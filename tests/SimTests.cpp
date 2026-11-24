@@ -10,8 +10,8 @@
 #include "TestBodies.h"
 #include "TestRunner.h"
 
-#include "physics/ConvexParts.h"
-#include "physics/HullPoints.h"
+#include "spatial/ConvexParts.h"
+#include "spatial/HullPoints.h"
 #include "scene/Animation.h"
 #include "scene/Assembly.h"
 #include "scene/Kinematics.h"
@@ -1109,7 +1109,27 @@ void testSimMeshCollider() {
         return s.physics()->state(s.robot()->bodyOf(2)).position.y;
     };
     const Real inside = rest(ColliderKind::Mesh, false), onTop = rest(ColliderKind::ConvexHull, false), moving = rest(ColliderKind::Mesh, true);
+    // scene_collider kind mesh on the moving channel: cut at once - 3 parts, or one hull when hulls is 1; the numbers kept
+    // in the file's collider line and read back.
+    SceneGraph held;
+    Entity channel;
+    channel.id = 1, channel.name = "Желоб", channel.shape = ShapeKind::Mesh, channel.meshFile = obj, channel.size = {2, 0.65_r, 1};
+    channel.rigid.enabled = true;
+    held.entities.push_back(channel);
+    const auto collider = [&held](int hulls) {
+        Value a = Value::map(), answer = Value::map();
+        a.set("id", 1), a.set("kind", "mesh"), a.set("hulls", hulls), a.set("concavity", 0.03);
+        std::string error;
+        return findSceneOp("scene_collider")->edit(held, a, answer, error) ? answer["hulls_made"].integer() : -1;
+    };
+    const long long three = collider(8), one = collider(1);
+    SceneGraph back;
+    std::string error;
+    const bool kept = back.load(held.save(), error) && back.entities[0].collider.kind == ColliderKind::Mesh && back.entities[0].collider.hulls == 1 &&
+                      std::fabs(back.entities[0].collider.concavity - 0.03_r) < 1e-6_r;
     std::filesystem::remove(obj);
+    CHECK(three == 3 && one == 1 && kept, "scene_collider kind mesh: %lld parts with hulls 8, %lld with hulls 1, the numbers %s in the file",
+          three, one, kept ? "kept" : "lost");
     const Real solidMass = 500 * (2 * 0.1_r * 1 + 2 * 0.1_r * 0.55_r * 1); // the three slabs at 500 kg/m^3 (the hull would weigh 650)
     std::printf("  a ball in a U channel: a mesh collider %.3f m up (0.25, its floor), its hull %.3f m (0.8, the top); the channel moving, "
                 "as convex parts: %.3f m, %.1f kg (the slabs %.1f kg)\n", double(inside), double(onTop), double(moving), double(channelMass), double(solidMass));
@@ -1119,7 +1139,7 @@ void testSimMeshCollider() {
     CHECK(std::fabs(channelMass / solidMass - 1) < 0.1_r, "the moving channel weighs %f kg, its slabs %f kg", double(channelMass), double(solidMass));
 }
 
-// A solid mesh cut into convex parts (physics/ConvexParts.h): an L of two boxes becomes parts whose hulls hold its volume
+// A solid mesh cut into convex parts (spatial/ConvexParts.h): an L of two boxes becomes parts whose hulls hold its volume
 // within 10 % and leave the inner corner free; a box stays one part, its own points; the same mesh gives the same parts.
 void testConvexParts() {
     const auto join = [](TriMesh a, const TriMesh& b) {

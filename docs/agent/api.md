@@ -8,7 +8,8 @@
   args}]}` (в пакете только правки), `scene_put {block}` (id 0 — новый), `scene_get {id}` (без id — вся сцена),
   `scene_set {id, line, key, values}`, `scene_list {kind | tag}`, `scene_describe` (сцена словами), `scene_delete {ids}`,
   `scene_move`, `scene_turn` (одно тело — вокруг себя), `scene_duplicate`, `scene_array`, `scene_group`,
-  `scene_add_light`, `scene_add_camera`, `scene_add_force`, `scene_new`, `scene_open`, `scene_save {file}`.
+  `scene_add_light`, `scene_add_camera`, `scene_add_force`, `scene_new`, `scene_open`, `scene_save {file}`;
+  `scene_collider {id, kind: "mesh", hulls, concavity}` — сложная модель, что движется, сталкивается выпуклыми частями.
 - **assembly** — сборка: `assembly_list`, `assembly_describe {name}` (образец словами), `assembly_add {name, position,
   overrides | text}` (`text` — блоки из `scene_get`: копия части сцены), `assembly_save {ids, name}`, `assembly_joint {a, b, type, anchor, axis}` (`hinge`, `slider`,
   `ball`, `weld`, `shock`, `cylinder`, `universal`, `planar`), `assembly_actuator` (шарнир или ползун с сервоприводом),

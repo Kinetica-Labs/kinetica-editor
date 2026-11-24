@@ -48,6 +48,7 @@ add_library(kecore STATIC
   src/core/RuntimePolicy.h src/core/RuntimePolicy.cpp
   src/core/SurfaceTexture.h
   src/spatial/BVH.h        src/spatial/BVH.cpp
+  src/spatial/HullPoints.h src/spatial/ConvexParts.h src/spatial/ConvexParts.cpp
   src/devices/PinEdge.h
   src/devices/Encoder.h    src/devices/Encoder.cpp
   src/devices/Signal.h     src/devices/Signal.cpp
@@ -72,7 +73,7 @@ add_library(kecore STATIC
   src/scene/SceneOps.h     src/scene/SceneOps.cpp src/scene/SceneOpsActions.cpp src/scene/SceneOpsAssembly.cpp
   src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp src/scene/SceneOpsAnimation.cpp
   src/scene/Animation.h    src/scene/Animation.cpp
-  src/physics/HullPoints.h src/scene/PhysicsSettings.h src/physics/PhysicsWorld.h src/physics/ConvexParts.h src/physics/ConvexParts.cpp
+  src/scene/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/box3d/Box3dWorld.cpp
   src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp src/sim/RobotControllers.cpp src/sim/RobotPower.cpp
   src/sim/LiveSensors.h    src/sim/LiveSensors.cpp

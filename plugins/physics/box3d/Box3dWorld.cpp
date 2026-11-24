@@ -7,7 +7,7 @@
 // stands for the world in a joint to it. The mouse's hand is a motor joint from a kinematic body, as Box3D's
 // samples hold a body.
 
-#include "physics/HullPoints.h"
+#include "spatial/HullPoints.h"
 #include "physics/PhysicsWorld.h"
 
 #include <cstdio>

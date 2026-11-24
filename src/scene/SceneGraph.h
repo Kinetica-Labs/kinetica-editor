@@ -48,7 +48,7 @@ struct PluginComponent {
 // stand it in with a many-sided hull). A body's mass is the collider's volume times the density, its
 // centre of mass the collider's.
 // Mesh: the geometry's own triangles, hollows and all - a track, a terrain, a room - on a body that stands; a body that
-// moves collides by the mesh cut into convex parts (physics/ConvexParts.h), hollows kept within 5 % of its size.
+// moves collides by the mesh cut into convex parts (spatial/ConvexParts.h), hollows kept within `concavity` of its size.
 enum class ColliderKind { Auto, Box, Sphere, Capsule, ConvexHull, Cylinder, Mesh };
 struct ColliderRole {
     bool enabled = false;
@@ -59,6 +59,10 @@ struct ColliderRole {
     Vector3 rotationDeg{0.0_r};  // collider orientation relative to the object (capsule axis = y)
     bool trigger = false;        // a zone: it touches nothing and notices what is inside it (a bin a part is to reach, a guard's area)
     std::vector<std::string> ignores; // tags: no contact between it and a body marked with any of them (a part and the robot's own cover)
+    // A moving body's mesh as convex parts (spatial/ConvexParts.h): at most `hulls` of them, each standing out into the
+    // air no farther than `concavity` of the body's diagonal - Godot's max_convex_hulls and max_concavity, CoACD's threshold.
+    int hulls = 32;
+    Real concavity = 0.05_r;
 };
 struct RigidRole {
     bool enabled = false;

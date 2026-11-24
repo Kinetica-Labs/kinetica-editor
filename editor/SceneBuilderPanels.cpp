@@ -409,6 +409,7 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
     const auto manual = [c] { return c->kind != ColliderKind::Auto && !c->fitToGeometry; };
     const auto round = [c] { return c->kind == ColliderKind::Sphere || c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
     const auto tall = [c] { return c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
+    const auto movingMesh = [this, c] { return c->kind == ColliderKind::Mesh && shapeDraft_.rigid.enabled && !shapeDraft_.rigid.fixed; };
     std::vector<FieldForm::Tile> kinds;
     for (int k = 0; k <= int(ColliderKind::Mesh); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, uiText("Kinetica", kColliderTips[k])});
     ComponentCard* card = componentCard(col, RoleIcon::Collider);
@@ -437,6 +438,16 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
         .number(uiText("Kinetica", "Высота, м"), 0.005, 50, 0.01, 3, c->size.y).shown([=] { return manual() && tall(); }).name("colliderHeight")
         .vector(uiText("Kinetica", "Сдвиг, м"), -50, 50, 0.05, 3, c->offset).shown(manual)
         .vector(uiText("Kinetica", "Поворот, °"), -360, 360, 5, 1, c->rotationDeg).shown(manual)
+        // A moving body's mesh as convex parts (scene_collider kind mesh): how many at most, how far each may stand out.
+        .number(uiText("Kinetica", "Частей не больше"), 1, 64, 1, 0, c->hulls).shown(movingMesh).name("colliderHulls")
+        .tip(uiText("Kinetica", "Движущееся тело сложной формы сталкивается суммой выпуклых частей (как V-HACD в Unreal и Isaac): "
+                                "сколько их может быть, не больше"))
+        .number(uiText("Kinetica", "Вогнутость, %"), 0.5, 50, 0.5, 1, [c] { return double(c->concavity) * 100; },
+                [c](double v) { c->concavity = Real(v / 100); }).shown(movingMesh).name("colliderConcavity")
+        .tip(uiText("Kinetica", "Насколько выпуклая часть может выступать в воздух за тело — доля его диагонали (как порог CoACD): "
+                                "меньше — точнее впадины, больше частей"))
+        .note([this] { return uiText("Kinetica", "Выпуклых частей: ") + QString::number(colliderOf(shapeDraft_).size()); })
+        .shown(movingMesh).name("colliderHullsMade")
         .toggle(uiText("Kinetica", "зона: ничего не толкает, замечает, что внутри"), c->trigger).name("colliderTrigger")
         .tip(uiText("Kinetica", "Зона пропускает тела сквозь себя и сообщает, кто в ней стоит: корзина, куда должна попасть деталь, "
                                 "область ограждения. Кто внутри — в ответе sim_state (triggers) и в Python: zone.inside."));

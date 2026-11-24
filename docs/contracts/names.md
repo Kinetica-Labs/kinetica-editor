@@ -150,6 +150,7 @@
 | `color`                | `[3]`    | цвет [r, g, b], каждое 0-1 - слово файла сцены и всех стандартов 3D                                                             | stable   |            |
 | `colour`               | `[3]`    | цвет [r, g, b], каждое 0-1                                                                                                      | obsolete | `color`    |
 | `commands`             | `{}`     | команды исполнителям робота по их id: `{"7": {...}}`                                                                            | stable   |            |
+| `concavity`            | `number` | насколько выпуклая часть может выступать в воздух за тело, доля его диагонали, 0,005..0,5 (`scene_collider`)                    | testing  |            |
 | `constant`             | `number` | постоянная мотора, Н·м/А                                                                                                        | stable   |            |
 | `count`                | `int`    | сколько: копий в массиве, слов после ключа                                                                                      | stable   |            |
 | `cursor`               | `bool`   | двигать и настоящий курсор человека                                                                                             | stable   |            |
@@ -184,6 +185,7 @@
 | `goals`                | `[int]`  | цели обратной кинематики                                                                                                        | stable   |            |
 | `group`                | `[int]`  | объекты, замеряемые вместе                                                                                                      | stable   |            |
 | `height`               | `number` | высота: м у формы, пикселей у кадра камеры                                                                                      | stable   |            |
+| `hulls`                | `int`    | выпуклых частей не больше у движущегося тела с коллайдером-сеткой, 1..64 (`scene_collider`)                                     | testing  |            |
 | `id`                   | `int`    | объект сцены, над которым действие; 0 - никакой                                                                                 | stable   |            |
 | `idle_timeout_ms`      | `number` | через сколько без запросов закрыться, мс                                                                                        | stable   |            |
 | `ids`                  | `[int]`  | объекты сцены, над которыми действие; все - одним шагом отмены                                                                  | stable   |            |
@@ -358,6 +360,7 @@
 | `chase` | камера преследования включена | stable |  |
 | `completed_frames` | сколько кадров сделано | stable |  |
 | `components` | компоненты `[{id, type, values}]` | stable |  |
+| `concavity` | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела (`scene_collider`) | testing |  |
 | `contacts` | касания тел `[{a, b, depth, force, points}]` | stable |  |
 | `coordinates` | координаты сустава по шести степеням свободы, м и рад | stable |  |
 | `count` | счёт: энкодера, сколько чего | stable |  |
@@ -396,6 +399,8 @@
 | `hidden_instance_limit` | сколько скрытых окон пользователь может держать сразу | stable |  |
 | `hidden_lease_remaining_ms` | сколько осталось скрытому окну до выхода без вызовов, мс (-1: окно не скрытое) | stable |  |
 | `housing` | корпус стереокамеры - id формы | stable |  |
+| `hulls` | выпуклых частей не больше у движущейся сетки (`scene_collider`) | testing |  |
+| `hulls_made` | сколько выпуклых частей вышло у движущейся сетки (`scene_collider`) | testing |  |
 | `id` | объект сцены; у канала замера - его путь (строка) | stable |  |
 | `idle_expired` | аренда истекла: вызовов не было дольше `idle_timeout_ms` | stable |  |
 | `idle_ms` | сколько прошло с последнего вызова, мс | stable |  |
@@ -548,6 +553,7 @@ by Kinetica X, newer than this program (Y)…».
 | `collider` | часть | коллайдер: форма контакта | stable |  |
 | `color` | pose, shape | цвет [r, g, b], 0-1 | stable |  |
 | `component` | часть | компонент плагина `плагин.имя` и его поля - слова плагина | stable |  |
+| `concavity` | collider | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела | testing |  |
 | `cone` | shape; kind | конус; у прожектора - угол конуса, градусы | stable |  |
 | `constant` | effect; dcmotor | постоянная сила; у мотора - постоянная, Н·м/А | stable |  |
 | `contact_damping` | physics | демпфирование контакта, доля критического | stable |  |
@@ -596,6 +602,7 @@ by Kinetica X, newer than this program (Y)…».
 | `height` | stereo | высота кадра, пикселей | stable |  |
 | `height_file` | texture | файл карты высот | stable |  |
 | `hull` | collider | выпуклая оболочка сетки | stable |  |
+| `hulls` | collider | выпуклых частей не больше у движущейся сетки | testing |  |
 | `id` | object | id объекта | stable |  |
 | `ignores` | часть | метки того, с чем у коллайдера нет контакта | stable |  |
 | `image` | texture | картинка из файла | stable |  |

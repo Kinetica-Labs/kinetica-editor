@@ -1,9 +1,9 @@
 // The convex parts of a solid mesh (ConvexParts.h): its voxels, the cuts of the most concave part, the hull that judges
 // them, and the mesh's own points of each part.
-#include "physics/ConvexParts.h"
+#include "spatial/ConvexParts.h"
 
 #include "math/ElementaryFunctions.h"
-#include "physics/HullPoints.h"
+#include "spatial/HullPoints.h"
 
 #include <algorithm>
 #include <cmath>
@@ -336,7 +336,7 @@ std::vector<std::vector<Vector3>> decompose(const TriMesh& mesh, const ConvexPar
     std::vector<std::pair<int, Vector3>> samples;
     const Voxels g = voxelize(mesh, o.resolution, samples);
     const std::vector<Vector3> dirs = lattice(kJudge), cutDirs = lattice(kCut);
-    const Real limit = o.depth * length(mesh.bounds().extent());
+    const Real limit = o.concavity * length(mesh.bounds().extent());
     std::vector<Real> stops[3];
     for (int a = 0; a < 3; ++a) {
         for (const Vector3& p : mesh.positions) stops[a].push_back(p[a]);
@@ -361,7 +361,7 @@ std::vector<std::vector<Vector3>> decompose(const TriMesh& mesh, const ConvexPar
     };
     std::vector<Part> parts = split(solid, samples);
     for (Part& p : parts) p.concavity = concavityOf(g, p, dirs);
-    while (int(parts.size()) < o.maxParts) { // the most concave part first, while it is concave and there is room
+    while (int(parts.size()) < o.hulls) { // the most concave part first, while it is concave and there is room
         int worst = -1;
         for (int i = 0; i < int(parts.size()); ++i)
             if (!parts[i].done && parts[i].concavity > limit && (worst < 0 || parts[i].concavity > parts[worst].concavity)) worst = i;
@@ -378,7 +378,7 @@ std::vector<std::vector<Vector3>> decompose(const TriMesh& mesh, const ConvexPar
         for (const Vector3& p : parts[worst].points) (p[axis] < at ? under : over).push_back({g.of(p), p});
         std::vector<Part> cut = split(below, under), upper = split(above, over);
         for (Part& p : upper) cut.push_back(std::move(p));
-        if (cut.size() < 2 || parts.size() - 1 + cut.size() > size_t(o.maxParts)) {
+        if (cut.size() < 2 || parts.size() - 1 + cut.size() > size_t(o.hulls)) {
             parts[worst].done = true;
             continue;
         }
@@ -407,7 +407,7 @@ uint64_t fingerprint(const TriMesh& mesh, const ConvexPartsOptions& o) { // FNV-
     };
     eat(mesh.positions.data(), mesh.positions.size() * sizeof(Vector3));
     eat(mesh.triangles.data(), mesh.triangles.size() * sizeof(mesh.triangles[0]));
-    eat(&o.resolution, sizeof o.resolution), eat(&o.maxParts, sizeof o.maxParts), eat(&o.depth, sizeof o.depth);
+    eat(&o.resolution, sizeof o.resolution), eat(&o.hulls, sizeof o.hulls), eat(&o.concavity, sizeof o.concavity);
     return h;
 }
 

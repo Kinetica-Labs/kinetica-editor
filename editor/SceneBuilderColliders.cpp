@@ -24,7 +24,9 @@ namespace {
 // What an entity's collider depends on (not its pose): its geometry and the collider's fields.
 std::string colliderKey(const Entity& e, const std::string& baseDirectory) {
     const ColliderRole& c = e.collider;
-    return entityGeometryKey(e, baseDirectory) + QString::asprintf(" | %d %d %d %g %g %g %g %g %g %g %g %g", int(c.enabled), int(c.kind),
+    // a mesh's: whether the body moves (convex parts) or stands (the triangles), and the parts' numbers
+    return entityGeometryKey(e, baseDirectory) + QString::asprintf(" | %d %d %g", int(e.rigid.enabled && !e.rigid.fixed), c.hulls, double(c.concavity)).toStdString() +
+           QString::asprintf(" | %d %d %d %g %g %g %g %g %g %g %g %g", int(c.enabled), int(c.kind),
                                                                    int(c.fitToGeometry), double(c.size.x), double(c.size.y), double(c.size.z),
                                                                    double(c.offset.x), double(c.offset.y), double(c.offset.z),
                                                                    double(c.rotationDeg.x), double(c.rotationDeg.y), double(c.rotationDeg.z))
