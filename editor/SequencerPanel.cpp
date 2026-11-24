@@ -8,6 +8,8 @@
 #include "SceneBuilder.h"
 #include "SequencerViews.h"
 #include "scene/Animation.h"
+#include "scene/SceneEdits.h"
+#include "core/Format.h"
 
 #include <QApplication>
 #include <QComboBox>
@@ -65,14 +67,9 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
                                  "остановить, бегунок остаётся, где остановили"), "sequencerPlay", true);
     loop_ = button("↻", uiText("Kinetica", "Петля: после последнего ключа — сначала"), "sequencerLoop", true);
     key_ = button(uiText("Kinetica", "◆ Ключ"), uiText("Kinetica", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)"), "sequencerKey");
-    autoKey_ = button(uiText("Kinetica", "◈ Автоключ"), uiText("Kinetica", "Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам. Выключен - ключ ставит только «◆ Ключ»"), "sequencerAutoKey", true);
+    autoKey_ = button(uiText("Kinetica", "◈ Автоключ"), uiText("Kinetica", "Пока включён: сдвинули или повернули объект или поменяли число в инспекторе (цвет, свет, цель сервопривода) - ключ ставится на бегунке сам; у того, у чего ключей ещё не было, - и в 0 с, каким оно было. Выключен - ключ ставит только «◆ Ключ»"), "sequencerAutoKey", true);
     connect(autoKey_, &QToolButton::toggled, this, [this](bool on) { builder_->watchHands(on); autoKey_->setStyleSheet(on ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString()); });
-    connect(builder_, &SceneBuilder::handPlaced, this, [this](const std::vector<uint32_t>& ids) {
-        if (!autoKey_->isChecked() || !builder_->editing()) return;
-        QJsonArray list;
-        for (uint32_t id : ids) list.append(int(id));
-        run("sequence_key", QJsonObject{{"ids", list}, {"time", playhead()}});
-    });
+    connect(builder_, &SceneBuilder::handPlaced, this, &SequencerPanel::autoKey);
     record_ = button(uiText("Kinetica", "⏺ Запись"), uiText("Kinetica", "Записать физику: сцена играет, каждое свободное тело пишется каждый кадр; ещё раз или «Стоп» — "
                                  "запись становится новой секвенцией «Запись N»"), "sequencerRecord", true);
     curves_ = button(uiText("Kinetica", "〰 Кривые"), uiText("Kinetica", "Кривые дорожки выделенного объекта: место и поворот от времени. Ключ тянется вверх-вниз (значение) и "
@@ -416,6 +413,55 @@ void SequencerPanel::keyMenu(uint32_t object, double time, const QPoint& at) {
     menu.addAction(uiText("Kinetica", "Бегунок на ключ"), this, [this, time] { seek(time); });
     menu.addAction(uiText("Kinetica", "Удалить ключ"), this, [this, object, time] { run("sequence_delete_key", QJsonObject{{"id", int(object)}, {"time", time}}); });
     menu.exec(at);
+}
+
+// Auto Key, as Blender's Auto Keying: what a hand changed is keyed at the playhead - a moved or turned object its pose, a
+// number set in the inspector that field. What had no key yet and changed away from 0 s gets a first key at 0 s with how
+// it was before the edit: the motion starts where the object stood (a key at the playhead alone would hold it still).
+void SequencerPanel::autoKey(const std::vector<uint32_t>& ids, const ke::SceneGraph& before) {
+    if (!autoKey_->isChecked() || !builder_->editing()) return;
+    const double t = playhead();
+    const ke::SequenceObject* q = ke::activeSequence(builder_->graph());
+    const bool later = t > 1e-6;
+    std::vector<uint32_t> fresh;
+    for (uint32_t id : ids)
+        if (later && (!q || !ke::trackOf(*q, id))) fresh.push_back(id);
+    std::vector<ke::GraphEdit> fields;
+    for (const ke::GraphEdit& e : ke::diffEdits(before, builder_->graph())) {
+        bool numbers = e.kind == ke::GraphEdit::Kind::Set && !e.values.empty() && e.key != "position" && e.key != "rotation";
+        for (const std::string& v : e.values) {
+            double x;
+            numbers = numbers && ke::parseNumber(v, x);
+        }
+        if (numbers) fields.push_back(e);
+    }
+    QJsonArray moved;
+    for (uint32_t id : ids) moved.append(int(id));
+    if (!moved.isEmpty()) run("sequence_key", QJsonObject{{"ids", moved}, {"time", t}});
+    for (uint32_t id : fresh) // its pose before the hand: the key at 0 s
+        if (const ke::SceneObject* was = ke::findObject(before, id)) {
+            const auto v3 = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
+            run("sequence_key", QJsonObject{{"ids", QJsonArray{int(id)}}, {"time", 0}});
+            run("sequence_key_set", QJsonObject{{"id", int(id)}, {"time", 0}, {"position", v3(was->position)}, {"rotation", v3(was->rotationDeg)}});
+        }
+    for (const ke::GraphEdit& e : fields) {
+        const QJsonObject field{{"ids", QJsonArray{int(e.id)}}, {"line", QString::fromStdString(e.line)}, {"key", QString::fromStdString(e.key)}};
+        if (later && (!q || !ke::fieldTrackOf(*q, e.id, e.line, e.key))) { // its numbers before the edit: the key at 0 s
+            QJsonArray was;
+            for (const ke::BlockWord& w : ke::getField(ke::getObject(before, e.id), e.line, e.key, e.values.size())) {
+                double x;
+                if (ke::parseNumber(w.text, x)) was.append(x);
+            }
+            if (!was.isEmpty()) {
+                QJsonObject first = field;
+                first["time"] = 0, first["values"] = was;
+                run("sequence_key", first);
+            }
+        }
+        QJsonObject now = field;
+        now["time"] = t;
+        run("sequence_key", now);
+    }
 }
 
 void SequencerPanel::keySelected() {

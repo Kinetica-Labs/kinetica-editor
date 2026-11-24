@@ -341,7 +341,9 @@ signals:
     void colliderGuides(std::vector<float> lines);         // green wireframes: pairs of points, x y z 0 each
     void shapeHandles(std::vector<ShapeHandle> handles);   // the collider mode's points (none: the mode is off)
     void colliderEditChanged(bool on);
-    void handPlaced(const std::vector<uint32_t>& ids);     // a hand moved or turned these objects (edit mode; the Sequencer's Auto Key keys them)
+    // A hand edited the scene in edit mode: `ids` moved or turned, and whatever field it set besides - `before` is the scene
+    // before the edit (the Sequencer's Auto Key keys them, a first key at 0 s from `before`).
+    void handPlaced(const std::vector<uint32_t>& ids, const ke::SceneGraph& before);
     void pathLines(std::vector<float> lines);              // the IK goals' paths: segments and the waypoints' crosses
     void sceneMarkers(std::vector<SceneMarker> markers);   // the lights, cameras and forces to draw
     void fireForceRequested(uint32_t id);                  // «Сработать» on a force's card
@@ -730,7 +732,7 @@ private:
     void scheduleCode();
     void flushCode();
     bool handWatched_ = false;
-    void announceHand(ke::SceneGraph& before); // handPlaced for what differs from `before` in place or turn, inside the step the hand's edit took
+    void announceHand(ke::SceneGraph& before); // handPlaced for what differs from `before`, inside the step the hand's edit took
     void codeAction(const QString& op, const QString& py, QJsonObject args = {}, bool flushFirst = true);
     // An action on objects as its line: `scene.objects["Куб 1"].method()` for one, `scene.method(a, b)`
     // for several. Made before the action runs (the names it removes are still there).

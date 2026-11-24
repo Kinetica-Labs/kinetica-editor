@@ -20,8 +20,18 @@ const SequenceObject* activeSequence(const SceneGraph& g);      // the Sequencer
 SequenceObject* playingSequence(SceneGraph& g);                 // the active one when ▶ plays it (SequenceObject::play)
 const SequenceObject* playingSequence(const SceneGraph& g);
 const SequenceTrack* trackOf(const SequenceObject& q, uint32_t object);
-// The sequence's playhead at `time` and every object it binds put to its pose there (a lost binding skipped).
+// The sequence's playhead at `time` and every object it binds put to its pose there, every keyed field set to its numbers
+// there (a lost binding skipped).
 void seekSequence(SceneGraph& g, SequenceObject& q, Real time);
+// A field's numbers at `time` (FieldTrack): held before the first key and after the last, or - `loop` - wrapped over
+// `length`; between keys in a line, by the Hermite cubic through the neighbours' slopes (smooth), or held. False: no key.
+bool sampleField(const std::vector<FieldKey>& keys, Real time, bool loop, Real length, std::vector<Real>& values);
+const FieldTrack* fieldTrackOf(const SequenceObject& q, uint32_t object, const std::string& line, const std::string& key);
+// A key of the object's field at `time` with the numbers it holds now (one at the same time replaced). False and `error`:
+// no such object or field, or a field that is no numbers (a kind, a name: nothing to go between).
+bool keyField(const SceneGraph& g, SequenceObject& q, uint32_t object, const std::string& line, const std::string& key, Real time,
+              std::string& error);
+bool removeFieldKey(SequenceObject& q, uint32_t object, const std::string& line, const std::string& key, Real time); // its last: the track goes
 // A key of the object at `time` where it stands now (one at the same time replaced). False: nothing to bind.
 bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real time);
 bool removeKey(SequenceObject& q, uint32_t object, Real time);            // false: no key there (its last: the track goes)

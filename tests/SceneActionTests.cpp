@@ -747,3 +747,41 @@ void testSceneForces() {
     SceneGraph back;
     CHECK(back.load(d.graph.save(), error) && back.forces.back().shape == ForceShape::Torque, "its file says shape torque and reads back: %s", error.c_str());
 }
+
+// A field keyed besides the pose (Blender's keyframe on any property): a cube's colour keyed red at 0 s and blue at 2 s is
+// halfway at 1 s, in a line or by the smooth cubic, held by a step; the given values key what the scene does not hold now;
+// a field that is no numbers is refused in words; the sequence's text reads back the same; the key removed takes its track.
+void testSequenceFieldKeys() {
+    SceneGraph g;
+    std::string error;
+    const uint32_t cube = addShape(g, ShapeKind::Box);
+    const auto op = [&](const char* name, const std::string& json) {
+        Value r = Value::map();
+        error.clear();
+        return findSceneOp(name)->edit(g, parseJson(json), r, error);
+    };
+    const std::string id = std::to_string(cube);
+    op("scene_set", "{\"id\": " + id + ", \"line\": \"shape\", \"key\": \"color\", \"values\": [1, 0, 0]}");
+    const bool red = op("sequence_key", "{\"ids\": [" + id + "], \"time\": 0, \"line\": \"shape\", \"key\": \"color\"}");
+    const bool blue = op("sequence_key", "{\"ids\": [" + id + "], \"time\": 2, \"line\": \"shape\", \"key\": \"color\", \"values\": [0, 0, 1]}");
+    const Vector3 still = findEntity(g, cube)->color; // the given values keyed, the cube still red
+    SequenceObject& q = g.sequences.front();
+    seekSequence(g, q, 1);
+    const Vector3 half = findEntity(g, cube)->color;
+    q.fields[0].keys[0].interp = AnimInterp::Smooth;
+    seekSequence(g, q, 0.5_r);
+    const Real smooth = findEntity(g, cube)->color.x; // soft ends: still mostly red a quarter of the way
+    q.fields[0].keys[0].interp = AnimInterp::Step;
+    seekSequence(g, q, 1.9_r);
+    const Real held = findEntity(g, cube)->color.x;
+    CHECK(red && blue && still.x == 1 && std::fabs(half.x - 0.5f) < 1e-5f && std::fabs(half.z - 0.5f) < 1e-5f && smooth > 0.75f && held == 1,
+          "a colour keyed: halfway %f %f at 1 s, smooth %f a quarter in, held %f: %s", double(half.x), double(half.z), double(smooth), double(held), error.c_str());
+    CHECK(!op("sequence_key", "{\"ids\": [" + id + "], \"line\": \"shape\", \"key\": \"\"}") && error.find("no numbers") != std::string::npos,
+          "a field that is no numbers is refused in words: %s", error.c_str());
+    SceneGraph back;
+    const bool read = back.load(g.save(), error) && back.save() == g.save() && back.sequences[0].fields.size() == 1 && back.sequences[0].fields[0].keys.size() == 2;
+    CHECK(read, "the keyed field reads back from the scene's text: %s", error.c_str());
+    const bool gone = op("sequence_delete_key", "{\"id\": " + id + ", \"time\": 0, \"line\": \"shape\", \"key\": \"color\"}") &&
+                      op("sequence_delete_key", "{\"id\": " + id + ", \"time\": 2, \"line\": \"shape\", \"key\": \"color\"}") && g.sequences[0].fields.empty();
+    CHECK(gone, "the field's last key removed takes its track: %s", error.c_str());
+}

@@ -444,8 +444,22 @@ struct SequenceTrack {
     uint32_t object = 0;        // the bound object
     std::vector<AnimKey> keys;  // by time, one a time
 };
+// Any other field of an object, keyed: its line and key as scene_set names them ("shape" "color", "drive rx" "target",
+// "bridge" "duty", "kind" "intensity") and its numbers at times, each number from a key to the next as AnimInterp says -
+// what Blender's keyframe on any property is: one mechanism for a colour, a light, a servo's target, a motor's duty.
+struct FieldKey {
+    Real time = 0;               // s
+    std::vector<Real> values;    // the field's numbers, as many as it has
+    AnimInterp interp = AnimInterp::Linear; // to the next key
+};
+struct FieldTrack {
+    uint32_t object = 0;
+    std::string line, key;
+    std::vector<FieldKey> keys; // by time, one a time
+};
 struct SequenceObject : SceneObject {
     std::vector<SequenceTrack> tracks;
+    std::vector<FieldTrack> fields; // the keyed fields besides the pose
     Real time = 0;              // the playhead, s
     bool loop = false;
     bool active = false;        // the Sequencer's (one at most)

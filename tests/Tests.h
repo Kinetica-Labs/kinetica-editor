@@ -135,6 +135,7 @@ void testSceneFieldsReadInTheCore();
 void testTargetCamera();
 void testSequence();
 void testSequenceInterp();
+void testSequenceFieldKeys();
 void testSceneColliderNumbers();
 void testPluginComponents();
 // AssemblyTests.cpp

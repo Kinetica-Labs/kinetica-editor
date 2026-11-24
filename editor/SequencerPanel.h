@@ -1,8 +1,9 @@
 #pragma once
 // The Sequencer - a tab of the bottom panel, a simple sequencer over the scene's sequences (scene/Animation.h).
 // The bar: which sequence is open, whether ▶ plays it (its bodies led as an animation), ⇤ to its start, ▶ a preview,
-// the loop, ◆ a key of the selected objects where they stand (I), ◈ Auto Key (a hand's move or turn of an object keys it at
-// the playhead by itself, in the same undo step), ⏺ a take of the physics (sim_record), 〰 the curves,
+// the loop, ◆ a key of the selected objects where they stand (I), ◈ Auto Key (what a hand changes is keyed at the playhead by
+// itself, in the same undo step - an object's pose, a number of the inspector's; the first key of a thing away from 0 s comes
+// with one at 0 s of how it was), ⏺ a take of the physics (sim_record), 〰 the curves,
 // and a filter of the tracks. Below it one of two views (SequencerViews.h): the tracks, folding by the scene's groups, or
 // one track's curves. Dragging the playhead or ▶ in edit mode shows the poses (SceneBuilder's preview) and then makes
 // one edit, sequence_seek; in play the playhead follows the world only while the timeline has something of the run - a
@@ -12,6 +13,9 @@
 #include <QWidget>
 
 #include <cstdint>
+#include <vector>
+
+namespace ke { struct SceneGraph; }
 
 class EditorOps;
 class SceneBuilder;
@@ -72,6 +76,7 @@ private:
     void placeTail();  // the filter, time and play range beside the buttons, or on a row below when the bar is narrow
     void drawPaths();  // the selected objects' motion paths in the 3D view (view_draw sequencer/...)
     void syncRecordWords(); // «⏺ Запись» or «■ Закончить запись», the glyph alone on a narrow bar
+    void autoKey(const std::vector<uint32_t>& ids, const ke::SceneGraph& before); // what a hand changed, keyed (Auto Key)
 
     EditorOps* ops_;
     SceneBuilder* builder_;

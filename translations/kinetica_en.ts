@@ -5369,8 +5369,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="61"/>
-        <source>Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам. Выключен - ключ ставит только «◆ Ключ»</source>
-        <translation>While on: when an object is moved or turned, its key is put at the playhead by itself. Off - only &quot;◆ Key&quot; puts a key</translation>
+        <source>Пока включён: сдвинули или повернули объект или поменяли число в инспекторе (цвет, свет, цель сервопривода) - ключ ставится на бегунке сам; у того, у чего ключей ещё не было, - и в 0 с, каким оно было. Выключен - ключ ставит только «◆ Ключ»</source>
+        <translation>While on: an object moved or turned, or a number changed in the inspector (a colour, a light, a servo's target) is keyed at the playhead by itself; what had no keys yet is keyed at 0 s too, as it was. Off: only «◆ Key» keys</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="111"/>

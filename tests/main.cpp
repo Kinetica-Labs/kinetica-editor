@@ -123,6 +123,7 @@ int main() {
     run("scene: a target camera looks at its object wherever either goes; set free it keeps looking there", testTargetCamera);
     run("scene: the Sequencer - a sequence's poses between keys, held, looped; keys, the file, the playhead, a lost track", testSequence);
     run("scene: a key's interpolation - linear, smooth (Hermite, soft ends), step - and sequence_key_set", testSequenceInterp);
+    run("scene: a field keyed besides the pose - a colour between keys, given values, refused words, the text, removed", testSequenceFieldKeys);
     run("scene: scene_collider - a collider by its kind's own numbers, from what it is built as now", testSceneColliderNumbers);
     run("scene: a plugin's component - typed values, the scene file to the bit, listed, removed", testPluginComponents);
     run("assembly: six-freedom joints in the scene file come back to the bit", testSceneJointsRoundTrip);

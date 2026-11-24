@@ -206,10 +206,10 @@ void SceneBuilder::announceHand(SceneGraph& before) {
         }
     };
     check(graph_.entities), check(graph_.groups), check(graph_.arrays), check(graph_.lights), check(graph_.cameras), check(graph_.forces);
-    if (ids.empty()) return;
+    if (ids.empty() && diffEdits(before, graph_).empty()) return; // the hand only chose: nothing to key
     const bool taken = undoGroupTaken_;
     if (undoGroup_++ == 0) undoGroupTaken_ = doc_.history.steps() > 0; // the keys join the step the hand's edit took
-    emit handPlaced(ids);
+    emit handPlaced(ids, before); // a field set in the inspector too: the Sequencer reads which (diffEdits)
     if (--undoGroup_ == 0) undoGroupTaken_ = taken;
 }
 

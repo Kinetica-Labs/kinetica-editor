@@ -234,6 +234,7 @@ private:
     static std::unordered_set<uint32_t> animatedEntities(const SceneGraph& g);
     void sampleTake(const PhysicsWorld& physics);
     void leadAnimation(PhysicsWorld& physics, Real time, Real h);
+    void playFields(PhysicsWorld& physics); // the keyed fields taken by command: a servo's target, a duty, a strength
     std::shared_ptr<const TriMesh> meshOf(const Entity& e) const;
     void findDrawn() const;
 

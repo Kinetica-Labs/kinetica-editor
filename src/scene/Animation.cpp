@@ -1,6 +1,9 @@
 // The Sequencer's work on a sequence (Animation.h): sampling, playing, keying.
 #include "scene/Animation.h"
 
+#include "core/Format.h"
+#include "scene/SceneEdits.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -24,6 +27,8 @@ template <class T> SceneObject* in(std::vector<T>& objects, uint32_t id) {
 Real SequenceObject::length() const {
     Real last = 0;
     for (const SequenceTrack& t : tracks)
+        if (!t.keys.empty()) last = std::max(last, t.keys.back().time);
+    for (const FieldTrack& t : fields)
         if (!t.keys.empty()) last = std::max(last, t.keys.back().time);
     return last;
 }
@@ -101,6 +106,83 @@ void seekSequence(SceneGraph& g, SequenceObject& q, Real time) {
         o->position = p;
         o->rotationDeg = eulerDegrees(r);
     }
+    std::vector<Real> values;
+    for (const FieldTrack& t : q.fields) {
+        if (!sampleField(t.keys, time, q.loop, length, values)) continue;
+        std::vector<std::string> words;
+        for (Real v : values) words.push_back(numberText(v));
+        std::string lost;
+        setField(g, t.object, t.line, t.key, words, lost); // a lost binding: skipped
+    }
+}
+
+bool sampleField(const std::vector<FieldKey>& k, Real time, bool loop, Real length, std::vector<Real>& values) {
+    if (k.empty()) return false;
+    if (loop && length > 0) time = time - length * std::floor(time / length);
+    if (time <= k.front().time || k.size() == 1) return values = k.front().values, true;
+    if (time >= k.back().time) return values = k.back().values, true;
+    const auto after = std::upper_bound(k.begin(), k.end(), time, [](Real t, const FieldKey& x) { return t < x.time; });
+    const size_t i = size_t(after - k.begin()) - 1;
+    const FieldKey &a = k[i], &b = k[i + 1];
+    if (a.interp == AnimInterp::Step || a.values.size() != b.values.size()) return values = a.values, true;
+    const Real h = b.time - a.time, s = (time - a.time) / h, s2 = s * s, s3 = s2 * s;
+    // A key's slope: between its neighbours, none at the ends - as a pose key's velocity (keyVelocity).
+    const auto slope = [&](size_t j, size_t n) {
+        return j == 0 || j + 1 >= k.size() || k[j - 1].values.size() <= n || k[j + 1].values.size() <= n
+                   ? 0.0_r : (k[j + 1].values[n] - k[j - 1].values[n]) / (k[j + 1].time - k[j - 1].time);
+    };
+    values.resize(a.values.size());
+    for (size_t n = 0; n < values.size(); ++n)
+        values[n] = a.interp == AnimInterp::Smooth
+                        ? a.values[n] * (2 * s3 - 3 * s2 + 1) + slope(i, n) * (h * (s3 - 2 * s2 + s)) + b.values[n] * (3 * s2 - 2 * s3) + slope(i + 1, n) * (h * (s3 - s2))
+                        : a.values[n] + (b.values[n] - a.values[n]) * s;
+    return true;
+}
+
+const FieldTrack* fieldTrackOf(const SequenceObject& q, uint32_t object, const std::string& line, const std::string& key) {
+    for (const FieldTrack& t : q.fields)
+        if (t.object == object && t.line == line && t.key == key) return &t;
+    return nullptr;
+}
+
+// The numbers a field holds now: up to four words after its key, as long as they are numbers.
+static bool fieldNumbers(const SceneGraph& g, uint32_t object, const std::string& line, const std::string& key, std::vector<Real>& out) {
+    const std::string block = getObject(g, object);
+    for (size_t count = 4; count > 0 && out.empty(); --count)
+        for (const BlockWord& w : getField(block, line, key, count)) {
+            double x; // the file's own number, whatever the locale (core/Format.h: Qt on Linux turns it on)
+            if (w.quoted || !parseNumber(w.text, x) || !std::isfinite(x)) break;
+            out.push_back(Real(x));
+        }
+    return !out.empty();
+}
+
+bool keyField(const SceneGraph& g, SequenceObject& q, uint32_t object, const std::string& line, const std::string& key, Real time,
+              std::string& error) {
+    FieldKey k;
+    k.time = time;
+    if (getObject(g, object).empty()) return error = "no object " + std::to_string(object), false;
+    if (!fieldNumbers(g, object, line, key, k.values))
+        return error = "object " + std::to_string(object) + " has no numbers at «" + line + (key.empty() ? "" : " " + key) +
+                       "»: a field that is numbers is keyed (scene_get {id} shows its lines)", false;
+    auto t = std::find_if(q.fields.begin(), q.fields.end(), [&](const FieldTrack& x) { return x.object == object && x.line == line && x.key == key; });
+    if (t == q.fields.end()) q.fields.push_back({object, line, key, {}}), t = q.fields.end() - 1;
+    auto at = std::lower_bound(t->keys.begin(), t->keys.end(), time, [](const FieldKey& x, Real s) { return x.time < s; });
+    if (at != t->keys.end() && std::fabs(at->time - time) < 1e-6_r) *at = k;
+    else t->keys.insert(at, k);
+    return true;
+}
+
+bool removeFieldKey(SequenceObject& q, uint32_t object, const std::string& line, const std::string& key, Real time) {
+    for (auto t = q.fields.begin(); t != q.fields.end(); ++t) {
+        if (t->object != object || t->line != line || t->key != key) continue;
+        const auto at = std::find_if(t->keys.begin(), t->keys.end(), [&](const FieldKey& x) { return std::fabs(x.time - time) < 1e-6_r; });
+        if (at == t->keys.end()) return false;
+        t->keys.erase(at);
+        if (t->keys.empty()) q.fields.erase(t);
+        return true;
+    }
+    return false;
 }
 
 bool keyObject(const SceneGraph& g, SequenceObject& q, uint32_t object, Real time) {

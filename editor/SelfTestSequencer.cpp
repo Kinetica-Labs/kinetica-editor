@@ -136,6 +136,38 @@ void autoKeyTests(QMainWindow& w, SceneBuilder& b, Checker& c) {
     c.check(typed && undone && q && std::fabs(q->tracks[0].keys[1].position.y - 2.0f) < 1e-4f,
             "a number typed into the card keys too, one undo takes back the number and the key, a redo both");
 
+    // What had no key yet, changed at 2 s: a first key at 0 s of how it was - a motion starts where the thing stood (a key
+    // at the playhead alone holds it still); a number of the card - the colour - keyed as a field the same way.
+    call("sequence_seek", {{"time", 2.0}});
+    const uint32_t ball = made(b, b.createActions()[0]);
+    pump(60);
+    const float ballHome = at(ball);
+    drag(ball, 0.4f);
+    q = activeSequence(b.graph());
+    const SequenceTrack* path = q ? trackOf(*q, ball) : nullptr;
+    const bool fromZero = path && path->keys.size() == 2 && path->keys[0].time == 0 && std::fabs(path->keys[0].position.x - ballHome) < 1e-4f &&
+                          std::fabs(path->keys[1].time - 2.0f) < 1e-4f && std::fabs(path->keys[1].position.x - ballHome - 0.4f) < 1e-4f;
+    const Vector3 colour = findEntity(b.graph(), ball)->color;
+    b.editEntity(ball, [](Entity& e) { e.color = Vector3(0.1f, 0.9f, 0.2f); });
+    pump(600); // a card's edit is said a moment after it, as the number typed above
+    q = activeSequence(b.graph());
+    const FieldTrack* tint = q ? fieldTrackOf(*q, ball, "shape", "color") : nullptr;
+    const bool coloured = tint && tint->keys.size() == 2 && tint->keys[0].time == 0 && std::fabs(tint->keys[0].values[0] - colour.x) < 1e-3f &&
+                          std::fabs(tint->keys[1].values[1] - 0.9f) < 1e-3f;
+    b.undoStep();
+    q = activeSequence(b.graph());
+    const bool colourUndone = q && !fieldTrackOf(*q, ball, "shape", "color") && std::fabs(findEntity(b.graph(), ball)->color.y - colour.y) < 1e-4f;
+    b.redoStep();
+    pump(30);
+    std::printf("  at 2 s on a new cube: its place keyed at 0 s (how it stood) and 2 s %s; its colour at 0 s and 2 s %s (%zu keys, first %.3f s: %.3f, "
+                "last g %.3f; it was %.3f); one undo - the colour and its keys gone %s\n", fromZero ? "yes" : "no", coloured ? "yes" : "no",
+                tint ? tint->keys.size() : 0, tint && !tint->keys.empty() ? double(tint->keys[0].time) : -1.0,
+                tint && !tint->keys.empty() && !tint->keys[0].values.empty() ? double(tint->keys[0].values[0]) : -1.0,
+                tint && !tint->keys.empty() && tint->keys.back().values.size() > 1 ? double(tint->keys.back().values[1]) : -1.0, double(colour.x),
+                colourUndone ? "yes" : "no");
+    c.check(fromZero && coloured && colourUndone,
+            "Auto Key at 2 s on what had no key: a first key at 0 s of how it was - its place, its colour; one undo takes the colour and its keys");
+
     b.newScene();
     const uint32_t cam = made(b, b.createActions()[0]);
     b.removeSelected();

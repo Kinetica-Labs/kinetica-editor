@@ -562,6 +562,7 @@ by Kinetica X, newer than this program (Y)…».
 | `entity` | строка | форма - тело, коллайдер, цель, путь | stable |  |
 | `falloff` | effect | спад силы с расстоянием | stable |  |
 | `far` | lens | дальше не видит, м | stable |  |
+| `field` | часть | дорожка поля секвенции: object, line, key - поле объекта, как его называет scene_set | stable |  |
 | `file` | shape, texture | файл: сетка OBJ/STL, картинка текстуры | stable |  |
 | `fit` | collider | коллайдер по форме сетки | stable |  |
 | `fixed` | rigid | тело стоит на месте | stable |  |
@@ -710,7 +711,8 @@ by Kinetica X, newer than this program (Y)…».
 | `tz` | степень | сдвиг по z | stable |  |
 | `unsprung` | tyre | неподрессоренная масса, кг | stable |  |
 | `upper` | limit | верхний предел, рад или м | stable |  |
-| `value` | action | ничего не ведёт: значение читает плагин в такте (пульт - среди датчиков); `target` и `speed` - чьё и в каком масштабе | stable |  |
+| `value` | action; часть | ничего не ведёт: значение читает плагин в такте (пульт - среди датчиков); `target` и `speed` - чьё и в каком масштабе; часть секвенции - ключ поля: time, values, interp | stable |  |
+| `values` | value | числа поля в ключе секвенции | stable |  |
 | `vector2` | action | вид действия: два числа x, y | stable |  |
 | `velocity` | rigid, key; drive | скорость [x, y, z], м/с; у привода - уставка скорости, рад/с или м/с | stable |  |
 | `visible` | object | виден | stable |  |

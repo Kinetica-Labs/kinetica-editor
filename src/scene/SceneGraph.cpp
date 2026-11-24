@@ -261,6 +261,15 @@ static void saveSequence(std::ostringstream& o, const SequenceObject& q) {
             o << "\n";
         }
     }
+    for (const FieldTrack& t : q.fields) { // a keyed field: its object, line and key, then its numbers by time
+        o << "  field object " << t.object << " line " << quoted(t.line) << " key " << quoted(t.key) << "\n";
+        for (const FieldKey& k : t.keys) {
+            o << "  value time " << num(k.time) << " values";
+            for (Real v : k.values) o << " " << num(v);
+            if (k.interp != AnimInterp::Linear) o << " interp " << interpName(k.interp);
+            o << "\n";
+        }
+    }
     o << "end\n";
 }
 
@@ -1133,6 +1142,37 @@ static const Part<SequenceObject> kSequenceParts[] = {
          std::vector<AnimKey>& keys = q.tracks.back().keys;
          if (!keys.empty() && !(key.time > keys.back().time)) return fail(bad, "time");
          keys.push_back(key);
+         return true;
+     }},
+    {"field", "object <id> line \"<line>\" key \"<key>\": a field of the object the values below set, as scene_set names it", none,
+     [](const std::vector<std::string>& w, SequenceObject& q, std::string& bad) {
+         FieldTrack t;
+         LineReader r(w, 1);
+         if (r.done() || r.key() != "object" || !r.integer(t.object)) return fail(bad, "field");
+         for (size_t k = 3; k + 1 < w.size(); k += 2) {
+             if (w[k] == "line") t.line = w[k + 1];
+             else if (w[k] == "key") t.key = w[k + 1];
+             else return fail(bad, w[k]);
+         }
+         if (t.line.empty() || w.size() % 2 == 0) return fail(bad, "field");
+         q.fields.push_back(t);
+         return true;
+     }},
+    {"value", "time <s> values <numbers...> [interp linear|smooth|step]: the field above at that time", none,
+     [](const std::vector<std::string>& w, SequenceObject& q, std::string& bad) { // to the field above, by time
+         if (q.fields.empty() || w.size() < 5 || w[1] != "time" || w[3] != "values") return fail(bad, w[0]);
+         FieldKey k;
+         if (!parseNumber(w[2], k.time)) return fail(bad, "time");
+         size_t i = 4;
+         for (; i < w.size() && w[i] != "interp"; ++i) {
+             Real v;
+             if (!parseNumber(w[i], v)) return fail(bad, w[i]);
+             k.values.push_back(v);
+         }
+         if (i < w.size() && (i + 2 != w.size() || !interpOf(w[i + 1], k.interp))) return fail(bad, "interp");
+         std::vector<FieldKey>& keys = q.fields.back().keys;
+         if (k.values.empty() || (!keys.empty() && !(k.time > keys.back().time))) return fail(bad, k.values.empty() ? "values" : "time");
+         keys.push_back(k);
          return true;
      }},
 };

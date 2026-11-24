@@ -78,8 +78,11 @@ std::vector<SceneOp> animationSceneOps() {
         return r.set("id", int(id)), true;
     }});
     ops.push_back({"sequence_key", "A key of each object at `time` (the sequence's playhead when none) where it stands now - its place and turn on "
-                                   "its parent (one at the same time replaced); no sequence yet: one is made. The Sequencer's K",
-                   "{ids: [int], time?: s, sequence?: int, interp?: str}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
+                                   "its parent (one at the same time replaced); no sequence yet: one is made. The Sequencer's K. With line "
+                                   "(and key): that field's numbers instead, as scene_set names it - a colour, a light's intensity, a servo's "
+                                   "target (line 'drive rx', key target), a motor's duty (line bridge, key duty) - played between keys too; values: the "
+                                   "numbers to key instead of the field's own now",
+                   "{ids: [int], time?: s, sequence?: int, interp?: str, line?: str, key?: str, values?: [number]}", {}, [](SceneGraph& g, const Value& a, Value& r, std::string& e) {
         const std::vector<uint32_t> ids = objectsArg(a);
         if (ids.empty()) return e = "ids: the objects to key", false;
         SequenceObject* q = !a.has("sequence") && g.sequences.empty() ? &addSequence(g, "") : sequenceArg(g, a, e);
@@ -87,7 +90,23 @@ std::vector<SceneOp> animationSceneOps() {
         if (!q || !timeArg(a, q->time, t, e)) return false;
         AnimInterp interp = AnimInterp::Linear;
         if (a.has("interp") && !interpOf(a["interp"].text(""), interp)) return e = "interp: linear, smooth or step", false;
+        const std::string line = a["line"].text(""), key = a["key"].text("");
         for (uint32_t id : ids) {
+            if (!line.empty()) { // a field: its numbers now, or the ones given
+                if (!keyField(g, *q, id, line, key, t, e)) return false;
+                for (FieldTrack& f : q->fields)
+                    for (FieldKey& k : f.keys)
+                        if (f.object == id && f.line == line && f.key == key && std::fabs(k.time - t) < 1e-6_r) {
+                            if (a.has("interp")) k.interp = interp;
+                            if (a.has("values")) {
+                                k.values.clear();
+                                for (const Value& v : a["values"].items()) k.values.push_back(Real(v.number()));
+                                if (k.values.empty()) return e = "values: the field's numbers", false;
+                            }
+                        }
+                continue;
+            }
+            if (a.has("values")) return e = "values are a field's: give its line (and key)", false;
             if (!keyObject(g, *q, id, t)) return e = "object " + std::to_string(id) + ": nothing a sequence can move", false;
             if (a.has("interp")) keyAt(*q, id, t)->interp = interp;
         }
@@ -125,12 +144,14 @@ std::vector<SceneOp> animationSceneOps() {
         seekSequence(g, *q, q->time);
         return true;
     }});
-    ops.push_back({"sequence_delete_key", "The object's key at `time` removed (its last: its track goes)", "{id: int, time: s, sequence?: int}", {},
-                   [](SceneGraph& g, const Value& a, Value&, std::string& e) {
+    ops.push_back({"sequence_delete_key", "The object's key at `time` removed (its last: its track goes); with line (and key): that field's key",
+                   "{id: int, time: s, sequence?: int, line?: str, key?: str}", {}, [](SceneGraph& g, const Value& a, Value&, std::string& e) {
         SequenceObject* q = sequenceArg(g, a, e);
         Real t;
         if (!q || !a.has("time") || !timeArg(a, 0, t, e)) return e.empty() ? (e = "time: the key's, s", false) : false;
-        return removeKey(*q, uint32_t(a["id"].integer()), t) || (e = "no key of " + std::to_string(a["id"].integer()) + " at that time", false);
+        const uint32_t id = uint32_t(a["id"].integer());
+        const bool gone = a.has("line") ? removeFieldKey(*q, id, a["line"].text(""), a["key"].text(""), t) : removeKey(*q, id, t);
+        return gone || (e = "no key of " + std::to_string(id) + " at that time", false);
     }});
     ops.push_back({"sequence_clear", "The objects' tracks removed from the sequence (none named: all of them)", "{ids?: [int], sequence?: int}", {},
                    [](SceneGraph& g, const Value& a, Value&, std::string& e) {

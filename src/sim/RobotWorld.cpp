@@ -548,8 +548,26 @@ void RobotWorld::leadAnimation(PhysicsWorld& physics, Real time, Real h) {
     }
 }
 
+// The playing sequence's keyed fields a running robot takes by command, at the world's time: a servo's target or velocity
+// ("drive <dof>"), a motor's duty ("bridge duty"), a force's strength - as a controller or robot_command sets them. The
+// rest - a colour, a light - the live scene takes when the frame is read (readPoses seeks it).
+void RobotWorld::playFields(PhysicsWorld& physics) {
+    const SequenceObject* q = playingSequence(graph_);
+    if (!q || q->fields.empty()) return;
+    const Real time = Real(double(clockNs_) * 1e-9), length = q->length();
+    std::vector<Real> values;
+    std::string ignored;
+    for (const FieldTrack& t : q->fields) {
+        const bool drive = t.line.rfind("drive", 0) == 0 && (t.key == "target" || t.key == "velocity");
+        const bool duty = t.line == "bridge" && t.key == "duty", strength = t.key == "strength";
+        if ((drive || duty || strength) && sampleField(t.keys, time, q->loop, length, values) && !values.empty())
+            command(physics, t.object, t.key, values[0], ignored);
+    }
+}
+
 void RobotWorld::step(PhysicsWorld& physics, Real dt, int substeps) {
     contactsKnown_ = false;
+    playFields(physics);
     if (!controls_.empty()) driveControllers(physics, dt);
     leadGoals(physics, dt);
     physics.moveHand(grabJoint_, grabTarget_, dt);
