@@ -1,0 +1,15 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4 duration 10
+entity "Тележка"
+  object id 2 visible 1 locked 0
+  shape box size 0.4 0.2 0.3 position 0 0.1 0 rotation 0 0 0 color 0.31 0.59 0.92
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+sensor "Лидар 1"
+  object id 3 visible 1 locked 0 parent 2
+  pose position 0.2 0 0 rotation -90 0 0 color 0.8 0.8 0.8
+  lidar noise 1 seed 0
+  model "VL53L5CX"
+  spec rays_h 5 fov_h_deg 120 rays_v 8 fov_v_deg 45 min_m 0.02 max_m 4 accuracy_mm 30 rate_hz 15 mass_kg 0
+end

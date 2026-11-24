@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=Kinetica Editor
+Comment=Редактор робототехники на Box3D
+Exec=kinetica
+Icon=kinetica
+Categories=Development;Science;
+Terminal=false

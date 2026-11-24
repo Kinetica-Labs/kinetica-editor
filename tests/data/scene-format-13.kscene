@@ -1,0 +1,7 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Чаша"
+  object id 1 visible 1 locked 0
+  shape box size 1 0.4 1 position 0 0.2 0 rotation 0 0 0 color 0.31 0.59 0.92
+  collider kind mesh fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end

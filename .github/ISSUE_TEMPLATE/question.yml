@@ -1,0 +1,26 @@
+name: "Как сделать (question)"
+description: "Пишете плагин, скрипт, агента или правку ядра и застряли - любой вопрос хороший."
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: "Ваш вопрос - это место, где документацию надо сделать лучше. Спасибо, что спрашиваете."
+  - type: dropdown
+    id: what
+    attributes:
+      label: "Что вы пишете"
+      options: [скрипт, плагин, ИИ-агент, правку ядра или окна, другое]
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: "Что хотите получить"
+    validations:
+      required: true
+  - type: textarea
+    id: tried
+    attributes:
+      label: "Что пробовали и где застряли"
+      description: "Код, команда, ответ программы - как есть."
+      render: python

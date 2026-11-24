@@ -1,0 +1,13 @@
+{
+  "name": "kinetica",
+  "description": "Kinetica Editor for Claude: robots built, driven and explained by a model in a physics editor",
+  "owner": { "name": "Kinetica Labs" },
+  "plugins": [
+    {
+      "name": "kinetica",
+      "source": "./claude/kinetica",
+      "description": "The Kinetica editor's MCP server and skills: build robots - arms, cars, drones - drive them, measure, explain with formulas, film",
+      "category": "robotics"
+    }
+  ]
+}

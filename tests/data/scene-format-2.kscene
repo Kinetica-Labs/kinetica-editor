@@ -1,0 +1,137 @@
+# Kinetica scene
+world gravity 0 -9.81 0 size 4 3 4
+entity "Пол"
+  object id 2 visible 1 locked 1
+  tags sample
+  shape plane size 4 0.02 4 position 0 0.01 0 rotation 0 0 0 color 0.52 0.55 0.6
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Belt"
+  object id 3 visible 1 locked 0
+  tags sample конвейер
+  shape box size 0.4 0.2 0.4 position 0 0.1 0 rotation 0 0 0 color 0.31 0.59 0.92
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 1 0 0 spin 0 0 0 kinematic 1
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Base"
+  object id 4 visible 1 locked 0
+  tags sample
+  shape box size 0.4 0.4 0.4 position 1 0.2 0 rotation 0 0 0 color 0.43 0.77 0.38
+  rigid density 500 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Arm"
+  object id 5 visible 1 locked 0
+  tags sample
+  shape box size 0.2 0.4 0.2 position 1 0.6 0 rotation 0 0 0 color 0.93 0.77 0.31
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Cart"
+  object id 6 visible 1 locked 0
+  tags sample
+  shape box size 0.6 0.15 0.35 position -1 0.3 0 rotation 0 0 0 color 0.72 0.47 0.88
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 spin 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Crate"
+  object id 15 visible 1 locked 0 parent 17
+  tags sample
+  shape box size 0.2 0.2 0.2 position -0.2 0 0 rotation 0 0 0 color 0.33 0.8 0.8
+end
+entity "Crate 2"
+  object id 16 visible 1 locked 0 parent 17
+  tags sample
+  shape box size 0.2 0.2 0.2 position 0.2 0 0 rotation 0 0 0 color 0.93 0.42 0.55
+end
+entity "Brick"
+  object id 18 visible 0 locked 0
+  tags sample
+  shape box size 0.2 0.1 0.1 position 0 0.1 -1.2 rotation 0 0 0 color 0.91 0.5 0.28
+end
+group "Группа 1"
+  object id 17 visible 1 locked 0
+  pose position 0.2 0.2 1.2 rotation 0 0 0 color 0.8 0.8 0.8
+  tags sample
+end
+array "Массив: Brick"
+  object id 19 visible 1 locked 0
+  pose position 0 0.1 -1.2 rotation 0 0 0 color 0.91 0.5 0.28
+  tags sample
+  pattern line template 18 count 3 1 1 step 0.25 0 0 radius 1 rotation_step 0 0 0 jitter 0 seed 1
+end
+light "Лампа 1"
+  object id 20 visible 1 locked 0
+  pose position 0 1.5 0 rotation 0 0 0 color 1 0.9 0.76
+  tags sample
+  kind point intensity 1 range 4 cone 40 softness 10 shadows 0
+end
+camera "Камера 1"
+  object id 21 visible 1 locked 0
+  pose position 2 1.5 2 rotation -19.47122 45 0 color 0.8 0.84 0.9
+  tags sample
+  lens fov 50 near 0.05 far 200 active 1
+end
+joint "Шарнир 1"
+  object id 7
+  tags sample
+  link a 5 b 4 anchor_a 0 -0.20000002 0 frame_a 0 -90.00001 0 anchor_b 0 0.2 0 frame_b 0 -90.00001 0
+  free rx
+  drive rx stiffness 100 damping 10 target 0.2 velocity 0 force 20
+end
+battery "Батарея 1"
+  object id 8
+  tags sample
+  cells series 3 parallel 1 capacity 2.5 r0 0.03 r1 0.015 c1 2000 cutoff 3 soc 1
+end
+driver "Драйвер 1"
+  object id 9
+  tags sample
+  bridge joint 7 dof rx battery 8 duty 1 switches 0.1 limit 0 stop coast
+end
+driver "Драйвер спереди слева"
+  object id 13
+  tags sample
+  bridge joint 11 dof rx battery 8 duty 0 switches 0.1 limit 0 stop coast
+end
+sensor "Энкодер 1"
+  object id 10 visible 1 locked 0 parent 7
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  tags sample
+  encoder lines 512 dof rx
+end
+sensor "Энкодер спереди слева"
+  object id 12 visible 1 locked 0 parent 11
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  tags sample
+  encoder lines 500 dof rx
+end
+sensor "IMU 1"
+  object id 14 visible 1 locked 0 parent 6
+  pose position 0 0.07499999 0 rotation -90 -90 0 color 0.8 0.8 0.8
+  tags sample
+  imu noise 1 seed 0
+  model "MPU-6050"
+  spec rate_hz 1000 bandwidth_hz 260 accel_range_g 2 gyro_range_dps 250 bits 16 accel_noise_ug_rthz 400 gyro_noise_dps_rthz 0.005 accel_offset_mg 50 gyro_offset_dps 20 scale_error_pct 3 mass_kg 0
+end
+wheel "Колесо спереди слева"
+  object id 11 visible 1 locked 0 parent 6
+  pose position 0.19200003 0.03793873 -0.2335 rotation 0 0 0 color 0.13 0.13 0.15
+  tags sample
+  tyre radius 0.09 width 0.045 mass 1.0305996 friction 1 unsprung 0.3732481 rolling 0.021
+  spring rest 0.054000005 stiffness 2487.1406 damping 98.960175
+  dcmotor voltage 12 resistance 20.710968 constant 3 flip 0
+end
+controller "Swing"
+  object id 22
+  tags sample
+  action swing axis drive jog target 7 dof rx speed 28.647888
+end
+sequence "Секвенция 1"
+  object id 23 visible 1 locked 0
+  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8
+  tags sample
+  clip time 0 loop 0 active 1 play 1
+  track object 15
+  key time 0 position -0.2 0 0 rotation 0 0 0
+end
