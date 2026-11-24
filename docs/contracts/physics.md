@@ -1,6 +1,6 @@
 # Контракт physics — мир твёрдых тел
 
-Заголовок: `src/physics/PhysicsWorld.h`. Настройки: `src/physics/PhysicsSettings.h` (строка `physics`
+Заголовок: `src/physics/PhysicsWorld.h`. Настройки: `src/scene/PhysicsSettings.h` (строка `physics`
 файла сцены). Плагин: `plugins/physics/box3d/Box3dWorld.cpp` (Box3D, `extern/box3d`). Фабрика одна:
 `makePhysicsWorld(settings, gravity, threads)` — её определяет единственный собранный плагин. `threads` — сколько
 потоков шагает мир; 0 — по машине (`physicsThreads()`: `KE_PHYSICS_THREADS`, иначе по потоку на физическое ядро,

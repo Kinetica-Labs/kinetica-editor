@@ -622,6 +622,7 @@ boom.fire()                                                    # в идущем
 ```sh
 python3 tools/ui_guide_shots.py              # все картинки, оба языка, в docs/images/ui/<ru|en>/
 python3 tools/ui_guide_shots.py ru magnet    # один язык, только названные группы
+python3 tools/ui_guide_icons.py --write     # значки окна рядом с именами кнопок в тексте руководства
 ```
 
 Скрипт запускает редактор без показа окна, выполняет каждую функцию её операцией и снимает окно операцией

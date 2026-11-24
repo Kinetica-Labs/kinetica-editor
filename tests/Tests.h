@@ -70,7 +70,7 @@ void testPhysicsGroups();
 void testPhysicsHand();
 void testPhysicsRepeatable();
 void testPhysicsThreadsDeterministic();
-// SimTests.cpp
+// SimTests.cpp, ForceTests.cpp
 void testSimBoxRestsOnFloor();
 void testMetamorphicMoved();
 void testMetamorphicTurned();

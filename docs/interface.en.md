@@ -594,6 +594,7 @@ Settings → Language switches the window between Russian and English. The mouse
 ```sh
 python3 tools/ui_guide_shots.py              # every picture, both languages, into docs/images/ui/<ru|en>/
 python3 tools/ui_guide_shots.py en magnet    # one language, only the named groups
+python3 tools/ui_guide_icons.py --write     # the window's icons beside the buttons' names in the guide's text
 ```
 
 The script starts the editor without showing a window, does every function by its operation and photographs the

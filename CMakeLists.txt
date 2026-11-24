@@ -72,7 +72,7 @@ add_library(kecore STATIC
   src/scene/SceneOps.h     src/scene/SceneOps.cpp src/scene/SceneOpsActions.cpp src/scene/SceneOpsAssembly.cpp
   src/scene/SceneOpsKinematics.cpp src/scene/SceneOpsControllers.cpp src/scene/SceneOpsAnimation.cpp
   src/scene/Animation.h    src/scene/Animation.cpp
-  src/physics/HullPoints.h src/physics/PhysicsSettings.h src/physics/PhysicsWorld.h
+  src/physics/HullPoints.h src/scene/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/box3d/Box3dWorld.cpp
   src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp src/sim/RobotControllers.cpp src/sim/RobotPower.cpp
   src/sim/LiveSensors.h    src/sim/LiveSensors.cpp
@@ -253,7 +253,7 @@ if(KE_TESTS)
     tests/RuntimePolicyTests.cpp
     tests/DeviceTests.cpp
     tests/ElectroTests.cpp
-    tests/PhysicsTests.cpp tests/SimTests.cpp tests/MetamorphicTests.cpp
+    tests/PhysicsTests.cpp tests/SimTests.cpp tests/ForceTests.cpp tests/MetamorphicTests.cpp
     tests/GraphTests.cpp tests/AblationTests.cpp
     tests/ArrayTests.cpp
     tests/SceneActionTests.cpp

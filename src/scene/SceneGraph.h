@@ -11,7 +11,7 @@
 #include "core/Mesh.h"
 #include "core/SurfaceTexture.h"
 #include "math/Math.h"
-#include "physics/PhysicsSettings.h"
+#include "scene/PhysicsSettings.h"
 #include "scene/JointModel.h"
 
 #include <cstdint>

@@ -10,7 +10,7 @@
 // world. Poses are the body's frame (its origin, not its centre of mass); forces and torques apply
 // over the next step.
 #include "math/Math.h"
-#include "physics/PhysicsSettings.h"
+#include "scene/PhysicsSettings.h"
 #include "scene/JointModel.h"
 
 #include <array>
