@@ -13,6 +13,12 @@ ids an entity); RECIPES gives the few a schema cannot (which line of the scene f
 
     python3 tools/op_algebra.py            # singles and every pair: about two minutes; the exit code is the laws broken
     python3 tools/op_algebra.py --sample 300 --json out.json
+    python3 tools/op_algebra.py --walk 3 --json walk.json   # the automaton: 3 covers of walks, about a minute
+
+The automaton: a scene's state is infinite, its class finite (the world's mode, the kinds of object held); walks are a
+sequence covering array - every ordered triple of the 53 actions in that order in one of them - and each is undone
+whole after (unless it undid the scene's own building steps: then the scene is built again). Its curve - classes and
+transitions met against steps - flattening is the asymptote.
 """
 import argparse
 import json
@@ -138,7 +144,8 @@ class Bench:
     def __init__(self):
         self.scene = ke.Scene()
         self.ed = self.scene.ed
-        self.base, self.depth, self.pools = None, 0, pools(self.ed, fixture(self.ed))
+        self.extra = fixture(self.ed)
+        self.pools = pools(self.ed, self.extra)
         self.base, self.depth = self.text(), self.steps()
         self.ops = [o for o in self.ed.ops_list()["ops"] if o.get("kind") == "edit" and o["name"] not in LEFT_OUT]
 
@@ -149,9 +156,10 @@ class Bench:
         return self.ed.edit_redo()["undo_steps"]
 
     def call(self, op, args):
-        """(ok, error) - an exception of the transport is an answer too: the connection dropped."""
+        """(ok, error), the answer kept in `last` - an exception of the transport is an answer too: the connection dropped."""
+        self.last = {}
         try:
-            getattr(self.ed, op)(**args)
+            self.last = getattr(self.ed, op)(**args) or {}
             return True, ""
         except ke.client.OperationError as e:
             return False, str(e)
@@ -159,9 +167,15 @@ class Bench:
             return False, f"TRANSPORT {type(e).__name__}: {e}"
 
     def back(self):
-        """Undo to the fixture's depth; the text must be the fixture's again."""
-        for _ in range(max(0, self.steps() - self.depth)):
-            self.ed.edit_undo()
+        """Undo to the fixture's depth - each undo says how deep the history still is, and nothing redoes on the way -;
+        the text must be the fixture's again."""
+        self.call("sim_stop", {})
+        if self.text() == self.base:
+            return True
+        for _ in range(10000):
+            a = self.ed.edit_undo()
+            if not a.get("undone") or a.get("undo_steps", 0) <= self.depth:
+                break
         return self.text() == self.base
 
 
@@ -172,19 +186,10 @@ def canonical(text, made):
     return sorted(word.sub("#", b) if word else b for b in blocks)
 
 
-def made_ids(answer):
-    out = set()
-    if isinstance(answer, dict):
-        for k in ("id", "ids", "housing", "sensor", "joint", "battery"):
-            v = answer.get(k)
-            out |= set(v if isinstance(v, list) else [v] if isinstance(v, int) else [])
-    return out
-
-
 def run(sample=None, seed=1):
     bench = Bench()
     ed, ops, p = bench.ed, bench.ops, bench.pools
-    laws, singles, broken = [], {}, []
+    laws, singles = [], {}
 
     def law(kind, what, detail):
         laws.append({"law": kind, "ops": what, "detail": detail[:300]})
@@ -234,12 +239,130 @@ def run(sample=None, seed=1):
     return {"ops": [o["name"] for o in ops], "singles": singles, "pairs": len(commute), "commute": commute, "laws": laws}
 
 
+# ---- the automaton: states as classes, walks as a sequence covering array ---------------------------------------------
+# A scene's state is infinite (every coordinate a float, any number of objects); its class is finite: the mode of the
+# world and which kinds of objects the scene holds. The walks: permutations of all the actions such that every ordered
+# triple of actions appears in that order in one of them (a sequence covering array - Kuhn et al., NIST: their number
+# grows as the logarithm of the actions, not as their cube). Each walk starts from the fixture and is undone whole after.
+KINDS = ("entity", "joint", "sensor", "battery", "driver", "controller", "sequence", "light", "camera", "force", "group", "wheel")
+ACTIONS = {"edit_undo": {}, "edit_redo": {}, "scene_new": {}, "sim_step": {"frames": 2}, "sim_stop": {}}
+
+
+def state(ed):
+    """The class of the scene: its world's mode and the kinds of object it holds (more than the floor for entities)."""
+    kinds = {}
+    for o in ed.scene_list()["objects"]:
+        kinds[o["kind"]] = kinds.get(o["kind"], 0) + 1
+    held = "".join(k[0] if kinds.get(k, 0) > (1 if k == "entity" else 0) else "·" for k in KINDS)
+    return ed.sim_state()["mode"] + " " + held
+
+
+def sequence_cover(n, seed=1, candidates=30):
+    """Permutations of range(n) in which every ordered triple of distinct items appears in that order in some one -
+    greedily, each the best of `candidates` random ones."""
+    rng, left, out = random.Random(seed), n * (n - 1) * (n - 2), []
+    covered = set()
+    while len(covered) < left:
+        best, gain = None, -1
+        for _ in range(candidates):
+            perm = list(range(n))
+            rng.shuffle(perm)
+            new = sum((a, b, c) not in covered for i, a in enumerate(perm) for j, b in enumerate(perm[i + 1:], i + 1) for c in perm[j + 1:])
+            if new > gain:
+                best, gain = perm, new
+        out.append(best)
+        covered |= {(a, b, c) for i, a in enumerate(best) for j, b in enumerate(best[i + 1:], i + 1) for c in best[j + 1:]}
+    return out
+
+
+def basis(edges):
+    """The fewest actions whose transitions reach every class the walks met, greedily (set cover): what each adds."""
+    reach = {}
+    for frm, name, ok, to in edges:
+        if ok and frm != to:
+            reach.setdefault(name, set()).add((frm, to))
+    classes = {to for frm, name, ok, to in edges} - {edges[0][0]} if edges else set()
+    left, out = set(classes), []
+    while left:
+        name = max(reach, key=lambda n: len({to for _, to in reach[n]} & left))
+        gain = {to for _, to in reach[name]} & left
+        if not gain:
+            break
+        out.append([name, len(gain)])
+        left -= gain
+    return out
+
+
+def walk(rounds=1, limit=None):
+    """Every walk of the cover run from the fixture: the classes and transitions met, step by step (the coverage curve),
+    and the laws - words at every step, the whole walk undone gives the fixture back, the scene at its end saved and
+    opened is the same."""
+    bench = Bench()
+    ops = {o["name"]: o for o in bench.ops}
+    names = sorted(ops) + sorted(ACTIONS)
+    walks = [perm for seed in range(1, rounds + 1) for perm in sequence_cover(len(names), seed)][:limit]  # each round a cover
+    laws, states, transitions, curve, skipped, below = [], set(), set(), [], 0, 0
+    folder = tempfile.mkdtemp(prefix="ke-walk-")
+    for w, perm in enumerate(walks):
+        now, deepest = state(bench.ed), bench.depth
+        states.add(now)
+        for k in perm:
+            name = names[k]
+            try:
+                args = ACTIONS[name] if name in ACTIONS else args_for(ops[name], pools(bench.ed, bench.extra))
+            except (IndexError, KeyError):  # nothing of the kind it needs is in the scene now: not applicable here
+                skipped += 1
+                continue
+            ok, err = bench.call(name, args)
+            if INTERNAL.search(err) or err.startswith("TRANSPORT"):
+                laws.append({"law": "words", "ops": [name], "detail": f"walk {w}: {err}"[:300]})
+            if name == "edit_undo" and bench.last.get("undone"):  # how deep the history still is, as the undo says
+                deepest = min(deepest, bench.last.get("undo_steps", deepest))
+            after = state(bench.ed)
+            transitions.add((now, name, ok, after))
+            states.add(after)
+            now = after
+            curve.append([len(curve) + 1, len(states), len(transitions)])
+        text, file = bench.text(), os.path.join(folder, f"walk-{w}.kscene")
+        if bench.call("scene_save", {"file": file})[0] and bench.call("scene_open", {"file": file})[0] and bench.text() != text:
+            laws.append({"law": "iso", "ops": [f"walk {w}"], "detail": "the scene at the walk's end saved and opened differs"})
+        if deepest < bench.depth:  # it undid steps of the fixture's own: what an edit after them dropped no undo gives back
+            below += 1
+            bench.scene.close()
+            bench = Bench()
+        elif not bench.back():
+            laws.append({"law": "inverse", "ops": [f"walk {w}"], "detail": "the whole walk undone did not give the fixture back"})
+            bench = Bench()
+    bench.scene.close()
+    return {"actions": names, "rounds": rounds, "walks": len(walks), "steps": len(curve), "skipped": skipped, "below": below, "states": sorted(states),
+            "transitions": len({t[:3] for t in transitions}), "edges": sorted(transitions), "curve": curve, "laws": laws,
+            "basis": basis(sorted(transitions))}
+
+
 def main(argv=None):
     a = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     a.add_argument("--sample", type=int, help="this many pairs at random instead of all")
     a.add_argument("--json", help="write the results here")
+    a.add_argument("--walk", type=int, nargs="?", const=1, metavar="ROUNDS",
+                   help="the automaton instead: ROUNDS covers of walks, each covering every ordered triple of actions")
     args = a.parse_args(argv)
     began = time.monotonic()
+    if args.walk:
+        r = walk(args.walk)
+        print(f"Действий: {len(r['actions'])}; проходов: {r['walks']} (каждая упорядоченная тройка действий — в одном из них); "
+              f"шагов: {r['steps']}, неприменимых: {r['skipped']}; {time.monotonic() - began:.0f} с")
+        tail = r["curve"][-len(r["curve"]) // 4:] if r["curve"] else []
+        print(f"Классов состояний: {len(r['states'])}; переходов «класс, действие, исход»: {r['transitions']}; "
+              f"за последнюю четверть шагов новых классов: {tail[-1][1] - tail[0][1] if tail else 0}, переходов: {tail[-1][2] - tail[0][2] if tail else 0}")
+        print("Наименьший набор действий, который доводит до всех встреченных классов: " + ", ".join(f"{n} (+{g})" for n, g in r["basis"]))
+        print(f"Проходов, отменивших и шаги самой сцены (их отмена всего прохода не проверяет): {r['below']}")
+        print(f"Законы нарушены: {len(r['laws'])}")
+        for l in r["laws"][:30]:
+            print(f"  {l['law']}: {' · '.join(l['ops'])} — {l['detail']}")
+        if args.json:
+            with open(args.json, "w", encoding="utf-8") as f:
+                json.dump(r, f, ensure_ascii=False, indent=1)
+        return len(r["laws"])
     r = run(args.sample)
     usable = [n for n, s in r["singles"].items() if s["ok"]]
     print(f"Операций правки: {len(r['ops'])}, выполнились на сцене: {len(usable)}; пар: {r['pairs']}; {time.monotonic() - began:.0f} с")

@@ -146,6 +146,17 @@ details td.num, details th.num { text-align: right; font-variant-numeric: tabula
     <p class="note">Наведите на клетку: строка — правка A, столбец — правка B. Рецепты бьют в одни и те же тела нарочно — так пары сталкиваются сильнее всего.</p>
   </section>
 
+  <section aria-labelledby="h-auto" class="panel" id="automaton" hidden>
+    <h2 id="h-auto">Автомат состояний</h2>
+    <p id="auto-note"></p>
+    <div class="rules" id="auto-laws"></div>
+    <div class="todo">
+      <div><b class="mono" style="font-size:13px">классы состояний</b><svg id="curve-classes" viewBox="0 0 440 200" role="img" aria-label="Классы состояний от числа шагов" style="width:100%;height:auto"></svg></div>
+      <div><b class="mono" style="font-size:13px">переходы «класс, действие, исход»</b><svg id="curve-edges" viewBox="0 0 440 200" role="img" aria-label="Переходы от числа шагов" style="width:100%;height:auto"></svg></div>
+    </div>
+    <p id="auto-basis"></p>
+  </section>
+
   <section aria-labelledby="h-todo">
     <h2 id="h-todo">Что осталось сделать</h2>
     <div class="todo">
@@ -323,5 +334,42 @@ if (D.algebra) {
     showTip(e, a === b ? `<b>${esc(a)}</b>` : `<b>${esc(a)}</b> ∘ <b>${esc(b)}</b><br>${apart.has(a + " " + b) ? "порядок меняет сцену" : "коммутируют"}`);
   });
   grid.addEventListener("mouseleave", () => { hideTip(); [...rows].forEach(s => s.classList.remove("hot")); });
+}
+// ---- the automaton: coverage curves - the asymptote
+if (D.automaton) {
+  const M = D.automaton, c = M.curve, last = c[c.length - 1];
+  $("automaton").hidden = false;
+  $("auto-note").textContent = `Состояний сцены бесконечно — классов конечно: режим мира и какие виды объектов в ней есть. ${M.rounds} покрытия по ${Math.round(M.walks / M.rounds)} проходов: в каждом покрытии любая упорядоченная тройка из ${M.actions.length} действий встречается в одном проходе (покрывающий массив последовательностей, NIST) — ${fmt(M.steps)} шагов вместо ${fmt(M.actions.length ** 3)} троек подряд. Кривая выходит на плато — это асимптота.`;
+  const n = k => M.laws.filter(l => l.law === k).length;
+  [["Отмена всего прохода", n("inverse"), `возвращает сцену до бита (${M.below} проход отменил и шаги самой сцены — их не судим)`],
+   ["Изоморфизм", n("iso"), "сцена в конце прохода — сохранить и открыть — та же"],
+   ["Слова", n("words"), `на каждом из ${fmt(M.steps)} шагов — успех или отказ словами`]].forEach(([name, k, why]) =>
+    $("auto-laws").insertAdjacentHTML("beforeend", `<div class="panel rule"><span class="pill ${k ? "bad" : ""}">${k ? "✕ нарушено" : "✓ держится"}</span><b>${name}: ${k} нарушений</b><span class="why">${why}</span></div>`));
+  const plot = (id, col, color) => {
+    const svg = $(id), W = 440, H = 200, L = 44, R = 12, T = 12, B = 28, top = last[col] * 1.08;
+    const x = v => L + (W - L - R) * v / last[0], y = v => T + (H - T - B) * (1 - v / top);
+    let s = "";
+    for (let k = 0; k <= 4; k++) { const v = Math.round(top * k / 4);
+      s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end" font-size="11">${fmt(v)}</text>`; }
+    [0, 0.5, 1].forEach(f => s += `<text x="${x(last[0] * f)}" y="${H - 8}" text-anchor="middle" font-size="11">${fmt(Math.round(last[0] * f))}${f === 1 ? " шагов" : ""}</text>`);
+    s += `<path d="M${x(0)},${y(0)} ${c.map(p => `L${x(p[0])},${y(p[col])}`).join(" ")} L${x(last[0])},${y(0)} Z" fill="${color}" opacity="0.14"/>`;
+    s += `<polyline points="${c.map(p => `${x(p[0])},${y(p[col])}`).join(" ")}" fill="none" stroke="${color}" stroke-width="2"/>`;
+    s += `<circle cx="${x(last[0])}" cy="${y(last[col])}" r="4.5" fill="${color}" stroke="var(--panel)" stroke-width="2"/>`;
+    s += `<text x="${x(last[0]) - 8}" y="${y(last[col]) - 9}" text-anchor="end" font-size="12" style="fill:var(--ink)">${fmt(last[col])}</text>`;
+    s += `<line class="cross" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-dasharray="3 3" visibility="hidden"/><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}" fill="transparent"/>`;
+    svg.innerHTML = s;
+    const cross = svg.querySelector(".cross");
+    svg.querySelector("rect").addEventListener("mousemove", e => {
+      const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width, step = (px - L) / (W - L - R) * last[0];
+      const p = c.reduce((a, b) => Math.abs(b[0] - step) < Math.abs(a[0] - step) ? b : a);
+      cross.setAttribute("x1", x(p[0])); cross.setAttribute("x2", x(p[0])); cross.setAttribute("visibility", "visible");
+      showTip(e, `шаг ${fmt(p[0])}<br>классов: ${fmt(p[1])}<br>переходов: ${fmt(p[2])}`);
+    });
+    svg.querySelector("rect").addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+  };
+  plot("curve-classes", 1, "var(--s1)");
+  plot("curve-edges", 2, "var(--s3)");
+  $("auto-basis").innerHTML = `Наименьший набор действий, переходы которых доводят до всех ${M.classes} встреченных классов (жадное покрытие множествами): ` +
+    M.basis.map(([name, gain]) => `<code>${esc(name)}</code> +${gain}`).join(" · ") + ` — ${M.basis.length} из ${M.actions.length}.`;
 }
 </script>

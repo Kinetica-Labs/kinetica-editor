@@ -8,7 +8,8 @@ CI runs, not advice; the rest is a report of where order is wearing thin. Only t
     python3 tools/project_map.py          # the rules, then the report; the exit code is the number of rules broken
     python3 tools/project_map.py --json   # the same as data
     python3 tools/project_map.py --html map.html   # and a page to look at: rules, the layers' matrix, growth, files, hubs
-    python3 tools/project_map.py --html map.html --algebra algebra.json   # with the operations' laws and commutators
+    python3 tools/project_map.py --html map.html --algebra algebra.json --walk walk.json   # with the operations' laws,
+                                                                                          # commutators and automaton
 
 Rules (test_project_map keeps them at zero):
 - layers: src/ is layered bottom-up (CLAUDE.md, «Устройство»); a file includes only its own layer and those below;
@@ -266,6 +267,7 @@ def main(argv=None):
     p.add_argument("--json", action="store_true", help="the map as data")
     p.add_argument("--html", metavar="FILE", help="the map as a page to look at (tools/project_map.html with the data in it)")
     p.add_argument("--algebra", metavar="JSON", help="the page also shows tools/op_algebra.py's results (its --json)")
+    p.add_argument("--walk", metavar="JSON", help="and the automaton of tools/op_algebra.py --walk (its --json)")
     a = p.parse_args(argv)
     m = build()
     if a.json:
@@ -277,6 +279,12 @@ def main(argv=None):
             r = json.load(f)
         m["algebra"] = {"ops": r["ops"], "pairs": r["pairs"], "laws": r["laws"],
                         "apart": sorted(k.split() for k, same in r["commute"].items() if not same)}
+    if a.walk:
+        with open(a.walk, encoding="utf-8") as f:
+            r = json.load(f)
+        step = max(1, len(r["curve"]) // 300)
+        m["automaton"] = {k: r[k] for k in ("actions", "rounds", "walks", "steps", "skipped", "below", "transitions", "laws", "basis")}
+        m["automaton"].update(classes=len(r["states"]), curve=r["curve"][::step] + r["curve"][-1:])
     if a.html:
         with open(os.path.join(ROOT, "tools", "project_map.html"), encoding="utf-8") as f:
             page = f.read().replace("__DATA__", json.dumps(m, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/"))

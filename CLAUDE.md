@@ -19,7 +19,7 @@ build/kinetica --agent-eval --api 47801 --scene examples/scenes/ur5e.kscene   # 
 build/kinetica-core --version; python3 examples/python/01_hello.py          # без окна: ke.Scene()
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
 python3 tools/project_map.py [--html F]                               # карта проекта: правила порядка (слои src/, бюджеты, у файла есть читатель) и энтропия; навык /order
-python3 tools/op_algebra.py                                            # законы правок в ядре: каждая и каждая пара - отмена обратна, сохранение - изоморфизм, ответ словами; коммутаторы (2 мин)
+python3 tools/op_algebra.py                                            # законы правок в ядре: каждая и каждая пара - отмена обратна, сохранение - изоморфизм, ответ словами; коммутаторы (2 мин); --walk 3 - автомат состояний: проходы покрывают каждую тройку действий, кривая покрытия (1 мин)
 ```
 
 Остальные ключи запуска (`--script`, `--frames`, `--screenshot`, `--language`…) разбирает `editor/main.cpp`.

@@ -34,6 +34,7 @@ merges, moves into its layer, links to the one place a fact lives - rather than 
    `research_notes/`, anything git ignores) waits for the user's yes.
 5. **Check and show.** The tests of `CLAUDE.md`, the map again, and «before → after» in numbers; after a change to
    operations also `python3 tools/op_algebra.py --json <scratchpad>/algebra.json` (every edit and pair: undo is the
-   inverse, save is an iso, answers are words). For a person: `python3 tools/project_map.py --html
-   <scratchpad>/kinetica-map.html --algebra <scratchpad>/algebra.json` and publish it with the Artifact tool (the same
-   file path keeps the page's link).
+   inverse, save is an iso, answers are words) and `--walk 3 --json <scratchpad>/walk.json` (the automaton: walks covering
+   every ordered triple of actions, the coverage curve). For a person: `python3 tools/project_map.py --html
+   <scratchpad>/kinetica-map.html --algebra <scratchpad>/algebra.json --walk <scratchpad>/walk.json` and publish it with
+   the Artifact tool (the same file path keeps the page's link).
