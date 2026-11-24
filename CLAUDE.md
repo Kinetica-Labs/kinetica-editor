@@ -18,7 +18,7 @@ cd tools && python3 -m unittest test_agent_eval test_plugin_sdk test_editor_mcp 
 build/kinetica --agent-eval --api 47801 --scene examples/scenes/ur5e.kscene   # окно без показа; без --agent-eval - человеку; к --api ходят клиент и MCP ke-editor (.mcp.json)
 build/kinetica-core --version; python3 examples/python/01_hello.py          # без окна: ke.Scene()
 python3 tools/ke_editor.py scene_list                                  # одна операция из терминала: <операция> ['<JSON аргументов>']
-python3 tools/project_map.py                                           # карта проекта: правила порядка (слои src/, бюджеты, у файла есть читатель) и энтропия
+python3 tools/project_map.py [--html F]                               # карта проекта: правила порядка (слои src/, бюджеты, у файла есть читатель) и энтропия; навык /order
 ```
 
 Остальные ключи запуска (`--script`, `--frames`, `--screenshot`, `--language`…) разбирает `editor/main.cpp`.

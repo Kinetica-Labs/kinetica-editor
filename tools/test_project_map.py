@@ -1,7 +1,11 @@
 """The project's order as machine checks (tools/project_map.py): no include reaches up a layer of src/, no file over its
-budget, no file without a reader - kept at zero; and the rules themselves see what they are for, on made-up files."""
+budget, no file without a reader - kept at zero; the rules themselves see what they are for, on made-up files; the page
+holds the map."""
+import contextlib
+import io
 import os
 import sys
+import tempfile
 import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +28,16 @@ class ProjectMap(unittest.TestCase):
         found = project_map.readers(sorted(texts), texts)
         self.assertEqual(found.get("tools/helper.py"), "tools/use.py")  # a module, by its import
         self.assertNotIn("docs/lost.md", found)
+
+    def test_the_page_holds_the_map(self):
+        with tempfile.TemporaryDirectory() as folder, contextlib.redirect_stdout(io.StringIO()):
+            page = os.path.join(folder, "map.html")
+            self.assertEqual(project_map.main(["--html", page]), 0)
+            with open(page, encoding="utf-8") as f:
+                text = f.read()
+        self.assertNotIn("__DATA__", text)
+        self.assertIn('"growth":[{"d":', text)
+        self.assertNotIn("</script>", text.split('id="data">', 1)[1].split("</script>", 1)[0])  # the data cannot end its script
 
 
 if __name__ == "__main__":

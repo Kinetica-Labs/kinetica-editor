@@ -1,0 +1,278 @@
+<!-- The project map as a page: tools/project_map.py --html puts its data where __DATA__ stands (one file, no server). -->
+<title>Карта Kinetica</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+/* Layout: one reading column of sections, summary first (rules, entropy), then the structure (layers), the growth,
+   the files, the hubs, and the work left. Neutrals lean toward the blue of the code. */
+:root {
+  --bg: #f7f8fa; --panel: #ffffff; --ink: #14171c; --ink-2: #4c5361; --ink-3: #7a8191; --line: #e2e5eb;
+  --accent: #2a78d6; --good: #0a7d3b; --good-bg: #e3f4ea; --bad: #c4312f;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+  --seq0: #eef4fc; --seq1: #2a78d6;
+  --sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111418; --panel: #191d23; --ink: #eceff4; --ink-2: #b4bac6; --ink-3: #868d9b; --line: #2b3039;
+  --accent: #3987e5; --good: #4cc27a; --good-bg: #16301f; --bad: #e66767;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --seq0: #1c2530; --seq1: #3987e5; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111418; --panel: #191d23; --ink: #eceff4; --ink-2: #b4bac6; --ink-3: #868d9b; --line: #2b3039;
+  --accent: #3987e5; --good: #4cc27a; --good-bg: #16301f; --bad: #e66767;
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+  --seq0: #1c2530; --seq1: #3987e5; color-scheme: dark }
+body { background: var(--bg); color: var(--ink); font: 15px/1.55 var(--sans); }
+main { max-width: 1040px; margin: 0 auto; padding-block: 28px 56px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 28px; }
+h1 { font-size: 30px; line-height: 1.15; font-weight: 600; margin: 0; letter-spacing: -0.01em; text-wrap: balance; }
+h2 { font-size: 19px; font-weight: 600; margin: 0; text-wrap: balance; }
+p { margin: 0; max-width: 68ch; color: var(--ink-2); }
+.mono, code { font-family: var(--mono); font-size: 0.9em; }
+.eyebrow { font: 500 12px/1 var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+header { display: grid; gap: 10px; }
+section { display: grid; gap: 14px; min-width: 0; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 18px; min-width: 0; }
+.rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.rule { display: grid; gap: 6px; }
+.pill { display: inline-flex; align-items: center; gap: 6px; font: 500 13px/1 var(--sans); color: var(--good);
+  background: var(--good-bg); border-radius: 999px; padding: 5px 10px 5px 8px; justify-self: start; }
+.pill.bad { color: var(--bad); background: transparent; border: 1px solid var(--bad); }
+.rule b { font-size: 16px; font-weight: 600; }
+.rule span.why { color: var(--ink-2); font-size: 13.5px; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1px; background: var(--line);
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+.stat { background: var(--panel); padding: 14px 16px; display: grid; gap: 2px; }
+.stat .v { font: 500 22px/1.2 var(--mono); font-variant-numeric: tabular-nums; }
+.stat .k { color: var(--ink-2); font-size: 13px; }
+.scroll { overflow-x: auto; }
+svg text { fill: var(--ink-2); font-family: var(--sans); }
+#dsm { border-collapse: separate; border-spacing: 2px; font: 12.5px/1 var(--mono); }
+#dsm th { font-weight: 500; color: var(--ink-2); padding: 4px 6px; white-space: nowrap; }
+#dsm th.row { text-align: right; }
+#dsm th.col { writing-mode: vertical-rl; transform: rotate(180deg); height: 72px; text-align: left; vertical-align: bottom; }
+#dsm td { width: 34px; height: 30px; text-align: center; border-radius: 4px; font-variant-numeric: tabular-nums; cursor: default; }
+#dsm td.self { background: transparent; color: var(--ink-3); }
+#dsm td.up { outline: 1px dashed var(--line); outline-offset: -1px; }
+#dsm td.up.has { background: var(--bad); color: #fff; outline: none; }
+.legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 3px; vertical-align: -1px; margin-right: 6px; }
+#tree { position: relative; width: 100%; height: 460px; }
+#tree .t { position: absolute; border-radius: 3px; overflow: hidden; box-shadow: inset 0 0 0 1px var(--panel); cursor: default; }
+#tree .t:hover { filter: brightness(1.12); box-shadow: inset 0 0 0 2px var(--ink); }
+#tree .lab { position: absolute; font: 600 12px/1.2 var(--sans); color: var(--ink); background: var(--panel); padding: 3px 7px;
+  border-radius: 4px; pointer-events: none; box-shadow: 0 1px 2px rgba(0,0,0,.15); white-space: nowrap; }
+.bars { display: grid; gap: 7px; }
+.bar { display: grid; grid-template-columns: minmax(0, 15rem) 1fr 3rem; gap: 10px; align-items: center; font-size: 13px; }
+.bar .n { font-family: var(--mono); color: var(--ink-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bar .track { height: 12px; background: var(--seq0); border-radius: 0 4px 4px 0; }
+.bar .fill { height: 100%; background: var(--s1); border-radius: 0 4px 4px 0; }
+.bar .c { font: 500 13px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: 12.5px/1 var(--mono); border: 1px solid var(--line); border-radius: 6px; padding: 5px 8px; background: var(--panel); }
+.todo { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.todo .panel { display: grid; gap: 10px; align-content: start; }
+blockquote { margin: 0; padding-left: 12px; border-left: 2px solid var(--line); color: var(--ink-2); font-size: 13.5px; }
+details summary { cursor: pointer; color: var(--accent); font-size: 14px; }
+details table { width: 100%; border-collapse: collapse; font: 12.5px/1.4 var(--mono); margin-top: 8px; }
+details td, details th { padding: 4px 8px; border-bottom: 1px solid var(--line); text-align: left; }
+details td.num, details th.num { text-align: right; font-variant-numeric: tabular-nums; }
+#tip { position: fixed; z-index: 20; pointer-events: none; background: var(--ink); color: var(--bg); font: 12.5px/1.4 var(--sans);
+  padding: 7px 9px; border-radius: 6px; max-width: 320px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+#tip b { font-family: var(--mono); font-weight: 500; word-break: break-all; }
+.note { font-size: 13px; color: var(--ink-3); }
+@media (prefers-reduced-motion: no-preference) { #tree .t { transition: filter .12s; } }
+</style>
+
+<main>
+  <header>
+    <span class="eyebrow" id="when"></span>
+    <h1>Карта Kinetica</h1>
+    <p>Каждый файл, кто его читает и как держится порядок. Страница — <code>python3 tools/project_map.py --html</code>: правила проверяет CI, остальное — отчёт для человека.</p>
+  </header>
+
+  <section aria-labelledby="h-rules">
+    <h2 id="h-rules">Правила порядка</h2>
+    <div class="rules" id="rules"></div>
+    <div class="stats" id="stats"></div>
+  </section>
+
+  <section aria-labelledby="h-dsm" class="panel">
+    <h2 id="h-dsm">Слои: кто кого подключает</h2>
+    <p>Строка подключает столбец; число — сколько строк <code>#include</code>. Слои снизу вверх: всё, что ниже диагонали, — связь вниз, как положено. Над диагональю (пунктир) была бы связь вверх — их нет.</p>
+    <div class="scroll"><table id="dsm" aria-label="Матрица подключений между слоями"></table></div>
+  </section>
+
+  <section aria-labelledby="h-growth" class="panel">
+    <h2 id="h-growth">Рост за историю ветки, во сколько раз</h2>
+    <p id="growth-note"></p>
+    <div class="legend"><span><i style="background:var(--s1)"></i>код (C++, Python)</span><span><i style="background:var(--s2)"></i>документы (.md)</span></div>
+    <div class="scroll"><svg id="growth" viewBox="0 0 900 280" role="img" aria-label="Рост кода и документов по дням" style="width:100%;min-width:520px;height:auto"></svg></div>
+  </section>
+
+  <section aria-labelledby="h-tree" class="panel">
+    <h2 id="h-tree">Файлы по размеру</h2>
+    <p>Площадь — строки файла. Наведите, чтобы увидеть файл.</p>
+    <div class="legend" id="tree-legend"></div>
+    <div id="tree" role="img" aria-label="Файлы проекта по числу строк, по группам"></div>
+    <details><summary>Таблицей: 30 самых больших файлов</summary><table id="big"></table></details>
+  </section>
+
+  <section aria-labelledby="h-fan" class="panel">
+    <h2 id="h-fan">Узлы связей</h2>
+    <p>Сколько других файлов называют этот файл по имени. Здесь сходятся связи: правка такого файла задевает многие.</p>
+    <div class="bars" id="fan"></div>
+  </section>
+
+  <section aria-labelledby="h-todo">
+    <h2 id="h-todo">Что осталось сделать</h2>
+    <div class="todo">
+      <div class="panel"><b id="rep-title"></b><div id="rep"></div><span class="note">Факт живёт в одном месте, остальные на него ссылаются.</span></div>
+      <div class="panel"><b id="ops-title"></b><div class="chips" id="ops"></div><span class="note">Нужен тест или удаление операции.</span></div>
+    </div>
+  </section>
+</main>
+<div id="tip" hidden></div>
+
+<script type="application/json" id="data">__DATA__</script>
+<script>
+const D = JSON.parse(document.getElementById("data").textContent);
+const fmt = n => n.toLocaleString("ru-RU");
+const $ = id => document.getElementById(id);
+const tip = $("tip");
+function showTip(e, html) { tip.innerHTML = html; tip.hidden = false; moveTip(e); }
+function moveTip(e) { const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.min(e.clientX + 14, innerWidth - w - 8) + "px"; tip.style.top = Math.min(e.clientY + 14, innerHeight - h - 8) + "px"; }
+function hideTip() { tip.hidden = true; }
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+
+// ---- rules and stats
+const R = D.rules, P = D.report;
+$("when").textContent = `kinetica-editor · ${D.commit} · ${D.date}`;
+const day = d => `${d.slice(8)}.${d.slice(5, 7)}`;
+[["Слои", R.layers.length, "связей вверх", "include в src/ идёт только к своему слою и ниже"],
+ ["Бюджеты", R.budgets.length, "сверх бюджета", "файл кода до 1600 строк, CLAUDE.md до 12 000 символов"],
+ ["Читатели", R.readers.length, "файлов-сирот", "у каждого файла есть тот, кто его читает"]].forEach(([name, n, unit, why]) => {
+  const ok = n === 0;
+  $("rules").insertAdjacentHTML("beforeend", `<div class="panel rule"><span class="pill ${ok ? "" : "bad"}">${ok ? "✓ держится" : "✕ нарушено"}</span>
+    <b>${name}: ${n} ${unit}</b><span class="why">${why}</span></div>`);
+});
+const w = P.week;
+[[fmt(P.files), "файлов в репозитории"], [fmt(P.code_lines), "строк кода"], [fmt(P.doc_lines), "строк документов"],
+ [String(P.code_gzip_ratio).replace(".", ","), "сжатие кода gzip (норма 0,25–0,3)"],
+ ["1 : " + (w.added / Math.max(1, w.deleted)).toFixed(1).replace(".", ","), `удалено к добавленному за ${w.days} дней`]].forEach(([v, k]) =>
+  $("stats").insertAdjacentHTML("beforeend", `<div class="stat"><span class="v">${v}</span><span class="k">${k}</span></div>`));
+
+// ---- layer matrix
+const G = P.matrix.groups, label = g => g.replace("src/", "");
+const count = {}; let maxc = 1;
+P.matrix.links.forEach(([a, b, n]) => { count[a + ">" + b] = n; maxc = Math.max(maxc, n); });
+const rank = g => G.indexOf(g);
+let html = "<tr><th></th>" + G.map(g => `<th class="col" scope="col">${label(g)}</th>`).join("") + "</tr>";
+G.slice().reverse().forEach(a => {
+  html += `<tr><th class="row" scope="row">${label(a)}</th>`;
+  G.forEach(b => {
+    const n = count[a + ">" + b] || 0;
+    if (a === b) { html += `<td class="self">·</td>`; return; }
+    const up = rank(b) > rank(a) && !["editor", "tests", "plugins"].includes(a);
+    const t = n ? 0.18 + 0.82 * Math.sqrt(n / maxc) : 0;
+    const style = n && !up ? `background:color-mix(in oklab, var(--seq1) ${Math.round(t * 100)}%, var(--seq0));color:${t > 0.55 ? "#fff" : "var(--ink)"}` : "";
+    html += `<td class="${up ? "up" : ""}${up && n ? " has" : ""}" style="${style}" data-a="${a}" data-b="${b}" data-n="${n}">${n || ""}</td>`;
+  });
+  html += "</tr>";
+});
+$("dsm").innerHTML = html;
+$("dsm").addEventListener("mousemove", e => { const td = e.target.closest("td[data-a]"); if (!td) return hideTip();
+  showTip(e, `<b>${esc(td.dataset.a)}</b> → <b>${esc(td.dataset.b)}</b><br>${td.dataset.n} подключений`); });
+$("dsm").addEventListener("mouseleave", hideTip);
+
+// ---- growth, indexed to the first day
+(function growth() {
+  const g = P.growth, svg = $("growth"), W = 900, H = 280, L = 48, Rr = 150, T = 16, B = 34;
+  const series = [["code", "var(--s1)", "код"], ["docs", "var(--s2)", "документы"]];
+  const idx = k => g.map(d => d[k] / g[0][k]);
+  const top = Math.ceil(Math.max(...idx("docs"), ...idx("code")));
+  const x = i => L + i * (W - L - Rr) / (g.length - 1), y = v => T + (H - T - B) * (1 - (v - 1) / (top - 1));
+  let s = "";
+  for (let v = 1; v <= top; v++) s += `<line x1="${L}" x2="${W - Rr}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)" stroke-width="1"/>
+    <text x="${L - 8}" y="${y(v) + 4}" text-anchor="end" font-size="12">×${v}</text>`;
+  g.forEach((d, i) => s += `<text x="${x(i)}" y="${H - 10}" text-anchor="middle" font-size="12">${day(d.d)}</text>`);
+  series.forEach(([k, c, name]) => {
+    const v = idx(k), pts = v.map((q, i) => `${x(i)},${y(q)}`).join(" ");
+    s += `<polyline points="${pts}" fill="none" stroke="${c}" stroke-width="2" stroke-linejoin="round"/>`;
+    v.forEach((q, i) => s += `<circle cx="${x(i)}" cy="${y(q)}" r="${i === v.length - 1 ? 5 : 3}" fill="${c}" stroke="var(--panel)" stroke-width="2"/>`);
+    s += `<text x="${x(v.length - 1) + 12}" y="${y(v[v.length - 1]) + 4}" font-size="13" style="fill:var(--ink)">${name} ×${v[v.length - 1].toFixed(2).replace(".", ",")}</text>`;
+  });
+  s += `<line id="cross" y1="${T}" y2="${H - B}" stroke="var(--ink-3)" stroke-dasharray="3 3" visibility="hidden"/>
+        <rect x="${L}" y="${T}" width="${W - L - Rr}" height="${H - T - B}" fill="transparent" id="hit"/>`;
+  svg.innerHTML = s;
+  const last = g[g.length - 1], first = g[0];
+  $("growth-note").textContent = `Код вырос с ${fmt(first.code)} до ${fmt(last.code)} строк, документы — с ${fmt(first.docs)} до ${fmt(last.docs)}: документы растут быстрее кода.`;
+  const hit = svg.querySelector("#hit"), cross = svg.querySelector("#cross");
+  hit.addEventListener("mousemove", e => {
+    const r = svg.getBoundingClientRect(), px = (e.clientX - r.left) * W / r.width;
+    const i = Math.max(0, Math.min(g.length - 1, Math.round((px - L) / ((W - L - Rr) / (g.length - 1)))));
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
+    showTip(e, `${day(g[i].d)}<br>код: ${fmt(g[i].code)} строк (×${(g[i].code / first.code).toFixed(2)})<br>документы: ${fmt(g[i].docs)} (×${(g[i].docs / first.docs).toFixed(2)})`);
+  });
+  hit.addEventListener("mouseleave", () => { cross.setAttribute("visibility", "hidden"); hideTip(); });
+})();
+
+// ---- treemap: kinds, then files (squarified)
+const KINDS = [["ядро src/", "var(--s1)", f => f[1].startsWith("src/")], ["окно editor/", "var(--s2)", f => f[1] === "editor" && !f[0].endsWith(".md")],
+  ["тесты", "var(--s3)", f => f[1] === "tests"], ["инструменты и Python", "var(--s4)", f => !f[0].endsWith(".md") && ["tools", "clients", "plugins", "examples", "data"].includes(f[1])],
+  ["документы", "var(--s5)", f => f[0].endsWith(".md")]];
+const kinds = KINDS.map(([name, color, test]) => ({name, color, files: P.files.filter(test).sort((a, b) => b[2] - a[2])}));
+kinds.forEach(k => k.total = k.files.reduce((s, f) => s + f[2], 0));
+$("tree-legend").innerHTML = kinds.map(k => `<span><i style="background:${k.color}"></i>${k.name} — ${fmt(k.total)} строк, ${k.files.length} файлов</span>`).join("");
+function squarify(items, x, y, w, h) { // items: [{v}], returns [{x,y,w,h}] in order
+  const out = [], total = items.reduce((s, i) => s + i.v, 0); if (!total) return out;
+  let rest = items.slice(), X = x, Y = y, Wd = w, Ht = h, sum = total;
+  while (rest.length) {
+    const side = Math.min(Wd, Ht), scale = Wd * Ht / sum; let row = [], best = Infinity;
+    for (const it of rest) {
+      const r = row.concat(it), s = r.reduce((a, b) => a + b.v, 0) * scale, len = s / side;
+      const worst = Math.max(...r.map(q => { const a = q.v * scale / len; return Math.max(len / a, a / len); }));
+      if (worst > best) break; best = worst; row = r;
+    }
+    const s = row.reduce((a, b) => a + b.v, 0), len = s * scale / side; let off = 0;
+    row.forEach(q => { const a = q.v * scale / len;
+      out.push(Wd >= Ht ? {x: X, y: Y + off, w: len, h: a} : {x: X + off, y: Y, w: a, h: len}); off += a; });
+    if (Wd >= Ht) { X += len; Wd -= len; } else { Y += len; Ht -= len; }
+    sum -= s; rest = rest.slice(row.length);
+  }
+  return out;
+}
+function drawTree() {
+  const el = $("tree"), W = el.clientWidth, H = el.clientHeight; el.innerHTML = "";
+  squarify(kinds.map(k => ({v: k.total})), 0, 0, W, H).forEach((r, i) => {
+    const k = kinds[i];
+    squarify(k.files.map(f => ({v: f[2]})), r.x, r.y, r.w, r.h).forEach((q, j) => {
+      const f = k.files[j], d = document.createElement("div");
+      d.className = "t"; d.style.cssText = `left:${q.x}px;top:${q.y}px;width:${Math.max(0, q.w)}px;height:${Math.max(0, q.h)}px;background:${k.color}`;
+      d.addEventListener("mousemove", e => showTip(e, `<b>${esc(f[0])}</b><br>${fmt(f[2])} строк · ${k.name}`));
+      d.addEventListener("mouseleave", hideTip);
+      el.appendChild(d);
+    });
+    if (r.w > 90 && r.h > 30) el.insertAdjacentHTML("beforeend", `<span class="lab" style="left:${r.x + 6}px;top:${r.y + 6}px">${k.name}</span>`);
+  });
+}
+drawTree(); addEventListener("resize", drawTree);
+$("big").innerHTML = "<tr><th>файл</th><th class='num'>строк</th></tr>" + P.files.slice().sort((a, b) => b[2] - a[2]).slice(0, 30)
+  .map(f => `<tr><td>${esc(f[0])}</td><td class="num">${fmt(f[2])}</td></tr>`).join("");
+
+// ---- hubs
+const maxIn = Math.max(...P.hubs.map(f => f[1]));
+$("fan").innerHTML = P.hubs.map(([p, n]) => `<div class="bar"><span class="n" title="${esc(p)}">${esc(p)}</span>
+  <span class="track"><span class="fill" style="display:block;width:${100 * n / maxIn}%"></span></span><span class="c">${n}</span></div>`).join("");
+
+// ---- the work left
+const rep = Object.entries(P.repeated);
+$("rep-title").textContent = `Повторы в документах: ${rep.length}`;
+$("rep").innerHTML = rep.map(([s, files]) => `<blockquote>«${esc(s.slice(0, 160))}${s.length > 160 ? "…" : ""}»<br><span class="mono">${files.map(esc).join(" · ")}</span></blockquote>`).join("");
+$("ops-title").textContent = `Операции без теста: ${P.untested_ops.length}`;
+$("ops").innerHTML = P.untested_ops.map(o => `<span class="chip">${esc(o)}</span>`).join("");
+</script>

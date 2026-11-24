@@ -96,20 +96,13 @@ SDK, этой проводкой пользоваться не должен.
 
 ## Пример (работает сегодня)
 
+Команда — заготовка «Нового плагина…» (`clients/python/kinetica/plugin_template.py`, урок — [docs/plugins.md](../plugins.md)).
+Панель к ней: поле, кнопка и значение, которое команда кладёт через `show`:
+
 ```python
-from kinetica.plugin import command, field, show, ui
+from kinetica.plugin import show, ui
 
-
-@command(label="Поднять выделенное")
-def lift(scene, height: float = field(0.1, unit="м", range=(-1.0, 1.0), label="На сколько")):
-    """Поднять выделенные объекты - одна правка, сколько бы их ни было."""
-    chosen = scene.editor.selection
-    if chosen:
-        scene.move(*chosen, by=(0, height, 0))
-    show(moved=len(chosen))
-    return {"moved": len(chosen)}
-
-
+# в lift заготовки, перед return:  show(moved=len(chosen))
 ui.panel("Подъём", ui.section("Выделенное", ui.number("height", 0.3, unit="м", label="На сколько"),
                               ui.button(lift, "Поднять")), ui.value("moved", "Поднято", 0))
 ```

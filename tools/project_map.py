@@ -7,13 +7,15 @@ CI runs, not advice; the rest is a report of where order is wearing thin. Only t
 
     python3 tools/project_map.py          # the rules, then the report; the exit code is the number of rules broken
     python3 tools/project_map.py --json   # the same as data
+    python3 tools/project_map.py --html map.html   # and a page to look at: rules, the layers' matrix, growth, files, hubs
 
 Rules (test_project_map keeps them at zero):
 - layers: src/ is layered bottom-up (CLAUDE.md, «Устройство»); a file includes only its own layer and those below;
 - budgets: a source file stays under BUDGET_LINES lines (no God object), the always-loaded rules under their size;
 - readers: every tracked file is read by another - named by its path or file name, or found by a way READ_BY says.
 Report: sentences repeated across documents (a fact lives in one place - Diátaxis), operations no test names, the
-week's lines added and deleted, the code's compressibility (gzip: a repeating pattern compresses), the largest files.
+week's lines added and deleted, the code's compressibility (gzip: a repeating pattern compresses), the largest files;
+for the page also who includes whom across the layers, the growth day by day and the files the most others name.
 """
 import argparse
 import bisect
@@ -164,6 +166,56 @@ def week(days=7):
     return {"days": days, "added": added, "deleted": deleted, "deleted_per_added": round(deleted / added, 3) if added else 0.0}
 
 
+def group_of(path):
+    """A file's place on the map: its layer of src/ ("src/scene"), else its top folder."""
+    parts = path.split("/")
+    return "src/" + parts[1] if parts[0] == "src" and len(parts) > 2 else parts[0]
+
+
+def layer_matrix(texts):
+    """Who includes whom across the layers of src/ and the window, tests and plugins: {groups, links [[from, to, n]]}."""
+    groups = [g for g in ["src/" + layer for layer in LAYERS] + ["editor", "tests", "plugins"] if any(group_of(p) == g for p in texts)]
+    count = {}
+    for path, text in texts.items():
+        if group_of(path) not in groups or not path.endswith((".cpp", ".h")):
+            continue
+        for included in re.findall(r'#include "([a-z]+)/[^"]+"', text):
+            to = "src/" + included
+            if to in groups and to != group_of(path):
+                count[(group_of(path), to)] = count.get((group_of(path), to), 0) + 1
+    return {"groups": groups, "links": [[a, b, n] for (a, b), n in sorted(count.items())]}
+
+
+def hubs(texts, n=12):
+    """The files the most others name: where the connections meet. [[file, how many name it]]."""
+    out = []
+    for path in texts:
+        name = os.path.basename(path)
+        if path.endswith(CODE + (".md",)) and len(name) > 5:
+            out.append([path, sum(name in t for q, t in texts.items() if q != path)])
+    return sorted(out, key=lambda x: -x[1])[:n]
+
+
+def growth(code_lines, doc_lines):
+    """Lines of code and of documents at the end of each day of the history: today's, less what each later day added."""
+    out = subprocess.run(["git", "log", "--format=@%ad", "--date=short", "--numstat", "--", "*.cpp", "*.h", "*.py", "*.md"],
+                         cwd=ROOT, capture_output=True, text=True, check=True).stdout
+    net, day = {}, None
+    for line in out.splitlines():
+        if line.startswith("@"):
+            day = line[1:]
+            continue
+        a, d, *rest = line.split("\t") + ["", ""]
+        if a.isdigit() and d.isdigit():
+            kind = "docs" if rest[0].endswith(".md") else "code"
+            net.setdefault(day, {"code": 0, "docs": 0})[kind] += int(a) - int(d)
+    days, now, rows = sorted(net), {"code": code_lines, "docs": doc_lines}, []
+    for day in reversed(days):
+        rows.append({"d": day, **now})
+        now = {k: now[k] - net[day][k] for k in now}
+    return rows[::-1]
+
+
 def build():
     paths = tracked()
     texts = {p: t for p in paths if (t := text_of(p)) is not None}
@@ -177,7 +229,11 @@ def build():
             "code_gzip_ratio": round(len(zlib.compress(code, 9)) / max(1, len(code)), 3),
             "week": week(), "repeated": repeated_sentences(texts), "untested_ops": untested_ops(texts),
             "largest": sorted(((t.count("\n"), p) for p, t in texts.items() if p.endswith(CODE)), reverse=True)[:5],
+            "matrix": layer_matrix(texts), "hubs": hubs(texts), "growth": growth(lines(CODE), lines((".md",))),
+            "files": [[p, group_of(p), t.count("\n")] for p, t in texts.items() if p.endswith(CODE + (".md",))],
         },
+        "commit": subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, capture_output=True, text=True).stdout.strip(),
+        "date": datetime.date.today().isoformat(),
     }
 
 
@@ -207,11 +263,18 @@ def broken(m):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--json", action="store_true", help="the map as data")
+    p.add_argument("--html", metavar="FILE", help="the map as a page to look at (tools/project_map.html with the data in it)")
+    a = p.parse_args(argv)
     m = build()
-    if p.parse_args(argv).json:
+    if a.json:
         print(json.dumps(m, ensure_ascii=False, indent=1))
     else:
         show(m)
+    if a.html:
+        with open(os.path.join(ROOT, "tools", "project_map.html"), encoding="utf-8") as f:
+            page = f.read().replace("__DATA__", json.dumps(m, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/"))
+        with open(a.html, "w", encoding="utf-8") as f:
+            f.write(page)
     return broken(m)
 
 
