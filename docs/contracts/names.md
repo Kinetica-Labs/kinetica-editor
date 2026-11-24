@@ -159,6 +159,7 @@
 | `delete` | `str` | убрать сохранённое под этим именем (`plots_set`: раскладку графиков) | testing |  |
 | `diameter` | `number` | диаметр, м | stable |  |
 | `dof` | `str` | степень свободы: tx, ty, tz - сдвиг, rx, ry, rz - поворот | stable |  |
+| `drawings` | `bool` | рисунки плагинов и агента поверх вида показаны (`view_show`) | testing |  |
 | `effector` | `int` | звено-эффектор цепи (кисть) | stable |  |
 | `encoder` | `number` | энкодер колеса, линий на оборот; 0 - без энкодера | stable |  |
 | `eye` | `[3]` | где стоит глаз камеры, м | stable |  |
@@ -310,7 +311,7 @@
 
 ### testing
 
-`console_type` `plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `view_follow`
+`console_type` `plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `view_follow` `view_show`
 
 ### obsolete
 
@@ -821,6 +822,7 @@ by Kinetica X, newer than this program (Y)…».
 | `on_change` | вызов, когда компонент плагина поставили, изменили или сняли | stable |
 | `on_play` | вызов при ▶ | stable |
 | `on_stop` | вызов при ■ Стоп | stable |
+| `on_quit` | вызов, когда плагин кончается: редактор закрыт, перезапускает плагин или пропал - остановить прибор, закрыть порт | testing |
 | `on_tick` | вызов каждого кадра, пока сцена играет | stable |
 | `OperationError` | ошибка операции: `{ok: false, error}` | stable |
 | `Operations` | любая операция по имени: `ed.<операция>(**аргументы)` | stable |

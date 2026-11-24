@@ -1,6 +1,9 @@
 """The MCP server of the editor (tools/ke_editor_mcp.py), without an editor: each operation is a tool with MCP's
 annotations from its kind, a plugin's own wiring is not offered, a profile (KE_MCP_FAMILIES) asks the editor for its
 families only and says so in the instructions, a refused call is an MCP error; the instructions fit a client's cut and the guide's topics are a tool."""
+import tempfile
+import subprocess
+import json
 import os
 import sys
 import unittest
@@ -79,6 +82,30 @@ class EditorMcp(unittest.TestCase):
         parts, failed = mcp.call_tool("scene_add", {})
         self.assertTrue(failed)
         self.assertIn("shape", parts[0]["text"])
+
+
+class ClaudePlugin(unittest.TestCase):
+    """The Claude plugin's door (claude/kinetica/server/kinetica_mcp.py): with Kinetica found it runs the editor's own MCP
+    server - the guide comes as the instructions; with none it says how to install it and offers no tools."""
+    DOOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "claude", "kinetica", "server", "kinetica_mcp.py")
+
+    def ask(self, home):
+        lines = [{"jsonrpc": "2.0", "id": 1, "method": "initialize", "params": {"protocolVersion": "2025-06-18"}},
+                 {"jsonrpc": "2.0", "id": 2, "method": "tools/list"}]
+        env = dict(os.environ, KINETICA_HOME=home, LOCALAPPDATA=home)
+        done = subprocess.run([sys.executable, self.DOOR], input="".join(json.dumps(m) + "\n" for m in lines), env=env,
+                              capture_output=True, text=True, timeout=30)
+        return [json.loads(line) for line in done.stdout.splitlines() if line.strip()]
+
+    def test_finds_the_editor_and_gives_its_guide(self):
+        answers = self.ask(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+        self.assertIn("Kinetica для агента", answers[0]["result"]["instructions"])
+
+    def test_without_the_editor_says_how_to_install(self):
+        with tempfile.TemporaryDirectory() as nowhere:
+            answers = self.ask(nowhere)
+        self.assertIn("install.sh", answers[0]["result"]["instructions"])
+        self.assertEqual(answers[1]["result"]["tools"], [])
 
 
 if __name__ == "__main__":

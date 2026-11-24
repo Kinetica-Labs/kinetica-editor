@@ -456,6 +456,16 @@ void MainWindow::buildToolShelf() {
         const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
         if (op == measure) operators()->run(measure, {{"point", three(from)}, {"to", three(to)}}, [](const QJsonObject&) {}, "ui");
     });
+    // The eye: what plugins and agents draw over the view - a film's cards, formulas, leaders - shown or hidden at once
+    // (view_show), as Blender's Overlays switch; the scene is untouched.
+    tb->addSeparator();
+    QAction* drawings = tb->addAction(controlIcon(ControlIcon::Visible, 28), uiText("Kinetica", "Надписи"));
+    drawings->setObjectName("toolDrawings");
+    drawings->setCheckable(true);
+    drawings->setChecked(true);
+    drawings->setToolTip(uiText("Kinetica", "Надписи поверх вида: карточки, формулы, выноски и свечение плагинов и агента — показать или скрыть"));
+    connect(drawings, &QAction::toggled, this, [drawings](bool on) { drawings->setIcon(controlIcon(on ? ControlIcon::Visible : ControlIcon::Hidden, 28)); });
+    connect(drawings, &QAction::triggered, this, [this](bool on) { operators()->run("view_show", {{"drawings", on}}, [](const QJsonObject&) {}, "ui"); });
     setTool(GizmoMode::Translate);
 }
 
@@ -479,6 +489,8 @@ void MainWindow::buildSceneBuilderDock() {
     builder_ = new SceneBuilder(ctrl_.get(), this);
     inspectorTabs_ = new QTabWidget;
     inspectorTabs_->setObjectName("inspectorTabs");
+    inspectorTabs_->setUsesScrollButtons(true); // the plugins' tabs past the edge: arrows to them, none cut off unseen
+    inspectorTabs_->setElideMode(Qt::ElideNone);
     inspectorTabs_->addTab(scrolled(builder_->sceneListPanel()), panelIcon(PanelIcon::Scene), uiText("Kinetica", "Сцена"));
     inspectorTabs_->addTab(scrolled(builder_->inspectorPanel()), panelIcon(PanelIcon::Object), uiText("Kinetica", "Объект"));
     inspectorTabs_->addTab(scrolled(builder_->worldPanel()), panelIcon(PanelIcon::World), uiText("Kinetica", "Мир"));

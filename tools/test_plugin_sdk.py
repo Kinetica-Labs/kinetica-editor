@@ -3,7 +3,8 @@ editor's form and MCP read (type, default, unit, range, choices, the label's wor
 default is a field too; an error points at the author's file and line, not at the SDK's; the hooks of a run answer on
 their own wire (editor/RunHooks.h) - who the plugin is first, then play, every tick and stop in order, a tick's commands
 merged, the bodies' truth only to a hook of the physics, a hook's mistake with its line; a chart of the panel is data, and
-what a hook shows on the panel goes with its frame's answer; a process pool of a plugin ends with the plugin."""
+what a hook shows on the panel goes with its frame's answer; a process pool of a plugin ends with the plugin; a plugin
+told to end runs its @on_quit first."""
 import json
 import os
 import socket
@@ -82,6 +83,29 @@ class PluginSdk(unittest.TestCase):
             size = os.path.getsize(beats)
             time.sleep(0.6)
             self.assertEqual(os.path.getsize(beats), size, "the worker beats on after its plugin was killed")
+
+    @unittest.skipIf(os.name == "nt", "the editor ends a plugin with SIGTERM on Linux and macOS; on Windows it is killed")
+    def test_a_plugin_told_to_end_runs_its_quit(self):
+        """@on_quit: the plugin's process ended as the editor ends it (SIGTERM) runs it first - a device's stream stopped,
+        its port closed - and each function once though another fails."""
+        with tempfile.TemporaryDirectory() as folder:
+            mark = os.path.join(folder, "mark")
+            here = os.path.dirname(os.path.abspath(__file__))
+            code = (f"import sys, time; sys.path[:0] = [{here!r}]; import test_plugin_sdk as t; "
+                    f"t.plugin.on_quit(lambda scene: 1 / 0); t.plugin.on_quit(lambda scene: open({mark!r}, 'w').write('bye')); "
+                    f"t.plugin._ending(None); open({mark!r} + '.ready', 'w').close(); time.sleep(60)")
+            child = subprocess.Popen([sys.executable, "-c", code], stderr=subprocess.DEVNULL)
+            try:
+                deadline = time.monotonic() + 30
+                while time.monotonic() < deadline and not os.path.exists(mark + ".ready"):
+                    time.sleep(0.05)
+                child.terminate()
+                self.assertEqual(child.wait(timeout=10), 0)
+            finally:
+                if child.poll() is None:
+                    child.kill()
+            with open(mark) as left:
+                self.assertEqual(left.read(), "bye")
 
     def test_command_registered(self):
         self.assertIn("row", plugin._commands)

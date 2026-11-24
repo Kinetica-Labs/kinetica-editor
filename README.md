@@ -102,6 +102,33 @@ OpenGL 3 окно предложит программный OpenGL. Скрипт
 
 Сборки каждого изменения — в **Actions**: прогон **CI** → **Artifacts** (нужен вход в GitHub).
 
+**Одной командой** — редактор из последнего выпуска в `~/Kinetica/editor`, проверка Python (поставить его скрипт
+спросит) и плагин для Claude, если есть команда `claude`; запустите снова — обновит:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.sh | bash      # Linux, macOS
+```
+
+```powershell
+irm https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.ps1 | iex             # Windows
+```
+
+## Kinetica в Claude
+
+Плагин `kinetica` даёт Claude операции редактора (MCP-сервер `ke-editor`) и навык строить, водить, измерять и
+снимать роботов: модель собирает руку или машину в вашем окне, подписывает детали формулами, вы видите каждый вызов.
+Нужны установленный редактор (выше) и Python 3.8+. В Claude Code:
+
+```
+/plugin install kinetica --marketplace Kinetica-Labs/kinetica-editor
+```
+
+или в два шага: `/plugin marketplace add Kinetica-Labs/kinetica-editor`, затем `/plugin install kinetica@kinetica`.
+В приложении Claude: Настройки → Плагины → Добавить → маркетплейс `Kinetica-Labs/kinetica-editor`; работает во
+вкладке Code (локальному MCP-серверу нужен ваш компьютер). На Windows в настройках плагина укажите Python: `python`
+(скрипт `install.ps1` ставит это сам). Плагин ищет редактор в `~/Kinetica/editor` (Windows:
+`%LOCALAPPDATA%\Kinetica\editor`) или в папке из настройки «Kinetica folder».
+
 ## Сборка из исходников
 
 Нужны компилятор C++17 (GCC 11+ или Visual Studio 2022), CMake 3.22+, Python 3 и Qt 6 — проверено с

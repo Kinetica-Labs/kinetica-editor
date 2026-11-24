@@ -87,7 +87,7 @@ void Viewport::drawOverlayFills(QPainter& p) {
     p.save();
     p.setRenderHint(QPainter::Antialiasing);
     for (const auto& [key, d] : drawings_) {
-        if (!d.fill || d.fill->parts.empty()) continue;
+        if (!d.fill || d.fill->parts.empty() || !shown(key)) continue;
         ke::Vector3 at = d.at;
         ke::Quaternion turn = d.turn;
         if (d.object) { // the object's: one in the world lies on it, a label hangs from its place along the world's axes

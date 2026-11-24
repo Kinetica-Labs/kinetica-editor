@@ -1,13 +1,20 @@
 // Self-test of the window's layout buttons (MainWindowLayout.cpp, see SelfTest.h): each area closes
 // and opens with what was open in it, an empty area opens its main panel, a panel closed by its own
-// ✕ unchecks its area, the layout menu lists every panel, and "only the 3D view" comes back as it was.
+// ✕ unchecks its area, the layout menu lists every panel, and "only the 3D view" comes back as it was; the tool shelf's
+// eye hides and shows the pictures plugins and agents draw over the view; a panel torn off can be maximized.
 #include "SelfTestSupport.h"
+#include <QJsonArray>
+#include "Viewport.h"
+#include "MainWindow.h"
+#include "EditorOps.h"
 
 #include <QAction>
 #include <QDockWidget>
 #include <QMenu>
 #include <QStatusBar>
 #include <QToolBar>
+
+#include <cstdio>
 
 using namespace selftest;
 
@@ -91,12 +98,44 @@ void testMenuAndOnlyView(Checker& c, QMainWindow& w, const QString& dir) {
     if (!dir.isEmpty()) w.grab().save(dir + "/layout-restored.png");
 }
 
+// The shelf's eye (view_show): a plugin's or an agent's pictures hidden and shown at once, the editor's own ruler kept.
+void testDrawingsEye(Checker& c, QMainWindow& w, Viewport* v) {
+    QAction* eye = action(w, "toolDrawings");
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    ops->runNow("view_draw", {{"key", "агент/надпись"}, {"text", "шаг"}, {"space", "screen"}, {"place", QJsonArray{0.1, 0.9}}});
+    eye->trigger(); // off
+    pump(50);
+    const bool hidden = !v->drawingsShown() && !v->shown("агент/надпись") && v->shown("editor/ruler") && !eye->isChecked() &&
+                        !ops->runNow("view_show", {}).value("drawings").toBool();
+    ops->runNow("view_show", {{"drawings", true}});
+    const bool back = v->drawingsShown() && eye->isChecked();
+    ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}});
+    c.check(eye && hidden && back, "the shelf's eye hides what plugins and agents draw over the view (the editor's ruler kept) and view_show shows it again");
+}
+
+// A panel torn off is a framed window that can be maximized (a second screen); its ✕ puts it back in its place.
+void testTornOff(Checker& c, QMainWindow& w) {
+    auto* d = w.findChild<QDockWidget*>("consoleDock");
+    if (!d) return c.check(false, "the console's panel exists");
+    d->show();
+    d->setFloating(true);
+    const bool framed = waitUntil([&] { return bool(d->windowFlags() & Qt::WindowMaximizeButtonHint); }, 2000);
+    d->close(); // its ✕: back in its place, shown
+    pump(50);
+    const bool home = !d->isFloating() && d->isVisible();
+    std::printf("  torn off: framed %s, back home %s (floating %s, visible %s)\n", framed ? "yes" : "no", home ? "yes" : "no",
+                d->isFloating() ? "yes" : "no", d->isVisible() ? "yes" : "no");
+    c.check(framed && home, "a panel torn off is a framed window with a maximize button; its ✕ puts it back in its place, shown");
+}
+
 } // namespace
 
 int runLayoutTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c;
-    (void)b, (void)v;
+    (void)b;
     testAreas(c, w);
     testMenuAndOnlyView(c, w, shotsDir);
+    testDrawingsEye(c, w, v);
+    testTornOff(c, w);
     return c.failures;
 }

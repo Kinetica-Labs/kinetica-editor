@@ -19,6 +19,7 @@ for p in plugins/*/plugin.py; do # the plugins that ship with the editor (plugin
 done
 [ -f "$app/Contents/Resources/plugins/urdf/plugin.py" ] || { echo "the URDF plugin is not in the program" >&2; exit 1; }
 mkdir -p "$app/Contents/Resources/tools" && cp tools/ke_editor.py tools/ke_editor_mcp.py "$app/Contents/Resources/tools/"
+mkdir -p "$app/Contents/Resources/docs" && cp -R docs/agent-guide.md docs/agent "$app/Contents/Resources/docs/" # the MCP server's guide
 cp LICENSE THIRD_PARTY_NOTICES.md README.md "$app/Contents/Resources/" && cp extern/box3d/LICENSE "$app/Contents/Resources/LICENSE-box3d.txt"
 mkdir "$build/kinetica.iconset" # the Dock's icon, from the project's own picture
 for s in 16 32 128 256; do

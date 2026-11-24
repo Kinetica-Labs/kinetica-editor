@@ -21,6 +21,7 @@ for p in plugins/*/plugin.py; do # the plugins that ship with the editor (plugin
     mkdir -p "$out/usr/bin/plugins" && cp -r "$(dirname "$p")" "$out/usr/bin/plugins/"
 done
 mkdir -p "$out/usr/bin/tools" && cp tools/ke_editor.py tools/ke_editor_mcp.py "$out/usr/bin/tools/"
+mkdir -p "$out/usr/bin/docs" && cp -r docs/agent-guide.md docs/agent "$out/usr/bin/docs/" # what the MCP server gives a model
 cp LICENSE THIRD_PARTY_NOTICES.md README.md "$out/" && cp extern/box3d/LICENSE "$out/LICENSE-box3d.txt"
 printf '#!/bin/sh\nexec "$(dirname "$(readlink -f "$0")")/usr/bin/kinetica" "$@"\n' > "$out/kinetica"
 chmod +x "$out/kinetica"

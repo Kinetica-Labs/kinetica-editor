@@ -222,6 +222,11 @@ public:
     // The editor's own marks in the scene - joints and their ties, sensors, lights, cameras, the gizmo, outlines: off, the
     // frame is what a camera would film. What a plugin or an agent drew (view_draw) is the scene's and stays.
     void setMarksVisible(bool on) { marksVisible_ = on; update(); }
+    // What plugins and agents draw over the view (view_draw: words, cards, formulas, leaders, glows) shown or hidden at
+    // once - Blender's Overlays switch; the editor's own (editor/, sequencer/: the ruler, motion paths) always shown.
+    void setDrawingsShown(bool on) { drawingsShown_ = on; update(); }
+    bool drawingsShown() const { return drawingsShown_; }
+    bool shown(const QString& key) const { return drawingsShown_ || key.startsWith("editor/") || key.startsWith("sequencer/"); }
     // While an agent drives the editor through the API the gizmo is not drawn: nobody takes its handles then, and its
     // arrows stood over the hand the agent moved, hiding what it did.
     void setAgentDriving(bool driving) { // said at every call of an agent: a paint only when it changes - a paint a call
@@ -508,7 +513,7 @@ private:
     ke::AABB focusBox_;            // what to frame when valid (the builder's objects)
     std::vector<int> highlight_;   // bodies outlined as selected
     std::vector<int> hoverBodies_, ghostBodies_;
-    bool overlayVisible_ = true, marksVisible_ = true, agentDriving_ = false;
+    bool overlayVisible_ = true, marksVisible_ = true, agentDriving_ = false, drawingsShown_ = true;
     QColor runFrame_;                   // the frame round the view while the scene runs (invalid: none)
     std::vector<char> unpickable_;          // per body: the mouse passes through
     std::vector<float> colliderGuides_;     // x y z state per point, two points a segment

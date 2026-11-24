@@ -28,6 +28,7 @@ import inspect
 import json
 import os
 import runpy
+import signal
 import socket
 import sys
 import threading
@@ -343,6 +344,32 @@ def on_stop(fn):
     return fn
 
 
+_quits = []  # @on_quit functions
+
+
+def on_quit(fn):
+    """Called once when the plugin ends - the editor closes or restarts it, or the editor is gone: ``def quit(scene)``.
+    For what must not be left behind - a device's stream stopped, its port closed (Blender's unregister, VS Code's
+    deactivate). The editor waits for it 0.7 s at most."""
+    _quits.append(fn)
+    return fn
+
+
+def _ending(scene):
+    """The editor ends a plugin with SIGTERM (PluginHost::stop, its close; killed 0.7 s later): @on_quit first."""
+    if hasattr(signal, "SIGTERM"):
+        signal.signal(signal.SIGTERM, lambda *_: (_quit(scene), os._exit(0)))
+
+
+def _quit(scene):
+    """The plugin's @on_quit functions, each once, whatever the others do."""
+    while _quits:
+        try:
+            _quits.pop(0)(scene)
+        except Exception:
+            traceback.print_exc()
+
+
 def on_tick(fn=None, *, world=False):
     """Called every frame while the scene runs, before the next frame is stepped - the simulation waits for it.
 
@@ -573,6 +600,15 @@ def _serve(file):
         _run_wire(scene, int(os.environ["KE_RUN_PORT"]), name, token)
     control.call("plugin_register", name=name, token=token, file=os.path.abspath(file), commands=commands,
                  components=components, **({"panel": _panel} if _panel else {}), **({"events": ["change"]} if _changes else {}))
+    _ending(scene)
+    try:
+        _answer(control, scene, name, token)
+    finally:  # the editor is gone, or we are told to end: what must not be left behind
+        _quit(scene)
+
+
+def _answer(control, scene, name, token):
+    """The editor's calls of the plugin's commands, answered one by one until the connection ends."""
     while True:
         call = control.call("plugin_wait", name=name, token=token)
         fn = _commands.get(call["command"], {}).get("fn")

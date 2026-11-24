@@ -77,6 +77,7 @@ public:
     void checkBlankView(bool pretend = false);
 
 protected:
+    bool eventFilter(QObject* watched, QEvent* event) override; // a torn-off panel's ✕: back in its place (MainWindowLayout.cpp)
     void resizeEvent(class QResizeEvent* e) override; // the top bar fits the new width
 
 private:
@@ -124,6 +125,7 @@ private:
     // (MainWindowLayout.cpp): the left, bottom and right dock areas close and open with what was
     // open in them; a menu lists every panel, the status line, the tool shelf and "only the 3D view".
     void addLayoutButtons();
+    void letFloat(class QDockWidget* d); // a panel torn off: a framed window, maximized on another screen
     void buildLayoutMenu(class QMenu* menu);
     bool dockAreaOpen(Qt::DockWidgetArea area) const;
     void setDockAreaOpen(Qt::DockWidgetArea area, bool open);

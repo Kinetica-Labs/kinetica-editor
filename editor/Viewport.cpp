@@ -259,7 +259,7 @@ void Viewport::drawHighlight(const QMatrix4x4& vp) {
 void Viewport::drawGlow(const QMatrix4x4& vp) {
     std::vector<const Drawing*> glowing;
     for (const auto& [key, d] : drawings_)
-        if (d.glow > 0 && d.opacity > 0 && d.objectOnly()) glowing.push_back(&d);
+        if (d.glow > 0 && d.opacity > 0 && d.objectOnly() && shown(key)) glowing.push_back(&d);
     const qreal dpr = devicePixelRatioF();
     const int w = int(width() * dpr), h = int(height() * dpr);
     if (glowing.empty() || !snap_ || !ensureMaskTarget(w, h)) return;
@@ -967,6 +967,7 @@ void Viewport::drawOverlayLines(const QMatrix4x4& vp) {
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glDepthMask(GL_FALSE);
     for (const auto& [key, d] : drawings_) {
+        if (!shown(key)) continue;
         const QVector4D seen(d.colour.redF(), d.colour.greenF(), d.colour.blueF(), 1.0f), hidden(seen.x(), seen.y(), seen.z(), 0.35f);
         glDepthFunc(GL_GREATER);
         drawLines(d.strip, GL_LINE_STRIP, vp, hidden), drawLines(d.segments, GL_LINES, vp, hidden);
@@ -993,6 +994,7 @@ void Viewport::drawOverlayMarks(QPainter& p) {
     QPointF at;
     const QFont plain = p.font();
     for (const auto& [key, d] : drawings_) {
+        if (!shown(key)) continue;
         p.setPen(Qt::NoPen);
         p.setBrush(d.colour);
         for (const Vector3& w : d.points)
@@ -1089,7 +1091,7 @@ void Viewport::arrangeCallouts(QPainter& p) {
     const QFont plain = p.font();
     for (const auto& [key, d] : drawings_) {
         QPointF point;
-        if (!d.leader || !d.aside || !leaderAnchor(d, point)) continue;
+        if (!d.leader || !d.aside || !shown(key) || !leaderAnchor(d, point)) continue;
         QSizeF size;
         if (d.fill && !d.fill->parts.empty()) {
             const double unit = double(d.scale) * height() / 1000.0; // ViewportFills.cpp: kUnits
@@ -1112,7 +1114,7 @@ void Viewport::arrangeCallouts(QPainter& p) {
     // labels, its mesh's box turned and projected.
     std::set<uint32_t> labelled;
     for (const auto& [key, d] : drawings_)
-        if (d.leader && d.aside && d.object) labelled.insert(d.object);
+        if (d.leader && d.aside && d.object && shown(key)) labelled.insert(d.object);
     const QMatrix4x4 vp = camera_.projection(float(width()) / std::max(1, height())) * camera_.view();
     for (const ke::Frame::Body& b : snap_ ? snap_->bodies : std::vector<ke::Frame::Body>()) {
         if (!b.mesh || !labelled.count(b.object)) continue;

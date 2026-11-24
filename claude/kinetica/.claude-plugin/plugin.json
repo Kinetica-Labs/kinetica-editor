@@ -1,0 +1,24 @@
+{
+  "name": "kinetica",
+  "version": "0.2.0",
+  "description": "Kinetica Editor in Claude: a robotics editor on rigid-body physics (Box3D) - the model builds, drives and tests robots in it, explains them with formulas and films it. The editor's MCP server and skills.",
+  "author": { "name": "Kinetica Labs" },
+  "homepage": "https://kinetica-labs.github.io/kinetica-docs",
+  "repository": "https://github.com/Kinetica-Labs/kinetica-editor",
+  "license": "MIT",
+  "keywords": ["robotics", "simulation", "physics", "mcp", "robot-arm", "education"],
+  "userConfig": {
+    "python": {
+      "type": "string",
+      "title": "Python",
+      "description": "The Python 3.8+ the editor's MCP server runs on: python3 (Linux, macOS) or python (Windows)",
+      "default": "python3"
+    },
+    "editor": {
+      "type": "string",
+      "title": "Kinetica folder",
+      "description": "Where Kinetica is installed; empty: ~/Kinetica/editor (Windows: %LOCALAPPDATA%\\Kinetica\\editor), as install.sh and install.ps1 put it",
+      "default": ""
+    }
+  }
+}

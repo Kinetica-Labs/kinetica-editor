@@ -16,6 +16,7 @@
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
+#include <QElapsedTimer>
 #include <QDoubleSpinBox>
 #include <QFile>
 #include <QFileInfo>
@@ -169,8 +170,14 @@ PluginHost::PluginHost(EditorOps* ops, SceneBuilder* builder, QWidget* window, Q
 
 PluginHost::~PluginHost() {
     ops_->setUnknownHint(nullptr);
+    // Each plugin is asked to end first - its @on_quit stops what must not be left behind (a device's stream, its port) -
+    // and killed only if it has not, 0.7 s after for them all together.
     for (auto& p : plugins_)
-        if (p->process) p->process->disconnect(this), p->process->kill(), p->process->waitForFinished(500);
+        if (p->process) p->process->disconnect(this), p->process->terminate();
+    QElapsedTimer waited;
+    waited.start();
+    for (auto& p : plugins_)
+        if (p->process && !p->process->waitForFinished(int(std::max<qint64>(1, 700 - waited.elapsed())))) p->process->kill(), p->process->waitForFinished(500);
 }
 
 QString PluginHost::userFolder() const { return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/plugins"; }

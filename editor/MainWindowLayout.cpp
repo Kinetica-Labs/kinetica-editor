@@ -23,6 +23,7 @@
 #include <QToolBar>
 #include <QToolButton>
 #include <QTimer>
+#include <QGuiApplication>
 #include <QTabBar>
 
 namespace {
@@ -125,8 +126,44 @@ void MainWindow::addLayoutButtons() {
         connect(d, &QDockWidget::visibilityChanged, this, &MainWindow::syncLayoutButtons);
         connect(d, &QDockWidget::dockLocationChanged, this, &MainWindow::syncLayoutButtons);
         connect(d, &QDockWidget::topLevelChanged, this, &MainWindow::syncLayoutButtons);
+        letFloat(d);
     }
     syncLayoutButtons();
+}
+
+// A panel torn off is a window of its own, framed by the system - maximized on another screen, as the graphs beside the
+// view on a second monitor. Its frame comes when the drag is over (changed during it, the drag would break); framed, it
+// is no longer dragged back - its ✕ puts it back in its place in the window, shown.
+void MainWindow::letFloat(QDockWidget* d) {
+    const auto frame = [d](bool floating) {
+        if (!floating) return;
+        auto* wait = new QTimer(d);
+        connect(wait, &QTimer::timeout, d, [d, wait] {
+            if (QGuiApplication::mouseButtons() != Qt::NoButton) return; // still dragged
+            wait->deleteLater();
+            if (!d->isFloating()) return;
+            d->setWindowFlags(Qt::Window | Qt::CustomizeWindowHint | Qt::WindowTitleHint | Qt::WindowMinMaxButtonsHint | Qt::WindowCloseButtonHint);
+            d->show();
+        });
+        wait->start(100);
+    };
+    connect(d, &QDockWidget::topLevelChanged, this, frame);
+    QTimer::singleShot(0, d, [d, frame] { frame(d->isFloating()); }); // torn off already in the layout the window kept
+    d->installEventFilter(this); // its ✕: eventFilter
+}
+
+bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    auto* d = qobject_cast<QDockWidget*>(watched);
+    if (d && event->type() == QEvent::Close && d->isFloating()) { // the torn-off window's ✕: back in its place, shown
+        event->ignore();
+        QTimer::singleShot(0, d, [d] {
+            d->setFloating(false);
+            d->show();
+            d->raise();
+        });
+        return true;
+    }
+    return QMainWindow::eventFilter(watched, event);
 }
 
 // The menu behind the fourth button: the areas, the panels one by one, and the modes.

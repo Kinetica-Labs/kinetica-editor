@@ -47,11 +47,25 @@ def reachable(port=DEFAULT_PORT):
         return False
 
 
+def binary():
+    """The editor's program: KE_EDITOR_BIN, else where it stands beside these tools - a build of the source tree
+    (build/kinetica), a release for Windows (kinetica.exe beside tools/), Linux (the bundle's own launcher two folders up)
+    or macOS (Contents/MacOS/kinetica)."""
+    if os.environ.get("KE_EDITOR_BIN"):
+        return os.environ["KE_EDITOR_BIN"]
+    for where in (("build", "kinetica"), ("build", "Release", "kinetica.exe"), ("kinetica.exe",), ("..", "..", "kinetica"),
+                  ("..", "MacOS", "kinetica"), ("kinetica",)):
+        path = os.path.normpath(os.path.join(EDITOR_DIR, *where))
+        if os.path.isfile(path):
+            return path
+    raise FileNotFoundError(f"no Kinetica program beside {EDITOR_DIR}: install it (install.sh, install.ps1) or set KE_EDITOR_BIN")
+
+
 def launch(port=DEFAULT_PORT, scene=None, display=None, wait=60.0):
-    """Starts build/kinetica with --api (unless one already answers on the port) and waits for it."""
+    """Starts the editor (binary()) with --api (unless one already answers on the port) and waits for it."""
     if reachable(port):
         return None
-    cmd = [os.path.join(EDITOR_DIR, "build", "kinetica"), "--api", str(port)]
+    cmd = [binary(), "--api", str(port)]
     if scene:
         cmd += ["--scene", scene]
     env = dict(os.environ)
