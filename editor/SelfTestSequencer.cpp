@@ -404,6 +404,65 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 pathPoints, keyDots, ends ? "yes" : "no", pathGone ? "yes" : "no", v->hasDrawing(pathKey) ? "yes" : "no");
     c.check(pathPoints > 10 && ends && pathGone && v->hasDrawing(pathKey), "the selected object's motion path and its keys are drawn in the view, gone with the selection");
 
+    // The keys on the path are points to drag (After Effects' position path): the key at 2 s taken in the view and moved
+    // half a metre up - the key goes there, the path with it, one undo step puts it back.
+    const auto keyPoint = [&](const Vector3& where) {
+        const std::vector<ShapeHandle>& hs = v->shapeHandles();
+        for (size_t i = 0; i < hs.size(); ++i)
+            if (length(hs[i].centre - where) < 1e-4f && hs[i].guide.empty()) return int(i);
+        return -1;
+    };
+    const Vector3 keyTwo = activeSequence(b.graph())->tracks[0].keys[1].position;
+    const int point = keyPoint(keyTwo);
+    const size_t pathBefore = v->drawing(pathKey) ? v->drawing(pathKey)->strip.size() : 0;
+    const float topBefore = v->drawing(pathKey) && !v->drawing(pathKey)->strip.empty() ? v->drawing(pathKey)->strip[v->drawing(pathKey)->strip.size() - 3] : 0;
+    b.onShapeHandle(point, keyTwo, 0);
+    b.onShapeHandle(point, keyTwo + Vector3(0, 0.25f, 0), 1);
+    b.onShapeHandle(point, keyTwo + Vector3(0, 0.5f, 0), 2);
+    pump(60);
+    const float keyRaised = activeSequence(b.graph())->tracks[0].keys[1].position.y - keyTwo.y;
+    const float pathTop = v->drawing(pathKey) && !v->drawing(pathKey)->strip.empty() ? v->drawing(pathKey)->strip[v->drawing(pathKey)->strip.size() - 3] : 0;
+    b.undoStep();
+    pump(60);
+    const float keyBack = activeSequence(b.graph())->tracks[0].keys[1].position.y - keyTwo.y;
+    b.redoStep();
+    pump(60);
+    std::printf("  the key at 2 s dragged in the view (point %d of %zu): up %.3f m, the path's end up %.3f m (%zu floats before); one undo: %.3f m\n",
+                point, v->shapeHandles().size(), keyRaised, pathTop - topBefore, pathBefore, keyBack);
+    c.check(point >= 0 && std::fabs(keyRaised - 0.5f) < 1e-3f && std::fabs(pathTop - topBefore - 0.5f) < 1e-3f && std::fabs(keyBack) < 1e-5f,
+            "a key's point dragged in the view moves the key and its path; one undo puts it back");
+
+    // A smooth key between two others has its Bezier handles beside it on thin lines: its out handle dragged 0.3 m up a
+    // second's way from the next key - the key's velocity there 0.9 m/s up (3 × 0.3 / 1 s), the other handle mirroring it.
+    {
+        EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+        ops->runNow("sequence_key", {{"ids", QJsonArray{int(cube)}}, {"time", 1.0}});
+        ops->runNow("sequence_key_set", {{"id", int(cube)}, {"time", 1.0}, {"interp", "smooth"}});
+        b.select(cube);
+        pump(60);
+        const std::vector<ShapeHandle>& hs = v->shapeHandles();
+        int out = -1, in = -1;
+        const Vector3 middle = activeSequence(b.graph())->tracks[0].keys[1].position;
+        for (size_t i = 0; i < hs.size(); ++i)
+            if (!hs[i].guide.empty() && length(hs[i].guide[0] - middle) < 1e-4f) (hs[i].centre.x > middle.x ? out : in) = int(i);
+        const Vector3 grip = out >= 0 ? hs[size_t(out)].centre : Vector3(0.0f);
+        const float slopeBefore = keyVelocity(activeSequence(b.graph())->tracks[0].keys, 1).y; // between its neighbours
+        b.onShapeHandle(out, grip, 0);
+        b.onShapeHandle(out, grip + Vector3(0, 0.3f, 0), 2);
+        pump(60);
+        const AnimKey& key = activeSequence(b.graph())->tracks[0].keys[1];
+        const Vector3 velocity = key.velocity;
+        const std::vector<ShapeHandle>& now = v->shapeHandles();
+        const float mirror = in >= 0 && size_t(in) < now.size() ? (middle - now[size_t(in)].centre).y : 0;
+        std::printf("  the smooth key at 1 s: handles %s; the out one dragged 0.3 m up: velocity y %.3f m/s from %.3f (smooth %s), the in handle "
+                    "%.3f m below\n", out >= 0 && in >= 0 ? "two" : "MISSING", double(velocity.y), double(slopeBefore),
+                    key.interp == AnimInterp::Smooth ? "yes" : "no", double(mirror));
+        c.check(out >= 0 && in >= 0 && std::fabs(velocity.y - slopeBefore - 0.9f) < 0.02f && key.hasVelocity && std::fabs(mirror - velocity.y / 3) < 0.01f,
+                "a smooth key's Bezier handle dragged in the view sets its velocity (3 × 0.3 m / 1 s more); the other handle mirrors it");
+        for (int k = 0; k < 3; ++k) b.undoStep(); // the drag, the smooth key, the key: the track as the tests below know it
+        pump(60);
+    }
+
     // The playhead dragged to the middle: the cube half way; released, one undo step takes it back where it stood.
     const double length = q ? double(q->length()) : 0;
     const QPointF from(xAt(timeline, b, length), 11), to(xAt(timeline, b, length / 2), 11);

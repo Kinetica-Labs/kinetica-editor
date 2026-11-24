@@ -238,6 +238,7 @@ void MainWindow::buildSequencerDock() {
     connect(builder_, &SceneBuilder::editSnapshot, sequencer_, [this] { sequencer_->sync(); });
     connect(builder_, &SceneBuilder::modeChanged, sequencer_, &SequencerPanel::sync);
     connect(builder_, &SceneBuilder::selectionChanged, sequencer_, &SequencerPanel::sync);
+    connect(builder_, &SceneBuilder::keysMoved, sequencer_, &SequencerPanel::sync); // a key dragged in the view: its path follows
     connect(new QShortcut(QKeySequence(Qt::Key_I), this), &QShortcut::activated, sequencer_, &SequencerPanel::keySelected);
     ops_->addListener([this](const QString&, const QString& name, const QJsonObject&, const QJsonObject&, bool) {
         if (name == "sim_record" || name == "scene_put") syncRecord(), sequencer_->sync(); // the take started or came in

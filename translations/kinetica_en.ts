@@ -5327,6 +5327,16 @@ Sample </translation>
         <translation>In Play</translation>
     </message>
     <message>
+        <location filename="../editor/SceneBuilderSequence.cpp" line="52"/>
+        <source>Ключ %1 с</source>
+        <translation>Key at %1 s</translation>
+    </message>
+    <message>
+        <location filename="../editor/SceneBuilderSequence.cpp" line="64"/>
+        <source>Наклон ключа %1 с</source>
+        <translation>Slope of the key at %1 s</translation>
+    </message>
+    <message>
         <location filename="../editor/SequencerPanel.cpp" line="54"/>
         <source>Пуск играет эту секвенцию: её тела идут по дорожкам как анимация и толкают встречное. Выключено — секвенция только для просмотра, физика тел своя (так приходит запись физики)</source>
         <translation>The starter plays this sequence: its bodies go down the tracks like animation and push oncoming things. It&apos;s off -- it&apos;s just for viewing, it&apos;s own body physics (so comes the physics record)</translation>

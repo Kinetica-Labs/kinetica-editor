@@ -303,6 +303,10 @@ public:
     void beginSequencePreview();
     void previewSequence(double time);
     void endSequencePreview();
+    // The selected object's keys as points on its motion path, a smooth key's two Bezier handles beside it (After
+    // Effects' position path): published with the view's other points when they changed (the Sequencer asks after each
+    // change of the scene).
+    void refreshKeyPoints();
 
     // Scripted edits (the self-test, later a script console): one undo step each.
     void select(uint32_t id) { setSelected(id); }
@@ -340,6 +344,7 @@ signals:
     void selectionChanged(uint32_t id);                    // the "Объект" tab shows it (0: nothing selected)
     void colliderGuides(std::vector<float> lines);         // green wireframes: pairs of points, x y z 0 each
     void shapeHandles(std::vector<ShapeHandle> handles);   // the collider mode's points (none: the mode is off)
+    void keysMoved();                                      // a key's point or handle dragged in the view: the path is drawn again
     void colliderEditChanged(bool on);
     // A hand edited the scene in edit mode: `ids` moved or turned, and whatever field it set besides - `before` is the scene
     // before the edit (the Sequencer's Auto Key keys them, a first key at 0 s from `before`).
@@ -615,6 +620,16 @@ private:
     void addPluginComponentsTo(QMenu* menu, const ke::Entity& e);
     std::vector<ShapeHandle> componentHandles();
     void onComponentHandle(int index, ke::Vector3 point, int phase);
+    std::vector<ShapeHandle> keyHandles();                        // the key points and handles (SceneBuilderSequence.cpp)
+    void onKeyHandle(int index, ke::Vector3 point, int phase);   // one dragged: live, then one sequence_key_set at the release
+    struct KeyPoint {
+        ke::Real time = 0;
+        int side = 0;      // 0: the key's place; -1, +1: its handle toward the key before, after
+        ke::Real gap = 0;  // the time to that neighbour, s
+    };
+    std::vector<KeyPoint> keyPoints_;   // what each key point of the view is
+    size_t keyPointsFrom_ = 0;          // the first key point's index among the view's points
+    std::vector<ke::Vector3> keyPointsShown_; // where they were last published
 
     // The gizmo: the active object it drags, every dragged object's world pose when the drag began,
     // and the whole graph then (Esc puts it back; a scale is always from the start sizes).

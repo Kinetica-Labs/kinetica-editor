@@ -516,4 +516,5 @@ void SequencerPanel::sync() {
     timeline_->refresh();
     curvesView_->update();
     drawPaths();
+    builder_->refreshKeyPoints(); // the keys on the path, to drag in the view
 }

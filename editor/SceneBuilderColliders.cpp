@@ -131,7 +131,13 @@ void SceneBuilder::emitShapeHandles() {
         colliderEdit_ = 0, colliderDrag_ = false;
         emit colliderEditChanged(false);
     }
-    emit shapeHandles(colliderEdit_ ? handlesOf(heldNow(*e)) : forceById(selectedId_) ? forceHandles() : componentHandles()); // else a force's or a plugin's orange points
+    std::vector<ShapeHandle> handles = colliderEdit_ ? handlesOf(heldNow(*e)) : forceById(selectedId_) ? forceHandles() : componentHandles(); // else a force's or a plugin's orange points
+    keyPointsFrom_ = handles.size();
+    const std::vector<ShapeHandle> keys = colliderEdit_ ? std::vector<ShapeHandle>() : keyHandles(); // and its keys on its path
+    handles.insert(handles.end(), keys.begin(), keys.end());
+    keyPointsShown_.clear();
+    for (const ShapeHandle& h : keys) keyPointsShown_.push_back(h.centre);
+    emit shapeHandles(handles);
 }
 
 void SceneBuilder::setColliderEdit(bool on) {
@@ -179,6 +185,8 @@ void SceneBuilder::showCollider(const ColliderRole& c) {
 
 // A point: a face moves and the far one stays (the centre goes half the way), a diameter or a height grows both ways.
 void SceneBuilder::onShapeHandle(int index, Vector3 point, int phase) {
+    if (!colliderEdit_ && index >= int(keyPointsFrom_) && size_t(index) < keyPointsFrom_ + keyPoints_.size())
+        return onKeyHandle(index - int(keyPointsFrom_), point, phase); // a key's point or handle on the motion path
     if (!colliderEdit_) return forceById(selectedId_) ? onForceHandle(index, point, phase) : onComponentHandle(index, point, phase); // a force's point, a plugin's field's
     if (phase == 0) return beginColliderDrag();
     if (!colliderDrag_ || index < 0 || index >= int(colliderHandles_.size())) return;
