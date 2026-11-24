@@ -372,4 +372,16 @@ void testSceneApiHyperOperations() {
     bool found = false;
     for (const Value& a : listed["assemblies"].items()) found = found || a["name"].text() == "Спорткар";
     CHECK(found, "assembly_list names the built-in sports car");
+    // What a weak model asked for in the bench: a crate weighed as it is made, an IMU with no face on top, names in the measure.
+    const Value crate = call(scene, "scene_add", R"({"shape": "box", "name": "Ящик", "size": [0.2, 0.2, 0.2], "density": 150})");
+    const Entity* box = findEntity(scene.graph(), uint32_t(crate["id"].integer()));
+    CHECK(box && box->rigid.enabled && box->rigid.density == 150, "scene_add density makes a rigid body that light: %s", crate["error"].text("").c_str());
+    CHECK(!call(scene, "scene_add", R"({"shape": "box", "role": "collider", "density": 150})")["ok"].truth(), "a collider has no density");
+    const std::string on = std::to_string(steps[0]["id"].integer());
+    CHECK(scene.call("assembly_sensor", parseJson("{\"target\": " + on + ", \"kind\": \"imu\"}"))["ok"].truth(), "an IMU with no face lies on top");
+    const Value sonar = scene.call("assembly_sensor", parseJson("{\"target\": " + on + ", \"kind\": \"sonar\"}"));
+    CHECK(!sonar["ok"].truth() && sonar["error"].text().find("face") != std::string::npos, "a sonar with no face asks for one: %s", sonar["error"].text("").c_str());
+    call(scene, "sim_step", R"({"frames": 1})");
+    const Value measured = scene.call("sim_measure", parseJson("{\"objects\": [" + std::to_string(crate["id"].integer()) + "]}"));
+    CHECK(measured["names"][std::to_string(crate["id"].integer())].text() == "Ящик", "sim_measure names the bodies it measures");
 }

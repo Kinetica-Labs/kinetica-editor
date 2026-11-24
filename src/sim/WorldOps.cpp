@@ -251,7 +251,16 @@ bool measure(Simulation* world, uint32_t, const Value& a, Value& answer, std::st
         c.set("id", m.info.id), c.set("value", m.value), c.set("unit", m.info.unit), c.set("name", m.info.name);
         channels.push(c);
     }
+    Value names = Value::map(); // the asked objects' names, so a reader need not look them up: {"31": "Шасси"}
+    if (world->robot())
+        eachObjectList(world->robot()->graph(), [&](const auto& list) {
+            for (const auto& o : list)
+                for (const char* key : {"objects", "group", "joints", "goals"})
+                    for (const Value& v : qtItems(a[key]))
+                        if (uint32_t(qtInt(v, 0)) == o.id && !o.name.empty()) names.set(std::to_string(o.id), o.name);
+        });
     answer.set("channels", channels), answer.set("time", double(world->time()));
+    if (!names.keys().empty()) answer.set("names", names);
     return true;
 }
 
@@ -326,7 +335,7 @@ std::vector<WorldOp> makeOps() {
          "velocity, energy, spin, sleep, contact force; group - several bodies as one; joints - each freedom's coordinate (0: the "
          "pose the joint was made in), a "
          "servo's target, the drive's effort; goals - an IK goal's miss (mm) and turn miss (°). Each channel: id "
-         "(\"<id>/<quantity>\"), value, unit, name",
+         "(\"<id>/<quantity>\"), value, unit, name (the quantity's); names: the asked objects' names by id",
          "{scene?: bool, objects?: [int], group?: [int], joints?: [int], goals?: [int]}", "query", measure},
     };
 }

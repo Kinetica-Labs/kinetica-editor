@@ -68,11 +68,14 @@ bool addShapeOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     Role role = Role::Rigid;
     const bool fixed = a["fixed"].truth(false), kinematic = a["kinematic"].truth(false);
     if (fixed && kinematic) return e = "a body is fixed or kinematic, not both", false;
-    const bool roled = a.has("role") || fixed || kinematic; // a fixed or a kinematic shape is a rigid one
+    const bool roled = a.has("role") || fixed || kinematic || a.has("density"); // a fixed, kinematic or weighed shape is a rigid one
     if (roled && !roleOfWord(a["role"].text("rigid"), role)) return e = "role is rigid or collider", false;
     const std::string note = roled ? setRoles(g, {id}, role, true) : std::string();
+    const double density = a["density"].number(0);
+    if (a.has("density") && (!(density > 0 && density < 1e5) || role != Role::Rigid))
+        return e = "density is a rigid body's kg/m³, above 0 (wood 500, water 1000, steel 7850)", false;
     for (Entity& made : g.entities)
-        if (made.id == id) made.rigid.fixed = fixed, made.rigid.kinematic = kinematic;
+        if (made.id == id) made.rigid.fixed = fixed, made.rigid.kinematic = kinematic, made.rigid.density = density > 0 ? Real(density) : made.rigid.density;
     merge(r, answerOf({id}));
     if (!note.empty()) r.set("note", note);
     return true;
@@ -444,9 +447,9 @@ std::vector<SceneOp> actionSceneOps() {
     return {
         {"scene_add", "A shape as the toolbar's button adds it: in the air over a free spot, named after its shape; role: a moving body "
                       "(rigid, with its collider) or a static obstacle (collider), as scene_role gives it; fixed: a rigid body held still in the world; "
-                      "kinematic: one that moves as its velocity and spin say and pushes what it meets, itself pushed by nothing. A cylinder's "
-                      "axis is its own y",
-         "{shape: box|sphere|cylinder|cone|plane, name?: str, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool, kinematic?: bool}",
+                      "kinematic: one that moves as its velocity and spin say and pushes what it meets, itself pushed by nothing; density: a rigid "
+                      "body's kg/m³ (500 unless given; a light crate 150). A cylinder's axis is its own y",
+         "{shape: box|sphere|cylinder|cone|plane, name?: str, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool, kinematic?: bool, density?: number}",
          {}, addShapeOp},
         {"scene_add_light", "A light as the menu adds it: the sun high at a slant, a lamp or a spot over `at` (else the scene's centre); "
                             "with `position` it stands there shining at `target` (else at `at`)",

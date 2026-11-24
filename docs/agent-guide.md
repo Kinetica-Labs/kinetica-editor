@@ -64,7 +64,7 @@ Kinetica — редактор роботов на физике Box3D. Челов
 
 ## Проверка — четыре вызова
 
-`sim_play` → `sim_step {frames: 120, state: false}` → `sim_measure {objects: [id]}` (`centre y`, `speed`, `contacts`) →
+`sim_play` → `sim_step {frames: 120, state: false}` → `sim_measure {objects: [id]}` (каналы `<id>/centre y`, `speed`, `contacts` с единицами; `names` — имена тел по id) →
 `sim_stop`. Посмотреть: `view_screenshot`. Пока сцена играет, правка живёт до `sim_stop`.
 
 ## Ловушки
@@ -80,6 +80,7 @@ Kinetica — редактор роботов на физике Box3D. Челов
 - Действия пульта машинки — `drive value`: их читает плагин, стабилизатор «Мозга» ведёт машинку. Клавиши — по именам Qt
   (`Up Down Left Right W Space`), геймпад — `left_y right_x left_trigger …`.
 - Каждый блок текста кончается строкой `end`.
-- Лёгкое тело, которое машинка толкнёт: `scene_set {id, line: "rigid", key: "density", values: [150]}`.
+- Лёгкое тело, которое машинка толкнёт: `scene_add {shape, size, position, density: 150}` (кг/м³; плотность делает его твёрдым).
+- IMU без `face` ложится на верх тела: `assembly_sensor {target, kind: "imu"}`.
 - Не ставьте целую сборку, чтобы списать с неё одну часть: нужный блок есть выше или в `scene_get`.
 - Не читайте всю схему формата: примеров выше хватает; `schema_get {kind}` — только для незнакомого вида блока.

@@ -493,8 +493,11 @@ static bool placeSensor(SceneGraph& g, const Value& a, Value& r, std::string& e)
     if (!t || (kind != "imu" && kind != "sonar" && kind != "touch" && kind != "stereo" && kind != "lidar"))
         return e = "needs a shape's id and kind imu, sonar, touch, stereo or lidar - or a joint's id and kind wrench or effort", false;
     const SensorKind k = kind == "imu" ? SensorKind::Imu : kind == "sonar" ? SensorKind::Sonar : kind == "touch" ? SensorKind::Touch : kind == "lidar" ? SensorKind::Lidar : SensorKind::Stereo;
-    const uint32_t id = attachSensor(g, t->id, placeFrom(g, a, Vector3(0.0_r)), k);
-    return r.set("id", id), id != 0 || (e = "no place on the shape", false);
+    const bool placed = a.has("face") || a.has("point");
+    if (!placed && k != SensorKind::Imu) return e = "face: '+x'..'-z' (or point and normal) - the side a " + kind + " looks out of", false;
+    const FaceSnap at = placed ? placeFrom(g, a, Vector3(0.0_r)) : snapToFace(g, t->id, BoxFace::PlusY, Vector3(0.0_r)); // an IMU: flat on top
+    const uint32_t id = attachSensor(g, t->id, at, k);
+    return r.set("id", id), id != 0 || (e = "no place on the shape: face '+x'..'-z', or point on its surface", false);
 }
 
 // assembly_camera: a stereo camera with its housing (CameraHousing.h), on a face of a shape or free in the world.
@@ -591,7 +594,7 @@ std::vector<SceneOp> assemblySceneOps() {
                                         "Then assembly_drive target turns or slides it. Geometry alone becomes a body (the note says)",
                    "{kind?: rotary|linear, a: int, b?: int, axis?: [x,y,z], anchor?: [x,y,z]}", {}, actuatorOp});
     ops.push_back({"assembly_sensor", "A sensor put on a thing, no shape of its own: on a face of a shape a sonar looks out of it (x along the "
-                                      "normal), an IMU lies flat on it (z out), a touch pad reads the contacts' normal force through it, a stereo "
+                                      "normal), an IMU lies flat on it (z out; no face: on top), a touch pad reads the contacts' normal force through it, a stereo "
                                       "camera looks out of it (its two lenses across the face; sensor_capture takes its frame), a lidar "
                                       "sends its pattern of rays out of it - a beam, a ring, a sphere, a narrow grid, by its spec's rays_h, "
                                       "fov_h_deg, rays_v, fov_v_deg (its ring level on a side face); on a joint "

@@ -153,6 +153,7 @@
 | `curves` | `bool` | кривые одной дорожки в секвенсоре, а не дорожки | stable |  |
 | `damping` | `number` | демпфирование привода, Н·м·с/рад или Н·с/м | stable |  |
 | `degrees` | `number` | угол, градусы | stable |  |
+| `density` | `number` | плотность твёрдого тела, кг/м³ | stable |  |
 | `delete` | `str` | убрать сохранённое под этим именем (`plots_set`: раскладку графиков) | testing |  |
 | `diameter` | `number` | диаметр, м | stable |  |
 | `dof` | `str` | степень свободы: tx, ty, tz - сдвиг, rx, ry, rz - поворот | stable |  |
@@ -377,6 +378,7 @@
 | `model` | модель датчика - строка его таблицы | stable |  |
 | `motors` | моторы сустава `[{current, dof, power}]` | stable |  |
 | `name` | имя для человека | stable |  |
+| `names` | имена названных объектов по их id: `{"31": "Шасси"}` | stable |  |
 | `note` | пояснение для человека: что сделано попутно | stable |  |
 | `objects` | объекты сцены `[{id, kind, name}]` | stable |  |
 | `ok` | вышло ли; false - см. error | stable |  |
