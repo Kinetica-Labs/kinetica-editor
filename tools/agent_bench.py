@@ -7,8 +7,8 @@ given), and the task's words. Measured from the run's stream: the wall time, the
 model's turns, its tokens and its cost; asked at the end, the agent's own word on what in the tools got in its way. Then
 the bench checks what is in the editor - never the agent's report, for any robot: its panel moves what it drives (a
 car's chassis, an arm's effector), its joints are held by servos, there is ground, crates and balls are there (CHECKS). One line a run is appended to the bench's journal (JSON lines, never rewritten),
-and a table is printed. As Anthropic's «Writing effective tools for agents» measures tools: accuracy, runtime, calls,
-tokens, errors - and the agent's feedback. Only the standard library::
+and a table is printed: a tool measured by accuracy, runtime, calls, tokens, errors - and the agent's feedback. Only the
+standard library::
 
     python3 tools/agent_bench.py                                   # every task, haiku
     python3 tools/agent_bench.py --tasks ready_car --models haiku sonnet --repeat 3

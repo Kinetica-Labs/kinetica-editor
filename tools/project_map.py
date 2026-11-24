@@ -45,6 +45,7 @@ READ_BY = {
     "resources/icons/kinetica-*.png": "the window's icon of every size",
     "examples/models/*/*": "the scenes that load the model",
     "docs/images/*": "the documents that show them",
+    "claude/*/skills/*/SKILL.md": "Claude and Codex (a plugin's skills/ folder)",
     "translations/*.ts": "CMakeLists.txt (qt_add_translations)",
     ".github/*": "GitHub",
     ".*": "git and its tools",
