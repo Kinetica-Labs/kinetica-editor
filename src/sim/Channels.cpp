@@ -238,6 +238,9 @@ std::vector<Measurement> measureJoint(const Simulation& sim, const JointChannelR
         const bool turn = k >= DofRx;
         const std::string id = ref.label + "/" + kDofs[k], who = kDofs[k];
         out.push_back(measured(id + " coordinate", turn ? KE_UI_LABEL("Kinetica", "рад") : KE_UI_LABEL("Kinetica", "м"), who + ": " + (turn ? KE_UI_LABEL("Kinetica", "угол") : KE_UI_LABEL("Kinetica", "ход")), ChannelGroup::Object, double(x[k])));
+        if (k == main)
+            out.push_back(measured(id + " speed", turn ? KE_UI_LABEL("Kinetica", "рад/с") : KE_UI_LABEL("Kinetica", "м/с"), who + KE_UI_LABEL("Kinetica", ": скорость"), ChannelGroup::Object,
+                                   double(robot->jointSpeed(*sim.physics(), ref.joint))));
         const JointDrive& d = j->dof[k].drive;
         if (d.enabled && d.stiffness > 0 && d.constant == 0)
             out.push_back(measured(id + " target", turn ? KE_UI_LABEL("Kinetica", "рад") : KE_UI_LABEL("Kinetica", "м"), who + KE_UI_LABEL("Kinetica", ": цель сервы"), ChannelGroup::Object, double(d.target)));

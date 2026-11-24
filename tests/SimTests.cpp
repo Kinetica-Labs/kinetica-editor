@@ -653,6 +653,21 @@ void testSimChannels() {
     CHECK(std::fabs(angle - double(armAngle(arm))) < 1e-4 && target == 0.5, "the joint reads %f (poses %f), target %f", angle,
           double(armAngle(arm)), target);
     CHECK(std::fabs(effort - hold) < 0.02 * hold, "the servo holds with %f N m, not m g d cos x = %f", effort, hold);
+    // The joint's speed channel is the angle's rate: on its way to the target it matches the angle's change over one frame, and held it is still.
+    CHECK(std::fabs(joint("Плечо/rx speed")) < 0.01, "the held joint turns at %f rad/s", joint("Плечо/rx speed"));
+    Simulation under;
+    under.load(armOnPost(d));
+    under.channels.joints.push_back({3, "Плечо"});
+    for (int k = 0; k < 12; ++k) under.stepFrame();
+    auto reading = [&](const std::string& id) {
+        for (const Measurement& x : under.measurements())
+            if (x.info.id == id) return x.value;
+        return std::nan("");
+    };
+    const double before = reading("Плечо/rx coordinate"), clock = double(under.time());
+    under.stepFrame();
+    const double rate = (reading("Плечо/rx coordinate") - before) / (double(under.time()) - clock), speed = reading("Плечо/rx speed");
+    CHECK(std::fabs(rate) > 0.05 && std::fabs(speed - rate) < 0.25 * std::fabs(rate), "the joint's speed %f rad/s is the angle's rate %f rad/s", speed, rate);
     std::vector<JointObject> joints = arm.robot()->graph().joints;
     joints[0].dof[DofRx].drive.target = 0.2_r;
     const bool taken = arm.robot()->setJoints(*arm.physics(), joints);

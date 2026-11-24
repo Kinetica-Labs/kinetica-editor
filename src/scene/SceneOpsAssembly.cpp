@@ -541,8 +541,67 @@ static SceneOp encoderSceneOp() {
     }};
 }
 
+// assembly_check: the mechanism read before it plays, no physics - what the engine would be handed wrong. A joint whose
+// locked freedom is not at zero was made where its links are not (a link moved after the joint: the engine pulls them
+// together with a blow), a joint with a link gone, and two bodies of a mechanism whose boxes cross. Joined links are
+// left out of the second: a joint's links do not collide. The boxes are the shapes' world bounds, so a turned shape
+// may report a crossing that its true shape does not have.
+constexpr Real kApartM = 0.002_r, kApartRad = 0.02_r, kCrossM = 0.005_r;
+
+SceneOp checkOp() {
+    return {"assembly_check", "The mechanism checked before it plays (the scene untouched): a joint whose links are not where it holds "
+                              "them (a locked freedom off zero: its coordinate, mm or degrees), a joint with a link gone, bodies of a "
+                              "mechanism whose bounding boxes cross by more than 5 mm. Answers clean (nothing found; the answer's own ok only says the check ran) and problems: kind (joint_apart, joint_link, "
+                              "overlap), id, with (the other body), text",
+            "{}", [](const SceneGraph& g, const Value&, Value& r, std::string&) {
+        Value problems = Value::list();
+        const auto report = [&](const char* kind, uint32_t id, uint32_t with, const std::string& text) {
+            Value p = Value::map();
+            p.set("kind", kind), p.set("id", id);
+            if (with) p.set("with", with);
+            p.set("text", text);
+            problems.push(p);
+        };
+        std::vector<uint32_t> held; // the bodies of a mechanism: the links of the joints
+        const auto joined = [&](uint32_t x, uint32_t y) {
+            return std::any_of(g.joints.begin(), g.joints.end(), [&](const JointObject& j) { return (j.a == x && j.b == y) || (j.a == y && j.b == x); });
+        };
+        for (const JointObject& j : g.joints) {
+            if (!findEntity(g, j.a) || (j.b && !findEntity(g, j.b))) {
+                report("joint_link", j.id, 0, "joint " + std::to_string(j.id) + " holds a shape that is not there");
+                continue;
+            }
+            held.push_back(j.a), held.push_back(j.b);
+            Real x[6];
+            jointCoordinates(g, j, x);
+            for (int k = 0; k < 6; ++k) {
+                if (j.dof[k].motion != JointMotion::Locked || std::fabs(x[k]) <= (k < 3 ? kApartM : kApartRad)) continue;
+                report("joint_apart", j.id, 0, "joint " + std::to_string(j.id) + " is " + (k < 3 ? format("%.1f mm", double(x[k]) * 1000) : format("%.1f°", double(x[k]) * 180 / double(kPi))) +
+                       " off on a locked " + (k < 3 ? "travel" : "turn") + " (" + (k < 3 ? "xyz"[k] : "xyz"[k - 3]) + "): its link was moved after it was made - put the joint again");
+            }
+        }
+        std::sort(held.begin(), held.end());
+        for (size_t i = 0; i < g.entities.size(); ++i) {
+            const Entity& p = g.entities[i];
+            if (!p.rigid.dynamic() || !std::binary_search(held.begin(), held.end(), p.id)) continue;
+            const AABB pa = objectBounds(g, p.id);
+            for (size_t k = i + 1; k < g.entities.size(); ++k) {
+                const Entity& q = g.entities[k];
+                if (!q.rigid.dynamic() || !std::binary_search(held.begin(), held.end(), q.id) || joined(p.id, q.id)) continue;
+                const AABB qa = objectBounds(g, q.id);
+                if (!pa.valid() || !qa.valid()) continue;
+                const Vector3 depth = vmin(pa.hi, qa.hi) - vmax(pa.lo, qa.lo);
+                const Real least = std::min({depth.x, depth.y, depth.z});
+                if (least > kCrossM) report("overlap", p.id, q.id, p.name + " and " + q.name + ": bounding boxes cross by " + format("%.1f mm", double(least) * 1000));
+            }
+        }
+        return r.set("clean", problems.items().empty()), r.set("problems", problems), true;
+    }, {}};
+}
+
 std::vector<SceneOp> assemblySceneOps() {
     std::vector<SceneOp> ops = presetOps();
+    ops.push_back(checkOp());
     ops.push_back({"assembly_snap", "Where a link of `size` goes against a face of the target (a face, or the one nearest a world point)",
                    "{target: int, face?: '+x'..'-z', point?: [x,y,z], normal?: [x,y,z], size?: [x,y,z]}", [](const SceneGraph& g, const Value& a, Value& r, std::string& e) {
         Vector3 size(0.2_r);

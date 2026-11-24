@@ -378,6 +378,31 @@ void testSceneApiHyperOperations() {
     bool found = false;
     for (const Value& a : listed["assemblies"].items()) found = found || a["name"].text() == "Спорткар";
     CHECK(found, "assembly_list names the built-in sports car");
+    // An example studied before one's own is built: the ready car in words, its shock absorbers and its motors' drivers,
+    // and the scene as it was; an assembly that is not there is refused, naming those there are.
+    const size_t objects = scene.graph().entities.size();
+    const Value studied = call(scene, "assembly_describe", R"({"name": "Спорткар"})");
+    const std::string words = studied["text"].text("");
+    CHECK(studied["ok"].truth() && words.find("Шасси") != std::string::npos && words.find("ползун") != std::string::npos &&
+              words.find("драйвер") != std::string::npos && scene.graph().entities.size() == objects,
+          "assembly_describe tells the sports car in words, the scene untouched: %s", studied["error"].text("").c_str());
+    const Value none = call(scene, "assembly_describe", R"({"name": "Нет такой"})");
+    CHECK(!none["ok"].truth() && none["error"].text().find("Спорткар") != std::string::npos, "an assembly not there is refused, the ones there named");
+    // assembly_check: the ready car has nothing wrong; a wheel moved after its joint was made is named with how far it is off,
+    // and the scene is not touched by asking.
+    Scene checked(KE_DATA);
+    call(checked, "assembly_add", R"({"name": "Спорткар"})");
+    CHECK(call(checked, "assembly_check")["clean"].truth(), "the ready sports car passes assembly_check: %s", toJson(call(checked, "assembly_check")).c_str());
+    const auto wheel = std::find_if(checked.graph().entities.begin(), checked.graph().entities.end(), [](const Entity& e) { return e.name == "Колесо ЗП"; });
+    CHECK(wheel != checked.graph().entities.end(), "the sports car has the rear right wheel");
+    if (wheel != checked.graph().entities.end()) {
+        const std::string move = "{\"id\": " + std::to_string(wheel->id) + R"(, "line": "shape", "key": "position", "values": [-0.35, 0.5, 0.32]})";
+        call(checked, "scene_set", move.c_str());
+        const Value off = call(checked, "assembly_check");
+        const Value& first = off["problems"].items().empty() ? off : off["problems"].items()[0];
+        CHECK(!off["clean"].truth() && first["kind"].text() == "joint_apart" && first["text"].text().find("mm off") != std::string::npos,
+              "a wheel moved after its joint is joint_apart, mm off: %s", toJson(off).c_str());
+    }
     Scene unsaved(KE_DATA); // a scene of no folder yet: an assembly's models keep their whole paths
     const Value arm = call(unsaved, "assembly_add", R"({"name": "Рука UR5e"})");
     CHECK(arm["ok"].truth() && unsaved.graph().joints.size() == 9 && unsaved.graph().controllers.size() == 1 &&

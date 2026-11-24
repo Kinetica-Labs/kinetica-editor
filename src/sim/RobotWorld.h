@@ -85,6 +85,9 @@ public:
     // What the drive of its main freedom put out at the last substep: a servo's or a DC motor's force
     // (N m or N, our code), a velocity motor's (the engine's). 0: no drive.
     Real jointEffort(const PhysicsWorld& physics, uint32_t joint) const;
+    // How fast its main freedom moves now - a hinge's turn (rad/s), a slider's travel (m/s), a against b: the engine's truth, for
+    // plots and checks (a robot reads it through an encoder). 0: none.
+    Real jointSpeed(const PhysicsWorld& physics, uint32_t joint) const;
     const JointObject* jointSpec(uint32_t joint) const; // the joint as the world runs it (null: none)
     // The load a joint passes to its link a over the last substep, in the joint's frame on a about its anchor: N, N m.
     bool jointWrench(const PhysicsWorld& physics, uint32_t joint, Vector3& force, Vector3& torque) const;

@@ -391,6 +391,12 @@ Real RobotWorld::jointEffort(const PhysicsWorld& physics, uint32_t joint) const 
     return 0;
 }
 
+Real RobotWorld::jointSpeed(const PhysicsWorld& physics, uint32_t joint) const {
+    for (const LiveJoint& j : joints_)
+        if (j.spec.id == joint) return j.dof >= 0 && physics.jointAlive(j.joint) ? axisOf(physics, j).speed : 0;
+    return 0;
+}
+
 const JointObject* RobotWorld::jointSpec(uint32_t joint) const {
     for (const LiveJoint& j : joints_)
         if (j.spec.id == joint) return &j.spec;
