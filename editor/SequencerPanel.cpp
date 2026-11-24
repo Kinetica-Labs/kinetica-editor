@@ -18,6 +18,9 @@
 #include <QKeyEvent>
 #include <QLabel>
 #include <QLineEdit>
+#include <QMainWindow>
+#include <QJsonDocument>
+#include <QDockWidget>
 #include <QMenu>
 #include <QScrollBar>
 #include <QStackedLayout>
@@ -42,6 +45,8 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     const auto button = [this, bar](const QString& text, const QString& tip, const char* name, bool checkable = false) {
         auto* b = new QToolButton(this);
         b->setText(text), b->setToolTip(tip), b->setObjectName(name), b->setCheckable(checkable);
+        b->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed); // its words are never cut: the tail makes room (placeTail)
+        b->setProperty("full", text), b->setProperty("short", text.section(' ', 0, 0)); // a narrow bar: the glyph alone
         bar->addWidget(b);
         return b;
     };
@@ -53,10 +58,12 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     add_ = button("+", uiText("Kinetica", "Новая секвенция, пустая"), "sequencerAdd");
     plays_ = button(uiText("Kinetica", "▶ в Пуске"), uiText("Kinetica", "Пуск играет эту секвенцию: её тела идут по дорожкам как анимация и толкают встречное. Выключено — "
                                  "секвенция только для просмотра, физика тел своя (так приходит запись физики)"), "sequencerPlays", true);
+    plays_->setProperty("short", uiText("Kinetica", "в Пуске")); // its glyph is the preview's
     start_ = button("⇤", uiText("Kinetica", "Бегунок в начало"), "sequencerStart");
-    play_ = button(uiText("Kinetica", "▶ Просмотр"), uiText("Kinetica", "Проиграть секвенцию в правке: объекты едут по дорожкам. Пробел над секвенсором — проиграть и "
+    // The transport is glyphs alone, as in every timeline (After Effects, Blender): its words are in the tips.
+    play_ = button("▶", uiText("Kinetica", "Просмотр: проиграть секвенцию в правке, объекты едут по дорожкам. Пробел над секвенсором — проиграть и "
                                  "остановить, бегунок остаётся, где остановили"), "sequencerPlay", true);
-    loop_ = button(uiText("Kinetica", "↻ Петля"), uiText("Kinetica", "После последнего ключа — сначала"), "sequencerLoop", true);
+    loop_ = button("↻", uiText("Kinetica", "Петля: после последнего ключа — сначала"), "sequencerLoop", true);
     key_ = button(uiText("Kinetica", "◆ Ключ"), uiText("Kinetica", "Ключ выделенных объектов в момент бегунка: где они стоят сейчас (I)"), "sequencerKey");
     autoKey_ = button(uiText("Kinetica", "◈ Автоключ"), uiText("Kinetica", "Пока включён: сдвинули или повернули объект - его ключ ставится на бегунке сам. Выключен - ключ ставит только «◆ Ключ»"), "sequencerAutoKey", true);
     connect(autoKey_, &QToolButton::toggled, this, [this](bool on) { builder_->watchHands(on); autoKey_->setStyleSheet(on ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString()); });
@@ -70,6 +77,12 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
                                  "запись становится новой секвенцией «Запись N»"), "sequencerRecord", true);
     curves_ = button(uiText("Kinetica", "〰 Кривые"), uiText("Kinetica", "Кривые дорожки выделенного объекта: место и поворот от времени. Ключ тянется вверх-вниз (значение) и "
                                  "вдоль (время); правый щелчок — как ключ переходит к следующему: линейно, плавно, ступенькой"), "sequencerCurvesButton", true);
+    // What is right of the buttons - the filter, a refusal, the time, the play range - is a group of its own: when the
+    // panel is narrower than the bar, it goes to a second row and the buttons keep their words (placeTail).
+    tail_ = new QWidget(strip);
+    auto* rest = new QHBoxLayout(tail_);
+    rest->setContentsMargins(0, 0, 0, 0);
+    row1_ = bar, row2_ = new QHBoxLayout;
     filter_ = new QLineEdit(this);
     { // hidden with the curves, it keeps its place: the buttons do not jump under the hand
         QSizePolicy keep = filter_->sizePolicy();
@@ -80,17 +93,17 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
     filter_->setPlaceholderText(uiText("Kinetica", "Фильтр дорожек"));
     filter_->setClearButtonEnabled(true);
     filter_->setFixedWidth(140);
-    bar->addWidget(filter_);
+    rest->addWidget(filter_);
     note_ = new QLabel(this);
     note_->setObjectName("sequencerNote");
     note_->setStyleSheet("color: #ff6a5a;");
-    bar->addWidget(note_, 1);
+    rest->addWidget(note_, 1);
     time_ = new QLabel(this);
     time_->setObjectName("sequencerTime");
-    bar->addWidget(time_);
+    rest->addWidget(time_);
     // The take's window on the world's clock: «От» where a take starts, «До» where a run and a take end.
     const auto seconds = [&](const QString& label, const char* name, const QString& none, const QString& tip, void (SequencerPanel::*set)(double)) {
-        bar->addWidget(new QLabel(label, this));
+        rest->addWidget(new QLabel(label, this));
         auto* box = new QDoubleSpinBox(this);
         box->setObjectName(name);
         box->setRange(0, 86400);
@@ -100,7 +113,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
         box->setSpecialValueText(none);
         box->setKeyboardTracking(false);
         box->setToolTip(tip);
-        bar->addWidget(box);
+        rest->addWidget(box);
         connect(box, &QDoubleSpinBox::valueChanged, this, set);
         return box;
     };
@@ -111,7 +124,11 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
                    uiText("Kinetica", "Время проигрывания: «Пуск» и «Запись» идут до этой секунды и встают на паузу, дубль закрывается; "
                           "▶ после — дальше без записи; с «Петлёй» «Пуск» начинает сначала. 0 — без конца (запись — не дольше 2 мин)"),
                    &SequencerPanel::setEnd);
+    bar->addWidget(tail_, 1);
     col->addWidget(strip);
+    col->addLayout(row2_);
+    strip->installEventFilter(this); // its width says where the tail goes
+    strip_ = strip;
 
     auto* tracks = new QWidget(this);
     auto* row = new QHBoxLayout(tracks);
@@ -210,6 +227,79 @@ void SequencerPanel::fitTime() {
     timeline_->update();
 }
 
+// The tail - the filter, the time, the play range - beside the buttons when the bar is wide enough, else on a row below;
+// still too narrow, the buttons show their glyphs alone, their words in the tips, as a crowded toolbar does.
+void SequencerPanel::placeTail() {
+    const auto width = [this](bool shortWords) {
+        int sum = 0;
+        for (int i = 0; i < row1_->count(); ++i) {
+            QWidget* w = row1_->itemAt(i)->widget();
+            auto* b = qobject_cast<QToolButton*>(w);
+            if (!w || w == tail_ || w->isHidden()) continue;
+            const QString words = b ? b->property(shortWords ? "short" : "full").toString() : QString();
+            sum += (b && !words.isEmpty() ? b->fontMetrics().horizontalAdvance(words) + 18 : w->sizeHint().width()) + row1_->spacing();
+        }
+        return sum;
+    };
+    const bool below = strip_->width() < width(false) + tail_->sizeHint().width();
+    compact_ = strip_->width() < width(false);
+    for (QToolButton* b : findChildren<QToolButton*>())
+        if (const QString words = b->property(compact_ ? "short" : "full").toString(); !words.isEmpty() && b != record_) b->setText(words);
+    syncRecordWords();
+    if (below == (row2_->indexOf(tail_) >= 0)) return;
+    (below ? row1_ : row2_)->removeWidget(tail_);
+    if (below) {
+        row2_->addWidget(tail_);
+        row1_->addStretch(1); // the buttons stay left, the sequences' list keeps its width
+    } else {
+        delete row1_->takeAt(row1_->count() - 1);
+        row1_->addWidget(tail_, 1);
+    }
+}
+
+void SequencerPanel::syncRecordWords() {
+    const bool on = ops_->recording();
+    const QString words = on ? (compact_ ? "■" : uiText("Kinetica", "■ Закончить запись")) : (compact_ ? "⏺" : uiText("Kinetica", "⏺ Запись"));
+    if (record_->text() != words) record_->setText(words);
+    record_->setStyleSheet(on ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString());
+}
+
+// The motion path of the selected objects in the 3D view, as Blender's Motion Paths and After Effects' position path show
+// it: the line the active sequence takes each along - sampled as the world plays it, 30 points a second (samplePose) -
+// and its keys as dots. Drawn with view_draw, as a plugin or an agent draws; redrawn only when it changed.
+void SequencerPanel::drawPaths() {
+    const ke::SceneGraph& g = builder_->graph();
+    const ke::SequenceObject* q = ke::activeSequence(g);
+    QJsonArray draws;
+    for (uint32_t id : builder_->selection()) {
+        const ke::SequenceTrack* t = q ? ke::trackOf(*q, id) : nullptr;
+        const ke::SceneObject* o = ke::findObject(g, id);
+        if (!t || !o || t->keys.size() < 2) continue;
+        ke::Vector3 at(0.0f);
+        ke::Quaternion turn;
+        if (const ke::SceneObject* parent = o->parent ? ke::findObject(g, o->parent) : nullptr) ke::worldPose(g, *parent, at, turn); // keys are on it
+        const auto world = [&](const ke::Vector3& p) { const ke::Vector3 w = at + turn.rotate(p); return QJsonArray{double(w.x), double(w.y), double(w.z)}; };
+        const double from = double(t->keys.front().time), to = double(t->keys.back().time);
+        const int n = std::clamp(int((to - from) * 30), 2, 900);
+        QJsonArray line, dots;
+        for (int k = 0; k <= n; ++k) {
+            ke::Vector3 p;
+            ke::Quaternion r;
+            if (ke::samplePose(t->keys, ke::Real(from + (to - from) * k / n), false, 0, p, r)) line.append(world(p));
+        }
+        for (const ke::AnimKey& key : t->keys) dots.append(world(key.position));
+        const QString tag = QString::number(id);
+        draws.append(QJsonObject{{"key", "sequencer/path/" + tag}, {"line", line}, {"color", QJsonArray{0.42, 0.72, 1.0}}});
+        draws.append(QJsonObject{{"key", "sequencer/keys/" + tag}, {"points", dots}, {"color", QJsonArray{1.0, 1.0, 1.0}}, {"size", 8}});
+    }
+    const QByteArray now = QJsonDocument(draws).toJson(QJsonDocument::Compact);
+    if (now == paths_) return;
+    paths_ = now;
+    const auto quiet = [](const QJsonObject&) {};
+    ops_->run("view_draw", QJsonObject{{"key", "sequencer/"}, {"clear", true}}, quiet, "ui");
+    for (const QJsonValue& d : draws) ops_->run("view_draw", d.toObject(), quiet, "ui");
+}
+
 double SequencerPanel::playhead() const {
     if (!builder_->editing()) return playTime_;
     if (scrubbing_ || previewTimer_->isActive()) return scrubTime_;
@@ -260,6 +350,10 @@ bool SequencerPanel::spacePlays() const {
 }
 
 bool SequencerPanel::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == strip_) { // the bar: only its width matters here
+        if (event->type() == QEvent::Resize) placeTail();
+        return false;
+    }
     auto* view = static_cast<QWidget*>(watched);
     if (event->type() == QEvent::Enter && window()->isActiveWindow() && !QApplication::activePopupWidget())
         view->setFocus(Qt::MouseFocusReason); // the keys follow the mouse, as into the 3D view
@@ -291,12 +385,15 @@ void SequencerPanel::togglePreview(bool on) {
         builder_->endSequencePreview();
         seek(scrubTime_);
     }
-    play_->setText(on ? uiText("Kinetica", "■ Стоп") : uiText("Kinetica", "▶ Просмотр"));
+    play_->setText(on ? "■" : "▶"); // the transport's glyphs; the tip says what they do
 }
 
 void SequencerPanel::showCurves(bool on) {
     views_->setCurrentIndex(on ? 1 : 0);
     filter_->setVisible(!on);
+    // The curves want height, as After Effects' graph takes the timeline's whole: a low panel grows when they open.
+    if (auto* dock = qobject_cast<QDockWidget*>(parentWidget()); on && dock && dock->height() < 320)
+        if (auto* main = qobject_cast<QMainWindow*>(dock->parentWidget())) main->resizeDocks({dock}, {340}, Qt::Vertical);
     sync();
 }
 
@@ -362,10 +459,7 @@ void SequencerPanel::sync() {
         plays_->setChecked(active && active->play);
         record_->setChecked(ops_->recording());
     }
-    if (const QString words = ops_->recording() ? uiText("Kinetica", "■ Закончить запись") : uiText("Kinetica", "⏺ Запись"); record_->text() != words) {
-        record_->setText(words);
-        record_->setStyleSheet(ops_->recording() ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString());
-    }
+    syncRecordWords();
     {
         const QSignalBlocker hush(end_), quiet(from_);
         end_->setValue(double(g.world.duration));
@@ -375,4 +469,5 @@ void SequencerPanel::sync() {
     time_->setText(QString(uiText("Kinetica", "%1 / %2 с")).arg(playhead(), 0, 'f', 2).arg(length, 0, 'f', 2));
     timeline_->refresh();
     curvesView_->update();
+    drawPaths();
 }

@@ -355,6 +355,23 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 "a key there %s\n", first ? "yes" : "no", two, second ? "yes" : "no");
     c.check(first && std::fabs(two - 2) < 0.05 && second, "«◆ Ключ» and the ruler key the selected cube where it stands at the playhead");
 
+    // Its motion path in the 3D view (Blender's Motion Paths, After Effects' position path): the line from the first key to
+    // the last as the world plays it, the keys as dots; gone with the selection, back with it.
+    const QString pathKey = "sequencer/path/" + QString::number(cube), dotsKey = "sequencer/keys/" + QString::number(cube);
+    pump(60);
+    const Viewport::Drawing* path = v->drawing(pathKey);
+    const Viewport::Drawing* dots = v->drawing(dotsKey);
+    const size_t pathPoints = path ? path->strip.size() / 4 : 0, keyDots = dots ? dots->points.size() : 0;
+    const bool ends = dots && keyDots == 2 && std::fabs(dots->points[1].x - dots->points[0].x - 1.0f) < 1e-3f;
+    b.select(0);
+    pump(60);
+    const bool pathGone = !v->hasDrawing(pathKey) && !v->hasDrawing(dotsKey);
+    b.select(cube);
+    pump(60);
+    std::printf("  the cube's motion path in the view: %zu points, %zu key dots 1 m apart %s; deselected - gone %s, selected - back %s\n",
+                pathPoints, keyDots, ends ? "yes" : "no", pathGone ? "yes" : "no", v->hasDrawing(pathKey) ? "yes" : "no");
+    c.check(pathPoints > 10 && ends && pathGone && v->hasDrawing(pathKey), "the selected object's motion path and its keys are drawn in the view, gone with the selection");
+
     // The playhead dragged to the middle: the cube half way; released, one undo step takes it back where it stood.
     const double length = q ? double(q->length()) : 0;
     const QPointF from(xAt(timeline, b, length), 11), to(xAt(timeline, b, length / 2), 11);

@@ -5322,6 +5322,11 @@ Sample </translation>
         <translation>▶ In Play</translation>
     </message>
     <message>
+        <location filename="../editor/SequencerPanel.cpp" line="61"/>
+        <source>в Пуске</source>
+        <translation>In Play</translation>
+    </message>
+    <message>
         <location filename="../editor/SequencerPanel.cpp" line="54"/>
         <source>Пуск играет эту секвенцию: её тела идут по дорожкам как анимация и толкают встречное. Выключено — секвенция только для просмотра, физика тел своя (так приходит запись физики)</source>
         <translation>The starter plays this sequence: its bodies go down the tracks like animation and push oncoming things. It&apos;s off -- it&apos;s just for viewing, it&apos;s own body physics (so comes the physics record)</translation>
@@ -5339,8 +5344,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="57"/>
-        <source>Проиграть секвенцию в правке: объекты едут по дорожкам. Пробел над секвенсором — проиграть и остановить, бегунок остаётся, где остановили</source>
-        <translation>Lose the sequence in editing: objects go on tracks. The gap above the sequencer lose and stop, the runner stays where they stopped</translation>
+        <source>Просмотр: проиграть секвенцию в правке, объекты едут по дорожкам. Пробел над секвенсором — проиграть и остановить, бегунок остаётся, где остановили</source>
+        <translation>Preview: play the sequence while editing, objects move along their tracks. Space over the Sequencer plays and stops it; the playhead stays where it stopped</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="59"/>
@@ -5349,8 +5354,8 @@ Sample </translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="59"/>
-        <source>После последнего ключа — сначала</source>
-        <translation>After the last key, first</translation>
+        <source>Петля: после последнего ключа — сначала</source>
+        <translation>Loop: after the last key, from the start</translation>
     </message>
     <message>
         <location filename="../editor/SequencerPanel.cpp" line="60"/>

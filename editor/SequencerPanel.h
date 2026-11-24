@@ -69,6 +69,9 @@ private:
     bool spacePlays() const; // the sequence has keys to play in edit mode, or it is playing
     void togglePreview(bool on);
     void showCurves(bool on);
+    void placeTail();  // the filter, time and play range beside the buttons, or on a row below when the bar is narrow
+    void drawPaths();  // the selected objects' motion paths in the 3D view (view_draw sequencer/...)
+    void syncRecordWords(); // «⏺ Запись» or «■ Закончить запись», the glyph alone on a narrow bar
 
     EditorOps* ops_;
     SceneBuilder* builder_;
@@ -76,6 +79,10 @@ private:
     QToolButton *add_ = nullptr, *start_ = nullptr, *play_ = nullptr, *loop_ = nullptr, *key_ = nullptr, *autoKey_ = nullptr, *record_ = nullptr, *plays_ = nullptr,
                 *curves_ = nullptr;
     QLineEdit* filter_ = nullptr;
+    QWidget *strip_ = nullptr, *tail_ = nullptr;
+    class QHBoxLayout *row1_ = nullptr, *row2_ = nullptr;
+    QByteArray paths_; // the motion paths last drawn
+    bool compact_ = false; // the bar too narrow for the buttons' words: their glyphs (placeTail)
     QLabel *time_ = nullptr, *note_ = nullptr;
     class QDoubleSpinBox* end_ = nullptr; // the scene's play range end (world duration), s
     class QDoubleSpinBox* from_ = nullptr; // where a take starts (world record_from), s
