@@ -489,8 +489,6 @@ void MainWindow::buildSceneBuilderDock() {
     builder_ = new SceneBuilder(ctrl_.get(), this);
     inspectorTabs_ = new QTabWidget;
     inspectorTabs_->setObjectName("inspectorTabs");
-    inspectorTabs_->setUsesScrollButtons(true); // the plugins' tabs past the edge: arrows to them, none cut off unseen
-    inspectorTabs_->setElideMode(Qt::ElideNone);
     inspectorTabs_->addTab(scrolled(builder_->sceneListPanel()), panelIcon(PanelIcon::Scene), uiText("Kinetica", "Сцена"));
     inspectorTabs_->addTab(scrolled(builder_->inspectorPanel()), panelIcon(PanelIcon::Object), uiText("Kinetica", "Объект"));
     inspectorTabs_->addTab(scrolled(builder_->worldPanel()), panelIcon(PanelIcon::World), uiText("Kinetica", "Мир"));

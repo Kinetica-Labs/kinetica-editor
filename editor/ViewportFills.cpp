@@ -127,12 +127,7 @@ void Viewport::drawOverlayFills(QPainter& p) {
         for (const QPainterPath& edge : d.fill->edges) p.drawPath(to.map(edge)); // all the edges first: none lies over a neighbour's fill
         p.setBrush(d.colour);
         for (const QPainterPath& part : d.fill->parts) p.drawPath(to.map(part)); // each by itself: a root's roof laps over its sign
-        if (d.leader)
-            paintLeader(p, d, drawn.boundingRect(), [&](const ke::Vector3& w, QPointF& out) {
-                const QVector4D clip = vp * QVector4D(w.x, w.y, w.z, 1);
-                if (clip.w() < 1e-3f) return false; // behind the eye
-                return out = QPointF(double(clip.x() / clip.w() + 1) * 0.5 * view.width(), double(1 - clip.y() / clip.w()) * 0.5 * view.height()), true;
-            });
+        if (d.leader) paintLeader(p, d, drawn.boundingRect());
         p.setOpacity(1);
         fillsDrawn_.push_back({key, d.object, drawn, at});
     }

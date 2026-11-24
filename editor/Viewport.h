@@ -438,7 +438,7 @@ private:
     void drawSelectionBox(class QPainter& p);
     void drawShapeHandles(class QPainter& p);
     // A drawing's leader line to its part, from the reference line under `label` (its words' or picture's box on screen).
-    void paintLeader(class QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const ke::Vector3&, QPointF&)>& screen) const;
+    void paintLeader(class QPainter& p, const Drawing& d, const QRectF& label) const;
     // The callouts placed aside, laid out for this frame as a drawing's notes are (boundary labeling): two columns, left and
     // right of their points, each callout on its point's side and in its point's order from the top - so no two leaders
     // cross - spread apart so that none overlaps. Their places on the screen, by key.

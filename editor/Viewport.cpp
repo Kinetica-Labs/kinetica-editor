@@ -1063,7 +1063,7 @@ void Viewport::drawOverlayMarks(QPainter& p) {
             p.setPen(d.colour);
             p.drawText(line, lines[k]);
         }
-        if (d.leader) paintLeader(p, d, box, screen);
+        if (d.leader) paintLeader(p, d, box);
         p.setOpacity(1);
     }
     p.restore();
@@ -1186,8 +1186,7 @@ void Viewport::arrangeCallouts(QPainter& p) {
     if (moving) update(); // the next frame carries them on
 }
 
-void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const Vector3&, QPointF&)>& screen) const {
-    (void)screen;
+void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label) const {
     QPointF tip;
     if (label.isEmpty() || !leaderAnchor(d, tip)) return;
     const qreal y = label.bottom() + 4, left = label.left() - 3, right = label.right() + 3;
