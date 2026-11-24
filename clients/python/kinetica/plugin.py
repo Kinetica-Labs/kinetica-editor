@@ -139,10 +139,13 @@ _CLICK = {"point": {"type": "vector", "label": "Точка щелчка", "unit"
 
 
 def _leader(leader):
-    """view_draw's leader from draw's: {"point": (x, y, z), "end": "dot" | "arrow" | "none"} (none given: no line)."""
+    """view_draw's leader from draw's: {"point": (x, y, z), "end": "dot" | "arrow" | "none"} and, for an animation drawn
+    frame by frame, "grow", "pulse" and "words" (0..1) - none given: no line."""
     if leader is None:
         return {}
-    return {"leader": {"point": _xyz([leader.get("point", (0, 0, 0))])[0], "end": str(leader.get("end", "dot"))}}
+    out = {"point": _xyz([leader.get("point", (0, 0, 0))])[0], "end": str(leader.get("end", "dot"))}
+    out.update({k: float(leader[k]) for k in ("grow", "pulse", "words") if leader.get(k) is not None})
+    return {"leader": out}
 
 
 class _Draw:
@@ -172,10 +175,10 @@ class _Draw:
     def points(self, key, points, colour=None, size=6, color=None):
         self._send(key, points=_xyz(points), colour=_either(color, colour), size=size)
 
-    def label(self, key, at, text, colour=None, size=None, color=None, object=None, leader=None):
+    def label(self, key, at, text, colour=None, size=None, color=None, object=None, leader=None, opacity=None):
         """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own.
         `object`: they hang at `at` from its place and go where it goes; `leader`: a line from them to a point of it - see fill."""
-        what = {"at": _xyz([at])[0], "text": str(text), **({"size": size} if size else {})}
+        what = {"at": _xyz([at])[0], "text": str(text), **({"size": size} if size else {}), **({"opacity": float(opacity)} if opacity is not None else {})}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
         self._send(key, colour=_either(color, colour), **what, **_leader(leader))
@@ -196,7 +199,7 @@ class _Draw:
         self._send(key, box={"center": _xyz([middle])[0], "size": _xyz([size])[0]}, colour=_either(color, colour))
 
     def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None, stroke=None,
-             stroke_width=None, color=None, leader=None):
+             stroke_width=None, color=None, leader=None, opacity=None):
         """A flat picture, filled, painted over the scene: `outlines` are rows "M x y L x y C x1 y1 x2 y2 x y Z" in the
         picture's own units, x right and y up. space "world": on its own plane at `at`, turned by `turn` (Euler degrees),
         a unit `scale` metres; "label": on the screen at the world's point `at`, facing the viewer; "screen": in the frame
@@ -205,8 +208,10 @@ class _Draw:
         an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - so that letters
         read on any background. `leader` = {"point": (x, y, z), "end": "dot" | "arrow" | "none"}: a leader line from the
         picture to that point of the object (its own frame) - a reference line under the picture, a dot on the part, an
-        arrow on its outline (ISO 128-22, ГОСТ 2.316)."""
-        what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale), **_leader(leader)}
+        arrow on its outline (ISO 128-22, ГОСТ 2.316); its "grow", "pulse" and "words" (0..1) draw it part by part, for a
+        plugin that animates it. `opacity` (0..1): the whole picture's."""
+        what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale), **_leader(leader),
+                **({"opacity": float(opacity)} if opacity is not None else {})}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
         if turn is not None:

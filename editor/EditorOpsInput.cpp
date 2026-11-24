@@ -170,11 +170,14 @@ void EditorOps::addInputOps() {
                          "stroke: an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - letters read on any background. "
                          "leader: a line from the words or the picture to `point` of the part (its own frame, as it turns; no object: the world) - "
                          "a reference line under them, the line from its nearer end, a dot on the part (end dot), an arrow on its outline (arrow): "
-                         "a drawing's callout, as ISO 128-22 and ГОСТ 2.316 draw them. Drawn while "
+                         "a drawing's callout, as ISO 128-22 and ГОСТ 2.316 draw them; its grow (0..1, 1) - how much is drawn, from the part, "
+                         "the line, then the reference line -, pulse (0..1) - a ring at the point that phase - and words (0..1, 1) - how much the "
+                         "words or the picture show - are a plugin's to animate it frame by frame. opacity (0..1, 1): the whole drawing's. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
-            "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none'}, clear?: bool}",
+            "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none', grow?: number, pulse?: number, words?: number}, "
+            "opacity?: number, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -276,7 +279,11 @@ void EditorOps::addInputOps() {
             d.leader = true;
             d.leaderPoint = leader.contains("point") ? point(leader.value("point")) : ke::Vector3(0.0f);
             d.leaderEnd = end == "dot" ? Viewport::Drawing::End::Dot : end == "arrow" ? Viewport::Drawing::End::Arrow : Viewport::Drawing::End::None;
+            d.leaderGrow = float(std::clamp(leader.value("grow").toDouble(1), 0.0, 1.0));
+            d.leaderPulse = leader.contains("pulse") ? float(std::clamp(leader.value("pulse").toDouble(), 0.0, 1.0)) : -1.0f;
+            d.leaderWords = float(std::clamp(leader.value("words").toDouble(1), 0.0, 1.0));
         }
+        d.opacity = float(std::clamp(a.value("opacity").toDouble(1), 0.0, 1.0));
         if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
             return error("nothing to draw: line, segments, points, circle, box, text or fill");
         view_->setDrawing(key, std::move(d));

@@ -962,6 +962,7 @@ void Viewport::drawOverlayMarks(QPainter& p) {
         QFont letters = plain; // size: a point's width - and a label's letters, when they are to be larger than plain ones
         letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
         p.setFont(letters);
+        p.setOpacity(d.opacity * (d.leader ? d.leaderWords : 1.0f));
         const QStringList lines = d.text.split('\n'); // lines up from the point: the last one where a single line stands
         const QFontMetricsF metrics(letters);
         const qreal step = metrics.lineSpacing();
@@ -975,6 +976,7 @@ void Viewport::drawOverlayMarks(QPainter& p) {
             box = box.united(QRectF(line.x(), line.y() - metrics.ascent(), metrics.horizontalAdvance(lines[k]), metrics.ascent() + metrics.descent()));
         }
         if (d.leader) paintLeader(p, d, box, screen);
+        p.setOpacity(1);
     }
     p.restore();
 }
@@ -990,15 +992,29 @@ void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, c
     QPointF tip;
     if (label.isEmpty() || !screen(anchor, tip)) return;
     const qreal y = label.bottom() + 4, left = label.left() - 3, right = label.right() + 3;
-    const QPointF from(tip.x() < label.center().x() ? left : right, y); // the reference line's end nearer the part
+    const bool nearLeft = tip.x() < label.center().x();
+    const QPointF from(nearLeft ? left : right, y); // the reference line's end nearer the part
     const QColor dark(0, 0, 0, 170);
+    p.save();
+    p.setOpacity(d.opacity);
+    if (d.leaderPulse >= 0) { // a ring at the point, as wide as its phase and as faint
+        QColor ring = d.colour;
+        ring.setAlphaF(0.9f * (1 - d.leaderPulse));
+        p.setPen(QPen(ring, 2.0)), p.setBrush(Qt::NoBrush);
+        p.drawEllipse(tip, 4 + 16 * d.leaderPulse, 4 + 16 * d.leaderPulse);
+    }
+    // grow: from the part, the line (its first 3/4) and then the reference line, sliding out from where the line arrived.
+    const double drawn = std::clamp(d.leaderGrow / 0.75, 0.0, 1.0), shelf = std::clamp((d.leaderGrow - 0.75) / 0.25, 0.0, 1.0);
+    const QPointF reached = tip + (from - tip) * drawn;
+    const qreal far = nearLeft ? right : left, shelfEnd = from.x() + (far - from.x()) * shelf;
     const auto stroke = [&](const QColor& colour, qreal width) {
         p.setPen(QPen(colour, width, Qt::SolidLine, Qt::RoundCap));
-        p.drawLine(QPointF(left, y), QPointF(right, y));
-        p.drawLine(from, tip);
+        if (shelf > 0) p.drawLine(from, QPointF(shelfEnd, y));
+        p.drawLine(tip, reached);
     };
     stroke(dark, 3.4), stroke(d.colour, 1.6); // a dark edge under it: it reads on any background
     const QLineF line(from, tip);
+    if (drawn < 1) return p.restore(); // the end's mark comes with the whole line
     if (d.leaderEnd == Drawing::End::Dot) {
         p.setPen(QPen(dark, 1.4)), p.setBrush(d.colour);
         p.drawEllipse(tip, 3.6, 3.6);
@@ -1008,7 +1024,7 @@ void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, c
         p.setPen(QPen(dark, 1.2)), p.setBrush(d.colour);
         p.drawPolygon(head);
     }
-    p.setBrush(Qt::NoBrush);
+    p.restore();
 }
 
 void Viewport::drawPaths(const QMatrix4x4& vp) {

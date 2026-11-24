@@ -166,6 +166,11 @@ public:
         bool leader = false;
         ke::Vector3 leaderPoint{0.0f};
         End leaderEnd = End::Dot;
+        // What a plugin animating a callout sets, frame by frame (the formula plugin's appearance): how much of the leader
+        // is drawn - from the part, the line, then the reference line -, a ring's phase at the point (-1: none) and how much
+        // the words show.
+        float leaderGrow = 1, leaderPulse = -1, leaderWords = 1; // words: how much the words or the picture show - after the line
+        float opacity = 1; // the whole drawing's: a picture that fades in, out or to grey
     };
     // view_draw's fill - rows of "M x y L x y C x1 y1 x2 y2 x y Z" - as a Fill (null and `error`: a row that is none).
     // `edge`: an edge so wide, in the picture's units, round every outline (0: none).

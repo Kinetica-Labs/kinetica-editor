@@ -111,6 +111,7 @@ void Viewport::drawOverlayFills(QPainter& p) {
         const QRectF& box = d.fill->box;
         const QPolygonF drawn = to.map(QPolygonF(QVector<QPointF>{box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()}));
         if (!drawn.boundingRect().intersects(QRectF(QPointF(0, 0), view))) continue; // out of the view
+        p.setOpacity(d.opacity * (d.leader ? d.leaderWords : 1.0f));
         p.setPen(Qt::NoPen);
         p.setBrush(d.stroke);
         for (const QPainterPath& edge : d.fill->edges) p.drawPath(to.map(edge)); // all the edges first: none lies over a neighbour's fill
@@ -122,6 +123,7 @@ void Viewport::drawOverlayFills(QPainter& p) {
                 if (clip.w() < 1e-3f) return false; // behind the eye
                 return out = QPointF(double(clip.x() / clip.w() + 1) * 0.5 * view.width(), double(1 - clip.y() / clip.w()) * 0.5 * view.height()), true;
             });
+        p.setOpacity(1);
         fillsDrawn_.push_back({key, d.object, drawn, at});
     }
     p.restore();
