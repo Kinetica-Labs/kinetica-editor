@@ -104,6 +104,7 @@ void testSimGoalPoseSettles();
 void testSimSensors();
 void testSimLidar();
 void testSimMeshCollider();
+void testConvexParts();
 void testSimSequence();
 void testSimRecording();
 void testSimRecordingArm();

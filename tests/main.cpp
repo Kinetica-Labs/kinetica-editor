@@ -95,7 +95,8 @@ int main() {
     run("world: assembly_goal_pose puts the UR5e's goal at a pose at once - the arm gets there and settles", testSimGoalPoseSettles);
     run("world: the sensors read the physics through their probes and datasheets - 1 g at rest, none falling, a weight, a wall, a turn past pi", testSimSensors);
     run("world: a lidar reads a wall at 45 degrees a sonar does not hear, a ring all round, a scan at its rate, not a car its body ignores", testSimLidar);
-    run("world: a mesh collider keeps its hollows - a ball rests in a channel, on the top of its hull", testSimMeshCollider);
+    run("world: a mesh collider keeps its hollows - a ball rests in a channel standing or moving (convex parts), on the top of its hull", testSimMeshCollider);
+    run("physics: a solid mesh cut into convex parts - an L's hulls hold its volume, its inner corner free; a box is one part", testConvexParts);
     run("sim: the active sequence - a kinematic pusher on its track pushes a box ahead of it", testSimSequence);
     run("sim: a take - a run recorded, thinned to keys within 0.5 mm, replayed as the active sequence", testSimRecording);
     run("sim: a take records a robot's link its joint moves, and replays it kinematic", testSimRecordingArm);

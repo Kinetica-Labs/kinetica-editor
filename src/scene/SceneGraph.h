@@ -47,8 +47,8 @@ struct PluginComponent {
 // Cylinder is a cylinder about the collider's y, diameter = x, height = y (the physics engine may
 // stand it in with a many-sided hull). A body's mass is the collider's volume times the density, its
 // centre of mass the collider's.
-// Mesh: the geometry's own triangles, hollows and all - a track, a terrain, a room; a body that stands only (one that moves
-// collides by its convex hull: a mesh has no inside to weigh).
+// Mesh: the geometry's own triangles, hollows and all - a track, a terrain, a room - on a body that stands; a body that
+// moves collides by the mesh cut into convex parts (physics/ConvexParts.h), hollows kept within 5 % of its size.
 enum class ColliderKind { Auto, Box, Sphere, Capsule, ConvexHull, Cylinder, Mesh };
 struct ColliderRole {
     bool enabled = false;

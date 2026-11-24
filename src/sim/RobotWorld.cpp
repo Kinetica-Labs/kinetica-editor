@@ -3,6 +3,7 @@
 #include "sim/RobotWorld.h"
 
 #include "core/Probe.h"
+#include "physics/ConvexParts.h"
 #include "physics/HullPoints.h"
 #include "scene/Assembly.h"
 #include "scene/Collider.h"
@@ -80,9 +81,11 @@ std::vector<ShapeDesc> colliderShapes(const Entity& e, const TriMesh& local) {
         break;
     }
     case ColliderKind::Mesh:
-        if (e.rigid.enabled && !e.rigid.fixed) { // a moving body: its hull (a mesh has no inside to weigh)
-            s = hullOf(local.positions);
-            break;
+        if (e.rigid.enabled && !e.rigid.fixed) { // a moving body: the mesh as convex parts (triangles have no inside to weigh)
+            std::vector<ShapeDesc> parts;
+            for (const std::vector<Vector3>& part : convexParts(local)) parts.push_back(hullOf(part));
+            for (ShapeDesc& p : parts) p.friction = e.rigid.friction, p.restitution = e.rigid.restitution, p.trigger = e.collider.trigger;
+            return parts;
         }
         s.kind = ShapeDesc::Kind::Mesh, s.points = local.positions, s.triangles = local.triangles;
         break;

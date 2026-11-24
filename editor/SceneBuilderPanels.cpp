@@ -72,7 +72,7 @@ const char* kColliderTips[] = {
     QT_TRANSLATE_NOOP("Kinetica", "Капсула: цилиндр с полусферами на концах; персонажи, бочки, бутылки, звенья руки"),
     QT_TRANSLATE_NOOP("Kinetica", "Выпуклая оболочка: форма, натянутая как плёнка на геометрию, без вмятин"),
     QT_TRANSLATE_NOOP("Kinetica", "Цилиндр: круглый цилиндр по оси y (многогранник из 24 граней) — колёса, валы, стаканы"),
-    QT_TRANSLATE_NOOP("Kinetica", "Сетка: сами треугольники геометрии, со впадинами — трасса, рельеф, комната; только у неподвижного тела (движущееся сталкивается выпуклой оболочкой)")};
+    QT_TRANSLATE_NOOP("Kinetica", "Сетка: сами треугольники геометрии, со впадинами — трасса, рельеф, комната; у движущегося тела — сетка, разрезанная на выпуклые части")};
 static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::Mesh) + 1, "a tip for every collider kind");
 
 QString colliderName(ColliderKind k) {

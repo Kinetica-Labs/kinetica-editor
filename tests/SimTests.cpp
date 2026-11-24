@@ -10,6 +10,7 @@
 #include "TestBodies.h"
 #include "TestRunner.h"
 
+#include "physics/ConvexParts.h"
 #include "physics/HullPoints.h"
 #include "scene/Animation.h"
 #include "scene/Assembly.h"
@@ -19,6 +20,7 @@
 #include "sim/Simulation.h"
 
 #include <algorithm>
+#include <chrono>
 #include <cmath>
 #include <cstring>
 #include <sstream>
@@ -1086,27 +1088,76 @@ void testSimMeshCollider() {
         slab({-1, 0.1_r, -0.5_r}, {-0.9_r, 0.65_r, 0.5_r});
         slab({0.9_r, 0.1_r, -0.5_r}, {1, 0.65_r, 0.5_r});
     }
-    const auto rest = [&obj](ColliderKind kind) {
+    Real channelMass = 0;
+    const auto rest = [&obj, &channelMass](ColliderKind kind, bool moving) {
         SceneGraph g;
         g.world.physics.sleeping = false;
         Entity channel;
         channel.id = 1, channel.name = "Желоб", channel.shape = ShapeKind::Mesh, channel.meshFile = obj;
         channel.size = {2, 0.65_r, 1}, channel.position = {0, 0.325_r, 0}; // the model fitted to its own extent: as it is
         channel.collider.enabled = true, channel.collider.kind = kind;
+        channel.rigid.enabled = moving;
         g.entities.push_back(channel);
         Entity ball = solid(2, "Шар", Vector3(0.3_r), {0, 1.2_r, 0}, false);
         ball.shape = ShapeKind::Sphere;
         g.entities.push_back(ball);
+        if (moving) g.entities.push_back(solid(3, "Пол", {6, 0.2_r, 6}, {0, -0.1_r, 0}, true));
         Simulation s;
         s.load(g);
         for (int k = 0; k < 150; ++k) s.stepFrame();
+        if (moving) channelMass = s.physics()->state(s.robot()->bodyOf(1)).mass;
         return s.physics()->state(s.robot()->bodyOf(2)).position.y;
     };
-    const Real inside = rest(ColliderKind::Mesh), onTop = rest(ColliderKind::ConvexHull);
+    const Real inside = rest(ColliderKind::Mesh, false), onTop = rest(ColliderKind::ConvexHull, false), moving = rest(ColliderKind::Mesh, true);
     std::filesystem::remove(obj);
-    std::printf("  a ball in a U channel: a mesh collider %.3f m up (0.25, its floor), its hull %.3f m (0.8, the top)\n", double(inside), double(onTop));
+    const Real solidMass = 500 * (2 * 0.1_r * 1 + 2 * 0.1_r * 0.55_r * 1); // the three slabs at 500 kg/m^3 (the hull would weigh 650)
+    std::printf("  a ball in a U channel: a mesh collider %.3f m up (0.25, its floor), its hull %.3f m (0.8, the top); the channel moving, "
+                "as convex parts: %.3f m, %.1f kg (the slabs %.1f kg)\n", double(inside), double(onTop), double(moving), double(channelMass), double(solidMass));
     CHECK(std::fabs(inside - 0.25_r) < 0.02_r, "a mesh collider: the ball rests %f m up, not on the channel's floor", double(inside));
     CHECK(std::fabs(onTop - 0.8_r) < 0.02_r, "the hull of the same model: the ball rests %f m up, not on its top", double(onTop));
+    CHECK(std::fabs(moving - 0.25_r) < 0.02_r, "a moving channel's mesh collider (convex parts): the ball rests %f m up, not on its floor", double(moving));
+    CHECK(std::fabs(channelMass / solidMass - 1) < 0.1_r, "the moving channel weighs %f kg, its slabs %f kg", double(channelMass), double(solidMass));
+}
+
+// A solid mesh cut into convex parts (physics/ConvexParts.h): an L of two boxes becomes parts whose hulls hold its volume
+// within 10 % and leave the inner corner free; a box stays one part, its own points; the same mesh gives the same parts.
+void testConvexParts() {
+    const auto join = [](TriMesh a, const TriMesh& b) {
+        const uint32_t base = uint32_t(a.positions.size());
+        a.positions.insert(a.positions.end(), b.positions.begin(), b.positions.end());
+        for (auto t : b.triangles) a.triangles.push_back({t[0] + base, t[1] + base, t[2] + base});
+        return a;
+    };
+    const auto slab = [](Vector3 lo, Vector3 hi) {
+        TriMesh m = primitives::box((hi - lo) * 0.5_r);
+        m.translate((hi + lo) * 0.5_r);
+        return m;
+    };
+    const TriMesh ell = join(slab({0, 0, 0}, {1, 0.2_r, 0.5_r}), slab({0, 0.2_r, 0}, {0.2_r, 1, 0.5_r})); // volume 0.18 m^3
+    const auto t0 = std::chrono::steady_clock::now();
+    const std::vector<std::vector<Vector3>> parts = convexParts(ell);
+    const double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
+    Real volume = 0;
+    bool cornerFree = true; // the point (0.45, 0.45, 0.25) - in the L's hull, out of the L - is in no part's hull
+    for (const std::vector<Vector3>& p : parts) {
+        const ConvexHull h = convexHull(p);
+        volume += h.volume;
+        bool in = !h.normals.empty();
+        for (size_t f = 0; f < h.normals.size(); ++f) in = in && dot(h.normals[f], Vector3(0.45_r, 0.45_r, 0.25_r)) <= h.offsets[f];
+        cornerFree = cornerFree && !in;
+    }
+    const std::vector<std::vector<Vector3>> again = convexParts(ell), box = convexParts(slab({0, 0, 0}, {1, 2, 3}));
+    std::printf("  an L of two boxes: %zu convex parts holding %.4f m^3 (the L 0.18, its hull 0.34), cut in %.1f ms; a box: %zu part\n",
+                parts.size(), double(volume), ms, box.size());
+    CHECK(parts.size() >= 2 && std::fabs(volume / 0.18_r - 1) < 0.1_r && cornerFree, "an L: %zu parts holding %f m^3, the inner corner %s",
+          parts.size(), double(volume), cornerFree ? "free" : "filled");
+    CHECK(box.size() == 1 && box[0].size() == primitives::box(Vector3(0.5_r)).positions.size(), "a box is one part of its own points, not %zu parts",
+          box.size());
+    bool same = again.size() == parts.size();
+    for (size_t i = 0; same && i < parts.size(); ++i)
+        same = again[i].size() == parts[i].size() &&
+               std::equal(parts[i].begin(), parts[i].end(), again[i].begin(), [](const Vector3& a, const Vector3& b) { return a.x == b.x && a.y == b.y && a.z == b.z; });
+    CHECK(same, "the same mesh gives the same parts");
 }
 
 void testSimSensors() {
