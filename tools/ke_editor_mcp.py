@@ -6,7 +6,8 @@ becomes a tool, listed from the running editor; three tools are always there:
 
 * ``editor_launch``  starts build/kinetica --api (optionally with a scene file) and waits;
 * ``editor_call``    any operation by name with its arguments - works even when the list was read
-                     before the editor ran.
+                     before the editor ran;
+* ``guide``          a topic of the guide (docs/agent/<topic>.md): a car, an arm, power.
 
 Each operation's arguments come as its JSON Schema (ops_list: a plugin's fields, the core's line of arguments read):
 a call with a field the operation has not is refused, naming the fields. An answer ``{"ok": false}`` is an MCP error
@@ -17,7 +18,8 @@ an action (a file written, the program stopped, a plugin's command) is left as i
 The profile, by default "agent": the hyper-operations first - a ready assembly in one call, terrain in one call, a whole
 robot in one scene_batch - and the few operations a build is checked with (AGENT); measured on a weak model (Haiku), the
 full list of 150 tools - some 25 000 tokens a turn - and learning the file format cost it about 18 calls a task; the
-instructions are docs/agent-guide.md, the lessons of those runs.
+instructions are docs/agent-guide.md, the lessons of those runs, short enough that no client cuts them; the tool ``guide``
+gives a topic of docs/agent/ (a car, an arm, power) when the model builds that kind of robot.
 ``KE_MCP_FAMILIES=all`` offers every operation, ``KE_MCP_FAMILIES=scene,assembly,sim`` those of the families (the first
 word of a name). The rest stay one call away:
 ``editor_call`` reaches any operation, and ``ops_list {families: [...]}`` describes them. When the operations change - a plugin started, fell or was saved - the server says so
@@ -47,8 +49,28 @@ LOCAL_TOOLS = [
      "The operation ops_list names them all with their arguments ({families: [\"scene\"]}: one family).",
      "inputSchema": {"type": "object", "properties": {"op": {"type": "string"}, "args": OPEN}, "required": ["op"]}},
 ]
+# The guide's topics (docs/agent/<topic>.md): what a model reads when it builds that kind of robot - the instructions
+# stay short, as a client cuts them (Claude Code: at about 4 000 characters), and the rest is disclosed on asking.
+TOPICS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "agent")
+
+
+def topics():
+    """{topic: its title} of the guide's topics."""
+    found = {}
+    for name in sorted(os.listdir(TOPICS)) if os.path.isdir(TOPICS) else []:
+        if name.endswith(".md"):
+            with open(os.path.join(TOPICS, name), encoding="utf-8") as f:
+                found[name[:-3]] = f.readline().lstrip("# ").strip()
+    return found
+
+
+LOCAL_TOOLS.append({"name": "guide", "description": "A topic of the guide to building with this editor - read yours before building: "
+                    + "; ".join(f"{k} - {v}" for k, v in topics().items()),
+                    "inputSchema": {"type": "object", "properties": {"topic": {"type": "string", "enum": sorted(topics())}}, "required": ["topic"]},
+                    "annotations": {"readOnlyHint": True}})
 FAMILIES = [f for f in os.environ.get("KE_MCP_FAMILIES", "agent").replace(" ", "").split(",") if f]  # agent, all, or families
-AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_drive", "assembly_power", "assembly_sensor", "terrain_make", "scene_batch",
+AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_actuator", "assembly_drive", "assembly_power", "assembly_sensor",
+         "assembly_goal", "controller_add", "terrain_make", "scene_batch",
          "scene_get", "scene_list", "scene_new", "scene_delete", "scene_set", "scene_put", "sim_play", "sim_step", "sim_measure", "sim_stop",
          "controller_input", "view_screenshot", "view_follow", "ops_list"}
 # An operation's kind (ops_list) as MCP's annotations of its tool.
@@ -108,6 +130,12 @@ def content(answer, op):
 
 def call_tool(name, args):
     global _editor
+    if name == "guide":
+        topic = args.get("topic", "")
+        if topic not in topics():
+            return content({"ok": False, "error": f"no topic «{topic}»; there are: {', '.join(sorted(topics()))}"}, name), True
+        with open(os.path.join(TOPICS, topic + ".md"), encoding="utf-8") as f:
+            return [{"type": "text", "text": f.read()}], False
     if name == "editor_launch":
         ke_editor.launch(scene=args.get("scene"))
         _editor = None

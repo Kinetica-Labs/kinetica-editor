@@ -372,6 +372,11 @@ void testSceneApiHyperOperations() {
     bool found = false;
     for (const Value& a : listed["assemblies"].items()) found = found || a["name"].text() == "Спорткар";
     CHECK(found, "assembly_list names the built-in sports car");
+    Scene unsaved(KE_DATA); // a scene of no folder yet: an assembly's models keep their whole paths
+    const Value arm = call(unsaved, "assembly_add", R"({"name": "Рука UR5e"})");
+    CHECK(arm["ok"].truth() && unsaved.graph().joints.size() == 9 && unsaved.graph().controllers.size() == 1 &&
+              std::all_of(unsaved.graph().entities.begin(), unsaved.graph().entities.end(), [](const Entity& e) { return e.meshFile.empty() || e.meshFile[0] == '/' || e.meshFile[1] == ':'; }),
+          "the UR5e arm goes into a scene never saved, its models by whole paths: %s", arm["error"].text("").c_str());
     // What a weak model asked for in the bench: a crate weighed as it is made, an IMU with no face on top, names in the measure.
     const Value crate = call(scene, "scene_add", R"({"shape": "box", "name": "Ящик", "size": [0.2, 0.2, 0.2], "density": 150})");
     const Entity* box = findEntity(scene.graph(), uint32_t(crate["id"].integer()));

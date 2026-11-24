@@ -43,6 +43,24 @@ class SceneCore(unittest.TestCase):
         with ke.Scene() as scene:
             self.assertAlmostEqual(height(scene, falling(scene)), 0.12, delta=0.02)
 
+    def test_the_agent_guides_batches_run_as_written(self):
+        """The scene_batch examples a model is given (docs/agent-guide.md, docs/agent/arm.md) build what they say, verbatim;
+        the arm's panel moves its effector."""
+        for path in ("agent-guide.md", "agent/arm.md"):
+            with open(os.path.join(ROOT, "docs", path), encoding="utf-8") as f:
+                text = f.read()
+            batch = json.loads(text.split("```json", 1)[1].split("```", 1)[0])
+            with ke.Scene() as scene:
+                done = scene.ed.scene_batch(**batch)
+                self.assertTrue(all(r.get("ok", True) for r in done["results"]), path)
+                if path == "agent/arm.md":
+                    link = done["results"][3]["id"]
+                    scene.ed.sim_step(frames=30)
+                    x = scene.measure(objects=[link])[f"{link}/centre x"]
+                    scene.ed.controller_input(values={"move": [1, 0]})
+                    scene.ed.sim_step(frames=90)
+                    self.assertGreater(scene.measure(objects=[link])[f"{link}/centre x"] - x, 0.1)
+
     def test_errors_name_the_cause(self):
         with ke.Scene() as scene:
             for call, words in ((lambda: scene.editor.selection, "kinetica-core"),

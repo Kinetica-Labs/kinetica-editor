@@ -101,6 +101,7 @@ static std::string rebased(const std::string& file, const std::string& from, con
     const bool absolute = !file.empty() && (file[0] == '/' || file[0] == '\\' || (file.size() > 1 && file[1] == ':'));
     if (file.empty() || absolute || from.empty()) return file;
     const fs::path whole = (fs::absolute(fs::u8path(from)) / fs::u8path(file)).lexically_normal();
+    if (to.empty()) return whole.generic_u8string(); // into a scene of no folder yet (never saved): the file by its whole path
     const fs::path there = whole.lexically_relative(fs::absolute(fs::u8path(to)).lexically_normal());
     return (there.empty() ? whole : there).generic_u8string();
 }

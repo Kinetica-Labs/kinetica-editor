@@ -5,8 +5,8 @@ For every task (agent_bench_tasks.json) and model: a hidden editor with the plug
 headless Claude Code (claude -p) whose only tools are the MCP server ke-editor (tools/ke_editor_mcp.py, the profile
 given), and the task's words. Measured from the run's stream: the wall time, the tool calls, the refused ones, the
 model's turns, its tokens and its cost; asked at the end, the agent's own word on what in the tools got in its way. Then
-the bench checks what is in the editor - never the agent's report: a car stands, its panel drives it, there is ground,
-crates and balls are there (CHECKS). One line a run is appended to the bench's journal (JSON lines, never rewritten),
+the bench checks what is in the editor - never the agent's report, for any robot: its panel moves what it drives (a
+car's chassis, an arm's effector), its joints are held by servos, there is ground, crates and balls are there (CHECKS). One line a run is appended to the bench's journal (JSON lines, never rewritten),
 and a table is printed. As Anthropic's «Writing effective tools for agents» measures tools: accuracy, runtime, calls,
 tokens, errors - and the agent's feedback. Only the standard library::
 
@@ -89,24 +89,46 @@ def _block(ed, id):
     return ed.scene_get(id=id)["text"]
 
 
-def check_drives(ed):
-    """A car stands on its wheels and its panel drives it: a controller with value actions steer and throttle on one
-    body; played, throttle 0.5 for 2 s moves that body faster than 0.3 m/s, and it stays above the floor."""
+def _moved(ed, target):
+    """The body a panel's action moves: an IK goal's effector (an arm's), else the target itself (a car's chassis)."""
+    goal = next((w for w in (line.split() for line in _block(ed, target).splitlines()) if w[:2] == ["goal", "effector"]), None)
+    return int(goal[2]) if goal else target
+
+
+def _centre(ed, body):
+    m = {x["id"].split("/", 1)[1]: x["value"] for x in ed.sim_measure(objects=[body])["channels"]}
+    return [m.get("centre " + a, 0.0) for a in "xyz"]
+
+
+def check_panel(ed):
+    """The scene's panel moves what it drives, whatever the robot: its actions in turn (a vector2 at [0.5, 0], an axis
+    at 0.5; buttons and grips left out), each held 2 s in a fresh run, until one moves its body - a car's chassis, an
+    arm's effector - more than 5 cm, the body staying above the floor."""
     for c in ed.scene_list(kind="controller")["objects"]:
-        actions = {w[1]: w for w in (line.split() for line in _block(ed, c["id"]).splitlines()) if w[:1] == ["action"]}
-        throttle = actions.get("throttle")
-        if not throttle or "value" not in throttle or "target" not in throttle:
-            continue
-        body = int(throttle[throttle.index("target") + 1])
-        ed.sim_stop()
-        ed.sim_play()
-        time.sleep(1.5)  # the stabiliser hears its gyroscope's zero first
-        ed.controller_input(id=c["id"], values={"throttle": 0.5})
-        time.sleep(2.0)
-        m = {x["id"].split("/", 1)[1]: x["value"] for x in ed.sim_measure(objects=[body])["channels"]}
-        ed.sim_stop()
-        return m.get("speed", 0) > 0.3 and m.get("centre y", 0) > 0.02, f"панель {c['id']} → тело {body}: {m.get('speed', 0):.2f} м/с"
-    return False, "нет пульта с действием throttle (drive value)"
+        for w in (line.split() for line in _block(ed, c["id"]).splitlines()):
+            if w[:1] != ["action"] or "target" not in w or w[2] == "button" or w[w.index("drive") + 1:][:1] == ["grip"]:
+                continue
+            body = _moved(ed, int(w[w.index("target") + 1]))
+            ed.sim_stop()
+            ed.sim_play()
+            time.sleep(1.5)  # a car's stabiliser hears its gyroscope's zero first; an arm settles on its servos
+            before = _centre(ed, body)
+            ed.controller_input(id=c["id"], values={w[1]: [0.5, 0] if w[2] == "vector2" else 0.5})
+            time.sleep(2.0)
+            after = _centre(ed, body)
+            ed.sim_stop()
+            moved = sum((a - b) ** 2 for a, b in zip(after, before)) ** 0.5
+            if moved > 0.05 and after[1] > 0.02:
+                return True, f"пульт {c['id']}: {w[1]} сдвинул тело {body} на {moved:.2f} м за 2 с"
+    return False, "ни одно действие пульта не сдвинуло своё тело на 5 см (или пульта нет)"
+
+
+def check_servos(ed, count=3):
+    """A robot of its own parts: at least `count` joints held by servos (a drive line with stiffness)."""
+    held = sum(any(w[:1] == ["drive"] and "stiffness" in w and float(w[w.index("stiffness") + 1]) > 0
+                   for w in (line.split() for line in _block(ed, j["id"]).splitlines()))
+               for j in ed.scene_list(kind="joint")["objects"])
+    return held >= count, f"суставов с сервоприводом {held}"
 
 
 def check_ground(ed):
@@ -123,10 +145,13 @@ def check_ground(ed):
 
 
 def check_bodies(ed, crates=5, balls=3):
-    """Pushable bodies: at least `crates` boxes and `balls` spheres that are rigid and small (≤ 0.4 m)."""
+    """Pushable bodies: at least `crates` boxes and `balls` spheres, rigid, small (≤ 0.4 m) and free - a part of a robot
+    (a body a joint holds: an arm's gripper) is not one."""
+    held = {int(w[k + 1]) for j in ed.scene_list(kind="joint")["objects"] for w in (line.split() for line in _block(ed, j["id"]).splitlines())
+            if w[:1] == ["link"] for k in (w.index(x) for x in ("a", "b") if x in w) if k + 1 < len(w)}
     found = {"box": 0, "sphere": 0}
     for o in _objects(ed):
-        if o.get("kind") != "entity":
+        if o.get("kind") != "entity" or o["id"] in held:
             continue
         text = _block(ed, o["id"])
         shape = next((w for w in (line.split() for line in text.splitlines()) if w[:1] == ["shape"]), [])
@@ -136,7 +161,7 @@ def check_bodies(ed, crates=5, balls=3):
     return found["box"] >= crates and found["sphere"] >= balls, f"ящиков {found['box']}, мячей {found['sphere']}"
 
 
-CHECKS = {"drives": check_drives, "ground": check_ground, "bodies": check_bodies}
+CHECKS = {"panel": check_panel, "servos": check_servos, "ground": check_ground, "bodies": check_bodies}
 
 
 # ---- a run ---------------------------------------------------------------------------------------------------------
@@ -168,9 +193,10 @@ def run(task, model, profile, plugins, timeout):
             wall = time.monotonic() - start
         out = metrics(done.stdout.splitlines())
         out.update(task=task["id"], model=model, profile=profile, wall_s=round(wall, 1), checks={})
-        for name in task["checks"]:
+        for spec in task["checks"]:  # a check's name, or [its name, its arguments]
+            name, kw = (spec, {}) if isinstance(spec, str) else spec
             try:
-                ok, why = CHECKS[name](ed)
+                ok, why = CHECKS[name](ed, **kw)
             except Exception as e:  # a check that cannot read the scene fails, and says why
                 ok, why = False, f"{type(e).__name__}: {e}"
             out["checks"][name] = {"ok": bool(ok), "why": why}

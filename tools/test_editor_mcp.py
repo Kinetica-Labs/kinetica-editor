@@ -1,6 +1,6 @@
 """The MCP server of the editor (tools/ke_editor_mcp.py), without an editor: each operation is a tool with MCP's
 annotations from its kind, a plugin's own wiring is not offered, a profile (KE_MCP_FAMILIES) asks the editor for its
-families only and says so in the instructions, a refused call is an MCP error."""
+families only and says so in the instructions, a refused call is an MCP error; the instructions fit a client's cut and the guide's topics are a tool."""
 import os
 import sys
 import unittest
@@ -57,11 +57,23 @@ class EditorMcp(unittest.TestCase):
         mcp.FAMILIES = ["scene"]
         tools = self.tools()
         self.assertEqual(self.editor.asked[-1], {"families": ["scene"]})  # the editor filters, not this server
-        self.assertEqual(sorted(tools), ["editor_call", "editor_launch", "scene_add", "scene_list"])
+        self.assertEqual(sorted(tools), ["editor_call", "editor_launch", "guide", "scene_add", "scene_list"])
         said = mcp.handle({"method": "initialize", "params": {}})["instructions"]
         self.assertIn("Only the families scene are tools here", said)
         parts, failed = mcp.call_tool("editor_call", {"op": "sim_play"})  # the rest: one call away
         self.assertFalse(failed)
+
+    def test_the_guide_is_whole_and_its_topics_are_asked_for(self):
+        said = mcp.handle({"method": "initialize", "params": {}})["instructions"]
+        self.assertLess(len(said), 3800)  # Claude Code cuts a server's instructions at about 4 000 characters
+        for topic in ("car", "arm", "power"):  # each topic the instructions name is one the tool gives
+            self.assertIn(f"`{topic}`", said)
+            parts, failed = mcp.call_tool("guide", {"topic": topic})
+            self.assertFalse(failed)
+            self.assertTrue(parts[0]["text"].startswith("# "))
+        parts, failed = mcp.call_tool("guide", {"topic": "boat"})
+        self.assertTrue(failed)
+        self.assertIn("arm", parts[0]["text"])  # the refusal names the topics there are
 
     def test_a_refusal_is_an_error(self):
         parts, failed = mcp.call_tool("scene_add", {})

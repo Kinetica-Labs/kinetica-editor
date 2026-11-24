@@ -1,6 +1,7 @@
 """The agent bench without a model or a window (python3 -m unittest test_agent_bench, in tools/): what a run's stream
 says - calls, refusals, turns, tokens, cost, the agent's feedback - and the table of runs."""
 import json
+import os
 import unittest
 
 import agent_bench
@@ -33,6 +34,14 @@ class BenchTests(unittest.TestCase):
                "checks": {"drives": {"ok": True, "why": ""}, "ground": {"ok": False, "why": ""}}}
         text = agent_bench.table([row])
         self.assertIn("| ready_car | haiku | agent | ✓drives ✗ground | 23.7 | 10 | 0 | 11 | 150k/4k | 0.0055 | a / b |", text)
+
+    def test_every_task_names_checks_there_are(self):
+        import inspect
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "agent_bench_tasks.json"), encoding="utf-8") as f:
+            for task in json.load(f):
+                for spec in task["checks"]:
+                    name, kw = (spec, {}) if isinstance(spec, str) else spec
+                    inspect.signature(agent_bench.CHECKS[name]).bind(None, **kw)  # raises on an argument the check has not
 
 
 if __name__ == "__main__":
