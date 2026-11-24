@@ -8,6 +8,7 @@ CI runs, not advice; the rest is a report of where order is wearing thin. Only t
     python3 tools/project_map.py          # the rules, then the report; the exit code is the number of rules broken
     python3 tools/project_map.py --json   # the same as data
     python3 tools/project_map.py --html map.html   # and a page to look at: rules, the layers' matrix, growth, files, hubs
+    python3 tools/project_map.py --html map.html --algebra algebra.json   # with the operations' laws and commutators
 
 Rules (test_project_map keeps them at zero):
 - layers: src/ is layered bottom-up (CLAUDE.md, «Устройство»); a file includes only its own layer and those below;
@@ -264,12 +265,18 @@ def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     p.add_argument("--json", action="store_true", help="the map as data")
     p.add_argument("--html", metavar="FILE", help="the map as a page to look at (tools/project_map.html with the data in it)")
+    p.add_argument("--algebra", metavar="JSON", help="the page also shows tools/op_algebra.py's results (its --json)")
     a = p.parse_args(argv)
     m = build()
     if a.json:
         print(json.dumps(m, ensure_ascii=False, indent=1))
     else:
         show(m)
+    if a.algebra:
+        with open(a.algebra, encoding="utf-8") as f:
+            r = json.load(f)
+        m["algebra"] = {"ops": r["ops"], "pairs": r["pairs"], "laws": r["laws"],
+                        "apart": sorted(k.split() for k, same in r["commute"].items() if not same)}
     if a.html:
         with open(os.path.join(ROOT, "tools", "project_map.html"), encoding="utf-8") as f:
             page = f.read().replace("__DATA__", json.dumps(m, ensure_ascii=False, separators=(",", ":")).replace("</", "<\\/"))

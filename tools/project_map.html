@@ -84,6 +84,16 @@ details td.num, details th.num { text-align: right; font-variant-numeric: tabula
   padding: 7px 9px; border-radius: 6px; max-width: 320px; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
 #tip b { font-family: var(--mono); font-weight: 500; word-break: break-all; }
 .note { font-size: 13px; color: var(--ink-3); }
+.alg { display: grid; grid-template-columns: max-content auto; gap: 0; font: 11px/1 var(--mono); }
+#alg { display: grid; gap: 1px; background: var(--line); border: 1px solid var(--line); }
+#alg i { width: 13px; height: 13px; background: var(--seq0); display: block; }
+#alg i.apart { background: var(--s2); }
+#alg i.self { background: var(--line); }
+#alg i.hot { outline: 2px solid var(--ink); outline-offset: -1px; }
+.alg-rows { display: grid; gap: 1px; padding: 1px 8px 0 0; text-align: right; color: var(--ink-2); }
+.alg-rows span { height: 13px; line-height: 13px; white-space: nowrap; }
+.alg-rows span.hot { color: var(--ink); font-weight: 500; }
+
 @media (prefers-reduced-motion: no-preference) { #tree .t { transition: filter .12s; } }
 </style>
 
@@ -125,6 +135,15 @@ details td.num, details th.num { text-align: right; font-variant-numeric: tabula
     <h2 id="h-fan">Узлы связей</h2>
     <p>Сколько других файлов называют этот файл по имени. Здесь сходятся связи: правка такого файла задевает многие.</p>
     <div class="bars" id="fan"></div>
+  </section>
+
+  <section aria-labelledby="h-alg" class="panel" id="algebra" hidden>
+    <h2 id="h-alg">Алгебра операций</h2>
+    <p id="alg-note"></p>
+    <div class="rules" id="alg-laws"></div>
+    <div class="legend"><span><i style="background:var(--seq0)"></i>AB = BA: порядок не важен</span><span><i style="background:var(--s2)"></i>AB ≠ BA: порядок меняет сцену</span></div>
+    <div class="scroll"><div class="alg"><div class="alg-rows" id="alg-rows"></div><div id="alg" role="img" aria-label="Матрица коммутаторов правок"></div></div></div>
+    <p class="note">Наведите на клетку: строка — правка A, столбец — правка B. Рецепты бьют в одни и те же тела нарочно — так пары сталкиваются сильнее всего.</p>
   </section>
 
   <section aria-labelledby="h-todo">
@@ -275,4 +294,34 @@ $("rep-title").textContent = `Повторы в документах: ${rep.leng
 $("rep").innerHTML = rep.map(([s, files]) => `<blockquote>«${esc(s.slice(0, 160))}${s.length > 160 ? "…" : ""}»<br><span class="mono">${files.map(esc).join(" · ")}</span></blockquote>`).join("");
 $("ops-title").textContent = `Операции без теста: ${P.untested_ops.length}`;
 $("ops").innerHTML = P.untested_ops.map(o => `<span class="chip">${esc(o)}</span>`).join("");
+// ---- the algebra of operations: laws and the commutator matrix
+if (D.algebra) {
+  const A = D.algebra, ops = A.ops, apart = new Set(A.apart.map(([a, b]) => a + " " + b));
+  const deg = o => A.apart.filter(([a, b]) => a === o || b === o).length;
+  const order = ops.slice().sort((a, b) => a.split("_")[0].localeCompare(b.split("_")[0]) || deg(b) - deg(a) || a.localeCompare(b));
+  $("algebra").hidden = false;
+  $("alg-note").textContent = `${ops.length} правок — базис. Каждая и каждая упорядоченная пара (${fmt(A.pairs)}) выполнены в ядре без окна на сцене с машинкой, рукой, телами, светом, камерой, силой и секвенцией; законы проверены без заранее известного ответа.`;
+  const count = k => A.laws.filter(l => l.law === k).length;
+  [["Обратимость", count("inverse"), "отмена возвращает сцену до бита: (AB)⁻¹ = B⁻¹A⁻¹"],
+   ["Изоморфизм", count("iso"), "сохранить и открыть — та же сцена"],
+   ["Слова", count("words"), "только успех или отказ словами, без внутренних ошибок"]].forEach(([name, n, why]) =>
+    $("alg-laws").insertAdjacentHTML("beforeend", `<div class="panel rule"><span class="pill ${n ? "bad" : ""}">${n ? "✕ нарушено" : "✓ держится"}</span><b>${name}: ${n} нарушений</b><span class="why">${why}</span></div>`));
+  const grid = $("alg");
+  grid.style.gridTemplateColumns = `repeat(${order.length}, 13px)`;
+  $("alg-rows").innerHTML = order.map(o => `<span>${esc(o)}</span>`).join("");
+  order.forEach((a, r) => order.forEach((b, c) => {
+    const cell = document.createElement("i");
+    cell.className = a === b ? "self" : apart.has(a + " " + b) ? "apart" : "";
+    cell.dataset.r = r; cell.dataset.c = c;
+    grid.appendChild(cell);
+  }));
+  const rows = $("alg-rows").children;
+  grid.addEventListener("mousemove", e => {
+    const t = e.target; if (t.tagName !== "I") return;
+    const a = order[+t.dataset.r], b = order[+t.dataset.c];
+    [...rows].forEach((s, i) => s.classList.toggle("hot", i === +t.dataset.r));
+    showTip(e, a === b ? `<b>${esc(a)}</b>` : `<b>${esc(a)}</b> ∘ <b>${esc(b)}</b><br>${apart.has(a + " " + b) ? "порядок меняет сцену" : "коммутируют"}`);
+  });
+  grid.addEventListener("mouseleave", () => { hideTip(); [...rows].forEach(s => s.classList.remove("hot")); });
+}
 </script>
