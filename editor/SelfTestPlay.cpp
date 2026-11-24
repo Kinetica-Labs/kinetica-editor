@@ -225,20 +225,25 @@ void testGlide(Checker& c, QMainWindow& w, Viewport* v) {
     ops->runNow("view_look", {{"eye", QJsonArray{0, 1, 2}}, {"target", QJsonArray{0, 0.5, 0}}, {"glide", 0.4}, {"orbit", 40}});
     pump(150);
     const QVector3D halfway = v->camera().eye();
-    pump(450);
+    // There exactly, however slow the frames (a machine that draws in software): waited for, not a fixed pause.
+    const bool there = waitUntil([&] { return (v->camera().target() - QVector3D(0, 0.5f, 0)).length() < 1e-3f; }, 5000) &&
+                       (halfway - QVector3D(0, 1, 2)).length() > 0.05f;
+    pump(100);
     const float yawThere = v->camera().yaw();
-    const bool there = (v->camera().target() - QVector3D(0, 0.5f, 0)).length() < 1e-3f && (halfway - QVector3D(0, 1, 2)).length() > 0.05f;
+    QElapsedTimer clock;
+    clock.start();
     pump(500);
-    const float turned = v->camera().yaw() - yawThere; // some 20 degrees in half a second
+    const float turned = v->camera().yaw() - yawThere, rate = turned / std::max(0.001f, float(clock.elapsed()) / 1000); // 40°/s asked
     QMouseEvent press(QEvent::MouseButtonPress, QPointF(5, 5), v->mapToGlobal(QPointF(5, 5)), Qt::MiddleButton, Qt::MiddleButton, Qt::NoModifier);
     QApplication::sendEvent(v, &press);
     QMouseEvent release(QEvent::MouseButtonRelease, QPointF(5, 5), v->mapToGlobal(QPointF(5, 5)), Qt::MiddleButton, Qt::NoButton, Qt::NoModifier);
     QApplication::sendEvent(v, &release);
     const float held = v->camera().yaw();
     pump(200);
-    std::printf("  glide: halfway eye %.2f %.2f %.2f, there %s; turned %.1f° in 0.5 s; a press stops it %s\n", double(halfway.x()), double(halfway.y()),
-                double(halfway.z()), there ? "yes" : "no", double(turned), std::fabs(v->camera().yaw() - held) < 1e-4f ? "yes" : "no");
-    c.check(there && turned > 12 && turned < 30 && std::fabs(v->camera().yaw() - held) < 1e-4f && !v->gliding(),
+    std::printf("  glide: halfway eye %.2f %.2f %.2f, there %s; turned %.1f° at %.1f°/s (40 asked); a press stops it %s\n", double(halfway.x()),
+                double(halfway.y()), double(halfway.z()), there ? "yes" : "no", double(turned), double(rate),
+                std::fabs(v->camera().yaw() - held) < 1e-4f ? "yes" : "no");
+    c.check(there && rate > 28 && rate < 52 && std::fabs(v->camera().yaw() - held) < 1e-4f && !v->gliding(),
             "view_look glides to its eye (eased) and then turns about the target at the asked rate; a press in the view stops it");
 }
 

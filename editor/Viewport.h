@@ -560,6 +560,7 @@ private:
         QVector3D target[2];
         float distance[2] = {0, 0}, yaw[2] = {0, 0}, pitch[2] = {0, 0}, seconds = 0, orbit = 0;
         double last = 0;
+        bool landed = false; // put exactly at the end: a slow frame may come after the glide's time is up
         QElapsedTimer clock;
     } glide_;
     QTimer* glideTimer_ = nullptr;

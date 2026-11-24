@@ -96,7 +96,7 @@ void Viewport::glideTo(const QVector3D& eye, const QVector3D& target, float seco
     glide_.distance[0] = camera_.distance(), glide_.distance[1] = to.distance();
     glide_.yaw[0] = camera_.yaw(), glide_.yaw[1] = camera_.yaw() + std::remainder(to.yaw() - camera_.yaw(), 360.0f); // the shorter way round
     glide_.pitch[0] = camera_.pitch(), glide_.pitch[1] = to.pitch();
-    glide_.seconds = std::max(0.0f, seconds), glide_.orbit = orbit, glide_.last = 0;
+    glide_.seconds = std::max(0.0f, seconds), glide_.orbit = orbit, glide_.last = 0, glide_.landed = false;
     glide_.clock.start();
     if (!glideTimer_) {
         glideTimer_ = new QTimer(this);
@@ -112,8 +112,9 @@ void Viewport::glideTick() {
     const double t = glide_.seconds > 0 ? std::min(1.0, now / double(glide_.seconds)) : 1.0;
     const float e = float(t < 0.5 ? 4 * t * t * t : 1 - std::pow(-2 * t + 2, 3) / 2); // ease in and out (cubic)
     const auto mix = [e](const float* v) { return v[0] + (v[1] - v[0]) * e; };
-    if (t < 1 || dt == 0) {
+    if (!glide_.landed) { // on the way, and once at its end exactly - however late the frame that reaches it
         camera_.set(glide_.target[0] + (glide_.target[1] - glide_.target[0]) * e, mix(glide_.distance), mix(glide_.yaw), mix(glide_.pitch));
+        glide_.landed = t >= 1;
     } else if (glide_.orbit != 0) {
         camera_.turnYaw(glide_.orbit * float(dt));
     }
