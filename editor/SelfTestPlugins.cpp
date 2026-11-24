@@ -357,13 +357,17 @@ def mark(scene, dt, sensors):
     c.check(onShelf && taken && clicked && drawn && left, "a plugin's tool: an orange button on the shelf under a line, a click gives it the point, "
                                                           "the face's normal and the object - one undo step; its picture stays; Esc leaves it");
     waitUntil([&] { return host->ticking(); }, 5000);
+    ops->runNow("view_draw", {{"key", "правка/метка"}, {"points", QJsonArray{QJsonArray{0, 1, 0}}}}); // a picture begun in the edit
     QJsonObject stepped;
     ops->run("sim_step", {{"frames", 5}}, [&stepped](const QJsonObject& r) { stepped = r; }, "ui");
     waitUntil([&] { return !stepped.isEmpty(); }, 20000);
     pump(50);
     const bool ticking = v->hasDrawing("marks/такт");
+    ops->runNow("view_draw", {{"key", "правка/метка"}, {"points", QJsonArray{QJsonArray{0, 2, 0}}}}); // drawn anew while the run goes
     b.stop();
     pump(100);
+    const bool kept = v->hasDrawing("правка/метка"); // begun in the edit: it stays the edit's
+    ops->runNow("view_draw", {{"clear", true}, {"key", "правка/"}});
     const bool gone = !v->hasDrawing("marks/такт") && v->hasDrawing("marks/флажок");
     const QJsonObject agent = ops->runNow("view_draw", {{"key", "агент/путь"}, {"line", QJsonArray{QJsonArray{0, 0, 0}, QJsonArray{1, 1, 1}}}});
     const QJsonObject odd = ops->runNow("view_draw", {{"key", "агент/пары"}, {"segments", QJsonArray{QJsonArray{0, 0, 0}}}});
@@ -416,9 +420,10 @@ def mark(scene, dt, sensors):
     const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;
     QDir(folder + "/marks").removeRecursively();
     const bool withPlugin = waitUntil([&] { return !v->hasDrawing("marks/флажок"); }, 5000);
-    std::printf("  on_tick's picture while playing %s, gone at Stop %s (the tool's stays); view_draw from the API %s; the plugin gone, "
-                "its pictures too %s\n", ticking ? "yes" : "no", gone ? "yes" : "no", api ? "yes" : "no", withPlugin ? "yes" : "no");
-    c.check(ticking && gone && api && withPlugin, "on_tick draws while the scene plays, gone at Stop; view_draw for any client; a plugin's "
+    std::printf("  on_tick's picture while playing %s, gone at Stop %s (the tool's stays; one begun in the edit, drawn anew in the run, "
+                "stays %s); view_draw from the API %s; the plugin gone, its pictures too %s\n", ticking ? "yes" : "no", gone ? "yes" : "no",
+                kept ? "yes" : "no", api ? "yes" : "no", withPlugin ? "yes" : "no");
+    c.check(ticking && gone && kept && api && withPlugin, "on_tick draws while the scene plays, gone at Stop (a picture begun in the edit stays); view_draw for any client; a plugin's "
                                                   "pictures go with it");
 }
 

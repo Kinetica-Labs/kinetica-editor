@@ -78,6 +78,13 @@ public:
     // The body the camera follows whenever the world plays - now, or from the next ▶ (0: none, the editor's own view);
     // a camera move of the editor's own (F, Home, another scene, looking through a camera) ends it. followChanged says so.
     void setFollow(uint32_t body);
+    // view_look's glide (ViewportPlay.cpp): the camera flies to `eye` looking at `target` in `seconds`, eased in and out
+    // along its orbit (a smooth view, as Blender's and three.js's setLookAt with a transition), then turns about the
+    // target at `orbit` degrees a second (a turntable, three.js's autoRotate) until a person takes the view - a press,
+    // the wheel - or it follows a body.
+    void glideTo(const QVector3D& eye, const QVector3D& target, float seconds, float orbit);
+    void stopGlide();
+    bool gliding() const;
     // The chase camera, as games make it (Cinemachine's recentering, a SpringArm's lag): no jump - it starts where it
     // looks; going forward, after a second with no hand on the orbit, it swings behind the motion, the faster the faster;
     // it aims a little ahead of the body. Off: the plain follow.
@@ -538,6 +545,14 @@ private:
     bool rightHeld_ = false, flew_ = false; // the right button is down; W A S D were used during it
     std::set<int> flyKeys_;
     QTimer* flyTimer_ = nullptr;
+    struct Glide {
+        QVector3D target[2];
+        float distance[2] = {0, 0}, yaw[2] = {0, 0}, pitch[2] = {0, 0}, seconds = 0, orbit = 0;
+        double last = 0;
+        QElapsedTimer clock;
+    } glide_;
+    QTimer* glideTimer_ = nullptr;
+    void glideTick();
     QElapsedTimer flyClock_;
     QString lastHint_;
     QString magnetLabel_; // «Сустав»'s step, by the cursor (drawEditLabel)

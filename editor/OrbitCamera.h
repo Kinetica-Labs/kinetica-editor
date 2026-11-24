@@ -53,6 +53,10 @@ public:
     void setLens(float fovDeg, float nearClip, float farClip);
     // The eye at `eye`, orbiting `target` (no roll): what the API's view_look sets.
     void lookAt(const QVector3D& eye, const QVector3D& target);
+    // The orbit itself - its target, distance, yaw and pitch (degrees), no roll: a glide sets it step by step.
+    void set(const QVector3D& target, float distance, float yawDeg, float pitchDeg) {
+        target_ = target, distance_ = distance, yaw_ = yawDeg, pitch_ = pitchDeg, roll_ = 0.0f;
+    }
     float roll() const { return roll_; }
     // Fit the whole box in view; yaw/pitch in degrees.
     void frame(const ke::AABB& box, float yawDeg, float pitchDeg);

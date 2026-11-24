@@ -12,6 +12,8 @@
 #include "SimulationBar.h"
 
 #include <QAction>
+#include <QMouseEvent>
+#include <QApplication>
 #include <QFrame>
 #include <QDockWidget>
 #include <QLabel>
@@ -215,6 +217,31 @@ void testFollow(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
 // Вид → «Камера преследования», as games make it: on a box flying along +x at 1.5 m/s (no gravity) the camera does not
 // jump behind it at ▶ - its first frames it turns by little -, and after a second it swings round behind the motion:
 // four seconds on it looks along +x from within 25°.
+// view_look's glide and turntable: halfway the camera is on its way, at the end exactly there; then it turns about the
+// target at the asked rate; a press in the view stops it, as a person takes the view.
+void testGlide(Checker& c, QMainWindow& w, Viewport* v) {
+    EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
+    ops->runNow("view_look", {{"eye", QJsonArray{3, 2, 3}}, {"target", QJsonArray{0, 0, 0}}});
+    ops->runNow("view_look", {{"eye", QJsonArray{0, 1, 2}}, {"target", QJsonArray{0, 0.5, 0}}, {"glide", 0.4}, {"orbit", 40}});
+    pump(150);
+    const QVector3D halfway = v->camera().eye();
+    pump(450);
+    const float yawThere = v->camera().yaw();
+    const bool there = (v->camera().target() - QVector3D(0, 0.5f, 0)).length() < 1e-3f && (halfway - QVector3D(0, 1, 2)).length() > 0.05f;
+    pump(500);
+    const float turned = v->camera().yaw() - yawThere; // some 20 degrees in half a second
+    QMouseEvent press(QEvent::MouseButtonPress, QPointF(5, 5), v->mapToGlobal(QPointF(5, 5)), Qt::MiddleButton, Qt::MiddleButton, Qt::NoModifier);
+    QApplication::sendEvent(v, &press);
+    QMouseEvent release(QEvent::MouseButtonRelease, QPointF(5, 5), v->mapToGlobal(QPointF(5, 5)), Qt::MiddleButton, Qt::NoButton, Qt::NoModifier);
+    QApplication::sendEvent(v, &release);
+    const float held = v->camera().yaw();
+    pump(200);
+    std::printf("  glide: halfway eye %.2f %.2f %.2f, there %s; turned %.1f° in 0.5 s; a press stops it %s\n", double(halfway.x()), double(halfway.y()),
+                double(halfway.z()), there ? "yes" : "no", double(turned), std::fabs(v->camera().yaw() - held) < 1e-4f ? "yes" : "no");
+    c.check(there && turned > 12 && turned < 30 && std::fabs(v->camera().yaw() - held) < 1e-4f && !v->gliding(),
+            "view_look glides to its eye (eased) and then turns about the target at the asked rate; a press in the view stops it");
+}
+
 void testChase(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v) {
     b.newScene();
     dynamic_cast<MainWindow&>(w).operators()->runNow("world_set", {{"line", "world"}, {"key", "gravity"}, {"values", QJsonArray{0, 0, 0}}});
@@ -341,6 +368,7 @@ int runPlayTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& di
     testKeep(c, w, b, v);
     testFollow(c, w, b, v);
     testChase(c, w, b, v);
+    testGlide(c, w, v);
     testCommandSearch(c, w, b, dir);
     if (auto* mw = qobject_cast<MainWindow*>(&w)) testPivotAndBlank(c, *mw, b, v);
     return c.failures;

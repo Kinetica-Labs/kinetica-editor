@@ -87,14 +87,18 @@ void EditorOps::addStateOps() {
         const OrbitCamera& c = view_->camera();
         return ok({{"eye", json(c.eye())}, {"target", json(c.target())}, {"distance", double(c.distance())}, {"fov", double(c.fovDeg())}, {"follow_body",int(view_->followedBody())}, {"through", int(builder_->lookingThrough())}});
     });
-    addSync("view_look", "The view's camera at an eye, looking at a target (the orbit goes on around the target)", "{eye: [x,y,z], target: [x,y,z]}",
-            [this](const QJsonObject& a) {
+    addSync("view_look", "The view's camera at an eye, looking at a target (the orbit goes on around the target). glide: seconds to fly "
+                         "there, eased in and out along the orbit, as a smooth view (0: at once); orbit: then it turns about the target "
+                         "that many degrees a second, a turntable, until a person takes the view (a press, the wheel) - a filmed shot",
+            "{eye: [x,y,z], target: [x,y,z], glide?: number, orbit?: number}", [this](const QJsonObject& a) {
         QVector3D eye, target;
         if (!vector(a.value("eye"), eye) || !vector(a.value("target"), target) || (eye - target).length() < 1e-4f)
             return error("eye and target are two different points [x, y, z]");
+        const double glide = a.value("glide").toDouble(0), orbit = a.value("orbit").toDouble(0);
+        if (glide < 0 || glide > 30) return error("glide: seconds of the flight, from 0 to 30");
+        if (std::fabs(orbit) > 90) return error("orbit: degrees a second, from -90 to 90");
         view_->setFollow(0);
-        view_->camera().lookAt(eye, target);
-        view_->update();
+        view_->glideTo(eye, target, float(glide), float(orbit));
         return ok();
     });
     addSync("view_follow", "The view's camera follows a body's centre of mass whenever the world plays - now, or from the next ▶ - and orbits "

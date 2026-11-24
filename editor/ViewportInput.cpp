@@ -107,6 +107,7 @@ bool Viewport::navPress(QMouseEvent* e) {
 
 void Viewport::mousePressEvent(QMouseEvent* e) {
     setFocus(Qt::MouseFocusReason); // the keys (W A S D, X Y Z during a drag) come here
+    stopGlide();                    // a person takes the view: view_look's glide and turntable end
     if (navPress(e)) return;
     if (!toolOp_.isEmpty() && e->button() == Qt::LeftButton && !(e->modifiers() & Qt::AltModifier)) { // a plugin's tool takes the click
         grabbed_ = &pluginTool_;
@@ -207,6 +208,7 @@ void Viewport::mouseReleaseEvent(QMouseEvent* e) {
 }
 
 void Viewport::wheelEvent(QWheelEvent* e) {
+    stopGlide();
     if (followedBody_) camera_.zoom(e->angleDelta().y() / 120.0f);
     else camera_.zoomToward(pointUnderCursor(e->position()), e->angleDelta().y() / 120.0f);
     update();

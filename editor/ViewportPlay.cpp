@@ -8,7 +8,9 @@
 #include "Viewport.h"
 
 #include <QPainter>
+#include <QTimer>
 
+#include <algorithm>
 #include <cmath>
 
 namespace {
@@ -87,7 +89,47 @@ bool Viewport::followBody(uint32_t object) {
     updateBodyOrbit();
     update(); return true;
 }
+void Viewport::glideTo(const QVector3D& eye, const QVector3D& target, float seconds, float orbit) {
+    OrbitCamera to = camera_;
+    to.lookAt(eye, target);
+    glide_.target[0] = camera_.target(), glide_.target[1] = to.target();
+    glide_.distance[0] = camera_.distance(), glide_.distance[1] = to.distance();
+    glide_.yaw[0] = camera_.yaw(), glide_.yaw[1] = camera_.yaw() + std::remainder(to.yaw() - camera_.yaw(), 360.0f); // the shorter way round
+    glide_.pitch[0] = camera_.pitch(), glide_.pitch[1] = to.pitch();
+    glide_.seconds = std::max(0.0f, seconds), glide_.orbit = orbit, glide_.last = 0;
+    glide_.clock.start();
+    if (!glideTimer_) {
+        glideTimer_ = new QTimer(this);
+        glideTimer_->setInterval(15);
+        connect(glideTimer_, &QTimer::timeout, this, &Viewport::glideTick);
+    }
+    glideTick(); // a glide of no time is there at once
+}
+
+void Viewport::glideTick() {
+    const double now = glide_.clock.elapsed() / 1000.0, dt = now - glide_.last;
+    glide_.last = now;
+    const double t = glide_.seconds > 0 ? std::min(1.0, now / double(glide_.seconds)) : 1.0;
+    const float e = float(t < 0.5 ? 4 * t * t * t : 1 - std::pow(-2 * t + 2, 3) / 2); // ease in and out (cubic)
+    const auto mix = [e](const float* v) { return v[0] + (v[1] - v[0]) * e; };
+    if (t < 1 || dt == 0) {
+        camera_.set(glide_.target[0] + (glide_.target[1] - glide_.target[0]) * e, mix(glide_.distance), mix(glide_.yaw), mix(glide_.pitch));
+    } else if (glide_.orbit != 0) {
+        camera_.turnYaw(glide_.orbit * float(dt));
+    }
+    if (t >= 1 && glide_.orbit == 0) glideTimer_->stop();
+    else if (!glideTimer_->isActive()) glideTimer_->start();
+    update();
+}
+
+void Viewport::stopGlide() {
+    if (glideTimer_) glideTimer_->stop();
+}
+
+bool Viewport::gliding() const { return glideTimer_ && glideTimer_->isActive(); }
+
 void Viewport::setFollow(uint32_t body) {
+    if (body) stopGlide();
     const bool changed = body != followWish_;
     followWish_ = body;
     if (followedBody_ && followedBody_ != body) followBody(0);

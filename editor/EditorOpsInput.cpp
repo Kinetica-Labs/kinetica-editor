@@ -177,7 +177,7 @@ void EditorOps::addInputOps() {
                          "a soft halo of its colour round its words, leader and picture; a drawing of only an object (and glow) draws the object "
                          "itself - its silhouette glows, as the part an agent is building now. background [r,g,b,a]: a plate behind the words, as "
                          "subtitles have. Words in space screen stand at `place`, lines up from it. Drawn while "
-                         "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
+                         "the scene plays: gone at Stop (a key drawn in the edit before stays). Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
             "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none', place?: 'here'|'aside', grow?: number, pulse?: number, words?: number}, "
@@ -237,7 +237,10 @@ void EditorOps::addInputOps() {
                     }
                 }
         }
-        d.play = !builder_->editing();
+        // Drawn while the scene runs: the run's, gone at Stop - unless the key was drawn in the edit before: a picture begun
+        // there (a callout a plugin keeps animating, a line of narration) stays the edit's however often it is drawn anew.
+        const Viewport::Drawing* before = view_->drawing(key);
+        d.play = !builder_->editing() && !(before && !before->play);
         if (d.segments.size() % 8 != 0) return error("segments: points in pairs - a start and an end each");
         d.text = a.value("text").toString();
         if (a.contains("at")) d.at = point(a.value("at"));

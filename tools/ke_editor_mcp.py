@@ -78,7 +78,7 @@ FAMILIES = [f for f in os.environ.get("KE_MCP_FAMILIES", "agent").replace(" ", "
 AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_actuator", "assembly_drive", "assembly_power", "assembly_sensor",
          "assembly_goal", "controller_add", "terrain_make", "scene_batch",
          "scene_get", "scene_list", "scene_new", "scene_delete", "scene_set", "scene_put", "sim_play", "sim_step", "sim_measure", "sim_stop",
-         "controller_input", "view_screenshot", "view_follow", "view_draw", "formula_callout", "narration_say", "ops_list"}
+         "controller_input", "view_screenshot", "view_follow", "view_draw", "formula_callout", "narration_say", "scene_add", "ops_list"}
 # An operation's kind (ops_list) as MCP's annotations of its tool.
 HINTS = {"query": {"readOnlyHint": True}, "edit": {"readOnlyHint": False, "destructiveHint": False},
          "window": {"readOnlyHint": False, "destructiveHint": False}, "action": {"readOnlyHint": False}}
