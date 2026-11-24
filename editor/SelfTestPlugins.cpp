@@ -389,7 +389,8 @@ def mark(scene, dt, sensors):
     const Viewport::Drawing* note = v->drawing("выноска/куб");
     const bool leader = note && note->leader && note->leaderEnd == Viewport::Drawing::End::Arrow && std::fabs(note->leaderPoint.y - 0.1f) < 1e-6f &&
                         !ops->runNow("view_draw", {{"key", "выноска/пусто"}, {"points", QJsonArray{QJsonArray{0, 0, 0}}}, {"leader", QJsonObject{}}}).value("ok").toBool() &&
-                        !ops->runNow("view_draw", {{"key", "выноска/куда"}, {"text", "x"}, {"leader", QJsonObject{{"end", "крюк"}}}}).value("ok").toBool();
+                        !ops->runNow("view_draw", {{"key", "выноска/куда"}, {"text", "x"}, {"leader", QJsonObject{{"end", "крюк"}}}}).value("ok").toBool() &&
+                        !ops->runNow("view_draw", {{"key", "выноска/где"}, {"text", "x"}, {"leader", QJsonObject{{"place", "наугад"}}}}).value("ok").toBool();
     ops->runNow("view_draw", {{"clear", true}, {"key", "выноска/"}});
     c.check(leader, "view_draw's leader: words with a line to a point of their object, ending in an arrow; refused without words or an unknown end");
     const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;

@@ -171,6 +171,9 @@ public:
         // the words show.
         float leaderGrow = 1, leaderPulse = -1, leaderWords = 1; // words: how much the words or the picture show - after the line
         float opacity = 1; // the whole drawing's: a picture that fades in, out or to grey
+        // Placed aside (leader place "aside"): not at `at` but laid out with the other callouts so placed, every frame
+        // (arrangeCallouts): their leaders never cross however the view turns.
+        bool aside = false;
     };
     // view_draw's fill - rows of "M x y L x y C x1 y1 x2 y2 x y Z" - as a Fill (null and `error`: a row that is none).
     // `edge`: an edge so wide, in the picture's units, round every outline (0: none).
@@ -415,6 +418,12 @@ private:
     void drawShapeHandles(class QPainter& p);
     // A drawing's leader line to its part, from the reference line under `label` (its words' or picture's box on screen).
     void paintLeader(class QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const ke::Vector3&, QPointF&)>& screen) const;
+    // The callouts placed aside, laid out for this frame as a drawing's notes are (boundary labeling): two columns, left and
+    // right of their points, each callout on its point's side and in its point's order from the top - so no two leaders
+    // cross - spread apart so that none overlaps. Their places on the screen, by key.
+    void arrangeCallouts(class QPainter& p);
+    bool leaderAnchor(const Drawing& d, QPointF& out) const; // the point of the part a leader goes to, on the screen
+    std::map<QString, QRectF> calloutAt_;
     void modalDrag(); // the keyboard changed the transform: recompute it at the cursor
     bool playHandleAt(const QPointF& pos) const; // play: a press there takes the gizmo's handle
     uint32_t pickHandle(const Ray& ray, float& distance) const; // play: a see-through goal on the ray (0: none)

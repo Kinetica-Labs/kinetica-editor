@@ -27,6 +27,7 @@
 #include <QtMath>
 
 #include <algorithm>
+#include <set>
 #include <array>
 #include <cmath>
 
@@ -969,11 +970,17 @@ void Viewport::drawOverlayMarks(QPainter& p) {
         QRectF box;
         for (int k = 0; k < lines.size(); ++k) {
             const QPointF line = at + QPointF(6, -6 - step * (lines.size() - 1 - k));
+            box = box.united(QRectF(line.x(), line.y() - metrics.ascent(), metrics.horizontalAdvance(lines[k]), metrics.ascent() + metrics.descent()));
+        }
+        const auto placed = calloutAt_.find(key);
+        const QPointF shift = placed != calloutAt_.end() ? placed->second.topLeft() - box.topLeft() : QPointF();
+        box.translate(shift);
+        for (int k = 0; k < lines.size(); ++k) {
+            const QPointF line = at + shift + QPointF(6, -6 - step * (lines.size() - 1 - k));
             p.setPen(QColor(0, 0, 0, 200));
             p.drawText(line + QPointF(1, 1), lines[k]);
             p.setPen(d.colour);
             p.drawText(line, lines[k]);
-            box = box.united(QRectF(line.x(), line.y() - metrics.ascent(), metrics.horizontalAdvance(lines[k]), metrics.ascent() + metrics.descent()));
         }
         if (d.leader) paintLeader(p, d, box, screen);
         p.setOpacity(1);
@@ -981,16 +988,92 @@ void Viewport::drawOverlayMarks(QPainter& p) {
     p.restore();
 }
 
-void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const Vector3&, QPointF&)>& screen) const {
+bool Viewport::leaderAnchor(const Drawing& d, QPointF& out) const {
     Vector3 anchor = d.leaderPoint; // on the part, turning with it
     if (d.object) {
         Vector3 position;
         ke::Quaternion rotation;
-        if (!objectPose(d.object, position, rotation)) return;
+        if (!objectPose(d.object, position, rotation)) return false;
         anchor = position + rotation.rotate(d.leaderPoint);
     }
+    const QMatrix4x4 vp = camera_.projection(float(width()) / std::max(1, height())) * camera_.view();
+    const QVector4D clip = vp * QVector4D(anchor.x, anchor.y, anchor.z, 1);
+    if (clip.w() < 1e-3f) return false; // behind the eye
+    out = QPointF(double(clip.x() / clip.w() + 1) * 0.5 * width(), double(1 - clip.y() / clip.w()) * 0.5 * height());
+    return true;
+}
+
+void Viewport::arrangeCallouts(QPainter& p) {
+    calloutAt_.clear();
+    struct Note { QString key; QPointF point; QSizeF size; };
+    std::vector<Note> notes;
+    const QFont plain = p.font();
+    for (const auto& [key, d] : drawings_) {
+        QPointF point;
+        if (!d.leader || !d.aside || !leaderAnchor(d, point)) continue;
+        QSizeF size;
+        if (d.fill && !d.fill->parts.empty()) {
+            const double unit = double(d.scale) * height() / 1000.0; // ViewportFills.cpp: kUnits
+            size = d.fill->box.size() * unit;
+        } else if (!d.text.isEmpty()) {
+            QFont letters = plain;
+            letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
+            const QFontMetricsF m(letters);
+            const QStringList lines = d.text.split('\n');
+            qreal wide = 0;
+            for (const QString& line : lines) wide = std::max(wide, m.horizontalAdvance(line));
+            size = QSizeF(wide, m.lineSpacing() * lines.size());
+        }
+        if (!size.isEmpty()) notes.push_back({key, point, size});
+    }
+    if (notes.empty()) return;
+    double middle = 0, leftmost = width(), rightmost = 0;
+    for (const Note& n : notes) middle += n.point.x() / notes.size(), leftmost = std::min(leftmost, n.point.x()), rightmost = std::max(rightmost, n.point.x());
+    // The columns stand clear of the parts themselves, not only of their points: the silhouette of every body a callout
+    // labels, its mesh's box turned and projected.
+    std::set<uint32_t> labelled;
+    for (const auto& [key, d] : drawings_)
+        if (d.leader && d.aside && d.object) labelled.insert(d.object);
+    const QMatrix4x4 vp = camera_.projection(float(width()) / std::max(1, height())) * camera_.view();
+    for (const ke::Frame::Body& b : snap_ ? snap_->bodies : std::vector<ke::Frame::Body>()) {
+        if (!b.mesh || !labelled.count(b.object)) continue;
+        const ke::AABB box = b.mesh->bounds();
+        for (int corner = 0; corner < 8; ++corner) {
+            const Vector3 local(corner & 1 ? box.hi.x : box.lo.x, corner & 2 ? box.hi.y : box.lo.y, corner & 4 ? box.hi.z : box.lo.z);
+            const Vector3 w = b.pos + b.rot.rotate(local);
+            const QVector4D clip = vp * QVector4D(w.x, w.y, w.z, 1);
+            if (clip.w() < 1e-3f) continue;
+            const double x = double(clip.x() / clip.w() + 1) * 0.5 * width();
+            leftmost = std::min(leftmost, x), rightmost = std::max(rightmost, x);
+        }
+    }
+    constexpr double aside = 36, gap = 10, edge = 8; // px: from the parts' silhouette, between notes, from the view's edge
+    for (const bool left : {true, false}) {
+        std::vector<Note> column;
+        for (const Note& n : notes)
+            if ((n.point.x() < middle) == left) column.push_back(n);
+        std::sort(column.begin(), column.end(), [](const Note& a, const Note& b) { return a.point.y() < b.point.y(); });
+        std::vector<double> top(column.size());
+        for (size_t i = 0; i < column.size(); ++i) { // each where its point is, its shelf at the point's height - pushed down past the one above
+            top[i] = column[i].point.y() - column[i].size.height() - 6;
+            if (i) top[i] = std::max(top[i], top[i - 1] + column[i - 1].size.height() + gap);
+            top[i] = std::max(top[i], edge);
+        }
+        for (size_t i = column.size(); i-- > 0;) { // and back up when the last ones ran past the view's bottom
+            const double limit = i + 1 < column.size() ? top[i + 1] - gap : height() - edge;
+            top[i] = std::min(top[i], limit - column[i].size.height());
+        }
+        for (size_t i = 0; i < column.size(); ++i) {
+            const double x = left ? std::max(edge, leftmost - aside - column[i].size.width()) : std::min(width() - edge - column[i].size.width(), rightmost + aside);
+            calloutAt_[column[i].key] = QRectF(QPointF(x, top[i]), column[i].size);
+        }
+    }
+}
+
+void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const Vector3&, QPointF&)>& screen) const {
+    (void)screen;
     QPointF tip;
-    if (label.isEmpty() || !screen(anchor, tip)) return;
+    if (label.isEmpty() || !leaderAnchor(d, tip)) return;
     const qreal y = label.bottom() + 4, left = label.left() - 3, right = label.right() + 3;
     const bool nearLeft = tip.x() < label.center().x();
     const QPointF from(nearLeft ? left : right, y); // the reference line's end nearer the part

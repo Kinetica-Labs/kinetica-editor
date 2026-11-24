@@ -171,12 +171,13 @@ void EditorOps::addInputOps() {
                          "leader: a line from the words or the picture to `point` of the part (its own frame, as it turns; no object: the world) - "
                          "a reference line under them, the line from its nearer end, a dot on the part (end dot), an arrow on its outline (arrow): "
                          "a drawing's callout, as ISO 128-22 and ГОСТ 2.316 draw them; its grow (0..1, 1) - how much is drawn, from the part, "
-                         "the line, then the reference line -, pulse (0..1) - a ring at the point that phase - and words (0..1, 1) - how much the "
+                         "the line, then the reference line -, place aside: laid out every frame with the other callouts so placed - two columns "
+                         "left and right of their points, each in its point's order from the top: no leaders cross -, pulse (0..1) - a ring at the point that phase - and words (0..1, 1) - how much the "
                          "words or the picture show - are a plugin's to animate it frame by frame. opacity (0..1, 1): the whole drawing's. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
-            "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none', grow?: number, pulse?: number, words?: number}, "
+            "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none', place?: 'here'|'aside', grow?: number, pulse?: number, words?: number}, "
             "opacity?: number, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
@@ -282,6 +283,9 @@ void EditorOps::addInputOps() {
             d.leaderGrow = float(std::clamp(leader.value("grow").toDouble(1), 0.0, 1.0));
             d.leaderPulse = leader.contains("pulse") ? float(std::clamp(leader.value("pulse").toDouble(), 0.0, 1.0)) : -1.0f;
             d.leaderWords = float(std::clamp(leader.value("words").toDouble(1), 0.0, 1.0));
+            const QString place = leader.value("place").toString("here");
+            if (place != "here" && place != "aside") return error("leader place: here (at `at`) or aside (laid out with the other callouts aside)");
+            d.aside = place == "aside";
         }
         d.opacity = float(std::clamp(a.value("opacity").toDouble(1), 0.0, 1.0));
         if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)

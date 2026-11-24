@@ -139,11 +139,11 @@ _CLICK = {"point": {"type": "vector", "label": "Точка щелчка", "unit"
 
 
 def _leader(leader):
-    """view_draw's leader from draw's: {"point": (x, y, z), "end": "dot" | "arrow" | "none"} and, for an animation drawn
-    frame by frame, "grow", "pulse" and "words" (0..1) - none given: no line."""
+    """view_draw's leader from draw's: {"point": (x, y, z), "end": "dot" | "arrow" | "none", "place": "here" | "aside"}
+    and, for an animation drawn frame by frame, "grow", "pulse" and "words" (0..1) - none given: no line."""
     if leader is None:
         return {}
-    out = {"point": _xyz([leader.get("point", (0, 0, 0))])[0], "end": str(leader.get("end", "dot"))}
+    out = {"point": _xyz([leader.get("point", (0, 0, 0))])[0], "end": str(leader.get("end", "dot")), "place": str(leader.get("place", "here"))}
     out.update({k: float(leader[k]) for k in ("grow", "pulse", "words") if leader.get(k) is not None})
     return {"leader": out}
 

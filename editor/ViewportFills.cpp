@@ -81,6 +81,7 @@ bool Viewport::objectPose(uint32_t id, ke::Vector3& position, ke::Quaternion& ro
 void Viewport::drawOverlayFills(QPainter& p) {
     fillsDrawn_.clear();
     if (drawings_.empty()) return;
+    arrangeCallouts(p); // the callouts placed aside, for this frame (the words' too: drawOverlayMarks comes after)
     const QSizeF view(width(), height());
     const QMatrix4x4 vp = camera_.projection(float(view.width() / std::max(1.0, view.height()))) * camera_.view();
     p.save();
@@ -109,7 +110,11 @@ void Viewport::drawOverlayFills(QPainter& p) {
             to = QTransform().translate(on.x(), on.y()).scale(unit, unit);
         }
         const QRectF& box = d.fill->box;
-        const QPolygonF drawn = to.map(QPolygonF(QVector<QPointF>{box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()}));
+        QPolygonF drawn = to.map(QPolygonF(QVector<QPointF>{box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()}));
+        if (const auto placed = calloutAt_.find(key); placed != calloutAt_.end()) { // laid out aside: moved there whole
+            const QPointF shift = placed->second.topLeft() - drawn.boundingRect().topLeft();
+            to = to * QTransform::fromTranslate(shift.x(), shift.y()), drawn.translate(shift);
+        }
         if (!drawn.boundingRect().intersects(QRectF(QPointF(0, 0), view))) continue; // out of the view
         p.setOpacity(d.opacity * (d.leader ? d.leaderWords : 1.0f));
         p.setPen(Qt::NoPen);
