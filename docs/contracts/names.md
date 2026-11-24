@@ -85,7 +85,7 @@
 | `gizmo` | гизмо вида | stable |
 | `journal` | журнал правок | stable |
 | `ops` | сами операции: список, справка | stable |
-| `plots` | вкладка «Графики»: что видно, раскладки (вид окна, не сцена) | testing |
+| `plots` | вкладка «Графики»: что видно, раскладки (вид окна, не сцена) | stable  |
 | `plugin` | плагины: запуск, регистрация, новые | stable |
 | `robot` | команды роботу | stable |
 | `runtime` | среда исполнения: фоновые задачи, пределы | stable |
@@ -122,14 +122,14 @@
 | `action`               | `str`    | действие: имя действия управления у контроллера; у `ui_key`, `ui_pointer` - что делают клавиша или мышь (значения - у операции) | stable   |            |
 | `active`               | `bool`   | секвенция открыта в Секвенсоре                                                                                                  | stable   |            |
 | `anchor`               | `[3]`    | точка мира, где сустав или привод держит тела, м                                                                                | stable   |            |
-| `args`                 | `{}`     | аргументы операции, как она их принимает                                                                                        | testing  |            |
+| `args`                 | `{}`     | аргументы операции, как она их принимает                                                                                        | stable   |            |
 | `at`                   | `int`    | объект, на который смотрит камера                                                                                               | obsolete | `target`   |
 | `at`                   | `[3]`    | точка мира, у которой ставят свет, силу или рисунок, м                                                                          | obsolete | `position` |
 | `axis`                 | `int`    | ось коробки: 0 - x, 1 - y, 2 - z                                                                                                | stable   |            |
 | `axis`                 | `[3]`    | направление оси в мире, не обязательно единичное                                                                                | stable   |            |
 | `axis`                 | `any`    | ось поворота: слово x, y, z или направление [x, y, z]                                                                           | stable   |            |
 | `b`                    | `int`    | второе тело сустава или привода - опора; 0 - мир                                                                                | stable   |            |
-| `background`           | `[4]`    | подложка под словами рисунка, [r, g, b, a] - как у субтитров (WebVTT, OBS)                                                      | testing  |            |
+| `background`           | `[4]`    | подложка под словами рисунка, [r, g, b, a] - как у субтитров (WebVTT, OBS)                                                      | stable   |            |
 | `baseline`             | `number` | база стереокамеры - расстояние между объективами, м                                                                             | stable   |            |
 | `basis`                | `[[]]`   | поворот строками матрицы 3x3                                                                                                    | stable   |            |
 | `battery`              | `int`    | батарея                                                                                                                         | stable   |            |
@@ -140,17 +140,17 @@
 | `by`                   | `[3]`    | на сколько сдвинуть по x, y, z, м                                                                                               | stable   |            |
 | `by`                   | `any`    | во сколько раз: число или по осям [x, y, z]                                                                                     | stable   |            |
 | `camera`               | `int`    | камера сцены                                                                                                                    | stable   |            |
-| `cards`                | `bool`   | карточки поверх вида показаны: плашки шагов, титры, свечение детали (`view_show`)                                               | testing  |            |
+| `cards`                | `bool`   | карточки поверх вида показаны: плашки шагов, титры, свечение детали (`view_show`)                                               | stable   |            |
 | `circle`               | `{}`     | окружность рисунка `{centre, radius, axis}`, м                                                                                  | stable   |            |
 | `clean`                | `bool`   | снимок без надписей и куба поверх вида                                                                                          | stable   |            |
 | `clear`                | `bool`   | убрать рисунки, чьё имя начинается так                                                                                          | stable   |            |
-| `channels`             | `[]`     | величины графиков по их id (`plots_get` channels)                                                                               | testing  |            |
+| `channels`             | `[]`     | величины графиков по их id (`plots_get` channels)                                                                               | stable   |            |
 | `chase`                | `bool`   | камера преследования: позади тела по его курсу, догоняет с запаздыванием (`view_follow`)                                        | stable   |            |
 | `close`                | `bool`   | закрыть схват; false - открыть                                                                                                  | stable   |            |
 | `color`                | `[3]`    | цвет [r, g, b], каждое 0-1 - слово файла сцены и всех стандартов 3D                                                             | stable   |            |
 | `colour`               | `[3]`    | цвет [r, g, b], каждое 0-1                                                                                                      | obsolete | `color`    |
 | `commands`             | `{}`     | команды исполнителям робота по их id: `{"7": {...}}`                                                                            | stable   |            |
-| `concavity`            | `number` | насколько выпуклая часть может выступать в воздух за тело, доля его диагонали, 0,005..0,5 (`scene_collider`)                    | testing  |            |
+| `concavity`            | `number` | насколько выпуклая часть может выступать в воздух за тело, доля его диагонали, 0,005..0,5 (`scene_collider`)                    | stable   |            |
 | `constant`             | `number` | постоянная мотора, Н·м/А                                                                                                        | stable   |            |
 | `count`                | `int`    | сколько: копий в массиве, слов после ключа                                                                                      | stable   |            |
 | `cursor`               | `bool`   | двигать и настоящий курсор человека                                                                                             | stable   |            |
@@ -158,10 +158,10 @@
 | `damping`              | `number` | демпфирование привода, Н·м·с/рад или Н·с/м                                                                                      | stable   |            |
 | `degrees`              | `number` | угол, градусы                                                                                                                   | stable   |            |
 | `density`              | `number` | плотность твёрдого тела, кг/м³                                                                                                  | stable   |            |
-| `delete`               | `str`    | убрать сохранённое под этим именем (`plots_set`: раскладку графиков)                                                            | testing  |            |
+| `delete`               | `str`    | убрать сохранённое под этим именем (`plots_set`: раскладку графиков)                                                            | stable   |            |
 | `diameter`             | `number` | диаметр, м                                                                                                                      | stable   |            |
 | `dof`                  | `str`    | степень свободы: tx, ty, tz - сдвиг, rx, ry, rz - поворот                                                                       | stable   |            |
-| `drawings`             | `bool`   | рисунки плагинов и агента поверх вида показаны (`view_show`)                                                                    | testing  |            |
+| `drawings`             | `bool`   | рисунки плагинов и агента поверх вида показаны (`view_show`)                                                                    | stable   |            |
 | `effector`             | `int`    | звено-эффектор цепи (кисть)                                                                                                     | stable   |            |
 | `encoder`              | `number` | энкодер колеса, линий на оборот; 0 - без энкодера                                                                               | stable   |            |
 | `eye`                  | `[3]`    | где стоит глаз камеры, м                                                                                                        | stable   |            |
@@ -179,13 +179,13 @@
 | `frames`               | `int`    | кадров симуляции - её шагов                                                                                                     | stable   |            |
 | `free`                 | `bool`   | камера снова свободная - не следит за объектом                                                                                  | stable   |            |
 | `from`                 | `number` | начало показанного времени секвенсора, с                                                                                        | stable   |            |
-| `glide`                | `number` | перелёт камеры вида, с: плавно, с разгоном и торможением (smooth view)                                                          | testing  |            |
-| `glow`                 | `number` | свечение рисунка 0..1: ореол его цвета вокруг слов, выноски, картинки; рисунок из одного объекта - светится сама деталь         | testing  |            |
+| `glide`                | `number` | перелёт камеры вида, с: плавно, с разгоном и торможением (smooth view)                                                          | stable   |            |
+| `glow`                 | `number` | свечение рисунка 0..1: ореол его цвета вокруг слов, выноски, картинки; рисунок из одного объекта - светится сама деталь         | stable   |            |
 | `goal`                 | `int`    | цель обратной кинематики                                                                                                        | stable   |            |
 | `goals`                | `[int]`  | цели обратной кинематики                                                                                                        | stable   |            |
 | `group`                | `[int]`  | объекты, замеряемые вместе                                                                                                      | stable   |            |
 | `height`               | `number` | высота: м у формы, пикселей у кадра камеры                                                                                      | stable   |            |
-| `hulls`                | `int`    | выпуклых частей не больше у движущегося тела с коллайдером-сеткой, 1..64 (`scene_collider`)                                     | testing  |            |
+| `hulls`                | `int`    | выпуклых частей не больше у движущегося тела с коллайдером-сеткой, 1..64 (`scene_collider`)                                     | stable   |            |
 | `id`                   | `int`    | объект сцены, над которым действие; 0 - никакой                                                                                 | stable   |            |
 | `idle_timeout_ms`      | `number` | через сколько без запросов закрыться, мс                                                                                        | stable   |            |
 | `ids`                  | `[int]`  | объекты сцены, над которыми действие; все - одним шагом отмены                                                                  | stable   |            |
@@ -198,10 +198,10 @@
 | `key`                  | `str`    | имя: ключ строки сцены, имя рисунка или клавиша - по операции                                                                   | stable   |            |
 | `kind`                 | `str`    | вид того, что делают или о чём спрашивают; значения - у операции                                                                | stable   |            |
 | `kinematic`            | `bool`   | тело ведут ключи и код, а не силы                                                                                               | stable   |            |
-| `labels`               | `bool`   | формулы и надписи в сцене показаны: выноски, формулы, подписи, линии плагинов (`view_show`)                                     | testing  |            |
+| `labels`               | `bool`   | формулы и надписи в сцене показаны: выноски, формулы, подписи, линии плагинов (`view_show`)                                     | stable   |            |
 | `last`                 | `int`    | сколько последних строк                                                                                                         | stable   |            |
 | `layout`               | `str`    | раскладка клавиатуры: us, ru                                                                                                    | stable   |            |
-| `leader`               | `{}`     | линия-выноска от надписи или рисунка к точке детали: point - в осях объекта, end - dot, arrow или none (ISO 128-22, ГОСТ 2.316) | testing  |            |
+| `leader`               | `{}`     | линия-выноска от надписи или рисунка к точке детали: point - в осях объекта, end - dot, arrow или none (ISO 128-22, ГОСТ 2.316) | stable   |            |
 | `line`                 | `int`    | номер строки журнала                                                                                                            | stable   |            |
 | `line`                 | `str`    | первые слова строки файла сцены - её вид                                                                                        | stable   |            |
 | `line`                 | `[[]]`   | ломаная через точки мира `[[x, y, z], ...]`, м                                                                                  | obsolete | `points`   |
@@ -223,10 +223,10 @@
 | `object`               | `int`    | объект-владелец рисунка: рисунок едет с ним                                                                                     | stable   |            |
 | `objects`              | `[int]`  | объекты                                                                                                                         | stable   |            |
 | `offset`               | `[3]`    | смещение от центра объекта в его осях, м                                                                                        | stable   |            |
-| `orbit`                | `number` | облёт камеры вокруг цели, градусов в секунду, пока человек не возьмёт вид (turntable)                                           | testing  |            |
-| `op`                   | `str`    | имя операции (`console_type`: чей вызов набрать)                                                                                | testing  |            |
+| `orbit`                | `number` | облёт камеры вокруг цели, градусов в секунду, пока человек не возьмёт вид (turntable)                                           | stable   |            |
+| `op`                   | `str`    | имя операции (`console_type`: чей вызов набрать)                                                                                | stable   |            |
 | `on`                   | `bool`   | включить; false - выключить                                                                                                     | stable   |            |
-| `opacity`              | `number` | непрозрачность рисунка поверх вида, 0..1 (1) - плагин гасит и проявляет                                                         | testing  |            |
+| `opacity`              | `number` | непрозрачность рисунка поверх вида, 0..1 (1) - плагин гасит и проявляет                                                         | stable   |            |
 | `open_force`           | `number` | сила, с которой схват открывается, Н                                                                                            | stable   |            |
 | `ops`                  | `[]`     | операции пакета `[{op, args, as?}]` - одним шагом отмены; `as` - имя шага для ссылок `"$имя"`                                   | stable   |            |
 | `overrides`            | `[]`     | переопределения частей сборки: `{name, line, key, values}` - `scene_set` по имени детали внутри неё (как prefab overrides)      | stable   |            |
@@ -239,8 +239,8 @@
 | `position`             | `[3]`    | где стоит объект или цель, м                                                                                                    | stable   |            |
 | `power`                | `bool`   | у колеса есть мотор                                                                                                             | stable   |            |
 | `preset`               | `str`    | имя заготовки                                                                                                                   | stable   |            |
-| `reset`                | `bool`   | вернуть обычный вид: у `plots_set` - все графики, без приближения, вживую                                                       | testing  |            |
-| `save`                 | `str`    | сохранить как есть под этим именем (`plots_set`: вид графиков)                                                                  | testing  |            |
+| `reset`                | `bool`   | вернуть обычный вид: у `plots_set` - все графики, без приближения, вживую                                                       | stable   |            |
+| `save`                 | `str`    | сохранить как есть под этим именем (`plots_set`: вид графиков)                                                                  | stable   |            |
 | `quaternion`           | `[4]`    | поворот кватернионом [w, x, y, z]                                                                                               | stable   |            |
 | `quaternions`          | `[[]]`   | повороты кватернионами `[[w, x, y, z], ...]`                                                                                    | stable   |            |
 | `radius`               | `number` | радиус, м                                                                                                                       | stable   |            |
@@ -269,7 +269,7 @@
 | `start`                | `[3]`    | начальная точка, м                                                                                                              | stable   |            |
 | `start_quaternion`     | `[4]`    | начальный поворот [w, x, y, z]                                                                                                  | stable   |            |
 | `start_turn`           | `[3]`    | начальный поворот углами Эйлера, градусы                                                                                        | stable   |            |
-| `state`                | `bool`   | sim_step: ответить живым состоянием (по умолчанию да); нет - только время, кадр и сколько шагнуто                               | testing  |            |
+| `state`                | `bool`   | sim_step: ответить живым состоянием (по умолчанию да); нет - только время, кадр и сколько шагнуто                               | stable   |            |
 | `step`                 | `[3]`    | шаг между копиями по x, y, z, м                                                                                                 | stable   |            |
 | `stiffness`            | `number` | жёсткость привода, Н·м/рад или Н/м                                                                                              | stable   |            |
 | `strength`             | `number` | сила поля: м/с у толчка, м/с² у постоянной силы                                                                                 | stable   |            |
@@ -281,7 +281,7 @@
 | `target`               | `number` | уставка привода, рад или м                                                                                                      | stable   |            |
 | `target`               | `[3]`    | точка, на которую смотрят, м                                                                                                    | stable   |            |
 | `text`                 | `str`    | текст                                                                                                                           | stable   |            |
-| `title`                | `str`    | заголовок над словами рисунка: малые жирные прописные, карточка моушен-дизайна (lower third)                                    | testing  |            |
+| `title`                | `str`    | заголовок над словами рисунка: малые жирные прописные, карточка моушен-дизайна (lower third)                                    | stable   |            |
 | `time`                 | `number` | время, с                                                                                                                        | stable   |            |
 | `to`                   | `int`    | объект, к которому идёт связь; 0 - мир                                                                                          | stable   |            |
 | `to`                   | `[3]`    | вторая точка мира - конец отрезка, м                                                                                            | stable   |            |
@@ -297,7 +297,7 @@
 | `values`               | `{}`     | значения по именам                                                                                                              | stable   |            |
 | `velocity`             | `number` | скорость привода, рад/с или м/с                                                                                                 | stable   |            |
 | `velocity`             | `[3]`    | скорость ключа [x, y, z], м/с: наклон плавного ключа, его ручки Безье в кривых                                                  | stable   |            |
-| `view`                 | `{}`     | вид графиков одним значением, как его отдаёт `plots_get`                                                                        | testing  |            |
+| `view`                 | `{}`     | вид графиков одним значением, как его отдаёт `plots_get`                                                                        | stable   |            |
 | `voltage`              | `number` | напряжение, В                                                                                                                   | stable   |            |
 | `width`                | `int`    | ширина снимка, пикселей                                                                                                         | stable   |            |
 | `width`                | `number` | ширина кадра камеры, пикселей                                                                                                   | stable   |            |
@@ -311,11 +311,11 @@
 
 ### stable
 
-`app_quit` `assembly_actuator` `assembly_add` `assembly_attach` `assembly_camera` `assembly_can_reach` `assembly_drive` `assembly_encoder` `assembly_goal` `assembly_goal_pose` `assembly_grip` `assembly_joint` `assembly_list` `assembly_path` `assembly_power` `assembly_preset` `assembly_presets` `assembly_preview` `assembly_reach` `assembly_save` `assembly_sensor` `assembly_snap` `assembly_suggest` `assembly_wheel` `camera_aim` `component_list` `component_remove` `component_set` `console_note` `controller_add` `controller_input` `edit_redo` `edit_undo` `force_fire` `gizmo_get` `gizmo_set` `journal_lines` `journal_restore` `journal_sessions` `ops_list` `plugin_list` `plugin_new` `plugin_reload` `plugin_scan` `relation_list` `robot_command` `runtime_configure` `runtime_keepalive` `runtime_status` `runtime_stop` `scene_add` `scene_add_camera` `scene_add_force` `scene_add_light` `scene_array` `scene_batch` `scene_collider` `scene_delete` `scene_describe` `scene_duplicate` `scene_get` `scene_group` `scene_list` `scene_move` `scene_new` `scene_open` `scene_put` `scene_remove` `scene_role` `scene_save` `scene_scale` `scene_set` `scene_show_all` `scene_tag` `scene_turn` `scene_ungroup` `schema_get` `schema_list` `script_run` `script_stop` `selection_get` `selection_set` `sensor_models` `sensor_read` `sensor_spec` `sequence_add` `sequence_clear` `sequence_delete_key` `sequence_frame` `sequence_get` `sequence_key` `sequence_key_set` `sequence_seek` `sequence_set` `sim_impulse` `sim_measure` `sim_pause` `sim_play` `sim_record` `sim_state` `sim_step` `sim_stop` `ui_actions` `ui_key` `ui_pointer` `ui_trigger` `ui_type` `view_draw` `view_frame` `view_get` `view_hud` `view_look` `view_measure` `view_project` `view_screenshot` `view_through` `world_get` `world_set`
+`app_quit` `assembly_actuator` `assembly_add` `assembly_attach` `assembly_camera` `assembly_can_reach` `assembly_check` `assembly_describe` `assembly_drive` `assembly_encoder` `assembly_goal` `assembly_goal_pose` `assembly_grip` `assembly_joint` `assembly_list` `assembly_path` `assembly_power` `assembly_preset` `assembly_presets` `assembly_preview` `assembly_reach` `assembly_save` `assembly_sensor` `assembly_snap` `assembly_suggest` `assembly_wheel` `camera_aim` `component_list` `component_remove` `component_set` `console_note` `console_type` `controller_add` `controller_input` `edit_redo` `edit_undo` `force_fire` `gizmo_get` `gizmo_set` `journal_lines` `journal_restore` `journal_sessions` `ops_list` `plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `plugin_list` `plugin_new` `plugin_reload` `plugin_scan` `relation_list` `robot_command` `runtime_configure` `runtime_keepalive` `runtime_status` `runtime_stop` `scene_add` `scene_add_camera` `scene_add_force` `scene_add_light` `scene_array` `scene_batch` `scene_collider` `scene_delete` `scene_describe` `scene_duplicate` `scene_get` `scene_group` `scene_list` `scene_move` `scene_new` `scene_open` `scene_put` `scene_remove` `scene_role` `scene_save` `scene_scale` `scene_set` `scene_show_all` `scene_tag` `scene_turn` `scene_ungroup` `schema_get` `schema_list` `script_run` `script_stop` `selection_get` `selection_set` `sensor_models` `sensor_read` `sensor_spec` `sequence_add` `sequence_clear` `sequence_delete_key` `sequence_frame` `sequence_get` `sequence_key` `sequence_key_set` `sequence_seek` `sequence_set` `sim_impulse` `sim_measure` `sim_pause` `sim_play` `sim_record` `sim_state` `sim_step` `sim_stop` `ui_actions` `ui_key` `ui_pointer` `ui_trigger` `ui_type` `view_draw` `view_follow` `view_frame` `view_get` `view_hud` `view_look` `view_measure` `view_project` `view_screenshot` `view_show` `view_through` `world_get` `world_set`
 
 ### testing
 
-`assembly_check` `assembly_describe` `console_type` `plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `view_follow` `view_show`
+нет
 
 ### obsolete
 
@@ -360,7 +360,7 @@
 | `chase` | камера преследования включена | stable |  |
 | `completed_frames` | сколько кадров сделано | stable |  |
 | `components` | компоненты `[{id, type, values}]` | stable |  |
-| `concavity` | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела (`scene_collider`) | testing |  |
+| `concavity` | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела (`scene_collider`) | stable  |  |
 | `contacts` | касания тел `[{a, b, depth, force, points}]` | stable |  |
 | `coordinates` | координаты сустава по шести степеням свободы, м и рад | stable |  |
 | `count` | счёт: энкодера, сколько чего | stable |  |
@@ -399,8 +399,8 @@
 | `hidden_instance_limit` | сколько скрытых окон пользователь может держать сразу | stable |  |
 | `hidden_lease_remaining_ms` | сколько осталось скрытому окну до выхода без вызовов, мс (-1: окно не скрытое) | stable |  |
 | `housing` | корпус стереокамеры - id формы | stable |  |
-| `hulls` | выпуклых частей не больше у движущейся сетки (`scene_collider`) | testing |  |
-| `hulls_made` | сколько выпуклых частей вышло у движущейся сетки (`scene_collider`) | testing |  |
+| `hulls` | выпуклых частей не больше у движущейся сетки (`scene_collider`) | stable  |  |
+| `hulls_made` | сколько выпуклых частей вышло у движущейся сетки (`scene_collider`) | stable  |  |
 | `id` | объект сцены; у канала замера - его путь (строка) | stable |  |
 | `idle_expired` | аренда истекла: вызовов не было дольше `idle_timeout_ms` | stable |  |
 | `idle_ms` | сколько прошло с последнего вызова, мс | stable |  |
@@ -451,7 +451,7 @@
 | `problem` | неисправность датчика: текст, пусто - нет | stable |  |
 | `protocol_version` | версия протокола в ответе `ops_list`: клиент, собранный под N, работает с программой N и новее; нет поля - 0 | stable |  |
 | `range` | значения кривых секвенсора [низ, верх] | stable |  |
-| `ranges` | дальности лучей лидара по порядку, м (-1: ничего в пределах) | testing |  |
+| `ranges` | дальности лучей лидара по порядку, м (-1: ничего в пределах) | stable  |  |
 | `reading` | показание датчика - в его единице | stable |  |
 | `realtime` | секунд сцены за секунду часов за последнюю секунду (0: правка) | stable |  |
 | `redone` | повтор сделан | stable |  |
@@ -479,7 +479,7 @@
 | `streams` | потоков камер сейчас | stable |  |
 | `strut` | стойка колеса | stable |  |
 | `tags` | метки | stable |  |
-| `folder` | папка, где ищутся относительные пути файлов сцены (модели, текстуры); "" - рабочая папка программы | testing |  |
+| `folder` | папка, где ищутся относительные пути файлов сцены (модели, текстуры); "" - рабочая папка программы | stable  |  |
 | `text` | текст: файл сцены | stable |  |
 | `time` | время мира, с | stable |  |
 | `to` | объект, к которому идёт связь; 0 - мир; у `sequence_frame` - конец показанного времени, с | stable |  |
@@ -552,7 +552,7 @@ by Kinetica X, newer than this program (Y)…».
 | `collider` | часть | коллайдер: форма контакта | stable |  |
 | `color` | pose, shape | цвет [r, g, b], 0-1 | stable |  |
 | `component` | часть | компонент плагина `плагин.имя` и его поля - слова плагина | stable |  |
-| `concavity` | collider | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела | testing |  |
+| `concavity` | collider | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела | stable  |  |
 | `cone` | shape; kind | конус; у прожектора - угол конуса, градусы | stable |  |
 | `constant` | effect; dcmotor | постоянная сила; у мотора - постоянная, Н·м/А | stable |  |
 | `contact_damping` | physics | демпфирование контакта, доля критического | stable |  |
@@ -601,7 +601,7 @@ by Kinetica X, newer than this program (Y)…».
 | `height` | stereo | высота кадра, пикселей | stable |  |
 | `height_file` | texture | файл карты высот | stable |  |
 | `hull` | collider | выпуклая оболочка сетки | stable |  |
-| `hulls` | collider | выпуклых частей не больше у движущейся сетки | testing |  |
+| `hulls` | collider | выпуклых частей не больше у движущейся сетки | stable  |  |
 | `id` | object | id объекта | stable |  |
 | `ignores` | часть | метки того, с чем у коллайдера нет контакта | stable |  |
 | `image` | texture | картинка из файла | stable |  |
@@ -625,7 +625,7 @@ by Kinetica X, newer than this program (Y)…».
 | `left` | bind | левая кнопка мыши | stable |  |
 | `left_stick` | bind | левый стик геймпада | stable |  |
 | `lens` | часть | объектив камеры | stable |  |
-| `lidar` | датчик | лидар: лучи по паспорту (`rays_h`, `fov_h_deg`, `rays_v`, `fov_v_deg`) - луч, круг, сфера, фонарик | testing |  |
+| `lidar` | датчик | лидар: лучи по паспорту (`rays_h`, `fov_h_deg`, `rays_v`, `fov_v_deg`) - луч, круг, сфера, фонарик | stable  |  |
 | `lift` | action | ведёт цель вверх и вниз | stable |  |
 | `light` | строка | свет | stable |  |
 | `limit` | часть; bridge | ограниченная степень сустава; у драйвера - предел тока, А | stable |  |
@@ -718,7 +718,7 @@ by Kinetica X, newer than this program (Y)…».
 | `texture` | часть | текстура формы | stable |  |
 | `time` | clip, key | время, с | stable |  |
 | `toggle` | bind | нажатие переключает | stable |  |
-| `torque` | effect | момент: крутит тело, на котором стоит, вокруг своей оси +Y | testing |  |
+| `torque` | effect | момент: крутит тело, на котором стоит, вокруг своей оси +Y | stable  |  |
 | `touch` | датчик | датчик касания | stable |  |
 | `track` | часть | дорожка секвенции - объект | stable |  |
 | `trigger` | collider | только замечает касание, не толкает | stable |  |
@@ -749,13 +749,13 @@ by Kinetica X, newer than this program (Y)…».
 
 | Имя | Что, операция | Ступень |
 |---|---|---|
-| `api_token` | токен окна на порту, с которым оно пускает соединение: `KE_API_TOKEN`, иначе файл `<app data>/api/<порт>.token` | testing |
+| `api_token` | токен окна на порту, с которым оно пускает соединение: `KE_API_TOKEN`, иначе файл `<app data>/api/<порт>.token` | stable  |
 | `Battery` | батарея | stable |
 | `Body` | форма с ролями: твёрдое тело, коллайдер | stable |
 | `Body.add_controller` | контроллер цели - `controller_add` | stable |
 | `Body.add_goal` | цель ИК для эффектора - `assembly_goal` | stable |
 | `Body.add_imu` | IMU на грань - `assembly_sensor` | stable |
-| `Body.add_lidar` | лидар на грань - `assembly_sensor` | testing |
+| `Body.add_lidar` | лидар на грань - `assembly_sensor` | stable  |
 | `Body.add_sonar` | дальномер на грань - `assembly_sensor` | stable |
 | `Body.add_touch` | датчик касания на грань - `assembly_sensor` | stable |
 | `Body.add_wheel` | колесо - `assembly_wheel` | stable |
@@ -785,12 +785,12 @@ by Kinetica X, newer than this program (Y)…».
 | `Core` | связь с `kinetica-core` по каналам | stable |
 | `Core.call` | ответ одной операции | stable |
 | `Core.close` | закрыть `kinetica-core` | stable |
-| `data_folder` | папка данных пользователя редактора (журнал, плагины, сборки, токены API) | testing |
+| `data_folder` | папка данных пользователя редактора (журнал, плагины, сборки, токены API) | stable  |
 | `draw.box` | рёбра коробки в виде | stable |
 | `draw.circle` | окружность в виде | stable |
 | `draw.clear` | убрать свои рисунки | stable |
 | `draw.fill` | залитый рисунок - `view_draw {fill}` | stable |
-| `draw.glow` | свечение самой детали в виде - `view_draw {object, glow}` | testing |
+| `draw.glow` | свечение самой детали в виде - `view_draw {object, glow}` | stable  |
 | `draw.label` | надпись у точки мира | stable |
 | `draw.line` | ломаная в виде | stable |
 | `draw.points` | точки в виде | stable |
@@ -830,7 +830,7 @@ by Kinetica X, newer than this program (Y)…».
 | `on_change` | вызов, когда компонент плагина поставили, изменили или сняли | stable |
 | `on_play` | вызов при ▶ | stable |
 | `on_stop` | вызов при ■ Стоп | stable |
-| `on_quit` | вызов, когда плагин кончается: редактор закрыт, перезапускает плагин или пропал - остановить прибор, закрыть порт | testing |
+| `on_quit` | вызов, когда плагин кончается: редактор закрыт, перезапускает плагин или пропал - остановить прибор, закрыть порт | stable  |
 | `on_tick` | вызов каждого кадра, пока сцена играет | stable |
 | `OperationError` | ошибка операции: `{ok: false, error}` | stable |
 | `Operations` | любая операция по имени: `ed.<операция>(**аргументы)` | stable |
@@ -897,9 +897,9 @@ by Kinetica X, newer than this program (Y)…».
 | `Sensor.spec` | паспорт `{ключ: число}` | stable |
 | `show` | значения и слова панели из плагина - `plugin_panel_set` | stable |
 | `Sonar` | ультразвуковой дальномер | stable |
-| `Lidar` | лидар: лучи по паспорту, дальность каждого | testing |
+| `Lidar` | лидар: лучи по паспорту, дальность каждого | stable  |
 | `Touch` | датчик касания | stable |
-| `tr` | слово плагина на языке окна: его перевод из каталога плагина `i18n/<язык>.json`, иначе само слово | testing |
+| `tr` | слово плагина на языке окна: его перевод из каталога плагина `i18n/<язык>.json`, иначе само слово | stable  |
 | `ui` | панель плагина как данные | stable |
 | `ui.button` | кнопка - команда | stable |
 | `ui.chart` | график: линии - значения панели; по времени прогона, а с `x` - по шагу (поколению, итерации); рисует вкладка «Графики», в разделе плагина | stable |
@@ -957,9 +957,9 @@ Python. Короткие имена параметров, которые дос�
 | `n` | подшагов физики на кадр | obsolete | `substeps` |
 | `obj` | объект сцены | stable |  |
 | `op` | имя операции | stable |  |
-| `obsolete` | имя операции, которой команда заменена: старое имя отвечает, но кнопки и формата у неё нет | testing |  |
+| `obsolete` | имя операции, которой команда заменена: старое имя отвечает, но кнопки и формата у неё нет | stable  |  |
 | `opens` | расширения файлов, которые команда открывает | stable |  |
-| `saves` | расширения файлов, которые команда пишет: «Файл → Экспорт…» | testing |  |
+| `saves` | расширения файлов, которые команда пишет: «Файл → Экспорт…» | stable  |  |
 | `outlines` | контуры заливки: строки `M x y L x y C x1 y1 x2 y2 x y Z` | stable |  |
 | `port` | порт API окна | stable |  |
 | `pose` | поза: `targets` - уставки приводов, `pose` - сразу | stable |  |
