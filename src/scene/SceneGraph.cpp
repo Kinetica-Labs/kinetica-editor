@@ -1,7 +1,7 @@
 // Saving and loading a SceneGraph as text: one line per fact, so a scene file can be read, edited
 // by hand and compared with diff. A sample:
 //
-//   # Kinetica scene
+//   # Kinetica scene (Kinetica 0.2.0)
 //   world gravity 0 -9.81 0 size 4 3 4 [duration 10] [record_from 2]
 //   physics substeps 16 contact_hertz 120 contact_damping 10 joint_hertz 240 joint_damping 2 sleeping 1 continuous 1 linear_damping 0 angular_damping 0
 //   entity "Base"
@@ -63,6 +63,7 @@
 #include "scene/ArgsSchema.h"
 #include "scene/SensorSpec.h"
 
+#include <array>
 #include <cstdlib>
 #include <sstream>
 #include <type_traits>
@@ -521,9 +522,32 @@ static std::string worldLine(const WorldSettings& w) {
 
 std::string worldText(const WorldSettings& w) { return worldLine(w) + physicsText(w.physics); }
 
+// The program that writes or reads: its version as the first line of a file names it. Words only grow
+// (docs/contracts/names.md), so a file of an older program always reads; a newer one's may hold a word this program
+// does not know, and the first line then says whose it is - a comment, which every program skips, as Blender keeps
+// the version that saved a .blend.
+using Version = std::array<int, 3>;
+constexpr Version kProgram{KE_VERSION_MAJOR, KE_VERSION_MINOR, KE_VERSION_PATCH};
+
+static std::string versionText(const Version& v) {
+    return std::to_string(v[0]) + "." + std::to_string(v[1]) + "." + std::to_string(v[2]);
+}
+
+// From the first line "# Kinetica scene (Kinetica 0.3.1)"; {0, 0, 0} when it does not say.
+static Version writtenBy(const std::string& text) {
+    const std::string first = text.substr(0, text.find('\n'));
+    const size_t at = first.find("(Kinetica ");
+    if (first.rfind("# Kinetica scene", 0) != 0 || at == std::string::npos) return {0, 0, 0};
+    Version v{};
+    char dot = 0, dot2 = 0;
+    std::istringstream in(first.substr(at + 10));
+    in >> v[0] >> dot >> v[1] >> dot2 >> v[2];
+    return in && dot == '.' && dot2 == '.' ? v : Version{0, 0, 0};
+}
+
 std::string SceneGraph::save() const {
     std::ostringstream o;
-    o << "# Kinetica scene\n";
+    o << "# Kinetica scene (Kinetica " << versionText(kProgram) << ")\n";
     o << worldLine(world);
     if (physicsText(world.physics) != physicsText(PhysicsSettings{})) o << physicsText(world.physics);
     for (const Entity& e : entities) saveEntity(o, e);
@@ -1284,6 +1308,10 @@ bool SceneGraph::load(const std::string& text, std::string& error) {
             const size_t hint = bad.find(kHint);
             error = "line " + std::to_string(number) + ": cannot read '" + bad.substr(0, hint) + "'" +
                     (hint == std::string::npos ? std::string() : " - " + bad.substr(hint + 1));
+            const Version by = writtenBy(text);
+            if (by > kProgram)
+                error += " - the file was written by Kinetica " + versionText(by) + ", newer than this program (" + versionText(kProgram) +
+                         "): open it there, or update this one";
             return false;
         }
     }

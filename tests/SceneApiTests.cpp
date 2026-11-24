@@ -316,6 +316,12 @@ void testSceneApiFiles() {
     std::ofstream(fs::path(base) / "bad.kscene") << "this is not a scene\nfoo bar\n";
     CHECK(refused("scene_open", base + "/bad.kscene") == "line 1: cannot read 'this'", "a scene that does not parse keeps the core's words");
     CHECK(scene.graph().entities.size() == 2, "a failed open changes nothing");
+    std::ofstream(fs::path(base) / "newer.kscene") << "# Kinetica scene (Kinetica 99.0.0)\nhologram size 1\n";
+    CHECK(refused("scene_open", base + "/newer.kscene").find("line 2: cannot read 'hologram' - the file was written by Kinetica 99.0.0, newer than this program") == 0,
+          "a word of a newer program is refused naming the program that wrote it");
+    std::ofstream(fs::path(base) / "older.kscene") << "# Kinetica scene (Kinetica 0.0.1)\nhologram size 1\n";
+    CHECK(refused("scene_open", base + "/older.kscene") == "line 2: cannot read 'hologram'", "an older program's file is not called newer");
+    CHECK(scene.graph().save().rfind("# Kinetica scene (Kinetica ", 0) == 0, "a saved scene names the program that wrote it");
 
     std::ofstream(fs::path(base) / "latin.kscene", std::ios::binary) << "# Kinetica scene\nentity \"A\xE9\"\n  shape box size 1 1 1\nend\n";
     CHECK(other.call("scene_open", parseJson("{\"file\": \"" + base + "/latin.kscene\"}"))["ok"].truth() && toJson(call(other, "scene_list")).find("\\ufffd") == std::string::npos &&

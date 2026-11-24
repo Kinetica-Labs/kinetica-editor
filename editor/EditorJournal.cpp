@@ -11,6 +11,8 @@
 #include "api/Scene.h"
 #include "scene/SceneOps.h"
 
+#include "ke/Config.h"
+
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QDir>
@@ -123,7 +125,10 @@ void EditorOps::startSession() {
     lock_->setStaleLockTime(0); // held while the window lives; only a dead owner frees it
     lock_->tryLock(0);
     playing_ = false;
-    writeLine({{"src", "journal"}, {"op", "session_start"}, {"ok", true}, {"args", QJsonObject{{"pid", double(QCoreApplication::applicationPid())}}}});
+    // The program that writes the session: every line of it is its (by "s"), so an old journal is read knowing whose words it holds.
+    const QString version = QString("%1.%2.%3").arg(KE_VERSION_MAJOR).arg(KE_VERSION_MINOR).arg(KE_VERSION_PATCH);
+    writeLine({{"src", "journal"}, {"op", "session_start"}, {"ok", true},
+               {"args", QJsonObject{{"pid", double(QCoreApplication::applicationPid())}, {"version", version}}}});
     snapshot("start");
 }
 
