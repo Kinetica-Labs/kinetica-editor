@@ -76,7 +76,7 @@ LOCAL_TOOLS.append({"name": "guide", "description": "A topic of the guide to bui
                     "inputSchema": {"type": "object", "properties": {"topic": {"type": "string", "enum": sorted(topics())}}, "required": ["topic"]},
                     "annotations": {"readOnlyHint": True}})
 FAMILIES = [f for f in os.environ.get("KE_MCP_FAMILIES", "agent").replace(" ", "").split(",") if f]  # agent, all, or families
-AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_actuator", "assembly_drive", "assembly_power", "assembly_sensor",
+AGENT = {"assembly_list", "assembly_describe", "assembly_add", "assembly_save", "assembly_joint", "assembly_actuator", "assembly_drive", "assembly_power", "assembly_sensor",
          "assembly_goal", "controller_add", "terrain_make", "scene_batch",
          "scene_get", "scene_list", "scene_new", "scene_delete", "scene_set", "scene_put", "sim_play", "sim_step", "sim_measure", "sim_stop",
          "controller_input", "view_screenshot", "view_follow", "view_draw", "formula_callout", "narration_say", "scene_add", "ops_list"}

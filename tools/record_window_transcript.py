@@ -394,6 +394,7 @@ TRANSCRIPT = [
     # --- the operations no test named (tools/project_map.py): each answered once, the window's answer their oracle ----------
     R("the presets a part can be attached as", "assembly_presets"),
     R("the scene in words", "scene_describe"),
+    R("a ready assembly studied in words, the scene untouched", "assembly_describe", {"name": "Спорткар"}),
     R("where a part would stand on the box's top: a snap, nothing made", "assembly_snap", {"target": 27, "face": "+y", "size": [0.1, 0.1, 0.1]}),
     R("what fits on the box's top", "assembly_suggest", {"target": 27, "face": "+y"}),
     R("a hinge's preview on the box's top: nothing made (the magnet's, the window's own)", "assembly_preview",

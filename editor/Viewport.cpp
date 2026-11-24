@@ -1231,6 +1231,13 @@ void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label) c
     p.restore();
 }
 
+bool Viewport::shown(const QString& key) const {
+    if (key.startsWith("editor/") || key.startsWith("sequencer/")) return true;
+    const auto it = drawings_.find(key);
+    const bool card = it != drawings_.end() && (it->second.space == Drawing::Space::Screen || it->second.objectOnly());
+    return card ? cardsShown_ : labelsShown_;
+}
+
 void Viewport::paintGlow(QPainter& p, const QPainterPath& path, const QColor& colour, float glow) {
     p.save();
     p.setBrush(Qt::NoBrush);

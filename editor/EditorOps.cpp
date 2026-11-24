@@ -154,7 +154,7 @@ void EditorOps::addSceneOps() {
         QString err;
         return builder_->saveFile(a.value("file").toString(), err) ? ok({{"file", QFileInfo(a.value("file").toString()).absoluteFilePath()}}) : error(err);
     });
-    for (const char* name : {"assembly_list", "assembly_add", "assembly_save"}) // the core's, as kinetica-core has them (SceneFiles.h)
+    for (const char* name : {"assembly_list", "assembly_add", "assembly_describe", "assembly_save"}) // the core's, as kinetica-core has them (SceneFiles.h)
         addHostSync(name, [this, name](const QJsonObject& a) {
             ke::Value answer = ke::Value::map();
             std::string why;

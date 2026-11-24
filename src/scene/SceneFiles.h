@@ -46,7 +46,7 @@ struct AssemblyFile {
 };
 std::vector<AssemblyFile> assemblyFiles(const std::vector<std::string>& folders);
 
-// assembly_list, assembly_add and assembly_save for either host, as their table has them (hostOps): the program's own
+// assembly_list, assembly_add, assembly_describe and assembly_save for either host, as their table has them (hostOps): the program's own
 // assemblies in <dataDir>/assemblies, the user's in <userDataFolder()>/assemblies; `edit` makes a change of the graph
 // one undo step. False and `error` when refused.
 using AssemblyEdit = std::function<bool(const std::function<bool(SceneGraph&, std::string&)>&, std::string&)>;

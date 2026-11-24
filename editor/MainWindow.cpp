@@ -456,16 +456,33 @@ void MainWindow::buildToolShelf() {
         const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
         if (op == measure) operators()->run(measure, {{"point", three(from)}, {"to", three(to)}}, [](const QJsonObject&) {}, "ui");
     });
-    // The eye: what plugins and agents draw over the view - a film's cards, formulas, leaders - shown or hidden at once
-    // (view_show), as Blender's Overlays switch; the scene is untouched.
+    // The two eyes: what plugins and agents draw over the view, shown or hidden by kind (view_show), as Blender's
+    // Overlays switches - the cards in the frame (a film's step cards, titles, a part's glow), and the labels in the scene
+    // (formulas, leaders, words over the parts), the second eye marked Σ; the scene is untouched.
     tb->addSeparator();
-    QAction* drawings = tb->addAction(controlIcon(ControlIcon::Visible, 28), uiText("Kinetica", "Надписи"));
-    drawings->setObjectName("toolDrawings");
-    drawings->setCheckable(true);
-    drawings->setChecked(true);
-    drawings->setToolTip(uiText("Kinetica", "Надписи поверх вида: карточки, формулы, выноски и свечение плагинов и агента — показать или скрыть"));
-    connect(drawings, &QAction::toggled, this, [drawings](bool on) { drawings->setIcon(controlIcon(on ? ControlIcon::Visible : ControlIcon::Hidden, 28)); });
-    connect(drawings, &QAction::triggered, this, [this](bool on) { operators()->run("view_show", {{"drawings", on}}, [](const QJsonObject&) {}, "ui"); });
+    const auto eye = [](bool on, bool labels) {
+        QIcon icon = controlIcon(on ? ControlIcon::Visible : ControlIcon::Hidden, 28);
+        if (!labels) return icon;
+        QPixmap pm = icon.pixmap(28, 28);
+        QPainter p(&pm);
+        QFont f = p.font();
+        f.setBold(true), f.setPixelSize(13);
+        p.setFont(f), p.setPen(QColor(255, 214, 90));
+        p.drawText(QRect(14, 13, 14, 15), Qt::AlignCenter, QString::fromUtf8("Σ"));
+        return QIcon(pm);
+    };
+    for (const bool labels : {false, true}) {
+        QAction* a = tb->addAction(eye(true, labels), labels ? uiText("Kinetica", "Формулы и надписи") : uiText("Kinetica", "Карточки"));
+        a->setObjectName(labels ? "toolLabels" : "toolDrawings");
+        a->setCheckable(true);
+        a->setChecked(true);
+        a->setToolTip(labels ? uiText("Kinetica", "Формулы и надписи в сцене: выноски, формулы, подписи над деталями, линии плагинов — показать или скрыть")
+                             : uiText("Kinetica", "Карточки поверх вида: плашки шагов, титры, свечение детали — показать или скрыть"));
+        connect(a, &QAction::toggled, this, [a, eye, labels](bool on) { a->setIcon(eye(on, labels)); });
+        connect(a, &QAction::triggered, this, [this, labels](bool on) {
+            operators()->run("view_show", {{labels ? "labels" : "cards", on}}, [](const QJsonObject&) {}, "ui");
+        });
+    }
     setTool(GizmoMode::Translate);
 }
 

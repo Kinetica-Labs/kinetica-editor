@@ -83,9 +83,17 @@ def _block(ed, id):
 
 
 def _moved(ed, target):
-    """The body a panel's action moves: an IK goal's effector (an arm's), else the target itself (a car's chassis)."""
-    goal = next((w for w in (line.split() for line in _block(ed, target).splitlines()) if w[:2] == ["goal", "effector"]), None)
-    return int(goal[2]) if goal else target
+    """The body a panel's action moves: an IK goal's effector (an arm's), a motor driver's vehicle - the body its wheel's
+    joint holds on (a duty action: the throttle on the drivers), else the target itself (a car's chassis)."""
+    lines = [line.split() for line in _block(ed, target).splitlines()]
+    goal = next((w for w in lines if w[:2] == ["goal", "effector"]), None)
+    if goal:
+        return int(goal[2])
+    bridge = next((w for w in lines if w[:2] == ["bridge", "joint"]), None)
+    if bridge:
+        link = next(w for w in (line.split() for line in _block(ed, int(bridge[2])).splitlines()) if w[:1] == ["link"])
+        return int(link[link.index("b") + 1])
+    return target
 
 
 def _centre(ed, body):

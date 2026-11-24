@@ -1,6 +1,7 @@
 // A scene's files and assemblies (SceneFiles.h): a scene read and written whole; a part of a scene cut out as a scene of
 // its own, and such a scene's text added to another.
 #include "scene/SceneFiles.h"
+#include "scene/Describe.h"
 
 #include "core/Json.h"
 #include "scene/SceneActions.h"
@@ -308,7 +309,7 @@ bool assemblyCall(const std::string& op, const Value& args, const SceneGraph& g,
         if (!writeSceneFile(part, mine + "/" + name + ".kscene", file, error)) return false;
         return answer.set("name", name), answer.set("file", file), true;
     }
-    // assembly_add: its text, a file, or by its name in the folders
+    // assembly_add and assembly_describe: its text, a file, or by its name in the folders
     std::string file = args["file"].text(""), name = args["name"].text(""), text = args["text"].text("");
     if (!text.empty()) {
         if (text.find("\nend") == std::string::npos && text.compare(0, 3, "end") != 0) return refuse(error, "text: blocks of the scene file, each ending with 'end'");
@@ -325,6 +326,11 @@ bool assemblyCall(const std::string& op, const Value& args, const SceneGraph& g,
     if (text.empty()) {
         if (name.empty()) name = fs::u8path(file).stem().u8string();
         if (!readTextFile(file, text, error)) return false;
+    }
+    if (op == "assembly_describe") { // an example studied before one's own is built: the device in words, the scene untouched
+        SceneGraph example;
+        if (!example.load(text, error)) return false;
+        return answer.set("name", name), answer.set("text", describeScene(example)), true;
     }
     const std::vector<Value> p = args["position"].items();
     const Vector3 at = p.size() == 3 ? Vector3(Real(p[0].number()), Real(p[1].number()), Real(p[2].number())) : Vector3(0.0_r);

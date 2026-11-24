@@ -323,13 +323,17 @@ void EditorOps::addViewOps() {
                    {"gpu_ms", double(view_->gpuMs())}, {"gpu_shadow_ms", double(view_->gpuShadowMs())},
                    {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
     });
-    addSync("view_show", "What plugins and agents draw over the view - words, cards, formulas, leaders, glows (view_draw) - shown or "
-                         "hidden at once, as Blender's Overlays switch; the editor's own (the ruler, motion paths) always shown. The tool "
-                         "shelf's eye. drawings: show or hide them; answers whether they show",
-            "{drawings?: bool}", [this](const QJsonObject& a) {
-        if (a.contains("drawings")) view_->setDrawingsShown(a.value("drawings").toBool());
-        if (auto* act = window_->findChild<QAction*>("toolDrawings")) act->setChecked(view_->drawingsShown()); // the shelf says what the view shows
-        return ok({{"drawings", view_->drawingsShown()}});
+    addSync("view_show", "What plugins and agents draw over the view (view_draw), shown or hidden by kind, as Blender's Overlays "
+                         "switches: cards - what stands in the frame, a step's card, a title, and an object's glow; labels - what "
+                         "stands in the scene, formulas, leaders, words over the parts, a plugin's lines; drawings - both. The editor's "
+                         "own (the ruler, motion paths) always shown. The tool shelf's two eyes. Answers what shows",
+            "{drawings?: bool, cards?: bool, labels?: bool}", [this](const QJsonObject& a) {
+        if (a.contains("drawings")) view_->setCardsShown(a.value("drawings").toBool()), view_->setLabelsShown(a.value("drawings").toBool());
+        if (a.contains("cards")) view_->setCardsShown(a.value("cards").toBool());
+        if (a.contains("labels")) view_->setLabelsShown(a.value("labels").toBool());
+        if (auto* act = window_->findChild<QAction*>("toolDrawings")) act->setChecked(view_->cardsShown()); // the shelf says what the view shows
+        if (auto* act = window_->findChild<QAction*>("toolLabels")) act->setChecked(view_->labelsShown());
+        return ok({{"drawings", view_->cardsShown() && view_->labelsShown()}, {"cards", view_->cardsShown()}, {"labels", view_->labelsShown()}});
     });
     addSync("ui_actions", "Every button and menu item of the window, a panel's own buttons and the visible tabs: text, name, on/off, and "
             "for what is shown - an open menu's items too - where it stands: x, y, width, height in the window's picture (the pixels view_screenshot window gives "

@@ -49,6 +49,10 @@ const std::vector<HostOp>& hostOps() {
                          "the part's name - {name: \"Батарея 1\", line: cells, key: parallel, values: [2]} - so a ready robot takes "
                          "another battery, motor or panel in the same call", "{name?: str, file?: str, text?: str, position?: [x,y,z], "
                          "overrides?: [{name: str, line: str, key?: str, values?: []}]}", "edit"},
+        {"assembly_describe", "An assembly studied before one's own is built - how a ready car, arm or stand is made: its bodies as a "
+                              "tree of joints with shapes, masses and roles, the drives, motors, sensors and batteries, in words as "
+                              "scene_describe gives the scene (by its name, assembly_list, or a file); nothing is put into the scene",
+         "{name?: str, file?: str}", "query"},
         {"assembly_save", "The objects ids with all under them and what belongs to them - joints between them, their sensors, drivers and "
                           "batteries, the controllers that drive only them - kept as the user's assembly of this name (a scene file "
                           "standing about the origin on the floor). Answers its file", "{ids: [int], name: str}", "action"},
