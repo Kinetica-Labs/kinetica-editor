@@ -173,12 +173,15 @@ void EditorOps::addInputOps() {
                          "a drawing's callout, as ISO 128-22 and ГОСТ 2.316 draw them; its grow (0..1, 1) - how much is drawn, from the part, "
                          "the line, then the reference line -, place aside: laid out every frame with the other callouts so placed - two columns "
                          "left and right of their points, each in its point's order from the top: no leaders cross -, pulse (0..1) - a ring at the point that phase - and words (0..1, 1) - how much the "
-                         "words or the picture show - are a plugin's to animate it frame by frame. opacity (0..1, 1): the whole drawing's. Drawn while "
+                         "words or the picture show - are a plugin's to animate it frame by frame. opacity (0..1, 1): the whole drawing's. glow (0..1, 0): "
+                         "a soft halo of its colour round its words, leader and picture; a drawing of only an object (and glow) draws the object "
+                         "itself - its silhouette glows, as the part an agent is building now. background [r,g,b,a]: a plate behind the words, as "
+                         "subtitles have. Words in space screen stand at `place`, lines up from it. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
             "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none', place?: 'here'|'aside', grow?: number, pulse?: number, words?: number}, "
-            "opacity?: number, clear?: bool}",
+            "opacity?: number, glow?: number, background?: [r,g,b,a], clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -288,8 +291,17 @@ void EditorOps::addInputOps() {
             d.aside = place == "aside";
         }
         d.opacity = float(std::clamp(a.value("opacity").toDouble(1), 0.0, 1.0));
-        if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
-            return error("nothing to draw: line, segments, points, circle, box, text or fill");
+        d.glow = float(std::clamp(a.value("glow").toDouble(0), 0.0, 1.0));
+        if (a.contains("background")) { // a plate behind the words: WebVTT's cue background, OBS's text background
+            const QJsonArray c = a.value("background").toArray();
+            if (c.size() != 4) return error("background: [r, g, b, a], each from 0 to 1 - a plate behind the words");
+            if (d.text.isEmpty()) return error("background: a plate behind words - give text");
+            d.background = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
+                                            float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(3).toDouble(), 0.0, 1.0)));
+        }
+        if (d.objectOnly() && !(d.glow > 0)) return error("an object alone draws the object itself - give it glow, or something to draw");
+        if (!d.object && d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
+            return error("nothing to draw: line, segments, points, circle, box, text or fill - or an object with glow");
         view_->setDrawing(key, std::move(d));
         return ok({{"key", key}, {"drawings", int(view_->drawings())}});
     });

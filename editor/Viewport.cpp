@@ -246,9 +246,53 @@ void Viewport::drawHighlight(const QMatrix4x4& vp) {
     outlineProg_.setUniformValue("uSelected", QVector4D(1.0f, 0.6f, 0.16f, 1.0f));
     outlineProg_.setUniformValue("uHover", QVector4D(1.0f, 1.0f, 1.0f, 0.55f));
     outlineProg_.setUniformValue("uGhost", QVector4D(0.82f, 0.86f, 0.94f, 0.22f));
+    outlineProg_.setUniformValue("uGlow", QVector4D(0, 0, 0, 0));
     bg_.vao.bind();
     glDrawArrays(GL_TRIANGLES, 0, 3);
     bg_.vao.release();
+    glDisable(GL_BLEND);
+    glEnable(GL_DEPTH_TEST);
+}
+
+// view_draw {object, glow}: each glowing object by itself - its silhouette into the mask's alpha, then the outline pass
+// lights a halo of its colour round it. A picture's, as its words are: filmed with the marks off too.
+void Viewport::drawGlow(const QMatrix4x4& vp) {
+    std::vector<const Drawing*> glowing;
+    for (const auto& [key, d] : drawings_)
+        if (d.glow > 0 && d.opacity > 0 && d.objectOnly()) glowing.push_back(&d);
+    const qreal dpr = devicePixelRatioF();
+    const int w = int(width() * dpr), h = int(height() * dpr);
+    if (glowing.empty() || !snap_ || !ensureMaskTarget(w, h)) return;
+    glDisable(GL_DEPTH_TEST);
+    glViewport(0, 0, w, h);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    for (const Drawing* d : glowing) {
+        std::vector<float> triangles;
+        for (const ke::Frame::Body& b : snap_->bodies)
+            if (b.object == d->object) appendBodyTriangles(b, triangles);
+        if (triangles.empty()) continue;
+        glBindFramebuffer(GL_FRAMEBUFFER, maskFbo_);
+        glDisable(GL_BLEND);
+        glColorMask(GL_FALSE, GL_FALSE, GL_FALSE, GL_TRUE);
+        glClearColor(0, 0, 0, 0);
+        glClear(GL_COLOR_BUFFER_BIT);
+        drawLines(triangles, GL_TRIANGLES, vp, QVector4D(1, 1, 1, 1));
+        glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE);
+        glBindFramebuffer(GL_FRAMEBUFFER, defaultFramebufferObject());
+        glEnable(GL_BLEND);
+        outlineProg_.bind();
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, maskTex_);
+        outlineProg_.setUniformValue("uMask", 0);
+        outlineProg_.setUniformValue("uTexel", QVector2D(1.0f / float(w), 1.0f / float(h)));
+        outlineProg_.setUniformValue("uRadius", float(2.0 * dpr));
+        for (const char* other : {"uSelected", "uHover", "uGhost"}) outlineProg_.setUniformValue(other, QVector4D(0, 0, 0, 0));
+        outlineProg_.setUniformValue("uGlow", QVector4D(float(d->colour.redF()), float(d->colour.greenF()), float(d->colour.blueF()), d->glow * d->opacity));
+        outlineProg_.setUniformValue("uGlowRadius", float(12.0 * dpr));
+        bg_.vao.bind();
+        glDrawArrays(GL_TRIANGLES, 0, 3);
+        bg_.vao.release();
+    }
     glDisable(GL_BLEND);
     glEnable(GL_DEPTH_TEST);
 }
@@ -630,6 +674,7 @@ void Viewport::paintGL() {
     drawSeeThrough(view, proj);
     if (marksVisible_) drawOverlays3D(vp);
     else drawOverlayLines(vp); // a plugin's or an agent's lines are the scene's
+    drawGlow(vp);              // and so are their glows
     glBindVertexArray(0);
     glUseProgram(0);
     if (overlayVisible_) drawOverlay();
@@ -952,14 +997,19 @@ void Viewport::drawOverlayMarks(QPainter& p) {
         p.setBrush(d.colour);
         for (const Vector3& w : d.points)
             if (screen(w, at)) p.drawEllipse(at, d.size * 0.5, d.size * 0.5);
-        Vector3 where = d.at; // an object's words hang from where it is now, along the world's axes (or on it, in the world)
-        if (d.object) {
-            Vector3 position;
-            ke::Quaternion rotation;
-            if (!objectPose(d.object, position, rotation)) continue;
-            where = position + (d.space == Drawing::Space::World ? rotation.rotate(d.at) : d.at);
+        if (d.text.isEmpty()) continue;
+        if (d.space == Drawing::Space::Screen) { // in the frame: `place`, fractions of the view from its left top
+            at = QPointF(d.place.x() * width(), d.place.y() * height());
+        } else {
+            Vector3 where = d.at; // an object's words hang from where it is now, along the world's axes (or on it, in the world)
+            if (d.object) {
+                Vector3 position;
+                ke::Quaternion rotation;
+                if (!objectPose(d.object, position, rotation)) continue;
+                where = position + (d.space == Drawing::Space::World ? rotation.rotate(d.at) : d.at);
+            }
+            if (!screen(where, at)) continue;
         }
-        if (d.text.isEmpty() || !screen(where, at)) continue;
         QFont letters = plain; // size: a point's width - and a label's letters, when they are to be larger than plain ones
         letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
         p.setFont(letters);
@@ -975,8 +1025,17 @@ void Viewport::drawOverlayMarks(QPainter& p) {
         const auto placed = calloutAt_.find(key);
         const QPointF shift = placed != calloutAt_.end() ? placed->second.topLeft() - box.topLeft() : QPointF();
         box.translate(shift);
+        if (d.background.isValid()) { // the plate: as WebVTT's cue box, a little wider than the words
+            p.setPen(Qt::NoPen), p.setBrush(d.background);
+            p.drawRoundedRect(box.adjusted(-10, -7, 10, 7), 7, 7);
+        }
         for (int k = 0; k < lines.size(); ++k) {
             const QPointF line = at + shift + QPointF(6, -6 - step * (lines.size() - 1 - k));
+            if (d.glow > 0) {
+                QPainterPath letters;
+                letters.addText(line, p.font(), lines[k]);
+                paintGlow(p, letters, d.colour, d.glow);
+            }
             p.setPen(QColor(0, 0, 0, 200));
             p.drawText(line + QPointF(1, 1), lines[k]);
             p.setPen(d.colour);
@@ -1047,12 +1106,34 @@ void Viewport::arrangeCallouts(QPainter& p) {
             leftmost = std::min(leftmost, x), rightmost = std::max(rightmost, x);
         }
     }
-    constexpr double aside = 36, gap = 10, edge = 8; // px: from the parts' silhouette, between notes, from the view's edge
+    constexpr double aside = 36, gap = 16, edge = 8; // px: from the parts' silhouette, between notes, from the view's edge
+    // A callout keeps its side until its point is well past the middle, and its place in its column until its point is
+    // well past its neighbour's: no jumping across, no shuffling, as a turning car's points cross each other.
+    constexpr double stay = 30, keep = 20; // px
+    std::map<QString, bool> side;
+    for (const Note& n : notes) {
+        const auto was = calloutLeft_.find(n.key);
+        side[n.key] = was == calloutLeft_.end() ? n.point.x() < middle : was->second ? n.point.x() < middle + stay : n.point.x() < middle - stay;
+    }
+    calloutLeft_ = side;
+    const double dt = calloutClock_.isValid() ? std::min(0.1, calloutClock_.restart() / 1000.0) : (calloutClock_.start(), 0.0);
+    const double follow = dt > 0 ? 1 - std::exp(-dt / 0.08) : 1; // each glides to its new place, eased, about a tenth of a second
+    std::map<QString, QPointF> shown;
+    bool moving = false;
     for (const bool left : {true, false}) {
         std::vector<Note> column;
         for (const Note& n : notes)
-            if ((n.point.x() < middle) == left) column.push_back(n);
-        std::sort(column.begin(), column.end(), [](const Note& a, const Note& b) { return a.point.y() < b.point.y(); });
+            if (side[n.key] == left) column.push_back(n);
+        std::vector<QString>& order = calloutOrder_[left ? 0 : 1];
+        const auto rank = [&](const Note& n) { const auto at = std::find(order.begin(), order.end(), n.key); return at == order.end() ? 1e9 + n.point.y() : double(at - order.begin()); };
+        std::sort(column.begin(), column.end(), [&](const Note& a, const Note& b) { return rank(a) < rank(b); });
+        for (bool swapped = true; swapped;) { // the kept order, but a point clearly above the one before it goes first
+            swapped = false;
+            for (size_t i = 1; i < column.size(); ++i)
+                if (column[i].point.y() + keep < column[i - 1].point.y()) std::swap(column[i], column[i - 1]), swapped = true;
+        }
+        order.clear();
+        for (const Note& n : column) order.push_back(n.key);
         std::vector<double> top(column.size());
         for (size_t i = 0; i < column.size(); ++i) { // each where its point is, its shelf at the point's height - pushed down past the one above
             top[i] = column[i].point.y() - column[i].size.height() - 6;
@@ -1063,11 +1144,20 @@ void Viewport::arrangeCallouts(QPainter& p) {
             const double limit = i + 1 < column.size() ? top[i + 1] - gap : height() - edge;
             top[i] = std::min(top[i], limit - column[i].size.height());
         }
+        double below = -1e9; // what is seen keeps apart too, while the notes glide
         for (size_t i = 0; i < column.size(); ++i) {
             const double x = left ? std::max(edge, leftmost - aside - column[i].size.width()) : std::min(width() - edge - column[i].size.width(), rightmost + aside);
-            calloutAt_[column[i].key] = QRectF(QPointF(x, top[i]), column[i].size);
+            const QPointF to(x, top[i]);
+            const auto was = calloutShown_.find(column[i].key);
+            QPointF at = was == calloutShown_.end() ? to : was->second + (to - was->second) * follow;
+            at.setY(std::max(at.y(), below));
+            below = at.y() + column[i].size.height() + gap;
+            moving = moving || std::hypot(to.x() - at.x(), to.y() - at.y()) > 0.5;
+            calloutAt_[column[i].key] = QRectF(at, column[i].size), shown[column[i].key] = at;
         }
     }
+    calloutShown_ = std::move(shown);
+    if (moving) update(); // the next frame carries them on
 }
 
 void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const Vector3&, QPointF&)>& screen) const {
@@ -1095,6 +1185,12 @@ void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, c
         if (shelf > 0) p.drawLine(from, QPointF(shelfEnd, y));
         p.drawLine(tip, reached);
     };
+    if (d.glow > 0) {
+        QPainterPath path(tip);
+        path.lineTo(reached);
+        if (shelf > 0) path.moveTo(from), path.lineTo(shelfEnd, y);
+        paintGlow(p, path, d.colour, d.glow);
+    }
     stroke(dark, 3.4), stroke(d.colour, 1.6); // a dark edge under it: it reads on any background
     const QLineF line(from, tip);
     if (drawn < 1) return p.restore(); // the end's mark comes with the whole line
@@ -1106,6 +1202,18 @@ void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, c
         const QPolygonF head{tip, tip - along * 11 + across * 4, tip - along * 11 - across * 4};
         p.setPen(QPen(dark, 1.2)), p.setBrush(d.colour);
         p.drawPolygon(head);
+    }
+    p.restore();
+}
+
+void Viewport::paintGlow(QPainter& p, const QPainterPath& path, const QColor& colour, float glow) {
+    p.save();
+    p.setBrush(Qt::NoBrush);
+    QColor halo = colour;
+    halo.setAlphaF(0.11f * glow); // layered: near the line they add up, outwards only the widest is left
+    for (const qreal wide : {18.0, 12.0, 7.0, 3.5}) {
+        p.setPen(QPen(halo, wide, Qt::SolidLine, Qt::RoundCap, Qt::RoundJoin));
+        p.drawPath(path);
     }
     p.restore();
 }

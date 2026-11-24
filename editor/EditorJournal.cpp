@@ -51,7 +51,7 @@ QString EditorOps::kind(const QString& name) const {
     if (pluginOps_.count(name)) return "action";
     if (const ke::HostOp* host = ke::hostOp(name.toStdString())) return QString::fromStdString(host->kind);
     if (const ke::WorldOp* world = ke::worldOp(name.toStdString())) return QString::fromStdString(world->kind);
-    if (name == "view_draw" || name == "console_note" || (name.startsWith("ui_") && name != "ui_actions")) return "window"; // no journal line, yet not a look
+    if (name == "view_draw" || name == "console_note" || name == "console_type" || (name.startsWith("ui_") && name != "ui_actions")) return "window"; // no journal line, yet not a look
     if (isQuery(name)) return "query";
     const ke::SceneOp* core = ke::findSceneOp(name.toStdString());
     if (core && core->edit) return "edit";

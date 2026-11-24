@@ -67,7 +67,7 @@ class Core:
         code = self._proc.wait()
         return ConnectionError(f"kinetica-core exited (code {code})" + "".join(f": {t}" for t in self._tail))
 
-    def call(self, op, py=None, **args):
+    def call(self, op, /, py=None, **args):  # op positional: an operation may have a field named op (console_type)
         """The answer of one operation (raises OperationError when it failed); `py` is the window console's line: not sent."""
         with self._lock:
             if self._closed:

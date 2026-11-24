@@ -17,6 +17,7 @@
 #include <QAction>
 #include <QActionGroup>
 #include <QDialog>
+#include <QApplication>
 #include <QLabel>
 #include <QMenu>
 #include <QMenuBar>
@@ -211,6 +212,21 @@ void MainWindow::buildCameraPicker() {
     cameraPicker_ = new CameraPicker(view_);
     connect(cameraPicker_, &CameraPicker::chosen, this, [this](uint32_t id) { view_->setFollow(0); builder_->lookThrough(id); });
     connect(builder_, &SceneBuilder::modeChanged, this, [this] { if (builder_->editing()) view_->followBody(0); });
+    // ▶ on a scene whose panel drives a vehicle (drive value: the car's chassis): the camera follows it as a chase camera, as
+    // a game follows the player's car - unless a person chose what to follow or looks through a camera. A person's window
+    // only: an agent's or a test's view stays where it was put.
+    connect(builder_, &SceneBuilder::modeChanged, this, [this] {
+        if (builder_->mode() != SceneBuilder::Mode::Playing || !qApp->property("keInteractive").toBool() || view_->followWish() || builder_->lookingThrough())
+            return;
+        for (const ke::ControllerObject& c : builder_->graph().controllers)
+            for (const ke::ControllerAction& a : c.actions)
+                if (a.drive == ke::ControlDrive::Value && a.target && ke::findEntity(builder_->graph(), a.target)) {
+                    view_->setChase(true);
+                    view_->setFollow(a.target);
+                    if (auto* chase = findChild<QAction*>("actionChaseCamera")) chase->setChecked(true); // the menu says what the view does
+                    return;
+                }
+    });
     auto follow = [this] {
         std::vector<CameraPicker::Choice> cameras;
         for (const ke::Camera& c : builder_->graph().cameras) cameras.push_back({c.id, QString::fromStdString(c.name)});

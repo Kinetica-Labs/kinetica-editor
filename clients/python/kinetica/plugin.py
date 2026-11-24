@@ -175,13 +175,29 @@ class _Draw:
     def points(self, key, points, colour=None, size=6, color=None):
         self._send(key, points=_xyz(points), colour=_either(color, colour), size=size)
 
-    def label(self, key, at, text, colour=None, size=None, color=None, object=None, leader=None, opacity=None):
+    def label(self, key, at, text, colour=None, size=None, color=None, object=None, leader=None, opacity=None, space=None, place=None,
+              background=None, glow=None):
         """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own.
-        `object`: they hang at `at` from its place and go where it goes; `leader`: a line from them to a point of it - see fill."""
+        `object`: they hang at `at` from its place and go where it goes; `leader`: a line from them to a point of it - see fill.
+        space "screen": in the frame instead, lines up from `place` = (x, y), fractions of the view from its left top.
+        `background` = (r, g, b, a): a plate behind them, as subtitles have; `glow` (0..1): a halo of their colour."""
         what = {"at": _xyz([at])[0], "text": str(text), **({"size": size} if size else {}), **({"opacity": float(opacity)} if opacity is not None else {})}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
+        if space is not None:
+            what["space"] = str(space)
+        if place is not None:
+            what["place"] = [float(place[0]), float(place[1])]
+        if background is not None:
+            what["background"] = [float(c) for c in background]
+        if glow is not None:
+            what["glow"] = float(glow)
         self._send(key, colour=_either(color, colour), **what, **_leader(leader))
+
+    def glow(self, key, object, strength=1.0, colour=None, color=None):
+        """The object itself glows in the view: a soft halo of `colour` round its silhouette, `strength` 0..1 - the part an
+        agent is building now."""
+        self._send(key, colour=_either(color, colour), object=int(getattr(object, "id", object)), glow=float(strength))
 
     def circle(self, key, centre=None, radius=None, axis="y", colour=None, color=None, center=None):
         """A circle around `center`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
@@ -199,7 +215,7 @@ class _Draw:
         self._send(key, box={"center": _xyz([middle])[0], "size": _xyz([size])[0]}, colour=_either(color, colour))
 
     def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None, stroke=None,
-             stroke_width=None, color=None, leader=None, opacity=None):
+             stroke_width=None, color=None, leader=None, opacity=None, glow=None):
         """A flat picture, filled, painted over the scene: `outlines` are rows "M x y L x y C x1 y1 x2 y2 x y Z" in the
         picture's own units, x right and y up. space "world": on its own plane at `at`, turned by `turn` (Euler degrees),
         a unit `scale` metres; "label": on the screen at the world's point `at`, facing the viewer; "screen": in the frame
@@ -209,9 +225,9 @@ class _Draw:
         read on any background. `leader` = {"point": (x, y, z), "end": "dot" | "arrow" | "none"}: a leader line from the
         picture to that point of the object (its own frame) - a reference line under the picture, a dot on the part, an
         arrow on its outline (ISO 128-22, ГОСТ 2.316); its "grow", "pulse" and "words" (0..1) draw it part by part, for a
-        plugin that animates it. `opacity` (0..1): the whole picture's."""
+        plugin that animates it. `opacity` (0..1): the whole picture's; `glow` (0..1): a halo of its colour round it."""
         what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale), **_leader(leader),
-                **({"opacity": float(opacity)} if opacity is not None else {})}
+                **({"opacity": float(opacity)} if opacity is not None else {}), **({"glow": float(glow)} if glow is not None else {})}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
         if turn is not None:

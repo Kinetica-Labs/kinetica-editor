@@ -86,7 +86,7 @@ class Client:
         for slot in list(self._waiting.values()):
             slot[0].set()
 
-    def call(self, op, py=None, **args):
+    def call(self, op, /, py=None, **args):  # op positional: an operation may have a field named op (console_type)
         """The answer of one operation (raises OperationError when it failed); `py` is the line to show."""
         if py:
             args["_py"] = py

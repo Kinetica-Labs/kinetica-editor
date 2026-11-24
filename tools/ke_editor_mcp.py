@@ -26,6 +26,8 @@ word of a name). The rest stay one call away:
 (``notifications/tools/list_changed``). The plugins' own wiring (plugin_register, plugin_wait, plugin_reply,
 plugin_panel_set: a plugin process with its token) is not offered as tools. ``view_screenshot`` answers with the
 picture itself, so the agent sees what the editor shows.
+For filming (KE_MCP_TYPING=1): before each call the editor's console types it into its line (console_type), so the
+viewer sees the call written, then run.
 Registered for Claude Code in the repository's .mcp.json as "ke-editor"; the port is KE_EDITOR_PORT (else 47801);
 only the Python standard library::
 
@@ -54,6 +56,8 @@ LOCAL_TOOLS = [
 # KE_AGENT_GUIDE: another folder with agent-guide.md and agent/ (a translation measured on the bench, tools/agent_bench.py --guide).
 DOCS = os.environ.get("KE_AGENT_GUIDE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs")
 TOPICS = os.path.join(DOCS, "agent")
+TYPING = os.environ.get("KE_MCP_TYPING") == "1"
+UNTYPED = {"narration_say", "console_note", "view_screenshot"}  # seen in the view or as a comment, or the agent's own look
 
 
 def topics():
@@ -74,7 +78,7 @@ FAMILIES = [f for f in os.environ.get("KE_MCP_FAMILIES", "agent").replace(" ", "
 AGENT = {"assembly_list", "assembly_add", "assembly_save", "assembly_joint", "assembly_actuator", "assembly_drive", "assembly_power", "assembly_sensor",
          "assembly_goal", "controller_add", "terrain_make", "scene_batch",
          "scene_get", "scene_list", "scene_new", "scene_delete", "scene_set", "scene_put", "sim_play", "sim_step", "sim_measure", "sim_stop",
-         "controller_input", "view_screenshot", "view_follow", "view_draw", "formula_callout", "ops_list"}
+         "controller_input", "view_screenshot", "view_follow", "view_draw", "formula_callout", "narration_say", "ops_list"}
 # An operation's kind (ops_list) as MCP's annotations of its tool.
 HINTS = {"query": {"readOnlyHint": True}, "edit": {"readOnlyHint": False, "destructiveHint": False},
          "window": {"readOnlyHint": False, "destructiveHint": False}, "action": {"readOnlyHint": False}}
@@ -144,6 +148,8 @@ def call_tool(name, args):
         return content({"ok": True, "port": ke_editor.DEFAULT_PORT}, name), False
     op, op_args = (args.get("op", ""), args.get("args", {})) if name == "editor_call" else (name, args)
     try:
+        if TYPING and op not in UNTYPED:
+            editor().call("console_type", op=op, args=op_args)
         return content(editor().call(op, **op_args), op), False
     except ke_editor.EditorError as e:
         return content({"ok": False, "error": str(e)}, op), True

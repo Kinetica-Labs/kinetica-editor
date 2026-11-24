@@ -2,6 +2,7 @@
 // own operations (src/sim/WorldOps.h) put on the simulation's thread; a screenshot, framing, an agent's note in the
 // console, and every button of the window by its text (what the UI can do, a script can).
 #include "EditorOps.h"
+#include "ApiConsole.h"
 #include "EditorRuntime.h"
 #include "SceneBuilder.h"
 #include "SimController.h"
@@ -100,6 +101,17 @@ void EditorOps::addSimOps() {
 void EditorOps::addNoteOp() {
     addSync("console_note", "A line of an agent's reasoning in the API console, between its calls (changes nothing)", "{text: str}",
             [](const QJsonObject&) { return ok(); });
+    // console_type: the call an agent is about to make, typed into the console's line first - filmed, it is seen written
+    // before it runs (ke_editor_mcp.py --typing sends it before every call).
+    add("console_type", "Types an operation's call into the API console's input line, letter by letter as a person types (at "
+                        "most 1.2 s), and answers when it is typed; the call itself, sent next, shows in the log as entered "
+                        "from that line - an agent filmed while it works is seen writing each call before it runs. Changes nothing",
+        "{op: str, args?: {}}", [this](const QJsonObject& a, const Reply& reply) {
+        const QString op = a.value("op").toString();
+        if (op.isEmpty()) return reply(error("op: the operation whose call is typed"));
+        if (!typer_) return reply(ok({{"typed", false}}));
+        typer_(ApiConsole::pythonCall(op, a.value("args").toObject(), 120), [reply] { reply(ok({{"typed", true}})); });
+    });
 }
 
 // The window as a person sees it: the window itself, then the application's other windows on it - dialogs, then open

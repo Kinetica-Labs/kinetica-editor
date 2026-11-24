@@ -43,6 +43,7 @@ protected:
 
 private:
     void show(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer, bool query);
+    void type(const QString& line, std::function<void()> done); // console_type: into the input, letter by letter
     void submit();
     bool startPython(); // the console's Python running (started at the first line), or false: none to be had
     void readPython();  // its printed answer, line by line, to the log
@@ -57,4 +58,5 @@ private:
     bool noPython_ = false;
     std::function<quint16()> apiPort_;
     QByteArray pending_;
+    QString typed_; // the line console_type typed: the call that comes next with it is shown as entered from the input
 };

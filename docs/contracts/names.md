@@ -106,7 +106,7 @@
 Второе слово имени новой операции. Стандартные - как в API, которые живут десятилетиями: `get` - одно, `list` -
 много, `add` - создать, `set` - изменить, `remove` и `delete` - убрать. Остальные - действия своих областей.
 
-`add` `aim` `attach` `clear` `configure` `delete` `describe` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `undo` `ungroup`
+`add` `aim` `attach` `clear` `configure` `delete` `describe` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `type` `undo` `ungroup`
 
 ## 6. Словарь аргументов
 
@@ -122,12 +122,14 @@
 | `action` | `str` | действие: имя действия управления у контроллера; у `ui_key`, `ui_pointer` - что делают клавиша или мышь (значения - у операции) | stable |  |
 | `active` | `bool` | секвенция открыта в Секвенсоре | stable |  |
 | `anchor` | `[3]` | точка мира, где сустав или привод держит тела, м | stable |  |
+| `args` | `{}` | аргументы операции, как она их принимает | testing |  |
 | `at` | `int` | объект, на который смотрит камера | obsolete | `target` |
 | `at` | `[3]` | точка мира, у которой ставят свет, силу или рисунок, м | obsolete | `position` |
 | `axis` | `int` | ось коробки: 0 - x, 1 - y, 2 - z | stable |  |
 | `axis` | `[3]` | направление оси в мире, не обязательно единичное | stable |  |
 | `axis` | `any` | ось поворота: слово x, y, z или направление [x, y, z] | stable |  |
 | `b` | `int` | второе тело сустава или привода - опора; 0 - мир | stable |  |
+| `background` | `[4]` | подложка под словами рисунка, [r, g, b, a] - как у субтитров (WebVTT, OBS) | testing |  |
 | `baseline` | `number` | база стереокамеры - расстояние между объективами, м | stable |  |
 | `basis` | `[[]]` | поворот строками матрицы 3x3 | stable |  |
 | `battery` | `int` | батарея | stable |  |
@@ -174,6 +176,7 @@
 | `frames` | `int` | кадров симуляции - её шагов | stable |  |
 | `free` | `bool` | камера снова свободная - не следит за объектом | stable |  |
 | `from` | `number` | начало показанного времени секвенсора, с | stable |  |
+| `glow` | `number` | свечение рисунка 0..1: ореол его цвета вокруг слов, выноски, картинки; рисунок из одного объекта - светится сама деталь | testing |  |
 | `goal` | `int` | цель обратной кинематики | stable |  |
 | `goals` | `[int]` | цели обратной кинематики | stable |  |
 | `group` | `[int]` | объекты, замеряемые вместе | stable |  |
@@ -214,6 +217,7 @@
 | `object` | `int` | объект-владелец рисунка: рисунок едет с ним | stable |  |
 | `objects` | `[int]` | объекты | stable |  |
 | `offset` | `[3]` | смещение от центра объекта в его осях, м | stable |  |
+| `op` | `str` | имя операции (`console_type`: чей вызов набрать) | testing |  |
 | `on` | `bool` | включить; false - выключить | stable |  |
 | `opacity` | `number` | непрозрачность рисунка поверх вида, 0..1 (1) - плагин гасит и проявляет | testing |  |
 | `open_force` | `number` | сила, с которой схват открывается, Н | stable |  |
@@ -303,7 +307,7 @@
 
 ### testing
 
-`plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `view_follow`
+`console_type` `plots_clear` `plots_get` `plots_save` `plots_set` `plots_show` `view_follow`
 
 ### obsolete
 
@@ -774,6 +778,7 @@ by Kinetica X, newer than this program (Y)…».
 | `draw.circle` | окружность в виде | stable |
 | `draw.clear` | убрать свои рисунки | stable |
 | `draw.fill` | залитый рисунок - `view_draw {fill}` | stable |
+| `draw.glow` | свечение самой детали в виде - `view_draw {object, glow}` | testing |
 | `draw.label` | надпись у точки мира | stable |
 | `draw.line` | ломаная в виде | stable |
 | `draw.points` | точки в виде | stable |

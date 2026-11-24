@@ -24,6 +24,8 @@
 #include <QProcessEnvironment>
 #include <QPushButton>
 #include <QScrollBar>
+#include <QElapsedTimer>
+#include <QTimer>
 #include <QStandardPaths>
 
 namespace {
@@ -176,10 +178,38 @@ ApiConsole::ApiConsole(EditorOps* ops, QWidget* parent) : QWidget(parent), ops_(
     ops_->addListener([this](const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer, bool query) {
         show(source, name, args, answer, query);
     });
+    ops_->setTyper([this](const QString& line, std::function<void()> done) { type(line, std::move(done)); });
+}
+
+// Letter by letter into the input line - some 60 a second, the whole line in 1.2 s at most - then a beat, and done; the
+// call that follows takes the line from the input into the log, as a typed line entered.
+void ApiConsole::type(const QString& line, std::function<void()> done) {
+    typed_ = line;
+    input_->clear();
+    auto* clock = new QTimer(this);
+    auto* elapsed = new QElapsedTimer;
+    elapsed->start();
+    const double rate = std::max(60.0, line.size() / 1.2); // letters a second
+    connect(clock, &QTimer::timeout, this, [this, clock, elapsed, line, rate, done = std::move(done)] {
+        const int shown = std::min(int(line.size()), int(elapsed->elapsed() / 1000.0 * rate));
+        if (typed_ == line) input_->setText(line.left(shown));
+        if (shown < line.size() && typed_ == line) return;
+        clock->stop();
+        clock->deleteLater();
+        delete elapsed;
+        QTimer::singleShot(120, this, done); // a beat with the whole line, as before Enter
+    });
+    clock->start(16);
 }
 
 // One call: who made it, its Python line, and under it its answer (a long one cut short).
 void ApiConsole::show(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer, bool query) {
+    if (name == "console_type") return; // its line is in the input: the call itself comes next
+    if (!typed_.isEmpty() && source == "api") { // the typed call came: the line leaves the input for the log (another call: it waits)
+        QJsonObject plain = args;
+        plain.remove("_py");
+        if (pythonCall(name, plain, 120) == typed_) input_->clear(), typed_.clear();
+    }
     if (name == "console_note") { // an agent's reasoning between its calls: a comment, no answer under it
         appendLog(log_, QString("<span style='color:#c9a0ff'># %1</span>").arg(args.value("text").toString().toHtmlEscaped()));
         return;

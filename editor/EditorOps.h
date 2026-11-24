@@ -65,6 +65,8 @@ public:
     // and shown as every other call.
     void report(const QString& source, const QString& name, const QJsonObject& args);
     void addListener(Listener l) { listeners_.push_back(std::move(l)); }
+    // console_type's hands: the console types a line into its input and says when it is done (none: answered at once).
+    void setTyper(std::function<void(const QString& line, std::function<void()> done)> typer) { typer_ = std::move(typer); }
     // A plugin's commands (PluginHost): added while it runs, gone when it stops. A command's call is not a line of
     // the journal - the edits it makes through the API are, and they make one undo step.
     // `schema`: its arguments as JSON Schema (ops_list gives it; MCP makes it the tool's inputSchema).
@@ -165,6 +167,7 @@ private:
     std::function<void()> recordingChanged_;
     void setRecording(bool on); // and the builder told: only a take's run stops at the play range's end
     std::vector<Listener> listeners_;
+    std::function<void(const QString&, std::function<void()>)> typer_;
     std::deque<QJsonObject> recent_; // the journal's last lines (the file keeps them all)
     QString journalFile_;
     QString session_;

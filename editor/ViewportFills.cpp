@@ -119,6 +119,8 @@ void Viewport::drawOverlayFills(QPainter& p) {
         p.setOpacity(d.opacity * (d.leader ? d.leaderWords : 1.0f));
         p.setPen(Qt::NoPen);
         p.setBrush(d.stroke);
+        if (d.glow > 0)
+            for (const QPainterPath& part : d.fill->parts) paintGlow(p, to.map(part), d.colour, d.glow);
         for (const QPainterPath& edge : d.fill->edges) p.drawPath(to.map(edge)); // all the edges first: none lies over a neighbour's fill
         p.setBrush(d.colour);
         for (const QPainterPath& part : d.fill->parts) p.drawPath(to.map(part)); // each by itself: a root's roof laps over its sign

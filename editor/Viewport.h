@@ -174,7 +174,14 @@ public:
         // Placed aside (leader place "aside"): not at `at` but laid out with the other callouts so placed, every frame
         // (arrangeCallouts): their leaders never cross however the view turns.
         bool aside = false;
+        // A soft halo of the drawing's colour round what it draws - its words, its leader, its picture's outlines (0..1:
+        // how strong); a drawing of only an object draws that object: its silhouette glows in the view (drawHighlight).
+        float glow = 0;
+        QColor background; // a plate behind the words, as subtitles have (invalid: none)
+        bool objectOnly() const { return object && strip.empty() && segments.empty() && points.empty() && text.isEmpty() && !fill; }
     };
+    // The glow round a path the painter draws: wide strokes of the colour, fainter outwards.
+    static void paintGlow(class QPainter& p, const QPainterPath& path, const QColor& colour, float glow);
     // view_draw's fill - rows of "M x y L x y C x1 y1 x2 y2 x y Z" - as a Fill (null and `error`: a row that is none).
     // `edge`: an edge so wide, in the picture's units, round every outline (0: none).
     static std::shared_ptr<const Fill> fillOf(const QStringList& rows, QString& error, double edge = 0);
@@ -385,6 +392,7 @@ private:
     void drawDebugProbe(const QMatrix4x4& vp); // the probe's lines and points
     // Silhouette outlines: selection (orange), hover (faint white), geometry without a role (fainter).
     void drawHighlight(const QMatrix4x4& vp);
+    void drawGlow(const QMatrix4x4& vp); // view_draw {object, glow}: the objects' halos
     bool ensureMaskTarget(int w, int h);
     void buildMaskTriangles();
     void appendBodyTriangles(const ke::Frame::Body& b, std::vector<float>& out) const;
@@ -424,6 +432,10 @@ private:
     void arrangeCallouts(class QPainter& p);
     bool leaderAnchor(const Drawing& d, QPointF& out) const; // the point of the part a leader goes to, on the screen
     std::map<QString, QRectF> calloutAt_;
+    std::map<QString, QPointF> calloutShown_; // where each was drawn last: it glides from there
+    std::map<QString, bool> calloutLeft_;     // the side each is on: kept until its point is well past the middle
+    std::vector<QString> calloutOrder_[2];    // each column's order from the top: kept until a point is well past its neighbour
+    QElapsedTimer calloutClock_;
     void modalDrag(); // the keyboard changed the transform: recompute it at the cursor
     bool playHandleAt(const QPointF& pos) const; // play: a press there takes the gizmo's handle
     uint32_t pickHandle(const Ray& ray, float& distance) const; // play: a see-through goal on the ray (0: none)
