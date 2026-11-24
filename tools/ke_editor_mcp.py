@@ -16,7 +16,8 @@ is read-only; an edit of the scene and a change of the window's state are not de
 an action (a file written, the program stopped, a plugin's command) is left as it may be.
 
 The profile, by default "agent": the hyper-operations first - a ready assembly in one call, terrain in one call, a whole
-robot in one scene_batch - and the few operations a build is checked with (AGENT); measured on a weak model (Haiku), the
+robot in one scene_batch - and the few operations a build is checked with (AGENT), and every command of the plugins the
+editor runs (what they add - a chess move, a sensor leading an arm, a formula - is one tool each); measured on a weak model (Haiku), the
 full list of 150 tools - some 25 000 tokens a turn - and learning the file format cost it about 18 calls a task; the
 instructions are docs/agent-guide.md, the lessons of those runs, short enough that no client cuts them; the tool ``guide``
 gives a topic of docs/agent/ (a car, an arm, power) when the model builds that kind of robot.
@@ -97,7 +98,24 @@ def editor():
     global _editor
     if _editor is None:
         _editor = ke_editor.Editor()
+        join_plugins(_editor)
     return _editor
+
+
+def join_plugins(ed):
+    """KE_PLUGINS (the Claude plugin's «Kinetica plugins folder»): its folders joined to the running editor's - one the
+    person started without them runs them too (plugin_scan, remembered for its next starts), and their commands become
+    tools. A folder already there, or one that is not, is left."""
+    wanted = [f for f in os.environ.get("KE_PLUGINS", "").split(os.pathsep) if f.strip() and os.path.isdir(f)]
+    if not wanted:
+        return
+    try:
+        have = {os.path.realpath(f) for f in ed.plugin_list().get("folders", [])}
+        for folder in wanted:
+            if os.path.realpath(folder) not in have:
+                ed.plugin_scan(folder=folder)
+    except ke_editor.EditorError:
+        pass  # an editor that refuses: its own plugins still serve
 
 
 def remote_tools():
@@ -112,9 +130,12 @@ def remote_tools():
 
 
 def listed():
-    """The editor's operations this server offers as tools: the agent's, all of them, or the profile's families."""
+    """The editor's operations this server offers as tools: the agent's and every running plugin's commands (named
+    <plugin>_<command>: what a plugin adds, the model can ask for - chess_move, depz_arm, narration_stage), all of them,
+    or the profile's families."""
     if FAMILIES == ["agent"]:
-        return [op for op in editor().ops_list()["ops"] if op["name"] in AGENT]
+        plugins = tuple(p["name"] + "_" for p in editor().plugin_list()["plugins"])
+        return [op for op in editor().ops_list()["ops"] if op["name"] in AGENT or op["name"].startswith(plugins)]
     return editor().ops_list(**({"families": FAMILIES} if FAMILIES != ["all"] else {}))["ops"]
 
 

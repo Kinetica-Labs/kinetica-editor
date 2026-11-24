@@ -28,6 +28,12 @@
       "title": "Kinetica folder",
       "description": "Where Kinetica is installed; empty: ~/Kinetica/editor (Windows: %LOCALAPPDATA%\\Kinetica\\editor), as install.sh and install.ps1 put it",
       "default": ""
+    },
+    "plugins": {
+      "type": "string",
+      "title": "Kinetica plugins folder",
+      "description": "A folder of the editor's plugins - formulas, narration, chess, the depz sensors (github.com/Kinetica-Labs/kinetica-plugins): the editor started from Claude runs them, and their commands are Claude's tools; empty: the editor's own only",
+      "default": ""
     }
   },
   "mcpServers": {
@@ -38,7 +44,8 @@
       ],
       "env": {
         "KE_EDITOR_PORT": "47801",
-        "KINETICA_HOME": "${user_config.editor}"
+        "KINETICA_HOME": "${user_config.editor}",
+        "KE_PLUGINS": "${user_config.plugins}"
       }
     }
   }

@@ -17,5 +17,7 @@ the editor as a tool; its instructions (sent when it connects) are the short gui
 4. **Explain and film** (topic `film`): `narration_say` puts a step's card in the view and flies the camera to the part,
    `formula_callout` labels a part with a formula as a drawing does, `narration_stage` lights the scene.
 
-Plugins of the editor (the formulas, the narration, chess, the depz sensors) come from the kinetica-plugins repository;
-an operation a plugin gives is `<plugin>_<command>` (`formula_callout`, `chess_move`).
+Plugins of the editor (the formulas, the narration, chess, the depz sensors, textures, terrain) come from the
+kinetica-plugins repository, given to the plugin as «Kinetica plugins folder»: the editor started from Claude runs them,
+and each of their commands is a tool of its own, `<plugin>_<command>` - `chess_board`, `chess_move {move: "e2e4"}`,
+`depz_imu_connect`, `depz_arm`, `narration_stage`, `formula_callout`. `plugin_list` says which run.

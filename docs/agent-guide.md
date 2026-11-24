@@ -38,7 +38,7 @@
 ## Проверка — четыре вызова
 
 `sim_play` → `sim_step {frames: 120, state: false}` → `sim_measure {objects: [id]}` (каналы `<id>/centre y`, `speed`,
-`contacts`… с единицами; `names` — имена по id) → `sim_stop`. Пульт, пока сцена играет: `controller_input {values:
+`contacts`… с единицами; `names` — имена по id) → `sim_stop`. Сцена словами — `scene_describe`. Пульт, пока сцена играет: `controller_input {values:
 {действие: значение}}`. Посмотреть: `view_screenshot`. Правка во время игры живёт до `sim_stop`.
 
 ## Ловушки
