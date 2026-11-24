@@ -8,6 +8,7 @@
 //   6. while the scene plays the profiler has stages and a step time.
 // Each check prints one line; with a directory, the pictures lab-contacts.png, lab-body.png.
 #include "SelfTestSupport.h"
+#include "UiLanguage.h"
 #include <QToolButton>
 #include <QMouseEvent>
 
@@ -45,10 +46,17 @@ size_t primitives(const Viewport* v) {
 }
 
 
-QPushButton* presetButton(const Lab& lab, const QString& name) {
+// A preset's button by its words in the window's language (uiText: the run may be in English); none: nullptr.
+QPushButton* presetButton(const Lab& lab, const char* name) {
+    const QString words = uiText("Kinetica", name);
     for (QPushButton* b : lab.panel->findChildren<QPushButton*>("labPreset"))
-        if (b->text() == name) return b;
+        if (b->text() == words) return b;
     return nullptr;
+}
+
+// Pressed when there - a missing one fails the check that reads what it does, never the run.
+void press(QPushButton* b) {
+    if (b) b->click();
 }
 
 // A cube dropped 30 cm onto the floor, turned a little: bodies and contacts to look at.
@@ -80,7 +88,7 @@ size_t primitivesOnceThey(Viewport* v, bool any) {
 }
 
 void testLayerToggle(Checker& c, Viewport* v, const Lab& lab) {
-    presetButton(lab, "Ничего")->click();
+    press(presetButton(lab, "Ничего"));
     const size_t off = primitivesOnceThey(v, false);
     // «Центр масс»: drawn for every body, asleep or not (a sleeping body has no box and no contacts).
     QCheckBox* box = lab.panel->layerBox(DrawLayer::CentreOfMass);
@@ -94,13 +102,13 @@ void testLayerToggle(Checker& c, Viewport* v, const Lab& lab) {
 
 void testPreset(Checker& c, const Lab& lab) {
     QPushButton* contacts = presetButton(lab, "Контакты");
-    contacts->click();
+    press(contacts);
     uint32_t want = 0;
     for (const LabPreset& p : labPresets())
-        if (p.name == "Контакты") want = p.mask;
+        if (p.name == uiText("Kinetica", "Контакты")) want = p.mask;
     const bool boxes = lab.panel->layerBox(DrawLayer::ContactPoints)->isChecked() &&
                        lab.panel->layerBox(DrawLayer::PenetrationDepth)->isChecked() && !lab.panel->layerBox(DrawLayer::BodyAabbs)->isChecked();
-    c.check(Probe::layers() == want && boxes && contacts->isChecked(), "the preset «Контакты» switches exactly its four layers on and lights up");
+    c.check(contacts && Probe::layers() == want && boxes && contacts->isChecked(), "the preset «Контакты» switches exactly its four layers on and lights up");
 }
 
 // The contact nearest to the eye (lowest on the screen): a corner of the cube on the floor, not hidden.
@@ -151,12 +159,12 @@ void testContactCard(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, c
     click(v, toPoint(v->gizmoView().project(contact.position)));
     // The card rounds to hundredths of a millimetre: it must read the snapshot's depth to within half of one.
     const double want = double(contact.depth) * 1000.0;
-    const QString shown = lab.panel->card()->value("Глубина");
+    const QString shown = lab.panel->card()->value(uiText("Kinetica", "Глубина"));
     bool isNumber = false;
     const double read = QString(shown).replace(',', '.').toDouble(&isNumber);
     std::printf("  contact %d of %zu: depth %.4f mm in the snapshot, the card shows %s\n", i + 1, s->contacts.size(), want,
                 qPrintable(shown));
-    c.check(lab.panel->card()->title().startsWith("Точка контакта") && isNumber && std::abs(read - want) <= 0.0051 &&
+    c.check(lab.panel->card()->title().startsWith(QString(uiText("Kinetica", "Точка контакта %1 из %2")).section('%', 0, 0).trimmed()) && isNumber && std::abs(read - want) <= 0.0051 &&
                 v->labMarkerShown(),
             "a click on a contact point opens its card with that point's depth, and rings it in the view");
     if (!dir.isEmpty()) windowShot(w).save(dir + "/lab-contacts.png");
@@ -168,13 +176,13 @@ void testBodyCard(Checker& c, QMainWindow& w, SceneBuilder& b, Viewport* v, cons
     for (const auto& body : s->bodies)
         if (body.movable) cube = &body;
     if (!cube) return c.check(false, "the cube's body is in the frame");
-    presetButton(lab, "Всё о телах")->click();
+    press(presetButton(lab, "Всё о телах"));
     click(v, toPoint(v->gizmoView().project(cube->pos + Vector3(0.0f, 0.05f, 0.0f))));
     pump(400); // the live numbers come back from the simulation thread
-    const QString mass = lab.panel->card()->value("Масса");
+    const QString mass = lab.panel->card()->value(uiText("Kinetica", "Масса"));
     std::printf("  the cube's card: mass %s kg, speed %s m/s, %s\n", qPrintable(mass), qPrintable(lab.panel->card()->value("|v|")),
-                qPrintable(lab.panel->card()->value("Сон")));
-    c.check(lab.panel->card()->title() == "Тело" && !mass.isEmpty() && !mass.startsWith("—"),
+                qPrintable(lab.panel->card()->value(uiText("Kinetica", "Сон"))));
+    c.check(lab.panel->card()->title() == uiText("Kinetica", "Тело") && !mass.isEmpty() && !mass.startsWith("—"),
             "a click on the cube opens its card with live numbers from the simulation (mass, speed, sleep)");
     if (!dir.isEmpty()) {
         b.play(); // a few frames with the bodies' layers drawn
@@ -224,7 +232,7 @@ int runLabTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sho
     testPlainRunKeepsNothing(c, w, b, v);
     testProfiler(c, v, lab);
     b.stop();
-    presetButton(lab, "Ничего")->click();
+    press(presetButton(lab, "Ничего"));
     trigger(w, "actionLaboratory"); // closed again: the next tests see the plain window
     pump(200);
     return c.failures;
