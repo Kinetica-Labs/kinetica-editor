@@ -397,9 +397,14 @@ TRANSCRIPT = [
 class Wire:
     """One TCP connection, one JSON line each way, with a reader that survives a timeout."""
 
-    def __init__(self, port):
+    def __init__(self, port, token):
         self.sock = socket.create_connection(("127.0.0.1", port), timeout=5)
         self.buf = b""
+        # Let in first (editor/EditorServer.h): a request of its own carries the token, so every line of the transcript
+        # goes as it is written.
+        self.send(json.dumps({"id": "token", "op": "runtime_status", "token": token}).encode("utf-8"))
+        if json.loads(self.read_line(30) or "{}").get("result", {}).get("ok") is not True:
+            raise ConnectionError("the window did not take the token")
 
     def send(self, data):
         self.sock.sendall(data + b"\n")
@@ -448,7 +453,8 @@ class Window:
             raise RuntimeError(f"port {self.port} already has a listener: a stale window would be taken for the fresh one")
         self.dir = os.path.join(self.work, "files")
         os.makedirs(self.dir)
-        env = dict(os.environ, KE_JOURNAL=os.path.join(self.work, "journal.jsonl"),
+        self.token = os.urandom(16).hex()  # the window's API token, given by its starter (editor/EditorServer.h)
+        env = dict(os.environ, KE_API_TOKEN=self.token, KE_JOURNAL=os.path.join(self.work, "journal.jsonl"),
                    XDG_CONFIG_HOME=os.path.join(self.work, "config"), XDG_DATA_HOME=os.path.join(self.work, "data"))
         env.pop("KE_PLUGINS", None)
         self.proc = subprocess.Popen([os.path.join(ROOT, "build", "kinetica"), "--agent-eval", "--api", str(self.port)], cwd=ROOT, env=env,
@@ -466,7 +472,7 @@ class Window:
                 time.sleep(0.2)
         if self.proc.poll() is not None:
             raise RuntimeError("the window exited as its port opened: the listener was not ours")
-        self.wire = Wire(self.port)
+        self.wire = Wire(self.port, self.token)
         self.plugin_commands = self.wait_plugins()
         time.sleep(1.5)
         first = self.call("scene_list")

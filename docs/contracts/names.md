@@ -667,6 +667,7 @@
 
 | Имя | Что, операция | Ступень |
 |---|---|---|
+| `api_token` | токен окна на порту, с которым оно пускает соединение: `KE_API_TOKEN`, иначе файл `<app data>/api/<порт>.token` | testing |
 | `Battery` | батарея | stable |
 | `Body` | форма с ролями: твёрдое тело, коллайдер | stable |
 | `Body.add_controller` | контроллер цели - `controller_add` | stable |
@@ -702,6 +703,7 @@
 | `Core` | связь с `kinetica-core` по каналам | stable |
 | `Core.call` | ответ одной операции | stable |
 | `Core.close` | закрыть `kinetica-core` | stable |
+| `data_folder` | папка данных пользователя редактора (журнал, плагины, сборки, токены API) | testing |
 | `draw.box` | рёбра коробки в виде | stable |
 | `draw.circle` | окружность в виде | stable |
 | `draw.clear` | убрать свои рисунки | stable |

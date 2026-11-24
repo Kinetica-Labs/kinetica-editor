@@ -28,17 +28,10 @@ TOOLS = os.path.dirname(os.path.abspath(__file__))
 EDITOR = os.path.dirname(TOOLS)
 sys.path.insert(0, TOOLS)
 import ke_editor  # noqa: E402
+from kinetica.client import data_folder  # noqa: E402
 
 FEEDBACK = ("\n\nВ самом конце отчёта отдельной строкой, начиная с «ОТЗЫВ:», одной-двумя фразами: что в инструментах "
             "редактора мешало или было непонятно (или «ничего»).")
-
-
-def _data_folder():
-    if os.environ.get("APPDATA"):
-        return os.path.join(os.environ["APPDATA"], "Kinetica", "Kinetica")
-    mac = os.path.expanduser("~/Library/Application Support")
-    base = mac if os.path.isdir(mac) else os.environ.get("XDG_DATA_HOME") or os.path.expanduser("~/.local/share")
-    return os.path.join(base, "Kinetica", "Kinetica")
 
 
 def free_port():
@@ -166,7 +159,7 @@ CHECKS = {"panel": check_panel, "servos": check_servos, "ground": check_ground, 
 
 # ---- a run ---------------------------------------------------------------------------------------------------------
 
-def run(task, model, profile, plugins, timeout):
+def run(task, model, profile, plugins, timeout, guide=None):
     port = free_port()
     env = dict(os.environ, KE_PLUGINS=plugins) if plugins else dict(os.environ)
     editor = subprocess.Popen([os.path.join(EDITOR, "build", "kinetica"), "--agent-eval", "--api", str(port)], cwd=EDITOR, env=env,
@@ -183,6 +176,8 @@ def run(task, model, profile, plugins, timeout):
             mcp_env = {"KE_EDITOR_PORT": str(port)}
             if profile != "agent":
                 mcp_env["KE_MCP_FAMILIES"] = profile
+            if guide:
+                mcp_env["KE_AGENT_GUIDE"] = os.path.abspath(guide)
             with open(config, "w") as f:
                 json.dump({"mcpServers": {"ke-editor": {"command": sys.executable, "args": [os.path.join(TOOLS, "ke_editor_mcp.py")], "env": mcp_env}}}, f)
             start = time.monotonic()
@@ -192,7 +187,7 @@ def run(task, model, profile, plugins, timeout):
                                   cwd=cwd, capture_output=True, text=True, timeout=timeout)
             wall = time.monotonic() - start
         out = metrics(done.stdout.splitlines())
-        out.update(task=task["id"], model=model, profile=profile, wall_s=round(wall, 1), checks={})
+        out.update(task=task["id"], model=model, profile=profile + (f"+{os.path.basename(os.path.abspath(guide))}" if guide else ""), wall_s=round(wall, 1), checks={})
         for spec in task["checks"]:  # a check's name, or [its name, its arguments]
             name, kw = (spec, {}) if isinstance(spec, str) else spec
             try:
@@ -231,12 +226,13 @@ def main(argv=None):
     p.add_argument("--models", nargs="*", default=["haiku"])
     p.add_argument("--profile", default="agent", help="the MCP profile: agent, all, or families")
     p.add_argument("--repeat", type=int, default=1)
+    p.add_argument("--guide", default=None, help="a folder with agent-guide.md and agent/ in place of docs/ (a translation); its name joins the profile")
     p.add_argument("--plugins", default=os.path.join(os.path.dirname(EDITOR), "kinetica-plugins"), help="a plugins folder (KE_PLUGINS)")
     p.add_argument("--timeout", type=int, default=900, help="s an agent may take")
     p.add_argument("--journal", default=None, help="the journal (JSON lines); default: <user data>/agent-bench.jsonl")
     p.add_argument("--table", action="store_true", help="print the journal as a table and stop")
     a = p.parse_args(argv)
-    journal = a.journal or os.path.join(_data_folder(), "agent-bench.jsonl")
+    journal = a.journal or os.path.join(data_folder(), "agent-bench.jsonl")
     if a.table:
         rows = [json.loads(line) for line in open(journal, encoding="utf-8")] if os.path.exists(journal) else []
         print(table(rows))
@@ -248,7 +244,7 @@ def main(argv=None):
     for task in tasks:
         for model in a.models:
             for _ in range(a.repeat):
-                row = run(task, model, a.profile, a.plugins, a.timeout)
+                row = run(task, model, a.profile, a.plugins, a.timeout, a.guide)
                 row["at"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
                 with open(journal, "a", encoding="utf-8") as f:  # appended, never rewritten
                     f.write(json.dumps({k: v for k, v in row.items() if k != "report"}, ensure_ascii=False) + "\n")

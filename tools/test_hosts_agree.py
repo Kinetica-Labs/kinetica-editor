@@ -11,6 +11,7 @@ import json
 import os
 import queue
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -176,6 +177,19 @@ class HostsAgree(unittest.TestCase):
         if cls.window:
             cls.window.finish()
             cls.window.wire.close()
+
+    def test_the_window_lets_in_by_its_token(self):
+        """Another user of the computer reaches 127.0.0.1 too: a connection without the token is refused and told where the
+        token is, a wrong one too; with it, served (editor/EditorServer.h)."""
+        for given in (None, "wrong"):
+            wire = rec.Wire.__new__(rec.Wire)
+            wire.sock, wire.buf = socket.create_connection(("127.0.0.1", self.window.port), timeout=5), b""
+            wire.send(json.dumps({"id": 1, "op": "scene_list", **({"token": given} if given else {})}).encode("utf-8"))
+            answer = json.loads(wire.read_line(30))["result"]
+            self.assertFalse(answer["ok"])
+            self.assertIn("token", answer["error"])
+            wire.close()
+        rec.Wire(self.window.port, self.window.token).close()  # raises unless taken
 
     def both(self, op, **args):
         """The same request to both hosts; the answers must be equal; the window's is returned."""

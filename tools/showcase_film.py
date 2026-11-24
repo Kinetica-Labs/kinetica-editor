@@ -79,6 +79,7 @@ def film(scene, folder, through, fps):
 
 def start(port, plugins, size, scale, work):
     """A hidden editor of its own, the plugins running: the scene to drive it by."""
+    os.environ.setdefault("KE_API_TOKEN", os.urandom(16).hex())  # its data folder is a throwaway one: the token is given, not read
     env = dict(os.environ, KE_JOURNAL=os.path.join(work, "journal.jsonl"), XDG_CONFIG_HOME=work, XDG_DATA_HOME=work,
                KE_PLUGINS=os.path.abspath(plugins), QT_SCALE_FACTOR=scale)
     editor = subprocess.Popen([os.path.join(ROOT, "build", "kinetica"), "--agent-eval", "--api", str(port), "--size", size], cwd=ROOT, env=env,

@@ -51,7 +51,9 @@ LOCAL_TOOLS = [
 ]
 # The guide's topics (docs/agent/<topic>.md): what a model reads when it builds that kind of robot - the instructions
 # stay short, as a client cuts them (Claude Code: at about 4 000 characters), and the rest is disclosed on asking.
-TOPICS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "agent")
+# KE_AGENT_GUIDE: another folder with agent-guide.md and agent/ (a translation measured on the bench, tools/agent_bench.py --guide).
+DOCS = os.environ.get("KE_AGENT_GUIDE") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs")
+TOPICS = os.path.join(DOCS, "agent")
 
 
 def topics():
@@ -81,7 +83,7 @@ _editor = None
 _names = None  # the operations' names at the last list: a change is said to the client
 # What a model reads first (MCP initialize: instructions): docs/agent-guide.md - the distilled way to build fast, one
 # source for people and models.
-GUIDE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "agent-guide.md")
+GUIDE = os.path.join(DOCS, "agent-guide.md")
 INSTRUCTIONS = (open(GUIDE, encoding="utf-8").read() if os.path.exists(GUIDE) else
                 "Kinetica Editor: a robotics editor; start with assembly_list, terrain_make and scene_batch.")
 WIRING = {"plugin_register", "plugin_wait", "plugin_reply", "plugin_panel_set"}  # a plugin process's own, with its token

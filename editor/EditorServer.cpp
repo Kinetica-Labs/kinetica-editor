@@ -3,9 +3,13 @@
 
 #include "EditorOps.h"
 
+#include <QDir>
+#include <QFile>
 #include <QHostAddress>
 #include <QJsonDocument>
 #include <QPointer>
+#include <QRandomGenerator>
+#include <QStandardPaths>
 #include <QTcpServer>
 #include <QTcpSocket>
 #include <QTimer>
@@ -13,7 +17,40 @@
 EditorServer::EditorServer(EditorOps* ops, quint16 port, QObject* parent)
     : QObject(parent), ops_(ops), server_(new QTcpServer(this)) {
     connect(server_, &QTcpServer::newConnection, this, &EditorServer::accept);
-    server_->listen(QHostAddress::LocalHost, port);
+    if (!server_->listen(QHostAddress::LocalHost, port)) return;
+    const QString dir = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/api";
+    QDir().mkpath(dir);
+    QFile file(dir + "/" + QString::number(server_->serverPort()) + ".token");
+    if (file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+        // Before the token is in it. Windows keeps a user's AppData to that user by its own rights, whatever this sets.
+        file.setPermissions(QFileDevice::ReadOwner | QFileDevice::WriteOwner);
+        file.write(token().toUtf8());
+        tokenFile_ = file.fileName();
+    }
+}
+
+// The token goes with the server: a file left behind would name a port someone else may take next.
+EditorServer::~EditorServer() {
+    if (!tokenFile_.isEmpty()) QFile::remove(tokenFile_);
+}
+
+QString EditorServer::token() {
+    static const QString made = [] {
+        const QString given = qEnvironmentVariable("KE_API_TOKEN");
+        if (!given.isEmpty()) return given;
+        QString out;
+        for (int k = 0; k < 4; ++k) out += QString::number(QRandomGenerator::system()->generate64(), 16).rightJustified(16, '0');
+        return out;
+    }();
+    return made;
+}
+
+// Compared in a time that does not depend on where the first wrong character is.
+static bool sameToken(const QString& given, const QString& token) {
+    const QByteArray a = given.toUtf8(), b = token.toUtf8();
+    int diff = a.size() ^ b.size();
+    for (int k = 0; k < b.size(); ++k) diff |= (k < a.size() ? a[k] : 0) ^ b[k];
+    return diff == 0;
 }
 
 bool EditorServer::listening() const { return server_->isListening(); }
@@ -30,7 +67,7 @@ void EditorServer::accept() {
         sockets_.insert(socket);
         socket->setSocketOption(QAbstractSocket::LowDelayOption, 1); // an answer goes at once: several in a row waited 40 ms
         socket->setReadBufferSize(1024 * 1024 + 1);                  // for the first one's acknowledgement (Nagle)
-        connect(socket, &QTcpSocket::disconnected, this, [this, socket] { sockets_.remove(socket); });
+        connect(socket, &QTcpSocket::disconnected, this, [this, socket] { sockets_.remove(socket), trusted_.remove(socket); });
         connect(socket, &QTcpSocket::readyRead, this, [this, socket] { readLines(socket); });
         connect(socket, &QTcpSocket::disconnected, socket, &QObject::deleteLater);
     }
@@ -58,13 +95,6 @@ void EditorServer::readLines(QTcpSocket* socket) {
         if (line.isEmpty()) continue;
         QJsonParseError parseError;
         const QJsonObject request = QJsonDocument::fromJson(line, &parseError).object();
-        const QString src = request.value("src").toString();
-        const bool console = src == "console", plugin = src.startsWith("plugin:");
-        // The editor's own console and its plugins are not an agent driving, nor a hand and an eye (ui_*, view_*): a tester
-        // acting as a person through them saw the plate and lost the gizmo, which a person never does.
-        const QString op = request.value("op").toString();
-        const bool hand = op.startsWith("ui_") || op == "view_screenshot" || op == "view_project";
-        if (onActivity_ && !console && !plugin && !hand) onActivity_();
         const QJsonValue id = request.value("id");
         QPointer<QTcpSocket> to(socket);
         auto reply = [to, id](const QJsonObject& answer) {
@@ -77,6 +107,22 @@ void EditorServer::readLines(QTcpSocket* socket) {
             to->flush();
         };
         if (parseError.error != QJsonParseError::NoError) { reply(EditorOps::error("not JSON: " + parseError.errorString())); continue; }
+        if (!trusted_.contains(socket)) {
+            if (!sameToken(request.value("token").toString(), token())) {
+                reply(EditorOps::error("the API asks for its token: \"token\" in a connection's first request - KE_API_TOKEN in a "
+                                       "program the editor started, else the file " + (tokenFile_.isEmpty() ? QString("<app data>/api/<port>.token") : tokenFile_) +
+                                       " (its user's only)"));
+                continue;
+            }
+            trusted_.insert(socket);
+        }
+        const QString src = request.value("src").toString();
+        const bool console = src == "console", plugin = src.startsWith("plugin:");
+        // The editor's own console and its plugins are not an agent driving, nor a hand and an eye (ui_*, view_*): a tester
+        // acting as a person through them saw the plate and lost the gizmo, which a person never does.
+        const QString op = request.value("op").toString();
+        const bool hand = op.startsWith("ui_") || op == "view_screenshot" || op == "view_project";
+        if (onActivity_ && !console && !plugin && !hand) onActivity_();
         const bool stopping = request.value("op").toString() == "runtime_stop";
         const bool waits = request.value("op").toString() == "plugin_wait"; // one per plugin, held until a call: no slot of the queue
         if ((stopping && stopPending_) || (!stopping && !waits && pendingRequests_ >= 8)) {
