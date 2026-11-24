@@ -99,17 +99,20 @@ void testSimStiffServoOnLightLink();
 void testSimGoalWalksItsPath();
 void testSimUr5eHolds();
 void testSimTugUr5e();
-void testSimMeshColliderThinned();
 void testSimGoalPoseSettles();
 void testSimSensors();
 void testSimLidar();
-void testSimMeshCollider();
-void testConvexParts();
 void testSimSequence();
 void testSimRecording();
 void testSimRecordingArm();
 void testSimKeyedCamera();
 void testSimController();
+// ColliderTests.cpp
+void testSimMeshColliderThinned();
+void testSceneColliderNumbers();
+void testSimMeshCollider();
+void testConvexParts();
+
 // GraphTests.cpp
 void testSceneGraphRoundTrip();
 void testSceneFormatOnlyGrows();
@@ -138,7 +141,6 @@ void testTargetCamera();
 void testSequence();
 void testSequenceInterp();
 void testSequenceFieldKeys();
-void testSceneColliderNumbers();
 void testPluginComponents();
 // AssemblyTests.cpp
 void testSceneJointsRoundTrip();

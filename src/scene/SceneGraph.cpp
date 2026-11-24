@@ -83,26 +83,6 @@ const char* kDofNames[] = {"tx", "ty", "tz", "rx", "ry", "rz"};
 std::string num(Real v) { return numberText(v); }
 std::string vec(const Vector3& v) { return num(v.x) + " " + num(v.y) + " " + num(v.z); }
 
-// Splits a line into words; a word in double quotes may contain spaces.
-std::vector<std::string> words(const std::string& line) {
-    std::vector<std::string> out;
-    size_t i = 0;
-    while (i < line.size()) {
-        while (i < line.size() && (line[i] == ' ' || line[i] == '\t' || line[i] == '\r')) ++i;
-        if (i >= line.size()) break;
-        if (line[i] == '"') {
-            const size_t end = line.find('"', i + 1);
-            out.push_back(line.substr(i + 1, end == std::string::npos ? std::string::npos : end - i - 1));
-            i = end == std::string::npos ? line.size() : end + 1;
-        } else {
-            const size_t start = i;
-            while (i < line.size() && line[i] != ' ' && line[i] != '\t' && line[i] != '\r') ++i;
-            out.push_back(line.substr(start, i - start));
-        }
-    }
-    return out;
-}
-
 // A key under the name it had before the format settled on one style (words joined by '_'): files and journal
 // snapshots written then still load, and are saved under the new name. The format only grows; a rename goes here.
 std::string renamed(const std::string& key) {
@@ -188,6 +168,25 @@ bool fail(std::string& bad, const std::string& what) {
 }
 
 } // namespace
+
+std::vector<LineWord> lineWords(const std::string& line) {
+    std::vector<LineWord> out;
+    size_t i = 0;
+    while (i < line.size()) {
+        while (i < line.size() && (line[i] == ' ' || line[i] == '\t' || line[i] == '\r')) ++i;
+        if (i >= line.size()) break;
+        const size_t start = i;
+        if (line[i] == '"') {
+            const size_t close = line.find('"', i + 1);
+            i = close == std::string::npos ? line.size() : close + 1;
+            out.push_back({line.substr(start + 1, (close == std::string::npos ? line.size() : close) - start - 1), start, i, true});
+        } else {
+            while (i < line.size() && line[i] != ' ' && line[i] != '\t' && line[i] != '\r') ++i;
+            out.push_back({line.substr(start, i - start), start, i, false});
+        }
+    }
+    return out;
+}
 
 std::string presentKey(const std::string& key) { return renamed(key); }
 
@@ -1350,7 +1349,8 @@ bool SceneGraph::load(const std::string& text, std::string& error) {
     std::string line, bad;
     Block block = Block::None;
     for (int number = 1; std::getline(in, line); ++number) {
-        const std::vector<std::string> w = words(line);
+        std::vector<std::string> w;
+        for (LineWord& word : lineWords(line)) w.push_back(std::move(word.text));
         if (w.empty() || w[0][0] == '#') continue;
         if (!readLine(w, g, block, bad)) {
             const size_t hint = bad.find(kHint);

@@ -195,7 +195,7 @@ if(Qt6_FOUND)
     editor/Gizmo.h           editor/Gizmo.cpp
     editor/SelfTest.h        editor/SelfTest.cpp editor/SelfTestSupport.h
     editor/SelfTestControls.cpp editor/SelfTestComponents.cpp editor/SelfTestMany.cpp editor/SelfTestLights.cpp editor/SelfTestForces.cpp
-    editor/SelfTestSequencer.cpp editor/SelfTestPlugins.cpp editor/SelfTestScripts.cpp
+    editor/SelfTestSequencer.cpp editor/SelfTestPlugins.cpp editor/SelfTestPluginPanels.cpp editor/SelfTestScripts.cpp
     editor/SelfTestShadows.cpp editor/SelfTestTextures.cpp editor/SelfTestBump.cpp editor/SelfTestPlay.cpp
     editor/SelfTestLayout.cpp editor/SelfTestLab.cpp editor/SelfTestPlots.cpp editor/SelfTestJournal.cpp
     editor/SelfTestGoal.cpp editor/SelfTestWorld.cpp editor/SelfTestHosts.cpp
@@ -254,7 +254,7 @@ if(KE_TESTS)
     tests/RuntimePolicyTests.cpp
     tests/DeviceTests.cpp
     tests/ElectroTests.cpp
-    tests/PhysicsTests.cpp tests/SimTests.cpp tests/ForceTests.cpp tests/MetamorphicTests.cpp
+    tests/PhysicsTests.cpp tests/SimTests.cpp tests/ColliderTests.cpp tests/ForceTests.cpp tests/MetamorphicTests.cpp
     tests/GraphTests.cpp tests/AblationTests.cpp
     tests/ArrayTests.cpp
     tests/SceneActionTests.cpp

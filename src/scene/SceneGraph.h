@@ -612,6 +612,15 @@ Quaternion entityRotation(const Entity& e);
 // The shape as a closed mesh in the entity's own frame, at its size, centred on the origin. A model
 // file is read once and cached; an unreadable file gives an empty mesh (and `error`, if asked).
 TriMesh entityLocalMesh(const Entity& e, const std::string& baseDirectory = std::string(), std::string* error = nullptr);
+// A word of a scene line and where it stands: spaces and tabs part words, a word in double quotes keeps its spaces (the
+// quotes inside begin..end, not in text; an unclosed quote runs to the line's end). The reader, the editor of a block's
+// lines (SceneEdits) and the renumberer of ids (SceneFiles) all split a line with it.
+struct LineWord {
+    std::string text;
+    size_t begin = 0, end = 0;
+    bool quoted = false;
+};
+std::vector<LineWord> lineWords(const std::string& line);
 // The graph's relative file paths (models, textures) rewritten for a scene file in `directory`, so that they find the same
 // files from there ("Save as" into another folder), and baseDirectory set to it. Absolute paths stay as they are.
 void rebaseFiles(SceneGraph& g, const std::string& directory);

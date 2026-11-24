@@ -9,6 +9,7 @@
 
 #include <QCoreApplication>
 #include <QElapsedTimer>
+#include <QFile>
 
 #include <functional>
 #include <QMainWindow>
@@ -159,6 +160,15 @@ inline bool waitFrames(Viewport* v, uint64_t frames, int timeoutMs) {
 
 inline bool newFrames(Viewport* v, int count) { return waitFrames(v, (v->snapshot() ? v->snapshot()->frame : 0) + uint64_t(count), 15000); }
 
+// A button or a menu item of the window by its object name; none: null.
+inline QAction* action(QMainWindow& w, const QString& name) { return w.findChild<QAction*>(name); }
+// A file of a test's plugin written whole.
+inline void write(const QString& file, const QString& text) {
+    QFile f(file);
+    f.open(QIODevice::WriteOnly | QIODevice::Truncate);
+    f.write(text.toUtf8());
+}
+
 } // namespace selftest
 
 // The component tests and their screenshots (SelfTestComponents.cpp): the inspector's cards, the
@@ -176,6 +186,8 @@ int runLightTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& s
 int runForceTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);
 int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir); // SelfTestSequencer.cpp
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestPlugins.cpp
+// A plugin's panel - charts, words, a picture (SelfTestPluginPanels.cpp), called by runPluginTests with the host started.
+void testPluginPanels(selftest::Checker& c, QMainWindow& w, SceneBuilder& b, EditorOps* ops, class PluginHost* host, const QString& folder);
 int runScriptTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir);    // SelfTestScripts.cpp: script_run
 // The play-mode pass: the top bar's widths, the same look in play, the banner, K, Ctrl+K, the
 // orbit pivot, the blank-window check (SelfTestPlay.cpp).

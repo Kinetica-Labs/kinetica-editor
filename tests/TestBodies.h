@@ -1,6 +1,12 @@
 #pragma once
-// Bodies for a test's scene, shared by the files of the running world's tests (SimTests.cpp, ForceTests.cpp).
+// Bodies for a test's scene, shared by the files of the running world's tests (SimTests.cpp, ForceTests.cpp,
+// ColliderTests.cpp).
+#include "TestRunner.h"
 #include "scene/SceneGraph.h"
+
+#include <fstream>
+#include <sstream>
+#include <string>
 
 namespace ke {
 
@@ -27,6 +33,18 @@ inline SceneGraph armOnPost(const JointDrive& drive) {
     j.dof[DofRx].motion = JointMotion::Free;
     j.dof[DofRx].drive = drive;
     g.joints.push_back(j);
+    return g;
+}
+
+// The UR5e of examples/ (meshes, eight joints, a gripper), its models found from the scene's own folder.
+inline SceneGraph ur5e() {
+    std::ifstream file(std::string(KE_EXAMPLES) + "/scenes/ur5e.kscene");
+    std::stringstream text;
+    text << file.rdbuf();
+    SceneGraph g;
+    std::string error;
+    CHECK(g.load(text.str(), error), "examples/scenes/ur5e.kscene loads: %s", error.c_str());
+    g.baseDirectory = std::string(KE_EXAMPLES) + "/scenes"; // the scene's own folder: its models are ../models
     return g;
 }
 

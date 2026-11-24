@@ -25,8 +25,6 @@ bool open(QMainWindow& w, const char* dock) {
     return d && !d->isHidden();
 }
 
-QAction* action(QMainWindow& w, const char* name) { return w.findChild<QAction*>(name); }
-
 void testAreas(Checker& c, QMainWindow& w) {
     QAction *left = action(w, "actionLeftBar"), *bottom = action(w, "actionBottomPanel"), *right = action(w, "actionRightBar");
     c.check(left && bottom && right, "the three layout buttons exist (left panel, bottom panel, right panel)");

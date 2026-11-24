@@ -46,38 +46,12 @@ bool eraseId(std::vector<T>& v, uint32_t id) {
     return v.size() != before;
 }
 
-// A word of a line and where it stands in the line, its quotes included.
-struct Word {
-    std::string text;
-    size_t begin, end;
-    bool quoted;
-};
-
-std::vector<Word> spans(const std::string& line) {
-    std::vector<Word> out;
-    size_t i = 0;
-    while (i < line.size()) {
-        while (i < line.size() && (line[i] == ' ' || line[i] == '\t' || line[i] == '\r')) ++i;
-        if (i >= line.size()) break;
-        const size_t start = i;
-        if (line[i] == '"') {
-            const size_t close = line.find('"', i + 1);
-            i = close == std::string::npos ? line.size() : close + 1;
-            out.push_back({line.substr(start + 1, i - start - 2), start, i, true});
-        } else {
-            while (i < line.size() && line[i] != ' ' && line[i] != '\t' && line[i] != '\r') ++i;
-            out.push_back({line.substr(start, i - start), start, i, false});
-        }
-    }
-    return out;
-}
-
 std::string quoteIfNeeded(const std::string& v, bool quoted) {
     return quoted || v.empty() || v.find(' ') != std::string::npos ? "\"" + v + "\"" : v;
 }
 
 // Whether a line begins with the words of `head` ("rigid", or "drive rx": a line's first words).
-bool startsWith(const std::vector<Word>& w, const std::vector<Word>& head) {
+bool startsWith(const std::vector<LineWord>& w, const std::vector<LineWord>& head) {
     if (head.empty() || w.size() < head.size()) return false;
     for (size_t i = 0; i < head.size(); ++i)
         if (w[i].text != head[i].text) return false;
@@ -88,7 +62,7 @@ bool startsWith(const std::vector<Word>& w, const std::vector<Word>& head) {
 // size: it has none); the last of those words for an empty key. A key is looked for as it is named, then under its
 // present name: the block is the scene as it is saved now, the caller may be a script written when the key was called
 // otherwise (and a plugin's component spells its keys itself - one that looks like an earlier name is found as it is).
-size_t keyAt(const std::vector<Word>& w, size_t head, const std::string& key) {
+size_t keyAt(const std::vector<LineWord>& w, size_t head, const std::string& key) {
     if (key.empty()) return head - 1;
     for (const std::string& name : {key, presentKey(key)})
         for (size_t i = head; i < w.size(); ++i)
@@ -97,12 +71,12 @@ size_t keyAt(const std::vector<Word>& w, size_t head, const std::string& key) {
 }
 
 // The name a key new to its line is written under: the format's present one; a plugin's component keeps its own.
-std::string writtenKey(const std::vector<Word>& head, const std::string& key) {
+std::string writtenKey(const std::vector<LineWord>& head, const std::string& key) {
     return !head.empty() && head[0].text == "component" ? key : presentKey(key);
 }
 
 // The line with as many words after word `at` as there are values replaced by them (appended past its end).
-std::string replaceWords(const std::string& line, const std::vector<Word>& w, size_t at, const std::vector<std::string>& values) {
+std::string replaceWords(const std::string& line, const std::vector<LineWord>& w, size_t at, const std::vector<std::string>& values) {
     if (values.empty()) return line;
     std::string text;
     for (size_t k = 0; k < values.size(); ++k) {
@@ -117,9 +91,9 @@ std::string replaceWords(const std::string& line, const std::vector<Word>& w, si
 // The values after `key` on the first of the lines that starts with the words of `line` replaced (the key appended
 // when the line has none). False: no line starts so.
 bool replaceField(std::vector<std::string>& lines, const std::string& line, const std::string& key, const std::vector<std::string>& values) {
-    const std::vector<Word> head = spans(line);
+    const std::vector<LineWord> head = lineWords(line);
     for (std::string& l : lines) {
-        const std::vector<Word> w = spans(l);
+        const std::vector<LineWord> w = lineWords(l);
         if (!startsWith(w, head)) continue;
         const size_t at = keyAt(w, head.size(), key);
         if (at == w.size()) l += " " + writtenKey(head, key); // a key the line has not got: appended
@@ -183,7 +157,7 @@ uint32_t setField(SceneGraph& g, uint32_t id, const std::string& line, const std
     std::vector<std::string> lines;
     for (std::string l; std::getline(in, l);) lines.push_back(l);
     if (!replaceField(lines, line, key, values)) {
-        std::string added = "  " + line + (key.empty() ? "" : " " + writtenKey(spans(line), key));
+        std::string added = "  " + line + (key.empty() ? "" : " " + writtenKey(lineWords(line), key));
         for (const std::string& v : values) added += " " + quoteIfNeeded(v, false);
         lines.insert(lines.end() - 1, added); // before "end"
     }
@@ -197,17 +171,17 @@ std::vector<std::vector<BlockWord>> blockLines(const std::string& block) {
     std::istringstream in(block);
     for (std::string l; std::getline(in, l);) {
         std::vector<BlockWord> words;
-        for (const Word& w : spans(l)) words.push_back({w.text, w.quoted});
+        for (const LineWord& w : lineWords(l)) words.push_back({w.text, w.quoted});
         if (!words.empty() && !(words.size() == 1 && words[0].text == "end")) out.push_back(std::move(words));
     }
     return out;
 }
 
 std::vector<BlockWord> getField(const std::string& block, const std::string& line, const std::string& key, size_t count) {
-    const std::vector<Word> head = spans(line);
+    const std::vector<LineWord> head = lineWords(line);
     std::istringstream in(block);
     for (std::string l; std::getline(in, l);) {
-        const std::vector<Word> w = spans(l);
+        const std::vector<LineWord> w = lineWords(l);
         if (!startsWith(w, head)) continue;
         const size_t at = keyAt(w, head.size(), key);
         std::vector<BlockWord> out;
@@ -301,7 +275,7 @@ std::vector<uint32_t> objectIds(const SceneGraph& g) {
     return ids;
 }
 
-bool isNumber(const Word& w) {
+bool isNumber(const LineWord& w) {
     if (w.quoted || w.text.empty()) return false;
     bool digit = false;
     for (char c : w.text) {
@@ -313,8 +287,8 @@ bool isNumber(const Word& w) {
 
 // The first words that name the line among the block's lines: one, or two when another line starts with
 // the same word (a joint's "drive rx" and "drive tz").
-size_t headOf(const std::vector<std::vector<Word>>& lines, size_t at) {
-    const std::vector<Word>& w = lines[at];
+size_t headOf(const std::vector<std::vector<LineWord>>& lines, size_t at) {
+    const std::vector<LineWord>& w = lines[at];
     for (size_t k = 0; k < lines.size(); ++k)
         if (k != at && !lines[k].empty() && lines[k][0].text == w[0].text) return std::min<size_t>(2, w.size());
     return 1;
@@ -323,8 +297,8 @@ size_t headOf(const std::vector<std::vector<Word>>& lines, size_t at) {
 // One changed line as a Set: the words from the first that differs to the last, after the nearest key
 // before them that the line holds once (none: right after the line's own words). False: the line's
 // shape changed - its count of words, its quotes or its own words - and only a Put says it.
-bool lineEdit(uint32_t id, const std::vector<std::vector<Word>>& lines, size_t at, const std::vector<Word>& now, GraphEdit& out) {
-    const std::vector<Word>& was = lines[at];
+bool lineEdit(uint32_t id, const std::vector<std::vector<LineWord>>& lines, size_t at, const std::vector<LineWord>& now, GraphEdit& out) {
+    const std::vector<LineWord>& was = lines[at];
     if (was.size() != now.size()) return false;
     size_t first = was.size(), last = 0;
     for (size_t i = 0; i < was.size(); ++i)
@@ -346,21 +320,21 @@ bool lineEdit(uint32_t id, const std::vector<std::vector<Word>>& lines, size_t a
     return true;
 }
 
-std::vector<std::vector<Word>> blockLines(const std::string& block) {
-    std::vector<std::vector<Word>> out;
+std::vector<std::vector<LineWord>> blockLines(const std::string& block) {
+    std::vector<std::vector<LineWord>> out;
     std::istringstream in(block);
-    for (std::string l; std::getline(in, l);) out.push_back(spans(l));
+    for (std::string l; std::getline(in, l);) out.push_back(lineWords(l));
     return out;
 }
 
 // One object from block `was` to block `now`: a Set per changed line, or one Put.
 void objectEdits(uint32_t id, const std::string& was, const std::string& now, std::vector<GraphEdit>& out) {
-    const std::vector<std::vector<Word>> a = blockLines(was), b = blockLines(now);
+    const std::vector<std::vector<LineWord>> a = blockLines(was), b = blockLines(now);
     std::vector<GraphEdit> sets;
     bool whole = a.size() != b.size();
     for (size_t i = 0; i < a.size() && !whole; ++i) {
         if (a[i].empty() || b[i].empty() || a[i][0].text != b[i][0].text) whole = true;
-        else if (a[i].size() == b[i].size() && std::equal(a[i].begin(), a[i].end(), b[i].begin(), [](const Word& x, const Word& y) {
+        else if (a[i].size() == b[i].size() && std::equal(a[i].begin(), a[i].end(), b[i].begin(), [](const LineWord& x, const LineWord& y) {
                      return x.text == y.text && x.quoted == y.quoted;
                  }))
             continue;

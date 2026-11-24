@@ -27,31 +27,6 @@ bool refuse(std::string& error, const std::string& why) {
     return false;
 }
 
-// A word of a line and where it stands - quotes and all, as the reader's words() splits it.
-struct Word {
-    size_t at = 0, length = 0;
-    std::string text;
-};
-
-std::vector<Word> wordsAt(const std::string& line) {
-    std::vector<Word> out;
-    size_t i = 0;
-    while (i < line.size()) {
-        while (i < line.size() && (line[i] == ' ' || line[i] == '\t' || line[i] == '\r')) ++i;
-        if (i >= line.size()) break;
-        const size_t start = i;
-        if (line[i] == '"') {
-            const size_t end = line.find('"', i + 1);
-            i = end == std::string::npos ? line.size() : end + 1;
-            out.push_back({start, i - start, line.substr(start + 1, (end == std::string::npos ? line.size() : end) - start - 1)});
-        } else {
-            while (i < line.size() && line[i] != ' ' && line[i] != '\t' && line[i] != '\r') ++i;
-            out.push_back({start, i - start, line.substr(start, i - start)});
-        }
-    }
-    return out;
-}
-
 // Per kind of block and its line (part): the keys whose values are ids, and the word a line leads with before an id.
 struct IdPlaces {
     std::set<std::string> keys;
@@ -66,7 +41,7 @@ const std::map<std::string, std::map<std::string, IdPlaces>>& idPlaces() {
                 IdPlaces p;
                 for (const SchemaKey& key : part.keys)
                     if (key.form.compare(0, 2, "id") == 0) p.keys.insert(key.word);
-                const std::vector<Word> lead = wordsAt(part.lead);
+                const std::vector<LineWord> lead = lineWords(part.lead);
                 if (lead.size() > 1 && lead[1].text.compare(0, 4, "<id>") == 0) p.lead = lead[0].text; // "camera <id>: ..."
                 if (!p.keys.empty() || !p.lead.empty()) out[kind.kind][part.word] = p;
             }
@@ -145,7 +120,7 @@ std::string shiftedIds(const std::string& text, int64_t by) {
     while (from <= text.size()) {
         const size_t end = std::min(text.find('\n', from), text.size());
         std::string line = text.substr(from, end - from);
-        const std::vector<Word> w = wordsAt(line);
+        const std::vector<LineWord> w = lineWords(line);
         if (!w.empty() && line[0] != ' ' && line[0] != '\t') kind = w[0].text == "end" ? std::string() : w[0].text; // a block's head
         else if (!w.empty() && !kind.empty()) {
             const auto k = idPlaces().find(kind);
@@ -156,7 +131,7 @@ std::string shiftedIds(const std::string& text, int64_t by) {
                     if (p->second.keys.count(w[i].text) || (i == 1 && w[1].text == p->second.lead)) ids.push_back(i + 1);
                 for (auto i = ids.rbegin(); i != ids.rend(); ++i) // from the end: the places before stay where they were
                     if (isWhole(w[*i].text) && w[*i].text != "0")
-                        line.replace(w[*i].at, w[*i].length, std::to_string(std::stoll(w[*i].text) + by));
+                        line.replace(w[*i].begin, w[*i].end - w[*i].begin, std::to_string(std::stoll(w[*i].text) + by));
             }
         }
         out += line;
