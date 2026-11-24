@@ -153,7 +153,7 @@ public:
     void playRangeEnded(); // a take's run reached its end (playEnd): paused there, the take closed (EditorOps::closeTake)
     // Where a take ends: the play range's end (world duration) or, none set, the limit of a take (EditorOps). Only a take's
     // run stops by itself: without one the world goes on past it - physics is not the animation (the sequence holds its
-    // last keys there, or loops: scene/Animation.h), as in Isaac Sim, Gazebo, Unity's Play.
+    // last keys there, or loops: scene/Animation.h).
     double playEnd() const { return graph_.world.duration > 0 ? double(graph_.world.duration) : takeEnd_; }
     void setTakeEnd(double seconds);
     void setTaking(bool on); // a take runs (EditorOps::setRecording): its end stops the run

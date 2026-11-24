@@ -456,7 +456,7 @@ void MainWindow::buildToolShelf() {
         const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
         if (op == measure) operators()->run(measure, {{"point", three(from)}, {"to", three(to)}}, [](const QJsonObject&) {}, "ui");
     });
-    // The three eyes (view_show), as Blender's Overlays switches; the scene is untouched: the cards plugins and agents stand
+    // The three eyes (view_show); the scene is untouched: the cards plugins and agents stand
     // in the frame (a film's step cards, titles, a part's glow), their labels in the scene (formulas, leaders, words over
     // the parts) marked Σ, and the editor's own marks (joints, sensors, lights, the gizmo, outlines, colliders) marked
     // with the axes - all three off, the view is what a camera films.

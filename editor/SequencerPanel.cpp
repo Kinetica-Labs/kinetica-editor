@@ -62,7 +62,7 @@ SequencerPanel::SequencerPanel(EditorOps* ops, SceneBuilder* builder, QWidget* p
                                  "секвенция только для просмотра, физика тел своя (так приходит запись физики)"), "sequencerPlays", true);
     plays_->setProperty("short", uiText("Kinetica", "в Пуске")); // its glyph is the preview's
     start_ = button("⇤", uiText("Kinetica", "Бегунок в начало"), "sequencerStart");
-    // The transport is glyphs alone, as in every timeline (After Effects, Blender): its words are in the tips.
+    // The transport is glyphs alone, as in every timeline: its words are in the tips.
     play_ = button("▶", uiText("Kinetica", "Просмотр: проиграть секвенцию в правке, объекты едут по дорожкам. Пробел над секвенсором — проиграть и "
                                  "остановить, бегунок остаётся, где остановили"), "sequencerPlay", true);
     loop_ = button("↻", uiText("Kinetica", "Петля: после последнего ключа — сначала"), "sequencerLoop", true);
@@ -261,8 +261,7 @@ void SequencerPanel::syncRecordWords() {
     record_->setStyleSheet(on ? "QToolButton { color: #ff6a5a; font-weight: bold; }" : QString());
 }
 
-// The motion path of the selected objects in the 3D view, as Blender's Motion Paths and After Effects' position path show
-// it: the line the active sequence takes each along - sampled as the world plays it, 30 points a second (samplePose) -
+// The motion path of the selected objects in the 3D view: the line the active sequence takes each along - sampled as the world plays it, 30 points a second (samplePose) -
 // and its keys as dots. Drawn with view_draw, as a plugin or an agent draws; redrawn only when it changed.
 void SequencerPanel::drawPaths() {
     const ke::SceneGraph& g = builder_->graph();
@@ -388,7 +387,7 @@ void SequencerPanel::togglePreview(bool on) {
 void SequencerPanel::showCurves(bool on) {
     views_->setCurrentIndex(on ? 1 : 0);
     filter_->setVisible(!on);
-    // The curves want height, as After Effects' graph takes the timeline's whole: a low panel grows when they open.
+    // The curves want height, the timeline's whole: a low panel grows when they open.
     if (auto* dock = qobject_cast<QDockWidget*>(parentWidget()); on && dock && dock->height() < 320)
         if (auto* main = qobject_cast<QMainWindow*>(dock->parentWidget())) main->resizeDocks({dock}, {340}, Qt::Vertical);
     sync();
@@ -415,7 +414,7 @@ void SequencerPanel::keyMenu(uint32_t object, double time, const QPoint& at) {
     menu.exec(at);
 }
 
-// Auto Key, as Blender's Auto Keying: what a hand changed is keyed at the playhead - a moved or turned object its pose, a
+// Auto Key: what a hand changed is keyed at the playhead - a moved or turned object its pose, a
 // number set in the inspector that field. What had no key yet and changed away from 0 s gets a first key at 0 s with how
 // it was before the edit: the motion starts where the object stood (a key at the playhead alone would hold it still).
 void SequencerPanel::autoKey(const std::vector<uint32_t>& ids, const ke::SceneGraph& before) {

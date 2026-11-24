@@ -324,7 +324,7 @@ void EditorOps::addViewOps() {
                    {"gpu_ms", double(view_->gpuMs())}, {"gpu_shadow_ms", double(view_->gpuShadowMs())},
                    {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
     });
-    addSync("view_show", "What the view shows besides the scene, by kind, as Blender's Overlays switches: cards - what plugins and "
+    addSync("view_show", "What the view shows besides the scene, by kind: cards - what plugins and "
                          "agents stand in the frame (view_draw: a step's card, a title, an object's glow); labels - what they stand in "
                          "the scene (formulas, leaders, words over the parts, a plugin's lines); drawings - both; marks - the editor's "
                          "own marks (joints and their ties, sensors, lights, cameras, the gizmo, the selection's outline, colliders' "

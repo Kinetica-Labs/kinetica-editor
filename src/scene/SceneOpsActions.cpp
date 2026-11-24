@@ -516,8 +516,8 @@ std::vector<SceneOp> actionSceneOps() {
                            "What it touches: trigger - a zone that touches nothing and tells what is inside it (sim_state triggers); ignores - the "
                            "tags (scene_tag) of what it has no contact with. These two alone leave the collider's form as it is. kind mesh - "
                            "the geometry itself: a body that stands collides by its triangles, hollows and all; a moving one by the mesh cut "
-                           "into convex parts (V-HACD's way): hulls - at most so many (1..64, 32), concavity - how far a part may stand out "
-                           "into the air, a share of the body's diagonal (0.005..0.5, 0.05: CoACD's threshold); cut at once, hulls_made "
+                           "into convex parts: hulls - at most so many (1..64, 32), concavity - how far a part may stand out "
+                           "into the air, a share of the body's diagonal (0.005..0.5, 0.05); cut at once, hulls_made "
                            "says how many came",
          "{id: int, kind?: 'box'|'sphere'|'capsule'|'cylinder'|'mesh', size?: [x,y,z], diameter?: m, height?: m, offset?: [x,y,z], rotation?: [x,y,z], "
          "trigger?: bool, ignores?: [str], hulls?: int, concavity?: number}",

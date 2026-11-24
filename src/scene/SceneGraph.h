@@ -60,7 +60,7 @@ struct ColliderRole {
     bool trigger = false;        // a zone: it touches nothing and notices what is inside it (a bin a part is to reach, a guard's area)
     std::vector<std::string> ignores; // tags: no contact between it and a body marked with any of them (a part and the robot's own cover)
     // A moving body's mesh as convex parts (spatial/ConvexParts.h): at most `hulls` of them, each standing out into the
-    // air no farther than `concavity` of the body's diagonal - Godot's max_convex_hulls and max_concavity, CoACD's threshold.
+    // air no farther than `concavity` of the body's diagonal.
     int hulls = 32;
     Real concavity = 0.05_r;
 };
@@ -450,7 +450,7 @@ struct SequenceTrack {
 };
 // Any other field of an object, keyed: its line and key as scene_set names them ("shape" "color", "drive rx" "target",
 // "bridge" "duty", "kind" "intensity") and its numbers at times, each number from a key to the next as AnimInterp says -
-// what Blender's keyframe on any property is: one mechanism for a colour, a light, a servo's target, a motor's duty.
+// a keyframe on any property: one mechanism for a colour, a light, a servo's target, a motor's duty.
 struct FieldKey {
     Real time = 0;               // s
     std::vector<Real> values;    // the field's numbers, as many as it has

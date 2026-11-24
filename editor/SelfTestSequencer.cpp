@@ -387,7 +387,7 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 "a key there %s\n", first ? "yes" : "no", two, second ? "yes" : "no");
     c.check(first && std::fabs(two - 2) < 0.05 && second, "«◆ Ключ» and the ruler key the selected cube where it stands at the playhead");
 
-    // Its motion path in the 3D view (Blender's Motion Paths, After Effects' position path): the line from the first key to
+    // Its motion path in the 3D view: the line from the first key to
     // the last as the world plays it, the keys as dots; gone with the selection, back with it.
     const QString pathKey = "sequencer/path/" + QString::number(cube), dotsKey = "sequencer/keys/" + QString::number(cube);
     pump(60);
@@ -404,7 +404,7 @@ int runSequencerTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QStrin
                 pathPoints, keyDots, ends ? "yes" : "no", pathGone ? "yes" : "no", v->hasDrawing(pathKey) ? "yes" : "no");
     c.check(pathPoints > 10 && ends && pathGone && v->hasDrawing(pathKey), "the selected object's motion path and its keys are drawn in the view, gone with the selection");
 
-    // The keys on the path are points to drag (After Effects' position path): the key at 2 s taken in the view and moved
+    // The keys on the path are points to drag: the key at 2 s taken in the view and moved
     // half a metre up - the key goes there, the path with it, one undo step puts it back.
     const auto keyPoint = [&](const Vector3& where) {
         const std::vector<ShapeHandle>& hs = v->shapeHandles();

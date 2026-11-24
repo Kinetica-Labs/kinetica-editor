@@ -79,8 +79,8 @@ public:
     // a camera move of the editor's own (F, Home, another scene, looking through a camera) ends it. followChanged says so.
     void setFollow(uint32_t body);
     // view_look's glide (ViewportPlay.cpp): the camera flies to `eye` looking at `target` in `seconds`, eased in and out
-    // along its orbit (a smooth view, as Blender's and three.js's setLookAt with a transition), then turns about the
-    // target at `orbit` degrees a second (a turntable, three.js's autoRotate) until a person takes the view - a press,
+    // along its orbit (a smooth view), then turns about the
+    // target at `orbit` degrees a second (a turntable) until a person takes the view - a press,
     // the wheel - or it follows a body.
     void glideTo(const QVector3D& eye, const QVector3D& target, float seconds, float orbit);
     void stopGlide();
@@ -223,7 +223,7 @@ public:
     // frame is what a camera would film. What a plugin or an agent drew (view_draw) is the scene's and stays.
     void setMarksVisible(bool on) { marksVisible_ = on; update(); }
     bool marksVisible() const { return marksVisible_; }
-    // What plugins and agents draw over the view (view_draw), shown or hidden by kind - Blender's Overlays switches:
+    // What plugins and agents draw over the view (view_draw), shown or hidden by kind:
     // the cards (what stands in the frame - a step's card, a title - and an object's glow) and the labels (what stands in
     // the scene - formulas, leaders, words over the parts, a plugin's lines). The editor's own (editor/, sequencer/: the
     // ruler, motion paths) always shown.

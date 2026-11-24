@@ -103,7 +103,7 @@ std::vector<Vector3> lattice(int count) {
 }
 constexpr int kJudge = 64, kCut = 32; // directions a part's hull is judged by, and a cut's two sides
 
-// Akenine-Moller's triangle-box overlap by separating axes: the box centred at c, of half size r, and the triangle a b d.
+// A triangle and a box overlap unless an axis separates them (the 13 axes of their faces and edges): the box centred at c, of half size r, and the triangle a b d.
 bool overlaps(const Vector3& c, Real r, const Vector3& a, const Vector3& b, const Vector3& d) {
     const Vector3 v[3] = {a - c, b - c, d - c};
     const auto apart = [&](const Vector3& axis) {
@@ -128,7 +128,7 @@ struct Voxels {
     Vector3 origin;
     Real h = 1;
     std::vector<uint8_t> cell;
-    std::vector<Real> air; // how far a voxel of the air is from the solid (Borgefors' chamfer 3-4-5 in metres); 0 in the solid
+    std::vector<Real> air; // how far a voxel of the air is from the solid (a chamfer distance, steps 3-4-5, in metres); 0 in the solid
     int index(int i, int j, int k) const { return i + n[0] * (j + n[1] * k); }
     int at(int v, int axis) const { return axis == 0 ? v % n[0] : axis == 1 ? (v / n[0]) % n[1] : v / (n[0] * n[1]); }
     Vector3 centre(int v) const {
@@ -189,7 +189,7 @@ Voxels voxelize(const TriMesh& mesh, int resolution, std::vector<std::pair<int, 
     }
     for (uint8_t& c : g.cell)
         if (c == Unknown) c = Inside;
-    // The distance to the solid: two raster passes, each taking the 13 neighbours already passed (Borgefors 1986).
+    // The distance to the solid: two raster passes, each taking the 13 neighbours already passed.
     g.air.assign(g.cell.size(), 0);
     for (size_t v = 0; v < g.cell.size(); ++v)
         if (g.cell[v] == Outside) g.air[v] = kInf;
@@ -238,7 +238,7 @@ std::vector<Vector3> farthest(const Voxels& g, const std::vector<int>& voxels, c
 }
 
 // How far a part's hull stands out into the air: the farthest from the solid of points spread over its faces, a voxel
-// apart - CoACD's concavity, the hull's surface against the shape.
+// apart: the hull's surface against the shape.
 Real concavityOf(const Voxels& g, const Part& part, const std::vector<Vector3>& dirs) {
     const ConvexHull hull = convexHull(farthest(g, part.voxels, dirs));
     Real farthestOut = 0;

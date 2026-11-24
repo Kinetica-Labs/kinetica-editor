@@ -536,8 +536,7 @@ std::string worldText(const WorldSettings& w) { return worldLine(w) + physicsTex
 
 // The program that writes or reads: its version as the first line of a file names it. Words only grow
 // (docs/contracts/names.md), so a file of an older program always reads; a newer one's may hold a word this program
-// does not know, and the first line then says whose it is - a comment, which every program skips, as Blender keeps
-// the version that saved a .blend.
+// does not know, and the first line then says whose it is - a comment, which every program skips.
 using Version = std::array<int, 3>;
 constexpr Version kProgram{KE_VERSION_MAJOR, KE_VERSION_MINOR, KE_VERSION_PATCH};
 

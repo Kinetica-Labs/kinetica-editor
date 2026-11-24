@@ -440,11 +440,11 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
         .vector(uiText("Kinetica", "Поворот, °"), -360, 360, 5, 1, c->rotationDeg).shown(manual)
         // A moving body's mesh as convex parts (scene_collider kind mesh): how many at most, how far each may stand out.
         .number(uiText("Kinetica", "Частей не больше"), 1, 64, 1, 0, c->hulls).shown(movingMesh).name("colliderHulls")
-        .tip(uiText("Kinetica", "Движущееся тело сложной формы сталкивается суммой выпуклых частей (как V-HACD в Unreal и Isaac): "
+        .tip(uiText("Kinetica", "Движущееся тело сложной формы сталкивается суммой выпуклых частей: "
                                 "сколько их может быть, не больше"))
         .number(uiText("Kinetica", "Вогнутость, %"), 0.5, 50, 0.5, 1, [c] { return double(c->concavity) * 100; },
                 [c](double v) { c->concavity = Real(v / 100); }).shown(movingMesh).name("colliderConcavity")
-        .tip(uiText("Kinetica", "Насколько выпуклая часть может выступать в воздух за тело — доля его диагонали (как порог CoACD): "
+        .tip(uiText("Kinetica", "Насколько выпуклая часть может выступать в воздух за тело — доля его диагонали: "
                                 "меньше — точнее впадины, больше частей"))
         .note([this] { return uiText("Kinetica", "Выпуклых частей: ") + QString::number(colliderOf(shapeDraft_).size()); })
         .shown(movingMesh).name("colliderHullsMade")

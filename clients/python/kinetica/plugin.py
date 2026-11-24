@@ -349,8 +349,7 @@ _quits = []  # @on_quit functions
 
 def on_quit(fn):
     """Called once when the plugin ends - the editor closes or restarts it, or the editor is gone: ``def quit(scene)``.
-    For what must not be left behind - a device's stream stopped, its port closed (Blender's unregister, VS Code's
-    deactivate). The editor waits for it 0.7 s at most."""
+    For what must not be left behind - a device's stream stopped, its port closed. The editor waits for it 0.7 s at most."""
     _quits.append(fn)
     return fn
 

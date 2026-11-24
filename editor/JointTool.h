@@ -1,6 +1,6 @@
 #pragma once
 // «Сустав» (the toolbar's): two parts that stand joined in two clicks. The mouse over a part says what it guesses by the
-// place (Onshape's implicit mate connectors, SolidWorks' SmartMates): a box face's centre - a hinge about its normal (a
+// place: a box face's centre - a hinge about its normal (a
 // shaft), an edge - a hinge along it where the mouse points (a lid), a corner - a ball, a cylinder's side - its axis, a
 // sphere - its centre; crosses mark the face's snap points, the axis is an arrow, a label by the cursor says the step.
 // The first click puts the axis; a rubber band follows the mouse; over the other part its ghost moves as the joint lets

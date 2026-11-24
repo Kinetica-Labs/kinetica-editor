@@ -7,7 +7,7 @@
 // The Python client (tools/ke_editor.py) and the MCP server for agents (tools/ke_editor_mcp.py)
 // speak this; the editor starts it with --api [port].
 // Another user of the same computer reaches 127.0.0.1 too, and an operation runs code (script_run, plugin_new) - so a
-// connection is served once a request of it carries the token, as Jupyter's and VS Code's servers ask for theirs: the
+// connection is served once a request of it carries the token: the
 // window's own (KE_API_TOKEN when the program that started it gave one, else made at random), in the file
 // <app data>/api/<port>.token only its user may read and in the environment of the programs the editor starts.
 #include <QObject>
