@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Kinetica on Linux and macOS in one command: Python checked (asked before anything is installed), the editor from its
-# latest release unpacked into ~/Kinetica/editor, and the Claude plugin added when the `claude` command is there. Nothing
+# latest release unpacked into ~/Kinetica/editor, and the plugin added to Claude and Codex when their commands are there. Nothing
 # is installed system-wide without a yes (or --yes); run it again to update. Windows: install.ps1.
 #
 #   curl -fsSL https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.sh | bash
-#   ./install.sh [--yes] [--dir DIR] [--no-claude]
+#   ./install.sh [--yes] [--dir DIR] [--no-claude]   # --no-claude: no plugin for Claude or Codex
 set -euo pipefail
 
 REPO="Kinetica-Labs/kinetica-editor"
@@ -85,6 +85,13 @@ if [ "$CLAUDE" = 1 ] && command -v claude >/dev/null; then
     claude plugin install kinetica@kinetica --config "python=python3" --config "editor=$DIR" || true
 elif [ "$CLAUDE" = 1 ]; then
     say "Команды claude нет: плагин поставьте в Claude сами - /plugin marketplace add $REPO, затем /plugin install kinetica@kinetica"
+fi
+
+# 4. Codex and ChatGPT: the same plugin from the same marketplace (plugin.json, the Agent Plugins schema).
+if [ "$CLAUDE" = 1 ] && command -v codex >/dev/null; then
+    say "Подключаю плагин Kinetica к Codex и ChatGPT"
+    codex plugin marketplace add "$REPO" || true
+    codex plugin add kinetica@kinetica || true
 fi
 
 say "Готово. Запуск: $program"

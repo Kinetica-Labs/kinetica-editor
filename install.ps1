@@ -1,5 +1,5 @@
 # Kinetica on Windows in one command: Python checked (asked before anything is installed), the editor from its latest
-# release unpacked into %LOCALAPPDATA%\Kinetica\editor, and the Claude plugin added when the `claude` command is there.
+# release unpacked into %LOCALAPPDATA%\Kinetica\editor, and the plugin added to Claude and Codex when their commands are there.
 # Nothing is installed without a yes (or -Yes); run it again to update. Linux and macOS: install.sh.
 #
 #   irm https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.ps1 | iex
@@ -57,6 +57,14 @@ if (-not $NoClaude -and (Get-Command claude -ErrorAction SilentlyContinue)) {
     claude plugin install kinetica@kinetica --config "python=$python" --config "editor=$Dir"
 } elseif (-not $NoClaude) {
     Say "Команды claude нет: плагин поставьте в Claude сами - /plugin marketplace add $Repo, затем /plugin install kinetica@kinetica"
+}
+
+# 4. Codex and ChatGPT: the same plugin (plugin.json, the Agent Plugins schema); its server runs as python3.
+if (-not $NoClaude -and (Get-Command codex -ErrorAction SilentlyContinue)) {
+    Say "Подключаю плагин Kinetica к Codex и ChatGPT"
+    codex plugin marketplace add $Repo
+    codex plugin add kinetica@kinetica
+    if (-not (Get-Command python3 -ErrorAction SilentlyContinue)) { Say "Codex запускает сервер Kinetica командой python3: её нет в PATH - поставьте Python с python.org или из winget" }
 }
 
 Say "Готово. Запуск: $program"

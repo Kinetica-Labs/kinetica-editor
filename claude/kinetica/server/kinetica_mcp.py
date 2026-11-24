@@ -1,9 +1,11 @@
-"""The Claude plugin's door to Kinetica: finds the installed editor and runs its own MCP server (tools/ke_editor_mcp.py,
-the operations, the agent's guide) on this process's stdin and stdout. The plugin folder is copied into Claude's cache
-and may hold nothing of the editor's: the editor is found where install.sh / install.ps1 put it (~/Kinetica/editor,
-on Windows %LOCALAPPDATA%\\Kinetica\\editor), or in KINETICA_HOME (the plugin's «Kinetica folder»), or a source
-checkout given there. Not found: a small server of its own says how to install it, so the model can tell the person.
-Only the standard library."""
+"""The plugin's door to Kinetica, in Claude (.claude-plugin/plugin.json) and in Codex and ChatGPT (plugin.json and
+mcp.json, the Agent Plugins schema): finds the installed editor and runs its own MCP server (tools/ke_editor_mcp.py,
+the operations, the agent's guide) on this process's stdin and stdout. The plugin folder is copied into the client's
+cache and may hold nothing of the editor's: the editor is found in KINETICA_HOME (Claude's «Kinetica folder»), else
+where install.sh / install.ps1 put it - ~/Kinetica/editor, on Windows %LOCALAPPDATA%\\Kinetica\\editor (a source
+checkout linked there serves too). The editor's plugins: KE_PLUGINS (Claude's «Kinetica plugins folder»), else the
+folder `plugins` beside the editor's, if there is one. Not found: a small server of its own says how to install it,
+so the model can tell the person. Only the standard library."""
 import json
 import os
 import subprocess
@@ -18,11 +20,16 @@ INSTALL = ("Kinetica is not installed here. Linux, macOS: curl -fsSL "
            "«Kinetica folder» to where it is. Then restart Claude.")
 
 
+def kinetica():
+    """Where install.sh / install.ps1 keep Kinetica: ~/Kinetica, on Windows %LOCALAPPDATA%\\Kinetica."""
+    local = os.environ.get("LOCALAPPDATA")
+    return os.path.join(local, "Kinetica") if local else os.path.join(os.path.expanduser("~"), "Kinetica")
+
+
 def homes():
     if os.environ.get("KINETICA_HOME"):
         yield os.environ["KINETICA_HOME"]
-    local = os.environ.get("LOCALAPPDATA")
-    yield os.path.join(local, "Kinetica", "editor") if local else os.path.join(os.path.expanduser("~"), "Kinetica", "editor")
+    yield os.path.join(kinetica(), "editor")
 
 
 def server():
@@ -56,7 +63,10 @@ def main():
     if not path:
         print(f"kinetica plugin: {INSTALL}", file=sys.stderr)
         return explain()
-    sys.exit(subprocess.call([sys.executable, path]))  # the same stdin and stdout: the editor's server speaks to Claude
+    env = dict(os.environ)
+    if not env.get("KE_PLUGINS") and os.path.isdir(os.path.join(kinetica(), "plugins")):
+        env["KE_PLUGINS"] = os.path.join(kinetica(), "plugins")
+    sys.exit(subprocess.call([sys.executable, path], env=env))  # the same stdin and stdout: the editor's server speaks to the client
 
 
 if __name__ == "__main__":

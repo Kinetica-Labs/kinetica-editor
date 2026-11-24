@@ -85,7 +85,7 @@ class EditorMcp(unittest.TestCase):
 
 
 class ClaudePlugin(unittest.TestCase):
-    """The Claude plugin's door (claude/kinetica/server/kinetica_mcp.py): with Kinetica found it runs the editor's own MCP
+    """The plugin's door, Claude's and Codex's (claude/kinetica/server/kinetica_mcp.py): with Kinetica found it runs the editor's own MCP
     server - the guide comes as the instructions; with none it says how to install it and offers no tools."""
     DOOR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "claude", "kinetica", "server", "kinetica_mcp.py")
 
@@ -106,6 +106,19 @@ class ClaudePlugin(unittest.TestCase):
             answers = self.ask(nowhere)
         self.assertIn("install.sh", answers[0]["result"]["instructions"])
         self.assertEqual(answers[1]["result"]["tools"], [])
+
+    def test_codex_reads_the_same_plugin(self):
+        """Codex and ChatGPT read plugin.json and mcp.json (the Agent Plugins schema) before .claude-plugin/plugin.json: the
+        same name, version and words as Claude's; one stdio server, a bare command (Codex refuses a path), run in the
+        plugin's folder on the door Claude runs."""
+        root = os.path.dirname(os.path.dirname(self.DOOR))
+        read = lambda *path: json.load(open(os.path.join(root, *path), encoding="utf-8"))
+        claude, codex, mcp = read(".claude-plugin", "plugin.json"), read("plugin.json"), read("mcp.json")
+        for key in ("name", "version", "author", "homepage", "repository", "license", "keywords"):
+            self.assertEqual(codex[key], claude[key], key)
+        server = mcp["mcpServers"]["ke-editor"]
+        self.assertEqual((server["type"], server["command"], server["cwd"]), ("stdio", "python3", "${PLUGIN_ROOT}"))
+        self.assertEqual(os.path.normpath(os.path.join(root, server["args"][0])), os.path.normpath(self.DOOR))
 
 
 if __name__ == "__main__":

@@ -129,6 +129,20 @@ irm https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install
 (скрипт `install.ps1` ставит это сам). Плагин ищет редактор в `~/Kinetica/editor` (Windows:
 `%LOCALAPPDATA%\Kinetica\editor`) или в папке из настройки «Kinetica folder».
 
+## Kinetica в Codex и ChatGPT
+
+Тот же плагин читают Codex и приложение ChatGPT (`plugin.json` и `mcp.json` по схеме Agent Plugins):
+
+```
+codex plugin marketplace add Kinetica-Labs/kinetica-editor
+codex plugin add kinetica@kinetica
+```
+
+В приложении ChatGPT: Плагины → Добавить → маркетплейс `Kinetica-Labs/kinetica-editor`, затем Kinetica → установить;
+после — перезапустить приложение. Работает на этом компьютере (локальному MCP-серверу он нужен). Сервер запускается
+как `python3`; редактор плагин ищет в `~/Kinetica/editor` (Windows: `%LOCALAPPDATA%\Kinetica\editor`), плагины
+редактора — в `~/Kinetica/plugins`, если она есть.
+
 ## Сборка из исходников
 
 Нужны компилятор C++17 (GCC 11+ или Visual Studio 2022), CMake 3.22+, Python 3 и Qt 6 — проверено с
