@@ -138,6 +138,13 @@ _CLICK = {"point": {"type": "vector", "label": "Точка щелчка", "unit"
           "to_object": {"type": "integer", "label": "Объект под мышью в конце (0 - пол)"}}
 
 
+def _leader(leader):
+    """view_draw's leader from draw's: {"point": (x, y, z), "end": "dot" | "arrow" | "none"} (none given: no line)."""
+    if leader is None:
+        return {}
+    return {"leader": {"point": _xyz([leader.get("point", (0, 0, 0))])[0], "end": str(leader.get("end", "dot"))}}
+
+
 class _Draw:
     """Lines, points and words over the 3D view, in world metres: what the plugin wants seen - a sensor's ray, a planned
     path, a force, a reading. Each drawing has a key: the same key again replaces it. Drawn from on_tick, it goes with the
@@ -165,9 +172,13 @@ class _Draw:
     def points(self, key, points, colour=None, size=6, color=None):
         self._send(key, points=_xyz(points), colour=_either(color, colour), size=size)
 
-    def label(self, key, at, text, colour=None, size=None, color=None):
-        """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own."""
-        self._send(key, at=_xyz([at])[0], text=str(text), colour=_either(color, colour), **({"size": size} if size else {}))
+    def label(self, key, at, text, colour=None, size=None, color=None, object=None, leader=None):
+        """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own.
+        `object`: they hang at `at` from its place and go where it goes; `leader`: a line from them to a point of it - see fill."""
+        what = {"at": _xyz([at])[0], "text": str(text), **({"size": size} if size else {})}
+        if object is not None:
+            what["object"] = int(getattr(object, "id", object))
+        self._send(key, colour=_either(color, colour), **what, **_leader(leader))
 
     def circle(self, key, centre=None, radius=None, axis="y", colour=None, color=None, center=None):
         """A circle around `center`, about a world axis ("x", "y", "z") or a direction (x, y, z) - a gizmo's ring."""
@@ -185,15 +196,17 @@ class _Draw:
         self._send(key, box={"center": _xyz([middle])[0], "size": _xyz([size])[0]}, colour=_either(color, colour))
 
     def fill(self, key, outlines, at=(0, 0, 0), object=None, space="world", scale=1.0, turn=None, place=None, colour=None, stroke=None,
-             stroke_width=None, color=None):
+             stroke_width=None, color=None, leader=None):
         """A flat picture, filled, painted over the scene: `outlines` are rows "M x y L x y C x1 y1 x2 y2 x y Z" in the
         picture's own units, x right and y up. space "world": on its own plane at `at`, turned by `turn` (Euler degrees),
         a unit `scale` metres; "label": on the screen at the world's point `at`, facing the viewer; "screen": in the frame
         at `place` = (x, y), fractions of the view - in both a unit is `scale` of the view's height. `object` (an object
         of the scene or its id): the picture is its own and goes where it goes; a click on it selects the object. `stroke`:
         an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - so that letters
-        read on any background."""
-        what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale)}
+        read on any background. `leader` = {"point": (x, y, z), "end": "dot" | "arrow" | "none"}: a leader line from the
+        picture to that point of the object (its own frame) - a reference line under the picture, a dot on the part, an
+        arrow on its outline (ISO 128-22, ГОСТ 2.316)."""
+        what = {"fill": [str(row) for row in outlines], "at": _xyz([at])[0], "space": space, "scale": float(scale), **_leader(leader)}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
         if turn is not None:

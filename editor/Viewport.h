@@ -158,6 +158,14 @@ public:
         float scale = 1;
         uint32_t object = 0;
         QColor stroke; // the edge's colour, when the fill has edges: letters read on any background
+        // A leader line (ISO 128-22 leader and reference line; ГОСТ 2.316 «линия-выноска» и «полка»): a reference line
+        // under the words or the picture, and from its end nearer the part a line to `leaderPoint` on it - in the object's
+        // own frame (it turns with the part; no object: the world) - ending in a dot (on the part), an arrow (on its
+        // outline) or bare. Words and part move: the line follows both.
+        enum class End { None, Dot, Arrow };
+        bool leader = false;
+        ke::Vector3 leaderPoint{0.0f};
+        End leaderEnd = End::Dot;
     };
     // view_draw's fill - rows of "M x y L x y C x1 y1 x2 y2 x y Z" - as a Fill (null and `error`: a row that is none).
     // `edge`: an edge so wide, in the picture's units, round every outline (0: none).
@@ -400,6 +408,8 @@ private:
     void updateHint();
     void drawSelectionBox(class QPainter& p);
     void drawShapeHandles(class QPainter& p);
+    // A drawing's leader line to its part, from the reference line under `label` (its words' or picture's box on screen).
+    void paintLeader(class QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const ke::Vector3&, QPointF&)>& screen) const;
     void modalDrag(); // the keyboard changed the transform: recompute it at the cursor
     bool playHandleAt(const QPointF& pos) const; // play: a press there takes the gizmo's handle
     uint32_t pickHandle(const Ray& ray, float& distance) const; // play: a see-through goal on the ray (0: none)

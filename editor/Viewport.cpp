@@ -963,16 +963,52 @@ void Viewport::drawOverlayMarks(QPainter& p) {
         letters.setPointSizeF(std::max(plain.pointSizeF(), qreal(d.size)));
         p.setFont(letters);
         const QStringList lines = d.text.split('\n'); // lines up from the point: the last one where a single line stands
-        const qreal step = QFontMetricsF(letters).lineSpacing();
+        const QFontMetricsF metrics(letters);
+        const qreal step = metrics.lineSpacing();
+        QRectF box;
         for (int k = 0; k < lines.size(); ++k) {
             const QPointF line = at + QPointF(6, -6 - step * (lines.size() - 1 - k));
             p.setPen(QColor(0, 0, 0, 200));
             p.drawText(line + QPointF(1, 1), lines[k]);
             p.setPen(d.colour);
             p.drawText(line, lines[k]);
+            box = box.united(QRectF(line.x(), line.y() - metrics.ascent(), metrics.horizontalAdvance(lines[k]), metrics.ascent() + metrics.descent()));
         }
+        if (d.leader) paintLeader(p, d, box, screen);
     }
     p.restore();
+}
+
+void Viewport::paintLeader(QPainter& p, const Drawing& d, const QRectF& label, const std::function<bool(const Vector3&, QPointF&)>& screen) const {
+    Vector3 anchor = d.leaderPoint; // on the part, turning with it
+    if (d.object) {
+        Vector3 position;
+        ke::Quaternion rotation;
+        if (!objectPose(d.object, position, rotation)) return;
+        anchor = position + rotation.rotate(d.leaderPoint);
+    }
+    QPointF tip;
+    if (label.isEmpty() || !screen(anchor, tip)) return;
+    const qreal y = label.bottom() + 4, left = label.left() - 3, right = label.right() + 3;
+    const QPointF from(tip.x() < label.center().x() ? left : right, y); // the reference line's end nearer the part
+    const QColor dark(0, 0, 0, 170);
+    const auto stroke = [&](const QColor& colour, qreal width) {
+        p.setPen(QPen(colour, width, Qt::SolidLine, Qt::RoundCap));
+        p.drawLine(QPointF(left, y), QPointF(right, y));
+        p.drawLine(from, tip);
+    };
+    stroke(dark, 3.4), stroke(d.colour, 1.6); // a dark edge under it: it reads on any background
+    const QLineF line(from, tip);
+    if (d.leaderEnd == Drawing::End::Dot) {
+        p.setPen(QPen(dark, 1.4)), p.setBrush(d.colour);
+        p.drawEllipse(tip, 3.6, 3.6);
+    } else if (d.leaderEnd == Drawing::End::Arrow && line.length() > 1) {
+        const QPointF along = (tip - from) / line.length(), across(-along.y(), along.x());
+        const QPolygonF head{tip, tip - along * 11 + across * 4, tip - along * 11 - across * 4};
+        p.setPen(QPen(dark, 1.2)), p.setBrush(d.colour);
+        p.drawPolygon(head);
+    }
+    p.setBrush(Qt::NoBrush);
 }
 
 void Viewport::drawPaths(const QMatrix4x4& vp) {

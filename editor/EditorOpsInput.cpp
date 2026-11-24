@@ -167,11 +167,14 @@ void EditorOps::addInputOps() {
                          "`place`, fractions of the view from its left top - in both a unit is `scale` of the view's height. object: the picture "
                          "is that object's and goes where it goes - one in the world lies on it (`at` and `turn` in the object's own frame), a label "
                          "hangs at `at` from the object's place along the world's axes, above a body however it tumbles; a click on it selects the object. "
-                         "stroke: an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - letters read on any background. Drawn while "
+                         "stroke: an edge of that colour round every outline, `stroke_width` of the picture's units wide (0.05) - letters read on any background. "
+                         "leader: a line from the words or the picture to `point` of the part (its own frame, as it turns; no object: the world) - "
+                         "a reference line under them, the line from its nearer end, a dot on the part (end dot), an arrow on its outline (arrow): "
+                         "a drawing's callout, as ISO 128-22 and ГОСТ 2.316 draw them. Drawn while "
                          "the scene plays: gone at Stop. Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
-            "object?: int, stroke?: [r,g,b], stroke_width?: number, clear?: bool}",
+            "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none'}, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -265,6 +268,15 @@ void EditorOps::addInputOps() {
         else if (xy.size() == 2) d.place = QPointF(xy.at(0).toDouble(), xy.at(1).toDouble());
         d.object = uint32_t(a.value("object").toInt());
         if (d.object && !findObject(builder_->graph(), d.object)) return error(QString("no object %1").arg(d.object));
+        if (a.contains("leader")) { // a line from the words or the picture to a point of the part (ISO 128-22, ГОСТ 2.316)
+            const QJsonObject leader = a.value("leader").toObject();
+            const QString end = leader.value("end").toString("dot");
+            if (end != "dot" && end != "arrow" && end != "none") return error("leader end: dot (on the part), arrow (on its outline) or none");
+            if (d.text.isEmpty() && !d.fill) return error("leader: a line from words or a picture - give text or fill");
+            d.leader = true;
+            d.leaderPoint = leader.contains("point") ? point(leader.value("point")) : ke::Vector3(0.0f);
+            d.leaderEnd = end == "dot" ? Viewport::Drawing::End::Dot : end == "arrow" ? Viewport::Drawing::End::Arrow : Viewport::Drawing::End::None;
+        }
         if (d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)
             return error("nothing to draw: line, segments, points, circle, box, text or fill");
         view_->setDrawing(key, std::move(d));

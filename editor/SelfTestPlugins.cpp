@@ -382,6 +382,16 @@ def mark(scene, dt, sensors):
                 std::fabs(std::fabs(edges->segments[k + 2]) - 1.0f) < 1e-6f;
     const bool flat = !ops->runNow("view_draw", {{"key", "агент/ноль"}, {"circle", QJsonObject{{"centre", QJsonArray{0, 0, 0}}, {"radius", 0.0}}}}).value("ok").toBool();
     c.check(round && boxed && flat, "view_draw works out a ring (circle) and a box's twelve edges itself; a circle of no radius is refused");
+    // A callout, as a drawing labels a part (ISO 128-22, ГОСТ 2.316): words hung from the cube with a leader line to a point
+    // of it, in its own frame, ending in an arrow; a leader with no words or picture to start from, or an unknown end, refused.
+    ops->runNow("view_draw", {{"key", "выноска/куб"}, {"text", "куб"}, {"object", int(cube)}, {"at", QJsonArray{0.6, 0.5, 0}},
+                              {"leader", QJsonObject{{"point", QJsonArray{0, 0.1, 0}}, {"end", "arrow"}}}});
+    const Viewport::Drawing* note = v->drawing("выноска/куб");
+    const bool leader = note && note->leader && note->leaderEnd == Viewport::Drawing::End::Arrow && std::fabs(note->leaderPoint.y - 0.1f) < 1e-6f &&
+                        !ops->runNow("view_draw", {{"key", "выноска/пусто"}, {"points", QJsonArray{QJsonArray{0, 0, 0}}}, {"leader", QJsonObject{}}}).value("ok").toBool() &&
+                        !ops->runNow("view_draw", {{"key", "выноска/куда"}, {"text", "x"}, {"leader", QJsonObject{{"end", "крюк"}}}}).value("ok").toBool();
+    ops->runNow("view_draw", {{"clear", true}, {"key", "выноска/"}});
+    c.check(leader, "view_draw's leader: words with a line to a point of their object, ending in an arrow; refused without words or an unknown end");
     const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;
     QDir(folder + "/marks").removeRecursively();
     const bool withPlugin = waitUntil([&] { return !v->hasDrawing("marks/флажок"); }, 5000);
