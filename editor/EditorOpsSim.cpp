@@ -184,6 +184,7 @@ void EditorOps::addViewOps() {
             if (QWidget* w = clean ? window_->findChild<QWidget*>(name) : nullptr; w && w->isVisible()) over.push_back(w);
         const bool marks = a.value("marks").toBool(true);
         if (clean) view_->setOverlayVisible(false);
+        const bool hadMarks = view_->marksVisible(); // the person's own switch (view_show marks) comes back as it was
         if (!marks) view_->setMarksVisible(false);
         for (QWidget* w : over) w->hide();
         QWidget* part = nullptr; // one part of the window: cut out of its picture, the 3D view in it as it is drawn
@@ -193,7 +194,7 @@ void EditorOps::addViewOps() {
             if (!part || !part->isVisible()) {
                 for (QWidget* w : over) w->show();
                 if (clean) view_->setOverlayVisible(true);
-                if (!marks) view_->setMarksVisible(true);
+                if (!marks) view_->setMarksVisible(hadMarks);
                 return error("the " + want + " is not shown now: open it first (ui_trigger its tab or button)");
             }
         }
@@ -204,7 +205,7 @@ void EditorOps::addViewOps() {
             image = image.copy(QRect(int(r["x"].toDouble()), int(r["y"].toDouble()), int(r["width"].toDouble()), int(r["height"].toDouble())));
         }
         if (clean) view_->setOverlayVisible(true);
-        if (!marks) view_->setMarksVisible(true);
+        if (!marks) view_->setMarksVisible(hadMarks);
         for (QWidget* w : over) w->show();
         const double logical = image.width() / image.devicePixelRatio(); // the window's own pixels: the view stands in them
         if (const int width = a.value("width").toInt(); width > 0 && width < image.width())
@@ -323,17 +324,22 @@ void EditorOps::addViewOps() {
                    {"gpu_ms", double(view_->gpuMs())}, {"gpu_shadow_ms", double(view_->gpuShadowMs())},
                    {"realtime", view_->realtime()}, {"renderer", view_->renderer()}});
     });
-    addSync("view_show", "What plugins and agents draw over the view (view_draw), shown or hidden by kind, as Blender's Overlays "
-                         "switches: cards - what stands in the frame, a step's card, a title, and an object's glow; labels - what "
-                         "stands in the scene, formulas, leaders, words over the parts, a plugin's lines; drawings - both. The editor's "
-                         "own (the ruler, motion paths) always shown. The tool shelf's two eyes. Answers what shows",
-            "{drawings?: bool, cards?: bool, labels?: bool}", [this](const QJsonObject& a) {
+    addSync("view_show", "What the view shows besides the scene, by kind, as Blender's Overlays switches: cards - what plugins and "
+                         "agents stand in the frame (view_draw: a step's card, a title, an object's glow); labels - what they stand in "
+                         "the scene (formulas, leaders, words over the parts, a plugin's lines); drawings - both; marks - the editor's "
+                         "own marks (joints and their ties, sensors, lights, cameras, the gizmo, the selection's outline, colliders' "
+                         "wireframes): off, the view is what a camera would film. The ruler and motion paths always shown. The tool "
+                         "shelf's three eyes. Answers what shows",
+            "{drawings?: bool, cards?: bool, labels?: bool, marks?: bool}", [this](const QJsonObject& a) {
         if (a.contains("drawings")) view_->setCardsShown(a.value("drawings").toBool()), view_->setLabelsShown(a.value("drawings").toBool());
         if (a.contains("cards")) view_->setCardsShown(a.value("cards").toBool());
         if (a.contains("labels")) view_->setLabelsShown(a.value("labels").toBool());
-        if (auto* act = window_->findChild<QAction*>("toolDrawings")) act->setChecked(view_->cardsShown()); // the shelf says what the view shows
-        if (auto* act = window_->findChild<QAction*>("toolLabels")) act->setChecked(view_->labelsShown());
-        return ok({{"drawings", view_->cardsShown() && view_->labelsShown()}, {"cards", view_->cardsShown()}, {"labels", view_->labelsShown()}});
+        if (a.contains("marks")) view_->setMarksVisible(a.value("marks").toBool());
+        // the shelf says what the view shows
+        for (const auto& [name, on] : {std::pair{"toolDrawings", view_->cardsShown()}, {"toolLabels", view_->labelsShown()}, {"toolMarks", view_->marksVisible()}})
+            if (auto* act = window_->findChild<QAction*>(name)) act->setChecked(on);
+        return ok({{"drawings", view_->cardsShown() && view_->labelsShown()}, {"cards", view_->cardsShown()}, {"labels", view_->labelsShown()},
+                   {"marks", view_->marksVisible()}});
     });
     addSync("ui_actions", "Every button and menu item of the window, a panel's own buttons and the visible tabs: text, name, on/off, and "
             "for what is shown - an open menu's items too - where it stands: x, y, width, height in the window's picture (the pixels view_screenshot window gives "

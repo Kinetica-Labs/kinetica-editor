@@ -222,6 +222,7 @@ public:
     // The editor's own marks in the scene - joints and their ties, sensors, lights, cameras, the gizmo, outlines: off, the
     // frame is what a camera would film. What a plugin or an agent drew (view_draw) is the scene's and stays.
     void setMarksVisible(bool on) { marksVisible_ = on; update(); }
+    bool marksVisible() const { return marksVisible_; }
     // What plugins and agents draw over the view (view_draw), shown or hidden by kind - Blender's Overlays switches:
     // the cards (what stands in the frame - a step's card, a title - and an object's glow) and the labels (what stands in
     // the scene - formulas, leaders, words over the parts, a plugin's lines). The editor's own (editor/, sequencer/: the

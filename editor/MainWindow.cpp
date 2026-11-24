@@ -456,32 +456,50 @@ void MainWindow::buildToolShelf() {
         const auto three = [](const ke::Vector3& v) { return QJsonArray{double(v.x), double(v.y), double(v.z)}; };
         if (op == measure) operators()->run(measure, {{"point", three(from)}, {"to", three(to)}}, [](const QJsonObject&) {}, "ui");
     });
-    // The two eyes: what plugins and agents draw over the view, shown or hidden by kind (view_show), as Blender's
-    // Overlays switches - the cards in the frame (a film's step cards, titles, a part's glow), and the labels in the scene
-    // (formulas, leaders, words over the parts), the second eye marked Σ; the scene is untouched.
+    // The three eyes (view_show), as Blender's Overlays switches; the scene is untouched: the cards plugins and agents stand
+    // in the frame (a film's step cards, titles, a part's glow), their labels in the scene (formulas, leaders, words over
+    // the parts) marked Σ, and the editor's own marks (joints, sensors, lights, the gizmo, outlines, colliders) marked
+    // with the axes - all three off, the view is what a camera films.
     tb->addSeparator();
-    const auto eye = [](bool on, bool labels) {
+    enum class Eye { Cards, Labels, Marks };
+    const auto eye = [](bool on, Eye kind) {
         QIcon icon = controlIcon(on ? ControlIcon::Visible : ControlIcon::Hidden, 28);
-        if (!labels) return icon;
+        if (kind == Eye::Cards) return icon;
         QPixmap pm = icon.pixmap(28, 28);
         QPainter p(&pm);
-        QFont f = p.font();
-        f.setBold(true), f.setPixelSize(13);
-        p.setFont(f), p.setPen(QColor(255, 214, 90));
-        p.drawText(QRect(14, 13, 14, 15), Qt::AlignCenter, QString::fromUtf8("Σ"));
+        p.setRenderHint(QPainter::Antialiasing);
+        if (kind == Eye::Labels) {
+            QFont f = p.font();
+            f.setBold(true), f.setPixelSize(13);
+            p.setFont(f), p.setPen(QColor(255, 214, 90));
+            p.drawText(QRect(14, 13, 14, 15), Qt::AlignCenter, QString::fromUtf8("Σ"));
+        } else { // the axes of a gizmo: x red, y green, z blue
+            const QPointF o(18, 25);
+            for (const auto& [to, colour] : {std::pair{QPointF(27, 25), QColor(235, 80, 70)}, {QPointF(18, 15), QColor(110, 205, 90)}, {QPointF(25, 19), QColor(90, 150, 240)}})
+                p.setPen(QPen(colour, 2.2)), p.drawLine(o, to);
+        }
         return QIcon(pm);
     };
-    for (const bool labels : {false, true}) {
-        QAction* a = tb->addAction(eye(true, labels), labels ? uiText("Kinetica", "Формулы и надписи") : uiText("Kinetica", "Карточки"));
-        a->setObjectName(labels ? "toolLabels" : "toolDrawings");
+    struct Switch { Eye kind; const char *name, *word, *label, *tip; };
+    const Switch switches[] = {
+        {Eye::Cards, "toolDrawings", "cards", QT_TRANSLATE_NOOP("Kinetica", "Карточки"),
+         QT_TRANSLATE_NOOP("Kinetica", "Карточки поверх вида: плашки шагов, титры, свечение детали — показать или скрыть")},
+        {Eye::Labels, "toolLabels", "labels", QT_TRANSLATE_NOOP("Kinetica", "Формулы и надписи"),
+         QT_TRANSLATE_NOOP("Kinetica", "Формулы и надписи в сцене: выноски, формулы, подписи над деталями, линии плагинов — показать или скрыть")},
+        {Eye::Marks, "toolMarks", "marks", QT_TRANSLATE_NOOP("Kinetica", "Метки редактора"),
+         QT_TRANSLATE_NOOP("Kinetica", "Метки редактора: суставы и их связи, датчики, свет, камеры, гизмо, обводка выбранного, каркасы коллайдеров — "
+                                       "показать или скрыть (Shift+Alt+Z); все три глаза закрыты — вид как в кадре камеры")}};
+    for (const Switch& sw : switches) {
+        QAction* a = tb->addAction(eye(true, sw.kind), uiText("Kinetica", sw.label));
+        a->setObjectName(sw.name);
         a->setCheckable(true);
         a->setChecked(true);
-        a->setToolTip(labels ? uiText("Kinetica", "Формулы и надписи в сцене: выноски, формулы, подписи над деталями, линии плагинов — показать или скрыть")
-                             : uiText("Kinetica", "Карточки поверх вида: плашки шагов, титры, свечение детали — показать или скрыть"));
-        connect(a, &QAction::toggled, this, [a, eye, labels](bool on) { a->setIcon(eye(on, labels)); });
-        connect(a, &QAction::triggered, this, [this, labels](bool on) {
-            operators()->run("view_show", {{labels ? "labels" : "cards", on}}, [](const QJsonObject&) {}, "ui");
-        });
+        a->setToolTip(uiText("Kinetica", sw.tip));
+        if (sw.kind == Eye::Marks) a->setShortcut(QKeySequence(Qt::SHIFT | Qt::ALT | Qt::Key_Z));
+        const Eye kind = sw.kind;
+        const QString word = sw.word;
+        connect(a, &QAction::toggled, this, [a, eye, kind](bool on) { a->setIcon(eye(on, kind)); });
+        connect(a, &QAction::triggered, this, [this, word](bool on) { operators()->run("view_show", {{word, on}}, [](const QJsonObject&) {}, "ui"); });
     }
     setTool(GizmoMode::Translate);
 }

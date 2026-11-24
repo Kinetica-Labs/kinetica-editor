@@ -98,12 +98,12 @@ void testMenuAndOnlyView(Checker& c, QMainWindow& w, const QString& dir) {
     if (!dir.isEmpty()) w.grab().save(dir + "/layout-restored.png");
 }
 
-// The shelf's two eyes (view_show): the cards in the frame and the labels in the scene hidden each by its own, the
-// editor's own ruler kept; view_show drawings shows them both again.
+// The shelf's three eyes (view_show): the cards in the frame, the labels in the scene and the editor's own marks hidden
+// each by its own, the editor's ruler kept; view_show shows them again.
 void testDrawingsEye(Checker& c, QMainWindow& w, Viewport* v) {
     QAction *cards = action(w, "toolDrawings"), *labels = action(w, "toolLabels");
     EditorOps* ops = dynamic_cast<MainWindow&>(w).operators();
-    if (!cards || !labels) return c.check(false, "the shelf's two eyes exist");
+    if (!cards || !labels) return c.check(false, "the shelf's eyes exist");
     ops->runNow("view_draw", {{"key", "агент/карточка"}, {"text", "шаг"}, {"space", "screen"}, {"place", QJsonArray{0.1, 0.9}}});
     ops->runNow("view_draw", {{"key", "агент/формула"}, {"text", "F = ma"}, {"space", "label"}, {"at", QJsonArray{0, 1, 0}}});
     cards->trigger(); // off
@@ -114,9 +114,16 @@ void testDrawingsEye(Checker& c, QMainWindow& w, Viewport* v) {
     const bool labelsOff = !v->shown("агент/формула") && !labels->isChecked() && !ops->runNow("view_show", {}).value("drawings").toBool();
     ops->runNow("view_show", {{"drawings", true}});
     const bool back = v->shown("агент/карточка") && v->shown("агент/формула") && cards->isChecked() && labels->isChecked();
+    QAction* marks = action(w, "toolMarks"); // the third: the editor's own marks, a picture with them not undoing the switch
+    if (marks) marks->trigger();
+    ops->runNow("view_screenshot", {{"marks", false}});
+    const bool marksOff = marks && !v->marksVisible() && !marks->isChecked() && !ops->runNow("view_show", {}).value("marks").toBool();
+    ops->runNow("view_show", {{"marks", true}});
+    const bool marksBack = v->marksVisible() && marks && marks->isChecked();
     ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}});
-    c.check(cardsOff && labelsOff && back, "the shelf's two eyes hide the cards in the frame and the labels in the scene each by its own "
-                                           "(the editor's ruler kept); view_show drawings shows both again");
+    c.check(cardsOff && labelsOff && back && marksOff && marksBack,
+            "the shelf's three eyes hide the cards in the frame, the labels in the scene and the editor's own marks each by its own "
+            "(the editor's ruler kept; a picture without marks leaves the switch as it was); view_show shows them again");
 }
 
 // A panel torn off is a framed window that can be maximized (a second screen); its ✕ puts it back in its place.
