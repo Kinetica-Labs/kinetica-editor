@@ -185,6 +185,7 @@ public:
         // how strong); a drawing of only an object draws that object: its silhouette glows in the view (drawHighlight).
         float glow = 0;
         QColor background; // a plate behind the words, as subtitles have (invalid: none)
+        QString title;     // a heading over the words - small capitals, bold, in the stroke's colour: a lower third's label
         bool objectOnly() const { return object && strip.empty() && segments.empty() && points.empty() && text.isEmpty() && !fill; }
     };
     // The glow round a path the painter draws: wide strokes of the colour, fainter outwards.

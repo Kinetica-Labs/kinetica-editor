@@ -736,7 +736,8 @@ void testSimDebugLayers() {
 // its servos given the targets IK solves for a goal 16 cm aside and down. The forearm's inertia about the
 // elbow is small (c h / I > 2 at 32 substeps): an explicit damper buzzed there and held the elbow 0.05 rad
 // off; the implicit one brings the hand to the goal within a millimetre.
-void testSimStiffServoOnLightLink() {
+// The planar arm of two stiff hinges (k = 4000 N m/rad, c = 150 N m s/rad) and a hand welded on: id 4 is the hand.
+SceneGraph stiffPlanarArm() {
     auto link = [](uint32_t id, const Vector3& size, const Vector3& at, bool fixed) {
         Entity e = solid(id, "Звено", size, at, fixed);
         return e;
@@ -757,6 +758,11 @@ void testSimStiffServoOnLightLink() {
     JointObject weld;
     weld.id = 12, weld.a = 4, weld.b = 3, weld.anchorA = {0, -0.02_r, 0}, weld.anchorB = {0, 0.15_r, 0};
     g.joints.push_back(weld);
+    return g;
+}
+
+void testSimStiffServoOnLightLink() {
+    SceneGraph g = stiffPlanarArm();
     const uint32_t goal = addGoal(g, 4);
     Vector3 at;
     for (Entity& e : g.entities)
@@ -771,6 +777,28 @@ void testSimStiffServoOnLightLink() {
     std::printf("  stiff servos on a light forearm: the hand %.2f mm from the goal; the elbow at %.4f rad (target %.4f)\n",
                 1000.0 * double(length(hand - at)), double(elbow[DofRx]), double(g.joints[1].dof[DofRx].drive.target));
     CHECK(length(hand - at) < 0.001_r, "the hand is %f m from the goal", double(length(hand - at)));
+}
+
+// A goal on its path (assembly_path): the running world walks it there - from the goal's place at the path's speed,
+// held at the last point - and the arm follows by inverse kinematics; the frame's goals carry where it walks.
+void testSimGoalWalksItsPath() {
+    SceneGraph g = stiffPlanarArm();
+    const uint32_t goal = addGoal(g, 4);
+    Vector3 start, end;
+    for (Entity& e : g.entities)
+        if (e.id == goal) start = e.position, end = e.position + Vector3(0.16_r, -0.16_r, 0), e.path = {end}, e.pathSpeed = 0.2_r;
+    Simulation s;
+    s.load(g);
+    for (int k = 0; k < 30; ++k) s.stepFrame(); // half a second: some 0.1 m of the 0.23 m walked
+    Frame half;
+    s.fill(half);
+    const bool walking = half.goals.size() == 1 && length(half.goals[0].position - start) > 0.05_r && length(half.goals[0].position - end) > 0.05_r;
+    for (int k = 0; k < 270; ++k) s.stepFrame();
+    const Vector3 hand = s.physics()->state(s.robot()->bodyOf(4)).position;
+    std::printf("  the goal walked %.3f m by 0.5 s; the hand %.2f mm from the path's end at 5 s\n",
+                double(half.goals.empty() ? 0 : length(half.goals[0].position - start)), 1000.0 * double(length(hand - end)));
+    CHECK(walking, "half way the frame's goal stands on its path, between its start and its end");
+    CHECK(length(hand - end) < 0.002_r, "the hand followed the goal to its path's end: %f m off", double(length(hand - end)));
 }
 
 // The UR5e of examples/ (meshes, eight joints, a gripper): its hinges 7 and 13 are written with frames whose

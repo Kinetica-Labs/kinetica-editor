@@ -88,6 +88,7 @@ int main() {
     run("world: the mouse's hand holds a body at its target, its weight carried, and lets it fall", testSimGrab);
     run("world: the probe's debug layers - contacts and centres of mass drawn when on, nothing when off", testSimDebugLayers);
     run("world: a stiff servo on a light link brings the hand to its IK goal (the damper implicit)", testSimStiffServoOnLightLink);
+    run("world: a goal walks its path while the scene runs, the arm following it by IK", testSimGoalWalksItsPath);
     run("world: the UR5e of examples/ holds its gripper on its IK goal, its links still", testSimUr5eHolds);
     run("world: the mouse tugs the UR5e by a finger - the arm follows; let go, it comes back along its servos' profile, no bounce", testSimTugUr5e);
     run("world: a mesh's own collider takes its extremes along 120 directions, not its every point", testSimMeshColliderThinned);

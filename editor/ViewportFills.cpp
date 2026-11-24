@@ -111,9 +111,12 @@ void Viewport::drawOverlayFills(QPainter& p) {
         }
         const QRectF& box = d.fill->box;
         QPolygonF drawn = to.map(QPolygonF(QVector<QPointF>{box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()}));
-        if (const auto placed = calloutAt_.find(key); placed != calloutAt_.end()) { // laid out aside: moved there whole
-            const QPointF shift = placed->second.topLeft() - drawn.boundingRect().topLeft();
-            to = to * QTransform::fromTranslate(shift.x(), shift.y()), drawn.translate(shift);
+        if (const auto placed = calloutAt_.find(key); placed != calloutAt_.end()) { // laid out aside: moved there whole, shrunk to its room
+            const QRectF was = drawn.boundingRect();
+            const double fit = was.width() > 0 ? std::min(1.0, placed->second.width() / was.width()) : 1.0;
+            to = to * QTransform::fromTranslate(-was.left(), -was.top()) * QTransform::fromScale(fit, fit) *
+                 QTransform::fromTranslate(placed->second.left(), placed->second.top());
+            drawn = to.map(QPolygonF(QVector<QPointF>{box.topLeft(), box.topRight(), box.bottomRight(), box.bottomLeft()}));
         }
         if (!drawn.boundingRect().intersects(QRectF(QPointF(0, 0), view))) continue; // out of the view
         p.setOpacity(d.opacity * (d.leader ? d.leaderWords : 1.0f));

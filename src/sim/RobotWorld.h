@@ -270,6 +270,7 @@ private:
     int64_t clockNs_ = 0;
     std::unordered_map<uint32_t, int> robotOf_;      // entities tied by joints - robots' links - and their robot (robotGroups)
     std::unordered_map<uint32_t, std::pair<Vector3, Quaternion>> carried_; // goal id -> the pose its effector is led to now
+    std::unordered_map<uint32_t, Real> pathFrom_; // goal id -> the world's time its path began (none: the run's start)
     std::vector<std::string> notes_;
     int grabBody_ = -1, grabJoint_ = -1;                    // the held body and the hand's joint
     Vector3 grabLocal_{0.0_r}, grabTarget_{0.0_r};          // the held point in the body's frame; where it is led

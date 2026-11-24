@@ -352,6 +352,14 @@ bool RobotWorld::setJoints(PhysicsWorld& physics, const std::vector<JointObject>
 }
 
 void RobotWorld::setGoals(const std::vector<Entity>& goals) {
+    const auto same = [](const Vector3& a, const Vector3& b) { return a.x == b.x && a.y == b.y && a.z == b.z; };
+    for (const Entity& goal : goals) { // a path set while the scene runs begins now (SceneGraph.h, Entity::path)
+        const Entity* was = findEntity(graph_, goal.id);
+        const bool kept = was && was->path.size() == goal.path.size() && std::equal(goal.path.begin(), goal.path.end(), was->path.begin(), same) &&
+                          was->pathSpeed == goal.pathSpeed && was->pathLoop == goal.pathLoop && was->pathSmooth == goal.pathSmooth &&
+                          same(was->position, goal.position);
+        if (!goal.path.empty() && !kept) pathFrom_[goal.id] = Real(double(clockNs_) * 1e-9);
+    }
     for (SceneGraph* g : {&graph_, &live_}) {
         g->entities.erase(std::remove_if(g->entities.begin(), g->entities.end(), [](const Entity& e) { return isHandle(e); }),
                           g->entities.end());
@@ -489,11 +497,19 @@ void RobotWorld::carryGrab(PhysicsWorld& physics) const {
 }
 
 void RobotWorld::leadGoals(PhysicsWorld& physics, Real dt) {
-    for (const Entity& goal : live_.entities) {
+    const Real now = Real(double(clockNs_) * 1e-9);
+    for (Entity& goal : live_.entities) {
         const int hand = goal.goalOf ? bodyOf(goal.goalOf) : -1;
         if (hand < 0 || !physics.alive(hand)) continue;
         Vector3 to;
         Quaternion turn;
+        if (const Entity* authored = goal.path.empty() ? nullptr : findEntity(graph_, goal.id)) {
+            // A goal on its path (Entity::path): where the path has walked it by now, from the authored goal's place - the
+            // live goal stands there (drawn there, the frame's goals), and the arm follows it by inverse kinematics.
+            const auto from = pathFrom_.find(goal.id);
+            pathPose(*authored, now - (from == pathFrom_.end() ? 0 : from->second), to, turn);
+            setWorldPose(live_, goal, to, turn);
+        }
         worldPose(live_, goal, to, turn);
         auto it = carried_.find(goal.id);
         if (it == carried_.end()) {
@@ -828,6 +844,11 @@ void RobotWorld::fill(const PhysicsWorld& physics, Frame& out, bool contacts) co
         }
         out.bodies.push_back(std::move(b));
     }
+    for (const Entity& e : live_.entities) // the goals on paths, where the world has walked them (the gizmo, a hand taking one)
+        if (e.goalOf && !e.path.empty()) {
+            const Entity w = worldEntity(live_, e);
+            out.goals.push_back({e.id, w.position, entityRotation(w)});
+        }
     out.joints = jointVisuals(live_);
     out.sensors = sensorVisuals(live_);
     for (SensorVis& v : out.sensors) { // the glyph shows what the robot reads: a sonar's distance, an encoder's coordinate, a lidar's scan

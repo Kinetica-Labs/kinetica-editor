@@ -176,12 +176,13 @@ void EditorOps::addInputOps() {
                          "words or the picture show - are a plugin's to animate it frame by frame. opacity (0..1, 1): the whole drawing's. glow (0..1, 0): "
                          "a soft halo of its colour round its words, leader and picture; a drawing of only an object (and glow) draws the object "
                          "itself - its silhouette glows, as the part an agent is building now. background [r,g,b,a]: a plate behind the words, as "
-                         "subtitles have. Words in space screen stand at `place`, lines up from it. Drawn while "
+                         "subtitles have; title: a heading over them in small bold capitals and, with stroke, the plate's edge, an accent bar "
+                         "down its side and the title in that colour - a lower third, a motion design's card. Words in space screen stand at `place`, lines up from it. Drawn while "
                          "the scene plays: gone at Stop (a key drawn in the edit before stays). Not a scene edit: no undo, no journal",
             "{key?: str, line?: [[x,y,z]], segments?: [[x,y,z]], points?: [[x,y,z]], circle?: {}, box?: {}, text?: str, at?: [x,y,z], "
             "color?: [r,g,b], colour?: [r,g,b], size?: number, fill?: [str], space?: 'world'|'label'|'screen', turn?: [x,y,z], place?: [x, y], scale?: number, "
             "object?: int, stroke?: [r,g,b], stroke_width?: number, leader?: {point?: [x,y,z], end?: 'dot'|'arrow'|'none', place?: 'here'|'aside', grow?: number, pulse?: number, words?: number}, "
-            "opacity?: number, glow?: number, background?: [r,g,b,a], clear?: bool}",
+            "opacity?: number, glow?: number, background?: [r,g,b,a], title?: str, clear?: bool}",
             [this](const QJsonObject& a) {
         const QString key = a.value("key").toString();
         if (a.value("clear").toBool()) return ok({{"cleared", view_->clearDrawings(key)}});
@@ -301,6 +302,14 @@ void EditorOps::addInputOps() {
             if (d.text.isEmpty()) return error("background: a plate behind words - give text");
             d.background = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
                                             float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(3).toDouble(), 0.0, 1.0)));
+        }
+        d.title = a.value("title").toString();
+        if (!d.title.isEmpty() && d.text.isEmpty()) return error("title: a heading over words - give text");
+        if (!d.fill && a.contains("stroke")) { // words: the plate's edge, its accent bar and the title's colour
+            const QJsonArray c = a.value("stroke").toArray();
+            if (c.size() != 3) return error("stroke: [r, g, b], each from 0 to 1");
+            d.stroke = QColor::fromRgbF(float(std::clamp(c.at(0).toDouble(), 0.0, 1.0)), float(std::clamp(c.at(1).toDouble(), 0.0, 1.0)),
+                                        float(std::clamp(c.at(2).toDouble(), 0.0, 1.0)));
         }
         if (d.objectOnly() && !(d.glow > 0)) return error("an object alone draws the object itself - give it glow, or something to draw");
         if (!d.object && d.strip.empty() && d.segments.empty() && d.points.empty() && d.text.isEmpty() && !d.fill)

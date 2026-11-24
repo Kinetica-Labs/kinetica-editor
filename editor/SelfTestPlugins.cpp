@@ -402,11 +402,12 @@ def mark(scene, dt, sensors):
     // types a call into the console's line and answers when it is typed.
     ops->runNow("view_draw", {{"key", "свет/куб"}, {"object", int(cube)}, {"glow", 0.8}});
     ops->runNow("view_draw", {{"key", "свет/строка"}, {"text", "Ставлю куб"}, {"space", "screen"}, {"place", QJsonArray{0.03, 0.95}},
-                              {"background", QJsonArray{0, 0, 0, 0.7}}, {"glow", 0.5}});
+                              {"background", QJsonArray{0, 0, 0, 0.7}}, {"glow", 0.5}, {"title", "Шаг 1"}, {"stroke", QJsonArray{0.3, 0.8, 1}}});
     const Viewport::Drawing* lit = v->drawing("свет/куб");
     const Viewport::Drawing* said = v->drawing("свет/строка");
     const bool glow = lit && lit->objectOnly() && std::fabs(lit->glow - 0.8f) < 1e-6f && said && said->space == Viewport::Drawing::Space::Screen &&
-                      std::fabs(said->background.alphaF() - 0.7) < 0.01 && std::fabs(said->glow - 0.5f) < 1e-6f &&
+                      std::fabs(said->background.alphaF() - 0.7) < 0.01 && std::fabs(said->glow - 0.5f) < 1e-6f && said->title == "Шаг 1" &&
+                      said->stroke.isValid() && !ops->runNow("view_draw", {{"key", "свет/заголовок"}, {"points", QJsonArray{QJsonArray{0, 0, 0}}}, {"title", "x"}}).value("ok").toBool() &&
                       !ops->runNow("view_draw", {{"key", "свет/ничего"}, {"object", int(cube)}}).value("ok").toBool() &&
                       !ops->runNow("view_draw", {{"key", "свет/подложка"}, {"points", QJsonArray{QJsonArray{0, 0, 0}}}, {"background", QJsonArray{0, 0, 0, 1}}}).value("ok").toBool();
     ops->runNow("view_draw", {{"clear", true}, {"key", "свет/"}});
@@ -415,8 +416,8 @@ def mark(scene, dt, sensors):
     typing.start();
     ops->run("console_type", {{"op", "scene_list"}, {"args", QJsonObject{{"kind", "light"}}}}, [&](const QJsonObject& r) { typedAnswer = r; });
     const bool typed = waitUntil([&] { return !typedAnswer.isEmpty(); }, 3000) && typedAnswer.value("typed").toBool() && typing.elapsed() < 2000;
-    c.check(glow && typed, "view_draw's glow lights an object itself and words, a plate stands behind words in the frame (refused without "
-                           "anything to draw or without words); console_type types a call into the console and answers when typed");
+    c.check(glow && typed, "view_draw's glow lights an object itself and words, a plate stands behind words in the frame, a card's title and "
+                           "edge over it (refused without anything to draw or without words); console_type types a call into the console and answers when typed");
     const bool api = agent.value("ok").toBool() && !odd.value("ok").toBool() && ops->runNow("view_draw", {{"clear", true}, {"key", "агент/"}}).value("cleared").toInt() == 3;
     QDir(folder + "/marks").removeRecursively();
     const bool withPlugin = waitUntil([&] { return !v->hasDrawing("marks/флажок"); }, 5000);

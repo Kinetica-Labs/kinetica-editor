@@ -176,11 +176,12 @@ class _Draw:
         self._send(key, points=_xyz(points), colour=_either(color, colour), size=size)
 
     def label(self, key, at, text, colour=None, size=None, color=None, object=None, leader=None, opacity=None, space=None, place=None,
-              background=None, glow=None):
+              background=None, glow=None, title=None, stroke=None):
         """Words at a point of the world; `size`: their letters, pt, when they are to be larger than the view's own.
         `object`: they hang at `at` from its place and go where it goes; `leader`: a line from them to a point of it - see fill.
         space "screen": in the frame instead, lines up from `place` = (x, y), fractions of the view from its left top.
-        `background` = (r, g, b, a): a plate behind them, as subtitles have; `glow` (0..1): a halo of their colour."""
+        `background` = (r, g, b, a): a plate behind them, as subtitles have; `glow` (0..1): a halo of their colour; `title`:
+        a heading over them, and `stroke` = (r, g, b) the plate's edge, its accent bar and the title's colour - a card."""
         what = {"at": _xyz([at])[0], "text": str(text), **({"size": size} if size else {}), **({"opacity": float(opacity)} if opacity is not None else {})}
         if object is not None:
             what["object"] = int(getattr(object, "id", object))
@@ -192,6 +193,10 @@ class _Draw:
             what["background"] = [float(c) for c in background]
         if glow is not None:
             what["glow"] = float(glow)
+        if title:
+            what["title"] = str(title)
+        if stroke is not None:
+            what["stroke"] = [float(c) for c in stroke]
         self._send(key, colour=_either(color, colour), **what, **_leader(leader))
 
     def glow(self, key, object, strength=1.0, colour=None, color=None):

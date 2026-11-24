@@ -1022,12 +1022,32 @@ void Viewport::drawOverlayMarks(QPainter& p) {
             const QPointF line = at + QPointF(6, -6 - step * (lines.size() - 1 - k));
             box = box.united(QRectF(line.x(), line.y() - metrics.ascent(), metrics.horizontalAdvance(lines[k]), metrics.ascent() + metrics.descent()));
         }
+        QFont heading = letters; // the title: small capitals a little apart, bold - a lower third's label over its line
+        heading.setBold(true), heading.setCapitalization(QFont::AllUppercase), heading.setLetterSpacing(QFont::PercentageSpacing, 108);
+        heading.setPointSizeF(letters.pointSizeF() * 0.68);
+        const QFontMetricsF headingMetrics(heading);
+        const QPointF titleAt = QPointF(box.left(), box.top() - 7 - headingMetrics.descent());
+        if (!d.title.isEmpty())
+            box = box.united(QRectF(titleAt.x(), titleAt.y() - headingMetrics.ascent(), headingMetrics.horizontalAdvance(d.title.toUpper()) * 1.08,
+                                    headingMetrics.ascent() + headingMetrics.descent()));
         const auto placed = calloutAt_.find(key);
         const QPointF shift = placed != calloutAt_.end() ? placed->second.topLeft() - box.topLeft() : QPointF();
         box.translate(shift);
         if (d.background.isValid()) { // the plate: as WebVTT's cue box, a little wider than the words
-            p.setPen(Qt::NoPen), p.setBrush(d.background);
-            p.drawRoundedRect(box.adjusted(-10, -7, 10, 7), 7, 7);
+            const QRectF plate = box.adjusted(-12, -9, 14, 9);
+            p.setPen(d.stroke.isValid() ? QPen(QColor(d.stroke.red(), d.stroke.green(), d.stroke.blue(), 90), 1) : QPen(Qt::NoPen)); // a glass card's edge
+            p.setBrush(d.background);
+            p.drawRoundedRect(plate, 9, 9);
+            if (d.stroke.isValid()) { // the accent bar down its left side
+                p.setPen(Qt::NoPen), p.setBrush(d.stroke);
+                p.drawRoundedRect(QRectF(plate.left() + 4, plate.top() + 8, 3, plate.height() - 16), 1.5, 1.5);
+            }
+        }
+        if (!d.title.isEmpty()) {
+            p.setFont(heading);
+            p.setPen(d.stroke.isValid() ? d.stroke : d.colour);
+            p.drawText(titleAt + shift, d.title);
+            p.setFont(letters);
         }
         for (int k = 0; k < lines.size(); ++k) {
             const QPointF line = at + shift + QPointF(6, -6 - step * (lines.size() - 1 - k));
@@ -1064,7 +1084,7 @@ bool Viewport::leaderAnchor(const Drawing& d, QPointF& out) const {
 
 void Viewport::arrangeCallouts(QPainter& p) {
     calloutAt_.clear();
-    struct Note { QString key; QPointF point; QSizeF size; };
+    struct Note { QString key; QPointF point; QSizeF size; bool picture; };
     std::vector<Note> notes;
     const QFont plain = p.font();
     for (const auto& [key, d] : drawings_) {
@@ -1083,7 +1103,7 @@ void Viewport::arrangeCallouts(QPainter& p) {
             for (const QString& line : lines) wide = std::max(wide, m.horizontalAdvance(line));
             size = QSizeF(wide, m.lineSpacing() * lines.size());
         }
-        if (!size.isEmpty()) notes.push_back({key, point, size});
+        if (!size.isEmpty()) notes.push_back({key, point, size, bool(d.fill)});
     }
     if (notes.empty()) return;
     double middle = 0, leftmost = width(), rightmost = 0;
@@ -1116,6 +1136,10 @@ void Viewport::arrangeCallouts(QPainter& p) {
         side[n.key] = was == calloutLeft_.end() ? n.point.x() < middle : was->second ? n.point.x() < middle + stay : n.point.x() < middle - stay;
     }
     calloutLeft_ = side;
+    for (Note& n : notes) { // a picture wider than its column's room shrinks to it (to half at most): a long formula stays in the frame
+        const double room = side[n.key] ? leftmost - aside - edge : width() - edge - rightmost - aside;
+        if (n.picture && n.size.width() > room) n.size *= std::max(0.5, room / n.size.width());
+    }
     const double dt = calloutClock_.isValid() ? std::min(0.1, calloutClock_.restart() / 1000.0) : (calloutClock_.start(), 0.0);
     const double follow = dt > 0 ? 1 - std::exp(-dt / 0.08) : 1; // each glides to its new place, eased, about a tenth of a second
     std::map<QString, QPointF> shown;

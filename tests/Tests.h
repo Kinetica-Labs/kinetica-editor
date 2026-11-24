@@ -96,6 +96,7 @@ void testSimChannels();
 void testSimGrab();
 void testSimDebugLayers();
 void testSimStiffServoOnLightLink();
+void testSimGoalWalksItsPath();
 void testSimUr5eHolds();
 void testSimTugUr5e();
 void testSimMeshColliderThinned();
