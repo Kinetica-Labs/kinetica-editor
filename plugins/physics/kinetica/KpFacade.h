@@ -41,6 +41,10 @@ struct Body {
     Vec centre; // the centre of mass, the body's frame
     std::array<std::array<double, 3>, 3> inertia{{{1, 0, 0}, {0, 1, 0}, {0, 0, 1}}}; // about the centre, the body's axes
     double linearDamping = 0, angularDamping = 0, gravityScale = 1;
+    // Who it does not touch: a body of one group > 0 never touches another of it; a and b do not touch when the
+    // ignores of one hold a bit of the other's marks.
+    int group = 0;
+    uint64_t marks = 0, ignores = 0;
 };
 
 struct State {

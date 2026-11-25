@@ -1,7 +1,7 @@
 // The physics plugin on kinetica-physics (extern/kinetica-physics) for the contract src/physics/PhysicsWorld.h: the
 // boundary's calls in Kinetica's types turned into the facade's plain ones (KpFacade.h), which alone meets the engine.
 // What the engine does not do is said, not faked: a joint's force and its motor's are not told (zero), a hand pulls
-// without its ceiling, zones and the bodies' marks are not there (docs/physics-manifest.md, «Результаты»).
+// without its ceiling, zones are not there (docs/physics-manifest.md, «Результаты»).
 #include "physics/PhysicsWorld.h"
 #include "KpFacade.h"
 
@@ -46,6 +46,7 @@ public:
         for (int r = 0; r < 3; ++r)
             for (int c = 0; c < 3; ++c) b.inertia[size_t(r)][size_t(c)] = double(d.inertia.m[r][c]);
         b.linearDamping = double(d.linearDamping), b.angularDamping = double(d.angularDamping), b.gravityScale = double(d.gravityScale);
+        b.group = d.group, b.marks = d.marks, b.ignores = d.ignores;
         std::vector<kpf::Shape> solid;
         for (const ShapeDesc& s : shapes)
             if (!s.trigger) solid.push_back(shapeOf(s)); // a zone is not yet: it neither pushes nor tells (triggered)

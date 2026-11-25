@@ -194,6 +194,7 @@ int World::addBody(const Body& d, const std::vector<Shape>& shapes, std::string&
     const kp::Transform at = Inside::engines(e, kv(d.position), kq(d.rotation));
     body.position = at.position, body.orientation = at.orientation;
     body.linearDamping = d.linearDamping, body.angularDamping = d.angularDamping;
+    body.group = d.group, body.categoryBits = d.marks, body.ignoreBits = d.ignores; // the engine's filter, its words
     e.id = in_->world.addBody(body);
     in_->bodies.push_back(e);
     const int index = int(in_->bodies.size()) - 1;

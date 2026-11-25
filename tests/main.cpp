@@ -60,7 +60,6 @@ int main() {
         {"kinetica-physics", "a welded cantilever sags less with stiffer joints and more substeps"}, // its weld is exact: no sag at all
         {"kinetica-physics", "the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may"}, // no ceiling, no pull told
         {"kinetica-physics", "rest - a pyramid of 406 cubes stands"},                            // its fast step: springs past 512 points
-        {"kinetica-physics", "the bodies of one group never touch each other"},                  // the engine has no groups
     };
     for (const std::string& engine : ke::physicsEngines()) { // the contract, on every engine built in
         physicsTestsOn(engine);
