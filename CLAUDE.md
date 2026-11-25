@@ -5,6 +5,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Kinetica Editor — редактор робототехники: рука-манипулятор, дрон, колёсный робот, их суставы, приводы
 и неидеальные датчики. Твёрдые тела считает Box3D (`extern/box3d`) за границей `src/physics/PhysicsWorld.h`;
 своей физики нет. Газа, жидкостей, ткани, мягких тел, частиц, разрушения нет и не будет — даже выключенных.
+Ветка `dev-physics` — лаборатория движков: что пробуем, как сравниваем и её правила — `docs/physics-manifest.md`.
 
 ## Сборка и проверка
 
