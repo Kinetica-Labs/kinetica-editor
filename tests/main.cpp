@@ -56,13 +56,10 @@ int main() {
     run("devices: a sensor's datasheet from its model's table row, kept in the scene file, set by the API", testSensorDatasheet);
     // The laws an engine does not hold yet, by its word: run and said, not counted (docs/physics-manifest.md, «Результаты»).
     const std::set<std::pair<std::string, std::string>> gaps = {
-        {"kinetica-physics", "a pendulum's period is the compound pendulum's"},                 // joints: the next part
-        {"kinetica-physics", "a hinge's limit and motor act the way our coordinate counts"},
-        {"kinetica-physics", "a hanging bob's joint pulls it up with m g"},
-        {"kinetica-physics", "a body coasting on a hinge keeps its spin"},
-        {"kinetica-physics", "a welded cantilever sags less with stiffer joints and more substeps"},
-        {"kinetica-physics", "the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may"},
-        {"kinetica-physics", "rest - a pyramid of 406 cubes stands"},                            // the step's settings: to be found
+        {"kinetica-physics", "a hanging bob's joint pulls it up with m g"},                     // the engine tells no joint's force
+        {"kinetica-physics", "a welded cantilever sags less with stiffer joints and more substeps"}, // its weld is exact: no sag at all
+        {"kinetica-physics", "the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may"}, // no ceiling, no pull told
+        {"kinetica-physics", "rest - a pyramid of 406 cubes stands"},                            // its fast step: springs past 512 points
         {"kinetica-physics", "the bodies of one group never touch each other"},                  // the engine has no groups
     };
     for (const std::string& engine : ke::physicsEngines()) { // the contract, on every engine built in

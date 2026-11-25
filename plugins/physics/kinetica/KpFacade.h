@@ -3,8 +3,9 @@
 // headers as Kinetica names its own (<math/Quaternion.h>), so the two never meet in one file: KpFacade.cpp alone
 // includes the engine and is built as a library of its own (CMakeLists.txt, ke_kp_facade); KineticaWorld.cpp - the
 // boundary src/physics/PhysicsWorld.h on it - sees only this. The facade speaks the boundary's language: a body by its
-// own frame and its shapes in it, numbered as they were added. What the engine sees otherwise - a body by its centre of
-// mass and principal axes - stays inside. Joints are not here yet (docs/physics-manifest.md, «Порядок»).
+// own frame and its shapes in it, numbered as they were added; a joint by its frames on the two bodies, its coordinate
+// frame a relative to frame b. What the engine sees otherwise - a body by its centre of mass and principal axes, a joint
+// the other way round - stays inside.
 #include <array>
 #include <cstdint>
 #include <memory>
@@ -56,6 +57,21 @@ struct Hit { int body = -1; double distance = 0; Vec point, normal; };
 // A touching point after a step: bodies a and b, the normal from a to b, how deep, the normal impulse of the step.
 struct Contact { int a = -1, b = -1; Vec point, normal; double depth = 0, impulse = 0; };
 
+// A joint between body a and body b (-1: the world) by its frames on them; its coordinate is frame a relative to frame
+// b. Hinge: a turn about the frames' x; Slider: a travel along x; Ball: three turns; Fixed: none.
+struct Joint {
+    enum class Kind { Hinge, Slider, Ball, Fixed } kind = Kind::Hinge;
+    int a = -1, b = -1;
+    Vec anchorA, anchorB; // in each body's frame, the world's for -1
+    Turn frameA, frameB;
+    bool limited = false;
+    double lower = 0, upper = 0;
+    bool motor = false;
+    double speed = 0, maxForce = 0;
+};
+// The mouse's hand: a spring of `hertz` and `dampingRatio` from `point` on a moving body to a target led by moveHand.
+struct Hand { int body = -1; Vec point; double hertz = 7.5, dampingRatio = 1; };
+
 struct Settings {
     int substeps = 4;
     double contactHertz = 30, contactDamping = 10;
@@ -80,6 +96,13 @@ public:
     void applyImpulse(int body, const Vec& impulse, const Vec& point);
     void applyAngularImpulse(int body, const Vec& impulse);
     void moveKinematic(int body, const Vec& position, const Turn& rotation, double dt);
+
+    int addJoint(const Joint& joint, std::string& error);
+    void removeJoint(int joint); // the engine keeps every joint: a removed one is left between still bodies, holding nothing
+    bool jointAlive(int joint) const;
+    void setMotor(int joint, bool on, double speed, double maxForce);
+    int addHand(const Hand& hand, std::string& error);
+    void moveHand(int joint, const Vec& target, double dt);
 
     bool castRay(const Vec& from, const Vec& to, Hit& hit, int ignore) const;
     std::vector<Contact> contacts(int body) const; // -1: the world's, each pair once

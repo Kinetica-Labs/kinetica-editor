@@ -1,7 +1,7 @@
 // The physics plugin on kinetica-physics (extern/kinetica-physics) for the contract src/physics/PhysicsWorld.h: the
 // boundary's calls in Kinetica's types turned into the facade's plain ones (KpFacade.h), which alone meets the engine.
-// What the engine does not do yet is said, not faked: joints, the mouse's hand, zones and the bodies' marks come in the
-// next steps (docs/physics-manifest.md, «Порядок»).
+// What the engine does not do is said, not faked: a joint's force and its motor's are not told (zero), a hand pulls
+// without its ceiling, zones and the bodies' marks are not there (docs/physics-manifest.md, «Результаты»).
 #include "physics/PhysicsWorld.h"
 #include "KpFacade.h"
 
@@ -74,14 +74,31 @@ public:
     void applyAngularImpulse(int body, const Vector3& j) override { world_.applyAngularImpulse(body, fv(j)); }
     void moveKinematic(int body, const Vector3& p, const Quaternion& q, Real dt) override { world_.moveKinematic(body, fv(p), fq(q.normalized()), double(dt)); }
 
-    int addJoint(const JointDesc&, std::string& error) override { return error = "kinetica-physics: joints are not connected yet", -1; }
-    void removeJoint(int) override {}
-    bool jointAlive(int) const override { return false; }
-    void setMotor(int, bool, Real, Real) override {}
-    Real motorForce(int) const override { return 0; }
-    void reaction(int, Vector3& force, Vector3& torque) const override { force = torque = Vector3(0.0_r); }
-    int addHand(const HandDesc&, std::string& error) override { return error = "kinetica-physics: the mouse's hand is not connected yet", -1; }
-    void moveHand(int, const Vector3&, Real) override {}
+    // The two bodies of a joint do not collide in the engine: `collide` is not kept.
+    int addJoint(const JointDesc& d, std::string& error) override {
+        kpf::Joint j;
+        switch (d.type) {
+        case JointType::Hinge: j.kind = kpf::Joint::Kind::Hinge; break;
+        case JointType::Slider: j.kind = kpf::Joint::Kind::Slider; break;
+        case JointType::Ball: j.kind = kpf::Joint::Kind::Ball; break;
+        case JointType::Fixed: j.kind = kpf::Joint::Kind::Fixed; break;
+        default: return error = "kinetica-physics has no joint with this mix of free turns and travels", -1;
+        }
+        j.a = d.a, j.b = d.b;
+        j.anchorA = fv(d.anchorA), j.anchorB = fv(d.anchorB), j.frameA = fq(d.frameA.normalized()), j.frameB = fq(d.frameB.normalized());
+        j.limited = d.limited, j.lower = double(d.lower), j.upper = double(d.upper);
+        j.motor = d.motor, j.speed = double(d.motorSpeed), j.maxForce = double(d.maxMotorForce);
+        return world_.addJoint(j, error);
+    }
+    void removeJoint(int joint) override { world_.removeJoint(joint); }
+    bool jointAlive(int joint) const override { return world_.jointAlive(joint); }
+    void setMotor(int joint, bool on, Real speed, Real maxForce) override { world_.setMotor(joint, on, double(speed), double(maxForce)); }
+    Real motorForce(int) const override { return 0; } // the engine does not tell it
+    void reaction(int, Vector3& force, Vector3& torque) const override { force = torque = Vector3(0.0_r); } // nor this
+    int addHand(const HandDesc& h, std::string& error) override {
+        return world_.addHand({h.body, fv(h.point), double(h.hertz), double(h.dampingRatio)}, error);
+    }
+    void moveHand(int joint, const Vector3& target, Real dt) override { world_.moveHand(joint, fv(target), double(dt)); }
 
     bool castRay(const Vector3& from, const Vector3& to, BodyHit& hit, int ignore) const override {
         kpf::Hit h;
