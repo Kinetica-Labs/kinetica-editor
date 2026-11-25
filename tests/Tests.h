@@ -1,5 +1,6 @@
 #pragma once
 // Every test of ke_tests, one line each, grouped by the file that defines it; main.cpp runs them.
+#include <string>
 
 // MathTests.cpp
 void testMath();
@@ -53,7 +54,9 @@ void testImuNoise();
 void testSensorDatasheet();
 void testSonarNoise();
 void testLidarPattern();
-// PhysicsTests.cpp
+// PhysicsTests.cpp: the contract, run once an engine
+void physicsTestsOn(const std::string& engine);
+void testPhysicsEngineNamed();
 void testPhysicsFreeFall();
 void testPhysicsTorque();
 void testPhysicsImpulseAndForce();

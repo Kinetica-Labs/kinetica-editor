@@ -219,10 +219,14 @@ std::vector<SceneOp> readOps() {
         query("scene_describe", "The scene in words: the bodies as a tree of joints with their shapes, masses, roles and drives; sensors and where "
               "they look; the batteries - for a person or a language model building by text", "{}",
               [](const SceneGraph& g, const Value&, Value& r, std::string&) { return r.set("text", describeScene(g)), true; }),
-        query("world_get", "The world's 'world' and 'physics' lines of the scene file: text. With line (world, physics): values - the count "
-              "words (1) after key on that line, as scene_get reads an object's (null: not there)",
+        query("world_get", "The world's 'world' and 'physics' lines of the scene file: text, and engines - the physics engines built in, "
+              "the first the one a scene that names none runs on (physics line, key engine). With line (world, physics): values - the "
+              "count words (1) after key on that line, as scene_get reads an object's (null: not there)",
               "{line?: str, key?: str, count?: int}", [](const SceneGraph& g, const Value& a, Value& r, std::string&) {
-            return a.has("line") ? r.set("values", fieldValues(getWorld(g), a)) : r.set("text", getWorld(g)), true;
+            if (a.has("line")) return r.set("values", fieldValues(getWorld(g), a)), true;
+            Value engines = Value::list();
+            for (const std::string& e : physicsEngines()) engines.push(Value(e));
+            return r.set("text", getWorld(g)), r.set("engines", engines), true;
         }),
     };
 }

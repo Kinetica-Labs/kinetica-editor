@@ -2,6 +2,8 @@
 #include "TestRunner.h"
 #include "Tests.h"
 
+#include "scene/PhysicsSettings.h"
+
 int main() {
     run("math: vectors, matrices, quaternions, N x N solvers", testMath);
     run("math: mesh primitives are closed and have their volumes", testPrimitives);
@@ -47,22 +49,27 @@ int main() {
     run("devices: a sonar's jitter against the normal it is drawn from", testSonarNoise);
     run("devices: a lidar's rays where its pattern puts them, a ray's range, millimetres and noise", testLidarPattern);
     run("devices: a sensor's datasheet from its model's table row, kept in the scene file, set by the API", testSensorDatasheet);
-    run("physics: a falling ball's speed is g t, its height on the parabola within the integrator's error", testPhysicsFreeFall);
-    run("physics: a torque spins a box at tau t / I - computed from its volume, and given", testPhysicsTorque);
-    run("physics: an impulse is momentum at once and wakes a body, a force acts over one step and adds up", testPhysicsImpulseAndForce);
-    run("physics: a pendulum's period is the compound pendulum's", testPhysicsPendulum);
-    run("physics: a hinge's limit and motor act the way our coordinate counts", testPhysicsHingeConventions);
-    run("physics: a ray meets the nearest body, or the one past an ignored body", testPhysicsRays);
-    run("physics: a box at rest is carried by contacts summing to m g", testPhysicsWeightOnContacts);
-    run("physics: a hanging bob's joint pulls it up with m g", testPhysicsJointReaction);
-    run("physics: a body coasting on a hinge keeps its spin", testPhysicsHingeCoasts);
-    run("physics: a welded cantilever sags less with stiffer joints and more substeps", testPhysicsCantileverSag);
-    run("physics: rest - a tower of ten cubes stands", testPhysicsTower);
-    run("physics: rest - a pyramid of 406 cubes stands", testPhysicsPyramid);
-    run("physics: the bodies of one group never touch each other", testPhysicsGroups);
-    run("physics: the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may", testPhysicsHand);
-    run("physics: two worlds built alike stay equal to the bit", testPhysicsRepeatable);
-    run("physics: the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit", testPhysicsThreadsDeterministic);
+    for (const std::string& engine : ke::physicsEngines()) { // the contract, on every engine built in
+        physicsTestsOn(engine);
+        const std::string on = "physics (" + engine + "): ";
+        run((on + "the world is the named engine's; a scene naming none runs on the first").c_str(), testPhysicsEngineNamed);
+        run((on + "a falling ball's speed is g t, its height on the parabola within the integrator's error").c_str(), testPhysicsFreeFall);
+        run((on + "a torque spins a box at tau t / I - computed from its volume, and given").c_str(), testPhysicsTorque);
+        run((on + "an impulse is momentum at once and wakes a body, a force acts over one step and adds up").c_str(), testPhysicsImpulseAndForce);
+        run((on + "a pendulum's period is the compound pendulum's").c_str(), testPhysicsPendulum);
+        run((on + "a hinge's limit and motor act the way our coordinate counts").c_str(), testPhysicsHingeConventions);
+        run((on + "a ray meets the nearest body, or the one past an ignored body").c_str(), testPhysicsRays);
+        run((on + "a box at rest is carried by contacts summing to m g").c_str(), testPhysicsWeightOnContacts);
+        run((on + "a hanging bob's joint pulls it up with m g").c_str(), testPhysicsJointReaction);
+        run((on + "a body coasting on a hinge keeps its spin").c_str(), testPhysicsHingeCoasts);
+        run((on + "a welded cantilever sags less with stiffer joints and more substeps").c_str(), testPhysicsCantileverSag);
+        run((on + "rest - a tower of ten cubes stands").c_str(), testPhysicsTower);
+        run((on + "rest - a pyramid of 406 cubes stands").c_str(), testPhysicsPyramid);
+        run((on + "the bodies of one group never touch each other").c_str(), testPhysicsGroups);
+        run((on + "the mouse's hand holds a body at its spring's sag g / w^2 and pulls no more than it may").c_str(), testPhysicsHand);
+        run((on + "two worlds built alike stay equal to the bit").c_str(), testPhysicsRepeatable);
+        run((on + "the same world on 1, 2, 4 and the machine's threads - 300 tumbling boxes equal to the bit").c_str(), testPhysicsThreadsDeterministic);
+    }
     run("world: a box of the scene falls and rests on the floor", testSimBoxRestsOnFloor);
     run("metamorphic: the scene moved along the floor, the run moved with it", testMetamorphicMoved);
     run("metamorphic: the scene turned about y, the run turned with it", testMetamorphicTurned);

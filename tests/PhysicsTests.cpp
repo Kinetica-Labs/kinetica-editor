@@ -1,4 +1,5 @@
-// The physics boundary (src/physics) on Box3D against exact answers. A falling ball's speed is g t to
+// The physics boundary (src/physics) against exact answers, on every engine built in (physicsEngines(): main.cpp runs
+// the list once an engine, physicsTestsOn telling which) - the numbers below are Box3D's. A falling ball's speed is g t to
 // the last bits of float (semi-implicit Euler updates the speed first), its height within the
 // integrator's first-order error. A torque about a principal axis spins a box at tau t / I - the
 // inertia Box3D computes from the shape's volume, and one given by hand, which the state reports in the
@@ -24,10 +25,18 @@ namespace {
 
 const Real kDt = 1.0_r / 60;
 const Vector3 kGravity(0, -9.81_r, 0);
+std::string gEngine; // the engine the tests run on now
+
+// The settings of a world on that engine.
+PhysicsSettings on() {
+    PhysicsSettings s;
+    s.engine = gEngine;
+    return s;
+}
 
 // A world at the scene's default settings (PhysicsSettings), or at given substeps and joint stiffness.
 std::unique_ptr<PhysicsWorld> world(const Vector3& gravity = kGravity, int substeps = 0, Real jointHertz = 0) {
-    PhysicsSettings s;
+    PhysicsSettings s = on();
     s.sleeping = false;
     if (substeps) s.substeps = substeps, s.contactHertz = std::min(s.contactHertz, Real(15 * substeps));
     if (jointHertz > 0) s.jointHertz = jointHertz;
@@ -93,6 +102,16 @@ Real hingeAngle(const PhysicsWorld& w, const Pendulum& p, const Vector3& pivot, 
 
 } // namespace
 
+void physicsTestsOn(const std::string& engine) { gEngine = engine; }
+
+// The engine a world is built on is the one its settings name; a scene that names none gets the first of the table.
+void testPhysicsEngineNamed() {
+    const std::string made = makePhysicsWorld(on(), kGravity)->engine(), first = makePhysicsWorld(PhysicsSettings{}, kGravity)->engine();
+    const std::string firstAgain = makePhysicsWorld(PhysicsSettings{physicsEngines().front()}, kGravity)->engine();
+    std::printf("  %s: a world of «%s»; none named: «%s»\n", gEngine.c_str(), made.c_str(), first.c_str());
+    CHECK(!made.empty() && first == firstAgain, "a scene naming no engine did not get the first of the table");
+}
+
 void testPhysicsFreeFall() {
     auto w = world();
     const int ball = body(*w, {0, 10, 0}, {sphere(0.1_r)});
@@ -108,8 +127,7 @@ void testPhysicsFreeFall() {
 // What the force operations of the world stand on: an impulse is momentum at once, at the centre, with no spin, and wakes;
 // a force is consumed by the step that follows it (not carried over) and accumulates before it.
 void testPhysicsImpulseAndForce() {
-    PhysicsSettings sleepy;
-    auto w = makePhysicsWorld(sleepy, Vector3(0.0_r));
+    auto w = makePhysicsWorld(on(), Vector3(0.0_r));
     const int b = body(*w, {0, 5, 0}, {box({0.1_r, 0.2_r, 0.3_r})});
     const Real m = w->state(b).mass;
     for (int k = 0; k < 600 && w->state(b).awake; ++k) w->step(kDt);
@@ -374,7 +392,7 @@ void testPhysicsGroups() {
 // and led 0.3 m aside, hangs under the target by its static sag g / w^2 (w = 2 pi hertz), the hand pulling it with
 // m g; let go, it falls back. A hand that may pull half the weight leaves it on the floor.
 void testPhysicsHand() {
-    PhysicsSettings settings; // sleeping on: a body held still must not fall asleep in the hand
+    PhysicsSettings settings = on(); // sleeping on: a body held still must not fall asleep in the hand
     settings.sleeping = true;
     auto w = makePhysicsWorld(settings, kGravity);
     body(*w, {0, -0.5_r, 0}, {box({5, 0.5_r, 5})}, BodyDesc::Type::Static);
@@ -442,8 +460,7 @@ void testPhysicsRepeatable() {
 // replayed on another machine would not be the scene that was recorded (docs/constitution.md, article 3).
 void testPhysicsThreadsDeterministic() {
     const auto run = [](int threads) {
-        PhysicsSettings s;
-        auto w = makePhysicsWorld(s, kGravity, threads);
+        auto w = makePhysicsWorld(on(), kGravity, threads);
         body(*w, {0, -0.5_r, 0}, {box({5, 0.5_r, 5})}, BodyDesc::Type::Static);
         body(*w, {0.1_r, 0.4_r, 0}, {box({0.05_r, 0.4_r, 0.05_r})}, BodyDesc::Type::Static);
         std::vector<int> boxes;

@@ -1,10 +1,12 @@
 #pragma once
 // The boundary to the physics engine: everything a robot asks of rigid-body physics, in the core's own
 // types - bodies made of convex shapes with a given or computed mass, the joints every engine has, a
-// velocity motor, forces, rays and contacts. The rest of the core and the editor see only this; one
-// implementation of it, a plugin (plugins/physics/box3d, the only place that includes the engine): another
-// engine is another plugin, and the tests (tests/PhysicsTests.cpp) say whether it holds (docs/contracts/physics.md). What a robot does beyond it - a servo's spring, a DC motor's torque, an encoder's count - is
-// the robot's own code (src/sim), the same over any engine.
+// velocity motor, forces, rays and contacts. The rest of the core and the editor see only this. Each engine is a
+// plugin (plugins/physics/<engine>, the only place that includes it) and a row of the table plugins/physics/Engines.cpp;
+// a scene names its engine in its physics line, a scene that names none runs on the first. The tests
+// (tests/PhysicsTests.cpp) run on every engine of the table and say whether it holds (docs/contracts/physics.md). What a
+// robot does beyond it - a servo's spring, a DC motor's torque, an encoder's count - is the robot's own code (src/sim),
+// the same over any engine.
 //
 // Bodies and joints are handles: small integers, stable while the object lives, never reused within a
 // world. Poses are the body's frame (its origin, not its centre of mass); forces and torques apply
@@ -153,9 +155,9 @@ public:
     virtual void step(Real dt, int substeps = 0) = 0;
 };
 
-// A world of the engine: defined by the one physics plugin built in (plugins/physics/<engine>). `threads`: how many
-// threads step it - 0 the machine's (physicsThreads). The bits of a world do not depend on them: an engine that ran
-// otherwise on another machine could not be reproduced there (docs/constitution.md, article 3; tested).
+// A world of the engine the settings name (physicsEngines(); empty - the first). `threads`: how many threads step it -
+// 0 the machine's (physicsThreads). The bits of a world do not depend on them: an engine that ran otherwise on another
+// machine could not be reproduced there (docs/constitution.md, article 3; tested on every engine).
 std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads = 0);
 // The machine's: KE_PHYSICS_THREADS when set, else one a physical core - half the hardware threads, as hyper-threads
 // add little to a solver - at most 8.

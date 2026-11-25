@@ -520,7 +520,7 @@ static void saveWheel(std::ostringstream& o, const WheelObject& w) {
 
 static std::string physicsText(const PhysicsSettings& p) {
     std::ostringstream o;
-    o << "physics substeps " << p.substeps << " contact_hertz " << num(p.contactHertz) << " contact_damping " << num(p.contactDamping)
+    o << "physics " << (p.engine.empty() ? "" : "engine " + p.engine + " ") << "substeps " << p.substeps << " contact_hertz " << num(p.contactHertz) << " contact_damping " << num(p.contactDamping)
       << " joint_hertz " << num(p.jointHertz) << " joint_damping " << num(p.jointDamping) << " sleeping " << (p.sleeping ? 1 : 0)
       << " continuous " << (p.continuous ? 1 : 0) << " linear_damping " << num(p.linearDamping) << " angular_damping "
       << num(p.angularDamping) << "\n";
@@ -673,6 +673,14 @@ static const Key<WorldSettings> kWorldKeys[] = {
 };
 static const Key<PhysicsSettings> kPhysicsKeys[] = {
     {"substeps", "count 1..64", "", [](LineReader& r, PhysicsSettings& p, std::string&) { return r.count(p.substeps, 1, 64); }},
+    {"engine", "word: one of world_get's engines", "", [](LineReader& r, PhysicsSettings& p, std::string& why) {
+        const std::vector<std::string>& built = physicsEngines();
+        if (!r.text(p.engine)) return false;
+        if (std::find(built.begin(), built.end(), p.engine) != built.end()) return true;
+        std::string list;
+        for (const std::string& e : built) list += (list.empty() ? "" : ", ") + e;
+        return why = "engine " + p.engine + ": no such physics engine here; the engines: " + list, false;
+    }},
     {"contact_hertz", "number above 0, to 10000", "Hz", [](LineReader& r, PhysicsSettings& p, std::string&) { return above(r, p.contactHertz, 0, 10000); }},
     {"contact_damping", "number 0..100", "", [](LineReader& r, PhysicsSettings& p, std::string&) { return within(r, p.contactDamping, 0, 100); }},
     {"joint_hertz", "number above 0, to 10000", "Hz", [](LineReader& r, PhysicsSettings& p, std::string&) { return above(r, p.jointHertz, 0, 10000); }},

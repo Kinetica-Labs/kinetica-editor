@@ -11,8 +11,6 @@
 #include "physics/PhysicsWorld.h"
 
 #include <cstdio>
-#include <cstdlib>
-#include <thread>
 #include <box3d/box3d.h>
 
 #include <algorithm>
@@ -491,13 +489,8 @@ private:
 
 } // namespace
 
-int physicsThreads() {
-    if (const char* given = std::getenv("KE_PHYSICS_THREADS"); given && std::atoi(given) > 0) return std::min(std::atoi(given), 64);
-    return std::clamp(int(std::thread::hardware_concurrency()) / 2, 1, 8);
-}
-
-std::unique_ptr<PhysicsWorld> makePhysicsWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads) {
-    return std::make_unique<Box3dWorld>(settings, gravity, threads > 0 ? threads : physicsThreads());
+std::unique_ptr<PhysicsWorld> makeBox3dWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads) {
+    return std::make_unique<Box3dWorld>(settings, gravity, threads);
 }
 
 } // namespace ke

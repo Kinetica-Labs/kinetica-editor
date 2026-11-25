@@ -381,6 +381,7 @@
 | `driver` | драйвер мотора | stable |  |
 | `effort` | сила или момент в суставе, Н или Н·м | stable |  |
 | `encoder` | энкодер | stable |  |
+| `engines` | физические движки этой сборки, первый - по умолчанию (world_get) | testing |  |
 | `error` | почему не вышло - текст для человека; есть, когда ok - false | stable |  |
 | `face` | грань формы: +x, -x, +y, -y, +z, -z | stable |  |
 | `file` | путь к файлу | stable |  |
@@ -584,6 +585,7 @@ by Kinetica X, newer than this program (Y)…».
 | `effort` | датчик | датчик усилия в суставе | stable |  |
 | `encoder` | датчик | энкодер | stable |  |
 | `end` | строка | конец блока | stable |  |
+| `engine` | physics | физический движок сцены, одно из engines; нет слова - первый, Box3D | testing |  |
 | `entity` | строка | форма - тело, коллайдер, цель, путь | stable |  |
 | `falloff` | effect | спад силы с расстоянием | stable |  |
 | `far` | lens | дальше не видит, м | stable |  |

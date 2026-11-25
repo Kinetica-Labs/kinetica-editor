@@ -388,6 +388,21 @@ void testSceneApiHyperOperations() {
           "scene_import: a model a shape named after its file, 1 m at its largest, standing on the floor: %s", imported["error"].text("").c_str());
     const Value missing = call(scene, "scene_import", R"({"file": "no-such-model.obj"})");
     CHECK(!missing["ok"].truth() && scene.graph().entities.size() == entitiesBefore + 1, "a model's file that is not there is refused, nothing put in");
+    // The physics engine: world_get lists those built in, the first the default; a scene names one in its physics line -
+    // kept in the file -, and a word that is no engine here is refused with the list; a scene naming none writes no word.
+    const Value worldNow = call(scene, "world_get", "{}");
+    const std::string first = worldNow["engines"].items().empty() ? "" : worldNow["engines"].items()[0].text("");
+    CHECK(first == "box3d" && worldNow["text"].text("").find("engine") == std::string::npos, "world_get lists the engines, the first box3d; none named, none written");
+    const Value named = call(scene, "world_set", R"({"line": "physics", "key": "engine", "values": ["box3d"]})");
+    const Value other = call(scene, "world_set", R"({"line": "physics", "key": "engine", "values": ["no_such_engine"]})");
+    CHECK(named["ok"].truth() && scene.graph().world.physics.engine == "box3d" && scene.graph().save().find("physics engine box3d") != std::string::npos,
+          "a scene names its engine in the physics line: %s", named["error"].text("").c_str());
+    CHECK(!other["ok"].truth() && other["error"].text("").find("box3d") != std::string::npos && scene.graph().world.physics.engine == "box3d",
+          "an engine not built in is refused, naming those there are: %s", other["error"].text("").c_str());
+    SceneGraph foreign;
+    std::string foreignError;
+    CHECK(!foreign.load("world gravity 0 -9.81 0\nphysics engine no_such_engine\n", foreignError) && foreignError.find("box3d") != std::string::npos,
+          "a file naming an engine not built in is refused with the list: %s", foreignError.c_str());
     // An example studied before one's own is built: the ready car in words, its shock absorbers and its motors' drivers,
     // and the scene as it was; an assembly that is not there is refused, naming those there are.
     const size_t objects = scene.graph().entities.size();
