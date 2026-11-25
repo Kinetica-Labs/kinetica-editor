@@ -453,6 +453,16 @@ void drawWireMesh(QPainter& p) {
     });
 }
 
+// Выпуклые части: the shape as a few convex pieces fitted together - an L of two blocks and a wedge, their seams drawn.
+void drawWireParts(QPainter& p) {
+    guideStroke(p, [&p] {
+        const QPointF upright[] = {{14, 14}, {38, 14}, {38, 86}, {14, 86}};
+        const QPointF foot[] = {{40, 62}, {86, 62}, {86, 86}, {40, 86}};
+        const QPointF wedge[] = {{40, 58}, {40, 30}, {70, 58}};
+        p.drawPolygon(upright, 4), p.drawPolygon(foot, 4), p.drawPolygon(wedge, 3);
+    });
+}
+
 // Авто: the collider follows the shape - a wire cube with a small spark in its corner.
 void drawWireAuto(QPainter& p) {
     drawWireCube(p);
@@ -471,6 +481,7 @@ Draw colliderDraw(ke::ColliderKind k) {
     case ke::ColliderKind::ConvexHull: return drawWireHull;
     case ke::ColliderKind::Cylinder: return drawWireCylinder;
     case ke::ColliderKind::Mesh: return drawWireMesh;
+    case ke::ColliderKind::ConvexParts: return drawWireParts;
     }
     return [](QPainter&) {};
 }

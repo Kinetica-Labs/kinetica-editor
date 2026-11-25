@@ -94,6 +94,9 @@ class QWidget;
 class RoleBar;
 class Vec3Row;
 
+// The collider kind's place among the inspector's tiles (SceneBuilderPanels.cpp: from the plainest to the truest).
+int colliderTile(ke::ColliderKind k);
+
 class SceneBuilder : public QObject {
     Q_OBJECT
 public:

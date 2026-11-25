@@ -148,7 +148,7 @@ void SceneBuilder::setColliderEdit(bool on) {
         emit statusMessage(uiText("Kinetica", "Коллайдер: выберите одно тело с коллайдером (в правке)"));
         on = false;
     } else if (on && !sizedByNumbers(heldNow(*e).kind)) {
-        emit statusMessage(uiText("Kinetica", "Коллайдер повторяет геометрию (выпуклая оболочка): выберите в карточке коробку, сферу, капсулу или цилиндр — "
+        emit statusMessage(uiText("Kinetica", "Коллайдер повторяет геометрию (оболочка, выпуклые части или сетка): выберите в карточке коробку, сферу, капсулу или цилиндр — "
                            "их место и размер задаются руками"));
         on = false;
     }

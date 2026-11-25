@@ -264,25 +264,29 @@ bool colliderOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
         if (!tagWord(v.text(""))) return e = "ignores is a list of tags, one word each", false;
         if (std::find(ignores.begin(), ignores.end(), v.text("")) == ignores.end()) ignores.push_back(v.text(""));
     }
-    // A mesh: the geometry's own triangles on a body that stands, convex parts on one that moves - how many at most (hulls)
-    // and how far each may stand out into the air (concavity). The parts are cut now: a Play does not wait for them.
+    // A mesh: the geometry's own triangles on a body that stands, convex parts on one that moves; convex_parts: convex
+    // parts either way - how many at most (hulls) and how far each may stand out into the air (concavity). The parts are
+    // cut now: a Play does not wait for them.
     const bool meshNumbers = a.has("hulls") || a.has("concavity");
-    if (a["kind"].text("") == "mesh" || (meshNumbers && !a.has("kind"))) {
+    const std::string asked = a["kind"].text("");
+    if (asked == "mesh" || asked == "convex_parts" || (meshNumbers && !a.has("kind"))) {
         ColliderRole& c = body->collider;
-        if (!a.has("kind") && !(c.enabled && c.kind == ColliderKind::Mesh)) return e = "hulls and concavity are a mesh collider's: give kind mesh", false;
+        const bool geometric = c.enabled && (c.kind == ColliderKind::Mesh || c.kind == ColliderKind::ConvexParts);
+        if (!a.has("kind") && !geometric) return e = "hulls and concavity are a convex_parts or a mesh collider's: give kind convex_parts", false;
         if (a.has("size") || a.has("diameter") || a.has("height") || a.has("offset") || a.has("rotation"))
-            return e = "a mesh collider is the geometry itself: no size, diameter, height, offset or rotation", false;
+            return e = "a " + (asked.empty() ? std::string("mesh") : asked) + " collider is the geometry itself: no size, diameter, height, offset or rotation", false;
         const int hulls = a.has("hulls") ? int(a["hulls"].integer()) : c.hulls;
         const Real concavity = a.has("concavity") ? Real(a["concavity"].number()) : c.concavity;
         if (hulls < 1 || hulls > 64) return e = "hulls is a whole number 1..64: the convex parts at most", false;
         if (!(concavity >= 0.005_r && concavity <= 0.5_r)) return e = "concavity is 0.005..0.5: a share of the body's diagonal", false;
-        c.enabled = true, c.kind = ColliderKind::Mesh, c.hulls = hulls, c.concavity = concavity;
+        const ColliderKind kind = asked == "convex_parts" ? ColliderKind::ConvexParts : asked == "mesh" ? ColliderKind::Mesh : c.kind;
+        c.enabled = true, c.kind = kind, c.hulls = hulls, c.concavity = concavity;
         if (a.has("trigger")) c.trigger = a["trigger"].truth();
         if (a.has("ignores")) c.ignores = ignores;
         double written = 0; // the number as the file writes it, not float's tail: 0.03, not 0.0299999993
         parseNumber(numberText(concavity), written);
-        r.set("id", body->id), r.set("kind", "mesh"), r.set("hulls", hulls), r.set("concavity", written);
-        if (!body->rigid.enabled || body->rigid.fixed)
+        r.set("id", body->id), r.set("kind", kind == ColliderKind::ConvexParts ? "convex_parts" : "mesh"), r.set("hulls", hulls), r.set("concavity", written);
+        if (kind == ColliderKind::Mesh && (!body->rigid.enabled || body->rigid.fixed))
             return r.set("note", "it stands: it collides by the triangles themselves, hollows and all; a moving body by convex parts"), true;
         ConvexPartsOptions o;
         o.hulls = hulls, o.concavity = concavity;
@@ -303,7 +307,7 @@ bool colliderOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     c.ignores = a.has("ignores") ? ignores : body->collider.ignores;
     if (a.has("kind")) {
         const int k = wordIndex(a["kind"].text(""), kinds);
-        if (k < 0) return e = "kind is box, sphere, capsule, cylinder or mesh (a hull follows the geometry: scene_set collider kind hull)", false;
+        if (k < 0) return e = "kind is box, sphere, capsule, cylinder, convex_parts or mesh (a hull follows the geometry: scene_set collider kind hull)", false;
         c.size = kindForm(kindOf[k], c.size), c.kind = kindOf[k];
     }
     if (!sizedByNumbers(c.kind)) return e = "the collider is the geometry's hull: give kind box, sphere, capsule or cylinder to size it", false;
@@ -514,12 +518,12 @@ std::vector<SceneOp> actionSceneOps() {
                            "capsule's or a cylinder's diameter and height; its centre (offset) and turn (rotation) on the shape, in the shape's "
                            "frame. What is not given stays as the collider is now (a fitted one's numbers from the geometry); fitting is off after. "
                            "What it touches: trigger - a zone that touches nothing and tells what is inside it (sim_state triggers); ignores - the "
-                           "tags (scene_tag) of what it has no contact with. These two alone leave the collider's form as it is. kind mesh - "
-                           "the geometry itself: a body that stands collides by its triangles, hollows and all; a moving one by the mesh cut "
-                           "into convex parts: hulls - at most so many (1..64, 32), concavity - how far a part may stand out "
-                           "into the air, a share of the body's diagonal (0.005..0.5, 0.05); cut at once, hulls_made "
-                           "says how many came",
-         "{id: int, kind?: 'box'|'sphere'|'capsule'|'cylinder'|'mesh', size?: [x,y,z], diameter?: m, height?: m, offset?: [x,y,z], rotation?: [x,y,z], "
+                           "tags (scene_tag) of what it has no contact with. These two alone leave the collider's form as it is. kind "
+                           "convex_parts - the geometry cut into convex parts, a body that moves or stands (a convex decomposition); "
+                           "mesh - the geometry's own triangles on a body that stands, hollows and all, convex parts on one that moves: "
+                           "hulls - at most so many parts (1..64, 32), concavity - how far a part may stand out into the air, a share of "
+                           "the body's diagonal (0.005..0.5, 0.05); cut at once, hulls_made says how many came",
+         "{id: int, kind?: 'box'|'sphere'|'capsule'|'cylinder'|'convex_parts'|'mesh', size?: [x,y,z], diameter?: m, height?: m, offset?: [x,y,z], rotation?: [x,y,z], "
          "trigger?: bool, ignores?: [str], hulls?: int, concavity?: number}",
          {}, colliderOp, true},
         transform("scene_move", "Objects moved by a step in the world, their angles kept (the gizmo's arrows)", "{ids, by: [x,y,z]}"),

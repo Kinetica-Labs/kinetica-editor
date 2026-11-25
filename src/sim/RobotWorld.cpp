@@ -81,7 +81,9 @@ std::vector<ShapeDesc> colliderShapes(const Entity& e, const TriMesh& local) {
         break;
     }
     case ColliderKind::Mesh:
-        if (e.rigid.enabled && !e.rigid.fixed) { // a moving body: the mesh as convex parts (triangles have no inside to weigh)
+    case ColliderKind::ConvexParts:
+        // convex parts: asked for, or a moving body's mesh (triangles have no inside to weigh)
+        if (c.kind == ColliderKind::ConvexParts || (e.rigid.enabled && !e.rigid.fixed)) {
             std::vector<ShapeDesc> parts;
             ConvexPartsOptions o;
             o.hulls = c.hulls, o.concavity = c.concavity;

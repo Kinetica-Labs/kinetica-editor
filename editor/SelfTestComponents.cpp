@@ -58,10 +58,10 @@ ComponentCard* cardTitled(const SceneBuilder& b, const QString& title) {
     return nullptr;
 }
 
-// Presses the collider kind button (Авто, Коробка, Сфера, Капсула, Выпуклая оболочка, Точно).
+// Presses the collider kind's tile (colliderTile: the inspector's order, from the plainest to the truest).
 void clickColliderKind(const SceneBuilder& b, ColliderKind kind) {
     const QList<QToolButton*> buttons = b.inspectorPanel()->findChildren<QToolButton*>("colliderButton");
-    if (int(kind) < buttons.size()) buttons[int(kind)]->click();
+    if (colliderTile(kind) < buttons.size()) buttons[colliderTile(kind)]->click();
 }
 
 void testBareObject(Checker& c, QMainWindow& w, SceneBuilder& b, const QString& dir) {

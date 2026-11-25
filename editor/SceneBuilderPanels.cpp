@@ -72,11 +72,21 @@ const char* kColliderTips[] = {
     QT_TRANSLATE_NOOP("Kinetica", "Капсула: цилиндр с полусферами на концах; персонажи, бочки, бутылки, звенья руки"),
     QT_TRANSLATE_NOOP("Kinetica", "Выпуклая оболочка: форма, натянутая как плёнка на геометрию, без вмятин"),
     QT_TRANSLATE_NOOP("Kinetica", "Цилиндр: круглый цилиндр по оси y (многогранник из 24 граней) — колёса, валы, стаканы"),
-    QT_TRANSLATE_NOOP("Kinetica", "Сетка: сами треугольники геометрии, со впадинами — трасса, рельеф, комната; у движущегося тела — сетка, разрезанная на выпуклые части")};
-static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::Mesh) + 1, "a tip for every collider kind");
+    QT_TRANSLATE_NOOP("Kinetica", "Сетка: сами треугольники геометрии, со впадинами — трасса, рельеф, комната; у движущегося тела — сетка, разрезанная на выпуклые части"),
+    QT_TRANSLATE_NOOP("Kinetica", "Выпуклые части: геометрия любой сложности, разрезанная на выпуклые куски — впадины и проёмы целы, тело движется или стоит")};
+static_assert(sizeof(kColliderTips) / sizeof(kColliderTips[0]) == int(ColliderKind::ConvexParts) + 1, "a tip for every collider kind");
+
+} // namespace
+
+// The tiles from the plainest to the truest: the shapes by numbers, then the geometry's hull, its convex parts, its triangles.
+const ColliderKind kColliderTiles[] = {ColliderKind::Auto, ColliderKind::Box, ColliderKind::Sphere, ColliderKind::Capsule, ColliderKind::Cylinder,
+                                       ColliderKind::ConvexHull, ColliderKind::ConvexParts, ColliderKind::Mesh};
+int colliderTile(ColliderKind k) { return int(std::find(std::begin(kColliderTiles), std::end(kColliderTiles), k) - std::begin(kColliderTiles)); }
+
+namespace {
 
 QString colliderName(ColliderKind k) {
-    static const char* names[] = {uiText("Kinetica", "Авто"), uiText("Kinetica", "Коробка"), uiText("Kinetica", "Сфера"), uiText("Kinetica", "Капсула"), uiText("Kinetica", "Выпуклая оболочка"), uiText("Kinetica", "Цилиндр"), uiText("Kinetica", "Сетка треугольников")};
+    static const char* names[] = {uiText("Kinetica", "Авто"), uiText("Kinetica", "Коробка"), uiText("Kinetica", "Сфера"), uiText("Kinetica", "Капсула"), uiText("Kinetica", "Выпуклая оболочка"), uiText("Kinetica", "Цилиндр"), uiText("Kinetica", "Сетка треугольников"), uiText("Kinetica", "Выпуклые части")};
     return names[int(k)];
 }
 
@@ -409,14 +419,15 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
     const auto manual = [c] { return c->kind != ColliderKind::Auto && !c->fitToGeometry; };
     const auto round = [c] { return c->kind == ColliderKind::Sphere || c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
     const auto tall = [c] { return c->kind == ColliderKind::Capsule || c->kind == ColliderKind::Cylinder; };
-    const auto movingMesh = [this, c] { return c->kind == ColliderKind::Mesh && shapeDraft_.rigid.enabled && !shapeDraft_.rigid.fixed; };
+    // convex parts: asked for, or a moving body's mesh - how many at most, how far each may stand out
+    const auto movingMesh = [this, c] { return c->kind == ColliderKind::ConvexParts || (c->kind == ColliderKind::Mesh && shapeDraft_.rigid.enabled && !shapeDraft_.rigid.fixed); };
     std::vector<FieldForm::Tile> kinds;
-    for (int k = 0; k <= int(ColliderKind::Mesh); ++k) kinds.push_back({colliderIcon(ColliderKind(k), 28), {}, uiText("Kinetica", kColliderTips[k])});
+    for (ColliderKind k : kColliderTiles) kinds.push_back({colliderIcon(k, 24), {}, uiText("Kinetica", kColliderTips[int(k)])}); // eight fit a narrow panel
     ComponentCard* card = componentCard(col, RoleIcon::Collider);
     shapeFields(card, &SceneBuilder::colliderFields_)->note([] { return QString(uiText("Kinetica", "чем тело сталкивается; виден зелёным каркасом")); }).name("roleRowLabel")
         .tip(uiText("Kinetica", "Геометрия — то, что видно; коллайдер — то, чем тело ударяется о других.\n"
              "Физика двигает и поворачивает геометрию вместе с коллайдером, но саму геометрию не меняет."))
-        .tiles(kinds, 28, c->kind).name("colliderButton")
+        .tiles(kinds, 24, [c] { return double(colliderTile(c->kind)); }, [c](double v) { c->kind = kColliderTiles[int(v)]; }).name("colliderButton")
         .note([this, c] {
             if (c->kind != ColliderKind::Auto) return colliderName(c->kind);
             const std::vector<ShapeDesc>& made = colliderOf(shapeDraft_);
@@ -430,7 +441,7 @@ void SceneBuilder::buildColliderCard(QVBoxLayout* col) {
                         if (sizedByNumbers(held.kind)) c->size = held.size, c->offset = held.offset;
                     }
                     c->fitToGeometry = on != 0;
-                }).shown([c] { return c->kind != ColliderKind::Auto; })
+                }).shown([c] { return sizedByNumbers(c->kind); }) // a hull, parts or a mesh are the geometry already
         .tip(uiText("Kinetica", "Размер коллайдера берётся из размеров формы; снимите, чтобы задать его руками — или «Править в виде»: точки и гизмо"))
         // Each kind its own numbers: a sphere's three equal edges were three fields of which one worked.
         .vector(uiText("Kinetica", "Размер, м"), 0.005, 50, 0.05, 3, c->size).shown([=] { return manual() && c->kind == ColliderKind::Box; })

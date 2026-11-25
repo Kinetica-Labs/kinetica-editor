@@ -566,6 +566,7 @@ by Kinetica X, newer than this program (Y)…».
 | `contact_hertz` | physics | жёсткость контакта, Гц | stable |  |
 | `continuous` | physics | непрерывный поиск столкновений | stable |  |
 | `controller` | строка | контроллер: действия и привязки к клавишам, мыши, геймпаду | stable |  |
+| `convex_parts` | collider | коллайдер из выпуклых частей геометрии: тело движется или стоит | testing |  |
 | `count` | pattern | копий по x, y, z | stable |  |
 | `cutoff` | cells | напряжение отсечки банки, В | stable |  |
 | `cylinder` | shape, collider | цилиндр | stable |  |

@@ -124,6 +124,7 @@ void testSimMeshCollider() {
         return s.physics()->state(s.robot()->bodyOf(2)).position.y;
     };
     const Real inside = rest(ColliderKind::Mesh, false), onTop = rest(ColliderKind::ConvexHull, false), moving = rest(ColliderKind::Mesh, true);
+    const Real parts = rest(ColliderKind::ConvexParts, false); // asked for on a body that stands: convex parts too
     // scene_collider kind mesh on the moving channel: cut at once - 3 parts, or one hull when hulls is 1; the numbers kept
     // in the file's collider line and read back.
     SceneGraph held;
@@ -138,13 +139,23 @@ void testSimMeshCollider() {
         return findSceneOp("scene_collider")->edit(held, a, answer, error) ? answer["hulls_made"].integer() : -1;
     };
     const long long three = collider(8), one = collider(1);
-    SceneGraph back;
+    Value standing = Value::map(), standingAnswer = Value::map();
     std::string error;
+    held.entities[0].rigid.enabled = false; // convex_parts on a body that stands: cut all the same
+    standing.set("id", 1), standing.set("kind", "convex_parts"), standing.set("hulls", 8);
+    const bool partsStanding = findSceneOp("scene_collider")->edit(held, standing, standingAnswer, error) && standingAnswer["hulls_made"].integer() == 3 &&
+                               held.entities[0].collider.kind == ColliderKind::ConvexParts;
+    SceneGraph partsBack;
+    const bool partsKept = partsBack.load(held.save(), error) && partsBack.entities[0].collider.kind == ColliderKind::ConvexParts;
+    held.entities[0].rigid.enabled = true, held.entities[0].collider.kind = ColliderKind::Mesh, held.entities[0].collider.hulls = 1;
+    SceneGraph back;
     const bool kept = back.load(held.save(), error) && back.entities[0].collider.kind == ColliderKind::Mesh && back.entities[0].collider.hulls == 1 &&
                       std::fabs(back.entities[0].collider.concavity - 0.03_r) < 1e-6_r;
     std::filesystem::remove(obj);
     CHECK(three == 3 && one == 1 && kept, "scene_collider kind mesh: %lld parts with hulls 8, %lld with hulls 1, the numbers %s in the file",
           three, one, kept ? "kept" : "lost");
+    CHECK(std::fabs(parts - 0.25_r) < 0.02_r && partsStanding && partsKept,
+          "convex_parts on a standing channel: the ball rests %f m up (its floor), 3 parts cut, the kind read back from the file", double(parts));
     const Real solidMass = 500 * (2 * 0.1_r * 1 + 2 * 0.1_r * 0.55_r * 1); // the three slabs at 500 kg/m^3 (the hull would weigh 650)
     std::printf("  a ball in a U channel: a mesh collider %.3f m up (0.25, its floor), its hull %.3f m (0.8, the top); the channel moving, "
                 "as convex parts: %.3f m, %.1f kg (the slabs %.1f kg)\n", double(inside), double(onTop), double(moving), double(channelMass), double(solidMass));

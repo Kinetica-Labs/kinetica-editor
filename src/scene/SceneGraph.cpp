@@ -75,7 +75,7 @@ namespace {
 
 const char* kShapeNames[] = {"box", "sphere", "cylinder", "cone", "plane", "mesh"};
 const int kShapeCount = 6;
-const char* kColliderNames[] = {"auto", "box", "sphere", "capsule", "hull", "cylinder", "mesh"};
+const char* kColliderNames[] = {"auto", "box", "sphere", "capsule", "hull", "cylinder", "mesh", "convex_parts"};
 const int kColliderCount = 6;
 // A joint's six freedoms, by JointDof.
 const char* kDofNames[] = {"tx", "ty", "tz", "rx", "ry", "rz"};
@@ -739,7 +739,7 @@ static const Key<RigidRole> kRigidKeys[] = {
     {"angular_damping", "number 0..100", "1/s", [](LineReader& r, RigidRole& g, std::string&) { return within(r, g.angularDamping, 0, 100); }},
 };
 static const Key<ColliderRole> kColliderKeys[] = {
-    {"kind", "one of: auto box sphere capsule hull cylinder", "", [](LineReader& r, ColliderRole& c, std::string&) {
+    {"kind", "one of: auto box sphere capsule hull cylinder mesh convex_parts", "", [](LineReader& r, ColliderRole& c, std::string&) {
          std::string word;
          int k = 0;
          return r.text(word) && oneOf(word, kColliderNames, k) && (c.kind = ColliderKind(k), true);
