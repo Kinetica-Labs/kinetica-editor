@@ -76,6 +76,7 @@
 |---|---|---|
 | `app` | программа: выход | stable |
 | `assembly` | сборка робота: суставы, приводы, датчики, колёса, цели, пути | stable |
+| `assistant` | ИИ-ассистенты этого компьютера - Claude, Claude Code, ChatGPT и Codex: найти, подключить к ним Kinetica | testing |
 | `camera` | камеры сцены | stable |
 | `component` | компоненты плагинов на объектах | stable |
 | `console` | консоль API | stable |
@@ -106,7 +107,7 @@
 Второе слово имени новой операции. Стандартные - как в API, которые живут десятилетиями: `get` - одно, `list` -
 много, `add` - создать, `set` - изменить, `remove` и `delete` - убрать. Остальные - действия своих областей.
 
-`add` `aim` `attach` `check` `clear` `configure` `delete` `describe` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `type` `undo` `ungroup`
+`add` `aim` `attach` `check` `clear` `configure` `connect` `delete` `describe` `disconnect` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `type` `undo` `ungroup`
 
 ## 6. Словарь аргументов
 
@@ -122,6 +123,7 @@
 | `action`               | `str`    | действие: имя действия управления у контроллера; у `ui_key`, `ui_pointer` - что делают клавиша или мышь (значения - у операции) | stable   |            |
 | `active`               | `bool`   | секвенция открыта в Секвенсоре                                                                                                  | stable   |            |
 | `anchor`               | `[3]`    | точка мира, где сустав или привод держит тела, м                                                                                | stable   |            |
+| `app`                  | `str`    | ИИ-ассистент этого компьютера, как его называет assistant_list: claude, claude_code, codex                                      | testing  |            |
 | `args`                 | `{}`     | аргументы операции, как она их принимает                                                                                        | stable   |            |
 | `at`                   | `int`    | объект, на который смотрит камера                                                                                               | obsolete | `target`   |
 | `at`                   | `[3]`    | точка мира, у которой ставят свет, силу или рисунок, м                                                                          | obsolete | `position` |
@@ -315,7 +317,7 @@
 
 ### testing
 
-нет
+`assistant_connect` `assistant_disconnect` `assistant_list`
 
 ### obsolete
 
@@ -334,6 +336,7 @@
 | Ключ | Смысл, единица | Ступень | Вместо |
 |---|---|---|---|
 | `a` | первое тело контакта | stable |  |
+| `about` | что это, словами для человека (`assistant_list`) | testing |  |
 | `across` | две оси вдоль грани, на которую встанет деталь (`assembly_snap`) | stable |  |
 | `action` | действие контроллера, чья это связь | stable |  |
 | `accel` | ускорение по осям датчика, м/с² | stable |  |
@@ -342,10 +345,12 @@
 | `anchor` | точка мира, где сустав или привод держит тела, м | stable |  |
 | `angle` | угол сустава, рад | stable |  |
 | `angular_velocity` | угловая скорость [x, y, z], рад/с - слово всех стандартов 3D | stable |  |
+| `app` | ИИ-ассистент этого компьютера: claude, claude_code, codex (`assistant_list`, `assistant_connect`) | testing |  |
 | `args` | строка аргументов операции - она же её схема | stable |  |
 | `arm_tasks` | задач руки сейчас (у окна их нет: 0) | stable |  |
 | `asleep` | тело уснуло: не движется, мир его не считает | stable |  |
 | `assemblies` | сборки: имя и файл каждой (`assembly_list`) | stable |  |
+| `assistants` | ИИ-ассистенты этого компьютера: app, name, about, found, connected (`assistant_list`) | testing |  |
 | `axis` | ось сустава в мире | stable |  |
 | `axle` | ось колеса - её сустав | stable |  |
 | `b` | второе тело контакта | stable |  |
@@ -361,6 +366,7 @@
 | `completed_frames` | сколько кадров сделано | stable |  |
 | `components` | компоненты `[{id, type, values}]` | stable |  |
 | `concavity` | насколько выпуклая часть движущейся сетки может выступать в воздух, доля диагонали тела (`scene_collider`) | stable  |  |
+| `connected` | сервер Kinetica (ke-editor) вписан в ассистента (`assistant_list`, `assistant_connect`) | testing |  |
 | `contacts` | касания тел `[{a, b, depth, force, points}]` | stable |  |
 | `coordinates` | координаты сустава по шести степеням свободы, м и рад | stable |  |
 | `count` | счёт: энкодера, сколько чего | stable |  |
@@ -381,6 +387,7 @@
 | `fixed` | тело стоит на месте | stable |  |
 | `follow_body` | тело, за которым идёт камера вида (0: ни за каким) | stable |  |
 | `force` | сила, Н | stable |  |
+| `found` | ассистент установлен на этом компьютере (`assistant_list`) | testing |  |
 | `fps` | кадров в секунду вида | stable |  |
 | `frame_a` | рамка сустава на первом теле, кватернион [w, x, y, z] | stable |  |
 | `frame_b` | рамка сустава на втором теле, кватернион [w, x, y, z] | stable |  |

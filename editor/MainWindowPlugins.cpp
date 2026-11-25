@@ -28,6 +28,11 @@
 #include <QInputDialog>
 #include <QRadioButton>
 #include <QPushButton>
+#include <QGridLayout>
+#include <QJsonArray>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <memory>
 #include <QLineEdit>
 #include <QFormLayout>
 #include <QDialogButtonBox>
@@ -187,4 +192,59 @@ void MainWindow::buildPlugins() {
         ops_->run("plugin_scan", {}, [](const QJsonObject&) {}, "ui");
         for (const QString& name : known) ops_->run("plugin_reload", {{"name", name}}, [](const QJsonObject&) {}, "ui");
     });
+}
+
+// «Файл → Подключить ИИ-ассистентов…»: every assistant of the table (assistant_list) a row - its name and what it is,
+// whether it is here and connected - and one button that connects or disconnects Kinetica (assistant_connect,
+// assistant_disconnect); the answer under the rows says what to restart.
+void MainWindow::openAssistants() {
+    auto* dialog = new QDialog(this);
+    dialog->setObjectName("assistantsDialog");
+    dialog->setWindowTitle(uiText("Kinetica", "Подключить ИИ-ассистентов"));
+    dialog->setAttribute(Qt::WA_DeleteOnClose);
+    auto* layout = new QVBoxLayout(dialog);
+    auto* intro = new QLabel(uiText("Kinetica", "Kinetica становится инструментом ассистента: вы просите в его чате — он строит, водит и "
+                                                "проверяет роботов в этом окне."));
+    intro->setWordWrap(true);
+    layout->addWidget(intro);
+    auto* grid = new QGridLayout;
+    layout->addLayout(grid);
+    auto* said = new QLabel;
+    said->setObjectName("assistantsNote");
+    said->setWordWrap(true);
+    layout->addWidget(said);
+    auto* close = new QPushButton(uiText("Kinetica", "Закрыть"));
+    connect(close, &QPushButton::clicked, dialog, &QDialog::accept);
+    layout->addWidget(close, 0, Qt::AlignRight);
+    auto fill = std::make_shared<std::function<void()>>();
+    *fill = [this, dialog, grid, said, weak = std::weak_ptr<std::function<void()>>(fill)] {
+        while (QLayoutItem* item = grid->takeAt(0)) delete item->widget(), delete item;
+        int r = 0;
+        for (const QJsonValue& v : operators()->runNow("assistant_list", {}).value("assistants").toArray()) {
+            const QJsonObject a = v.toObject();
+            const QString app = a.value("app").toString();
+            const bool here = a.value("found").toBool(), on = a.value("connected").toBool();
+            auto* name = new QLabel("<b>" + a.value("name").toString() + "</b><br>" + a.value("about").toString());
+            auto* state = new QLabel(!here ? uiText("Kinetica", "не найден на этом компьютере") : on ? uiText("Kinetica", "подключён") : uiText("Kinetica", "не подключён"));
+            auto* button = new QPushButton(on ? uiText("Kinetica", "Отключить") : uiText("Kinetica", "Подключить"));
+            button->setObjectName("assistant_" + app);
+            button->setEnabled(here);
+            connect(button, &QPushButton::clicked, dialog, [this, app, on, button, said = QPointer<QLabel>(said), weak] {
+                button->setEnabled(false);
+                said->setText(on ? uiText("Kinetica", "Отключаю…") : uiText("Kinetica", "Подключаю…"));
+                operators()->run(on ? "assistant_disconnect" : "assistant_connect", {{"app", app}}, [said, weak](const QJsonObject& r) {
+                    if (!said) return; // the dialog closed meanwhile
+                    said->setText(r.value("ok").toBool() ? (r.value("connected").toBool() ? uiText("Kinetica", "Подключено: ") : uiText("Kinetica", "Отключено: ")) +
+                                                               r.value("note").toString()
+                                                         : r.value("error").toString());
+                    if (auto again = weak.lock()) (*again)();
+                }, "ui");
+            });
+            grid->addWidget(name, r, 0), grid->addWidget(state, r, 1), grid->addWidget(button, r, 2);
+            ++r;
+        }
+    };
+    (*fill)();
+    connect(dialog, &QObject::destroyed, [fill] {}); // the rows' refresher lives as long as the dialog
+    dialog->show();
 }

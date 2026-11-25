@@ -29,7 +29,8 @@ namespace {
 
 const std::set<QString>& queries() {
     static const std::set<QString> q = {"journal_lines", "scene_list", "scene_get", "assembly_snap", "assembly_suggest", "assembly_presets",
-                                        "assembly_preview", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions"};
+                                        "assembly_preview", "view_project", "ui_actions", "ui_pointer", "view_screenshot", "journal_sessions",
+                                        "assistant_list"};
     return q;
 }
 

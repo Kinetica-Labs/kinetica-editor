@@ -113,7 +113,13 @@ curl -fsSL https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/
 irm https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.ps1 | iex             # Windows
 ```
 
-## Kinetica в Claude
+## Kinetica в Claude, ChatGPT и Codex
+
+Проще всего — в самой Kinetica: **«Файл → Подключить ИИ-ассистентов…»**. Окно находит на этом компьютере приложение
+Claude, Claude Code, ChatGPT и Codex и подключает к каждому Kinetica одной кнопкой; потом вы просите в чате ассистента,
+а он строит, водит и проверяет роботов в окне редактора. Новый ассистент — строка таблицы `data/assistants.json`.
+
+### Плагин для Claude
 
 Плагин `kinetica` даёт Claude операции редактора (MCP-сервер `ke-editor`) и навык строить, водить, измерять и
 снимать роботов: модель собирает руку или машину в вашем окне, подписывает детали формулами, вы видите каждый вызов.
@@ -129,7 +135,7 @@ irm https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install
 (скрипт `install.ps1` ставит это сам). Плагин ищет редактор в `~/Kinetica/editor` (Windows:
 `%LOCALAPPDATA%\Kinetica\editor`) или в папке из настройки «Kinetica folder».
 
-## Kinetica в Codex и ChatGPT
+### Плагин для Codex и ChatGPT
 
 Тот же плагин читают Codex и приложение ChatGPT (`plugin.json` и `mcp.json` по схеме Agent Plugins):
 

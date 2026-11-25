@@ -51,6 +51,7 @@ public:
     void syncControllers(); // the plugins' on_play / on_tick / on_stop follow ▶ and Stop (MainWindowPlugins.cpp)
     // "Примеры": the gallery of every ready-made scene; a click opens one.
     void openGallery();
+    void openAssistants(); // «Файл → Подключить ИИ-ассистентов…» (MainWindowPlugins.cpp)
     void runGalleryShot(const QString& file); // the gallery with all its pictures as a PNG, then quit
     // Only the 3D view, no window on the screen: the gallery's pictures (--thumbnail). Before show().
     void setThumbnailMode();

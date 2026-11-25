@@ -208,6 +208,11 @@ void MainWindow::buildMenus() {
     file->addAction(csvAct);
     file->addAction(shotAct);
     file->addSeparator();
+    // Kinetica as a tool of an AI assistant of this computer - Claude, ChatGPT and Codex: found and connected here.
+    auto* assistants = file->addAction(uiText("Kinetica", "Подключить ИИ-ассистентов…"), this, &MainWindow::openAssistants);
+    assistants->setObjectName("fileAssistants");
+    assistants->setToolTip(uiText("Kinetica", "Claude, ChatGPT и Codex на этом компьютере: Kinetica — их инструмент, вы просите в чате ассистента"));
+    file->addSeparator();
     file->addAction(uiText("Kinetica", "Выход"), QKeySequence::Quit, this, &QWidget::close);
 
     auto* sim = menuBar()->addMenu(uiText("Kinetica", "&Симуляция"));

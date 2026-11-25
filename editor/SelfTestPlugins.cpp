@@ -908,6 +908,51 @@ def span(scene, point, to, object, to_object):
     QDir(folder + "/gizmos").removeRecursively();
 }
 
+// «Файл → Подключить ИИ-ассистентов…» on a table of one assistant of its own (KE_ASSISTANTS): an app whose config file
+// holds a server and a setting of its own. assistant_list finds it, not connected; its button in the dialog writes
+// Kinetica's server under mcpServers (this Python, tools/ke_editor_mcp.py, the port), the rest of the file kept, and
+// the row says connected; pressed again, the server goes and the rest stays. An app not in the table: refused by name.
+void testAssistants(Checker& c, QMainWindow& w, EditorOps* ops, const QString& folder) {
+    QDir().mkpath(folder + "/probe-app");
+    const QString config = folder + "/probe-app/config.json", table = folder + "/assistants.json";
+    write(config, R"({"mcpServers": {"other": {"command": "other"}}, "theme": "dark"})");
+    write(table, QString(R"({"assistants": [{"app": "probe", "name": "Проба", "about": "ассистент теста", "how": "json", "file": "%1"}]})").arg(config));
+    qputenv("KE_ASSISTANTS", table.toUtf8());
+    const auto servers = [&config] {
+        QFile f(config);
+        f.open(QIODevice::ReadOnly);
+        return QJsonDocument::fromJson(f.readAll()).object();
+    };
+    const QJsonObject first = ops->runNow("assistant_list", {}).value("assistants").toArray().at(0).toObject();
+    const bool listed = first.value("app").toString() == "probe" && first.value("found").toBool() && !first.value("connected").toBool();
+    if (QAction* open = action(w, "fileAssistants")) open->trigger();
+    pump(100);
+    auto* dialog = w.findChild<QDialog*>("assistantsDialog");
+    auto* button = dialog ? dialog->findChild<QPushButton*>("assistant_probe") : nullptr;
+    if (button) button->click();
+    const bool written = waitUntil([&] { return servers().value("mcpServers").toObject().contains("ke-editor"); }, 5000);
+    const QJsonObject server = servers().value("mcpServers").toObject().value("ke-editor").toObject();
+    const bool kept = servers().value("mcpServers").toObject().contains("other") && servers().value("theme").toString() == "dark";
+    const bool told = waitUntil([&] { auto* b = dialog ? dialog->findChild<QPushButton*>("assistant_probe") : nullptr; return b && b->isEnabled(); }, 3000);
+    auto* again = dialog ? dialog->findChild<QPushButton*>("assistant_probe") : nullptr;
+    const QString againText = again ? again->text() : QString();
+    if (again) again->click();
+    const bool gone = waitUntil([&] { return !servers().value("mcpServers").toObject().contains("ke-editor"); }, 5000) &&
+                      servers().value("mcpServers").toObject().contains("other");
+    const QString refused = ops->runNow("assistant_connect", {{"app", "nobody"}}).value("error").toString();
+    std::printf("  assistants: listed %s; the dialog's button wrote ke-editor %s (%s %s), the rest kept %s, the row then «%s»; "
+                "pressed again gone %s; an unknown app: %s\n", listed ? "yes" : "no", written ? "yes" : "no",
+                qPrintable(server.value("command").toString()), qPrintable(server.value("args").toArray().at(0).toString()), kept ? "yes" : "no",
+                qPrintable(againText), gone ? "yes" : "no", qPrintable(refused));
+    c.check(listed && written && server.value("args").toArray().at(0).toString().endsWith("ke_editor_mcp.py") &&
+                server.value("env").toObject().value("KE_EDITOR_PORT").toString() == "47801" && kept && told && gone &&
+                refused.contains("probe"),
+            "«Подключить ИИ-ассистентов»: an assistant of the table found, Kinetica's server written into its config by the "
+            "dialog's button and taken out again, the rest of its settings kept; an unknown one refused by name");
+    if (dialog) dialog->close();
+    qunsetenv("KE_ASSISTANTS");
+}
+
 int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&) {
     Checker c;
     auto* host = w.findChild<PluginHost*>();
@@ -1045,6 +1090,7 @@ int runPluginTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&)
     testGizmos(c, w, b, v, ops, host, dir.path());
     testFillAndChange(c, w, b, v, ops, host, dir.path());
     testScan(c, w, ops, host, dir.path());
+    testAssistants(c, w, ops, dir.path());
     qunsetenv("KE_PLUGINS");
     return c.failures;
 }

@@ -144,6 +144,7 @@ private:
     void addCoreOps();      // EditorOpsCore.cpp: the core's operations (ke::sceneOps) - queries, edits, actions, assembly
     void addPreviewOps();   // EditorOpsAssembly.cpp: what a ready link would add, as the window draws its ghost
     void addStateOps();     // EditorOpsState.cpp: the window's own state - the selection, the gizmo's tool, the view
+    void addAssistantOps(); // EditorOpsAssistants.cpp: the AI assistants of this computer Kinetica connects itself to
     ke::Value withWindow(const ke::SceneOp& op, const QJsonObject& args); // the selection as ids, a light's place, a camera's eye
     void afterAction(const ke::Value& answer);                            // select what it answered, say its note
     QString selectArgs(const QJsonObject& args);

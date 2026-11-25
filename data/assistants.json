@@ -1,0 +1,45 @@
+{
+  "about": "The AI assistants Kinetica connects itself to (editor/EditorOpsAssistants.cpp: assistant_list, assistant_connect, assistant_disconnect; «Файл → Подключить ИИ-ассистентов…»). A new assistant is a row: how it is found, how Kinetica's MCP server (tools/ke_editor_mcp.py) is written into it, how its being connected is seen. how: json - the server under mcpServers of its config file; cli - its own command adds and removes it. Words in braces: {home}, {appdata} (Windows), {config} (~/.config), {codex_home} (CODEX_HOME or ~/.codex), {python}, {server}, {port}, {plugins}; an argument whose {plugins} is empty is left out with the flag before it.",
+  "assistants": [
+    {
+      "app": "claude",
+      "name": "Claude",
+      "about": "приложение Claude: обычный чат",
+      "how": "json",
+      "file": {
+        "windows": "{appdata}/Claude/claude_desktop_config.json",
+        "macos": "{home}/Library/Application Support/Claude/claude_desktop_config.json",
+        "linux": "{config}/Claude/claude_desktop_config.json"
+      },
+      "restart": "перезапустите Claude"
+    },
+    {
+      "app": "claude_code",
+      "name": "Claude Code",
+      "about": "Claude Code: терминал и вкладка Code приложения Claude",
+      "how": "cli",
+      "command": "claude",
+      "connect": ["mcp", "add", "ke-editor", "--scope", "user", "-e", "KE_EDITOR_PORT={port}", "-e", "KE_PLUGINS={plugins}", "--", "{python}", "{server}"],
+      "disconnect": ["mcp", "remove", "ke-editor", "--scope", "user"],
+      "connected": [
+        {"file": "{home}/.claude.json", "contains": "\"ke-editor\""},
+        {"file": "{home}/.claude/plugins/installed_plugins.json", "contains": "kinetica@kinetica"}
+      ],
+      "restart": "начните новый сеанс Claude Code"
+    },
+    {
+      "app": "codex",
+      "name": "ChatGPT и Codex",
+      "about": "приложение ChatGPT (Codex) и Codex в терминале",
+      "how": "cli",
+      "command": "codex",
+      "connect": ["mcp", "add", "ke-editor", "--env", "KE_EDITOR_PORT={port}", "--env", "KE_PLUGINS={plugins}", "--", "{python}", "{server}"],
+      "disconnect": ["mcp", "remove", "ke-editor"],
+      "connected": [
+        {"file": "{codex_home}/config.toml", "contains": "[mcp_servers.ke-editor]"},
+        {"file": "{codex_home}/config.toml", "contains": "[plugins.\"kinetica@kinetica\"]"}
+      ],
+      "restart": "перезапустите ChatGPT или начните новый чат Codex"
+    }
+  ]
+}

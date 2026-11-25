@@ -136,7 +136,7 @@ if(Qt6_FOUND)
     editor/MainWindowToolbar.cpp editor/MainWindowLayout.cpp editor/MainWindowPlay.cpp editor/MainWindowApi.cpp
     editor/MainWindowPlots.cpp editor/MainWindowLab.cpp
     editor/UiWindowSpace.h   editor/KeyPlace.h editor/RuPlural.h
-    editor/EditorRuntime.h   editor/EditorRuntime.cpp editor/EditorOpsRuntime.cpp
+    editor/EditorRuntime.h   editor/EditorRuntime.cpp editor/EditorOpsRuntime.cpp editor/EditorOpsAssistants.cpp
     editor/AgentInstanceGuard.h editor/AgentInstanceGuard.cpp
     editor/EditorOps.h       editor/EditorOps.cpp editor/EditorOpsCore.cpp editor/EditorOpsAssembly.cpp
     editor/EditorOpsState.cpp editor/EditorOpsInput.cpp editor/EditorOpsSim.cpp

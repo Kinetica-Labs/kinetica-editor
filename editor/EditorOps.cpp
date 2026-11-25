@@ -34,6 +34,7 @@ EditorOps::EditorOps(SceneBuilder* builder, Viewport* view, SimController* ctrl,
     addInputOps();
     addJournalOps();
     addStateOps();
+    addAssistantOps();
     addHostSync("ops_list", [this](const QJsonObject& a) {
         return ok({{"ops", list(coreValue(a.value("families")))}, {"protocol_version", ke::kProtocolVersion}});
     });
