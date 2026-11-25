@@ -5,12 +5,12 @@ with the editor (plugins/io_formats, gltf.py): «Файл → Импорт…»,
 
 What it reads: glTF 2.0 - a .gltf with its buffers (files beside it or data: URIs) or a .glb; the default scene's nodes
 (translation, rotation, scale or a matrix); mesh primitives of triangles (strips and fans become triangles); the
-material's baseColorFactor; animation channels of translation and rotation (linear, step, cubic). glTF stands y up in
+material's baseColorFactor and its base colour picture (PNG or JPEG, laid by the mesh's own texture coordinates: the picture is written beside the meshes, the OBJ gets "vt", the shape a texture line with uv 1); animation channels of translation and rotation (linear, step, cubic). glTF stands y up in
 metres, as the editor does. Each primitive is written as an OBJ beside the file (folder <name>-meshes; the temporary
 folder when that one cannot be written) - the editor draws a mesh from a file and fits it to its size. A scale is baked
-into the mesh and into the places under it. What it does not carry, said in the answer's note: textures laid by UV
-(the editor lays textures by the world, so many per metre), skins and morph targets (Kinetica's bodies are rigid), the
-animation of scale, points and lines. The shapes come as geometry: their roles - a rigid body, a collider - are given
+into the mesh and into the places under it. What it does not carry, said in the answer's note: pictures of the other
+slots of a material (roughness, normals, emission), a second set of coordinates, skins and morph targets (Kinetica's
+bodies are rigid), the animation of scale, points and lines. The shapes come as geometry: their roles - a rigid body, a collider - are given
 in the editor after.
 """
 import base64
@@ -19,6 +19,7 @@ import math
 import os
 import struct
 import tempfile
+from urllib.parse import unquote
 
 
 ENGLISH = os.environ.get("KE_UI_LANGUAGE") == "en"
@@ -174,14 +175,48 @@ def load(scene, path):
         folder = tempfile.mkdtemp(prefix=f"{stem}-meshes-")
         notes.add(("meshes in the temporary folder " if ENGLISH else "сетки во временной папке ") + folder)
 
-    colours = []
+    colours = []  # glTF gives a material's colour in linear light; a scene keeps colours as people pick them, in sRGB
     for m in doc.get("materials", []):
-        pbr = m.get("pbrMetallicRoughness", {})
-        colours.append(tuple(pbr.get("baseColorFactor", (0.8, 0.8, 0.8, 1.0))[:3]))
-        if "baseColorTexture" in pbr:
-            notes.add("UV textures are not carried: the material's colour is" if ENGLISH else "текстуры по UV не переносятся - взят цвет материала")
+        factor = m.get("pbrMetallicRoughness", {}).get("baseColorFactor")
+        colours.append(tuple(c ** (1 / 2.2) for c in factor[:3]) if factor else (0.8, 0.8, 0.8))
 
-    meshes = {}  # (mesh, primitive, scale) -> (file, size, centre, colour)
+    pictures = {}  # material -> the base colour picture written beside the meshes (None: it has none, or it cannot be had)
+    def picture(material):
+        """A material's base colour picture, written into the meshes' folder; None - none, or not to be had (said in the note)."""
+        if material in pictures:
+            return pictures[material]
+        pictures[material] = None
+        slot = (doc["materials"][material].get("pbrMetallicRoughness", {}) if material < len(doc.get("materials", [])) else {}).get("baseColorTexture")
+        if not slot:
+            return None
+        try:
+            if slot.get("texCoord", 0) != 0:
+                raise ValueError("a second set of coordinates")
+            source = doc["textures"][slot["index"]]["source"]
+            image = doc["images"][source]
+            uri = image.get("uri", "")
+            if "bufferView" in image:
+                view = doc["bufferViews"][image["bufferView"]]
+                at = view.get("byteOffset", 0)
+                blob = buffers[view["buffer"]][at: at + view["byteLength"]]
+            elif uri.startswith("data:"):
+                blob = base64.b64decode(uri.split(",", 1)[1])
+            else:
+                with open(os.path.join(os.path.dirname(os.path.abspath(path)), unquote(uri)), "rb") as f:
+                    blob = f.read()
+            ext = ".png" if blob[:4] == b"\x89PNG" else ".jpg" if blob[:2] == b"\xff\xd8" else None
+            if ext is None:
+                raise ValueError("neither PNG nor JPEG")
+            file = os.path.join(folder, f"image{source}{ext}")
+            with open(file, "wb") as out:
+                out.write(blob)
+            pictures[material] = file
+        except (KeyError, IndexError, ValueError, OSError, struct.error):
+            notes.add("a picture of a material that is not carried (a second set of coordinates, a format that is not PNG or JPEG): its colour is taken"
+                      if ENGLISH else "картинка материала не перенесена (вторые координаты, формат не PNG и JPEG): взят его цвет")
+        return pictures[material]
+
+    meshes = {}  # (mesh, primitive, scale) -> (file, size, centre, colour, picture)
     def mesh_file(m, k, scale):
         key = (m, k, scale)
         if key not in meshes:
@@ -199,6 +234,17 @@ def load(scene, path):
             if primitive.get("targets") or "JOINTS_0" in primitive.get("attributes", {}):
                 notes.add("skins and morph targets are left out: shown as made" if ENGLISH else "скелеты и морфы не переносятся - показано как сделано")
             points, tris = got
+            image = picture(primitive["material"]) if "material" in primitive else None
+            coordinates = None
+            if image and primitive.get("mode", 4) == 4 and "TEXCOORD_0" in primitive.get("attributes", {}):
+                try:
+                    coordinates = accessor(doc, buffers, primitive["attributes"]["TEXCOORD_0"])
+                except (ValueError, KeyError, IndexError, struct.error):
+                    coordinates = None
+            if image and coordinates is None:
+                image = None
+                notes.add("a picture whose mesh has no texture coordinates is not carried: the material's colour is taken"
+                          if ENGLISH else "картинка у сетки без текстурных координат не перенесена: взят цвет материала")
             points = [tuple(p[i] * scale[i] for i in range(3)) for p in points]
             lo = [min(p[i] for p in points) for i in range(3)]
             hi = [max(p[i] for p in points) for i in range(3)]
@@ -206,9 +252,13 @@ def load(scene, path):
             file = os.path.join(folder, f"mesh{m}_{k}" + (f"_{len(meshes)}" if scale != (1.0, 1.0, 1.0) else "") + ".obj")
             with open(file, "w", encoding="utf-8") as f:
                 f.write("".join(f"v {words(p)}\n" for p in points))
-                f.write("".join(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in tris))
+                if image:  # glTF's v runs down from the picture's top, an OBJ's up from its bottom
+                    f.write("".join(f"vt {word(c[0])} {word(1.0 - c[1])}\n" for c in coordinates))
+                    f.write("".join(f"f {a + 1}/{a + 1} {b + 1}/{b + 1} {c + 1}/{c + 1}\n" for a, b, c in tris))
+                else:
+                    f.write("".join(f"f {a + 1} {b + 1} {c + 1}\n" for a, b, c in tris))
             colour = colours[primitive["material"]] if "material" in primitive and primitive["material"] < len(colours) else (0.8, 0.8, 0.8)
-            meshes[key] = (file, max(hi[i] - lo[i] for i in range(3)) or 0.001, centre, colour)
+            meshes[key] = (file, max(hi[i] - lo[i] for i in range(3)) or 0.001, centre, colour, image)
         return meshes[key]
 
     def put_group(name, parent, position, turn):
@@ -216,10 +266,11 @@ def load(scene, path):
                                   f"  pose position {words(position)} rotation {words(degrees(turn))} color 0.8 0.8 0.8\nend\n")["id"]
 
     def put_shape(name, parent, position, turn, mesh):
-        file, size, _, colour = mesh
+        file, size, _, colour, image = mesh
+        laid = f'  texture kind image repeats 1 file "{image}" uv 1\n' if image else ""  # the picture, laid by the mesh's own coordinates
         return ed.scene_put(block=f'entity "{quote(name)}"\n  object id 0 visible 1 locked 0 parent {parent}\n'
                                   f'  shape mesh file "{file}" size {word(size)} {word(size)} {word(size)} position {words(position)} '
-                                  f"rotation {words(degrees(turn))} color {words(colour)}\nend\n")["id"]
+                                  f"rotation {words(degrees(turn))} color {words(colour)}\n{laid}end\n")["id"]
 
     top = ed.scene_put(block=f'group "{quote(stem)}"\n  object id 0 visible 1 locked 0\n'
                              "  pose position 0 0 0 rotation 0 0 0 color 0.8 0.8 0.8\nend\n")["id"]

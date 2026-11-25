@@ -11,14 +11,32 @@
 
 namespace ke {
 
+// A model's material as its file names it (an OBJ's .mtl): the colour of its faces and the picture laid on them by their
+// texture coordinates. The triangles that wear one are a submesh, as world practice calls them: drawn together.
+struct MeshMaterial {
+    std::string name;
+    Vector3 color{0.8_r}; // sRGB 0..1, as colours are picked (an MTL's Kd); 0.8 - the usual default
+    std::string picture;  // an MTL's map_Kd, a full path; empty: the colour alone
+};
+
 struct TriMesh {
     std::vector<Vector3> positions;
     std::vector<std::array<uint32_t, 3>> triangles;
-    // A colour a triangle, linear RGB 0..1 - a model's materials (an OBJ's vertex colours "v x y z r g b"); empty: the
+    // A colour a triangle, sRGB 0..1 - a model's own (an OBJ's vertex colours "v x y z r g b", or its materials'); empty: the
     // whole mesh takes its object's colour. Kept by weld and removeDegenerate; a viewer uses it only when there
     // is one a triangle (an operation that remakes the triangles drops it).
     std::vector<Vector3> triangleColors;
     bool coloured() const { return !triangleColors.empty() && triangleColors.size() == triangles.size(); }
+    // A texture coordinate a triangle corner (three a triangle, in the triangles' order), an OBJ's "vt" - u right, v up, as OBJ and
+    // OpenGL have them: a picture laid by the model's own unwrapping. Empty: none. Kept by weld and removeDegenerate, turned with a
+    // flipped winding; a viewer uses it only when there is one a corner (an operation that remakes the triangles drops it).
+    std::vector<std::array<float, 2>> uvs;
+    bool textured() const { return !uvs.empty() && uvs.size() == 3 * triangles.size(); }
+    // A model's materials and the one each triangle wears (an OBJ's usemtl). Empty: the whole mesh is its object's surface.
+    // Kept by weld and removeDegenerate; an operation that remakes the triangles drops them, as it drops the colours.
+    std::vector<MeshMaterial> materials;
+    std::vector<uint32_t> triangleMaterials;
+    bool hasMaterials() const { return !materials.empty() && triangleMaterials.size() == triangles.size(); }
 
     bool empty() const { return triangles.empty(); }
     AABB bounds() const;

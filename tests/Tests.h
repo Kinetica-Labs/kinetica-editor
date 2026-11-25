@@ -5,6 +5,8 @@
 // MathTests.cpp
 void testMath();
 void testPrimitives();
+void testMeshUv();
+void testMeshMaterials();
 void testBVH();
 // JsonTests.cpp
 void testJsonNumbers();

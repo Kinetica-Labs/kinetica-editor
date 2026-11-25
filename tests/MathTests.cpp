@@ -5,6 +5,8 @@
 #include "core/Mesh.h"
 #include "spatial/BVH.h"
 
+#include <filesystem>
+#include <fstream>
 #include <random>
 
 void testMath() {
@@ -117,4 +119,68 @@ void testBVH() {
     sb.build(sp);
     bool ok = sb.raycast({-5, 0.01_r, 0.02_r}, {1, 0, 0}, 100, hit);
     CHECK(ok && std::fabs(hit.t - 4.0_r) < 0.01_r, "ray t=%f", hit.t);
+}
+
+// A model's materials: an OBJ names its library (mtllib) and its faces wear a material each (usemtl); the library gives
+// each its colour (Kd) and picture (map_Kd - named from the library's folder, past a map's options). The colours become the
+// triangles' own; a collapsed triangle takes its material with it; a library that cannot be read leaves the object's own
+// surface - no materials, no colours.
+void testMeshMaterials() {
+    const std::filesystem::path dir = std::filesystem::temp_directory_path() / "ke_materials";
+    std::filesystem::create_directories(dir);
+    const char* square = "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n";
+    std::ofstream(dir / "box.mtl") << "newmtl wood\nKd 0.6 0.4 0.2\nmap_Kd -s 1 1 1 pictures\\wood.png\n\nnewmtl steel\nKd 0.7 0.7 0.75\n";
+    std::ofstream(dir / "box.obj") << "mtllib box.mtl\n" << square << "usemtl wood\nf 1/1 2/2 3/3\nf 1/1 1/1 2/2\nusemtl steel\nf 1/1 3/3 4/4\n";
+    std::ofstream(dir / "lost.obj") << "mtllib nowhere.mtl\n" << square << "usemtl wood\nf 1/1 2/2 3/3\n";
+    TriMesh box, lost;
+    std::string error;
+    const bool read = loadMesh((dir / "box.obj").u8string(), box, error) && box.hasMaterials() && box.materials.size() == 2 && box.triangles.size() == 2;
+    CHECK(read, "an OBJ with its library loads two materials over its two faces");
+    if (read) {
+        CHECK(box.materials[0].name == "wood" && box.materials[1].name == "steel" && box.triangleMaterials == std::vector<uint32_t>({0, 1}),
+              "each face wears the material named before it; the collapsed face went with its own");
+        CHECK(box.materials[0].picture == (dir / "pictures" / "wood.png").lexically_normal().u8string() && box.materials[1].picture.empty(),
+              "a picture is named from the library's folder, past the map's options, its separators turned");
+        CHECK(box.coloured() && length(box.triangleColors[0] - Vector3(0.6_r, 0.4_r, 0.2_r)) < 1e-6_r &&
+                  length(box.triangleColors[1] - Vector3(0.7_r, 0.7_r, 0.75_r)) < 1e-6_r,
+              "a material's colour becomes its triangles' own");
+    }
+    CHECK(loadMesh((dir / "lost.obj").u8string(), lost, error) && !lost.hasMaterials() && !lost.coloured(),
+          "a library that cannot be read leaves the object's own surface");
+    std::filesystem::remove_all(dir);
+}
+
+// A model's own texture coordinates: an OBJ's "vt" come with its faces - a quad split into two triangles gives each corner its own; a
+// triangle that collapses takes its coordinates with it; a flipped winding turns them with the corners; a face with a corner of
+// none leaves the mesh with none (a picture laid on a part of it would be laid wrong).
+void testMeshUv() {
+    const std::string dir = std::filesystem::temp_directory_path().string();
+    const auto load = [&](const char* name, const char* text, TriMesh& mesh) {
+        const std::string path = dir + "/" + name;
+        std::ofstream(path) << text;
+        std::string error;
+        const bool ok = loadMesh(path, mesh, error);
+        std::filesystem::remove(path);
+        return ok;
+    };
+    const auto uv = [](float u, float v) { return std::array<float, 2>{u, v}; }; // a function: a macro argument cannot hold a bare comma
+    const char* square = "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n";
+    TriMesh quad;
+    CHECK(load("ke_uv_quad.obj", (std::string(square) + "f 1/1 2/2 3/3 4/4\n").c_str(), quad) && quad.textured() && quad.triangles.size() == 2 &&
+              quad.uvs.size() == 6, "a quad with vt loads as two triangles, six corners");
+    if (quad.textured()) {
+        const bool right = quad.uvs[0] == uv(0, 0) && quad.uvs[1] == uv(1, 0) && quad.uvs[2] == uv(1, 1) &&
+                           quad.uvs[3] == uv(0, 0) && quad.uvs[4] == uv(1, 1) && quad.uvs[5] == uv(0, 1);
+        CHECK(right, "each corner of the fan has its own coordinate");
+        quad.flipWinding();
+        CHECK(quad.textured() && quad.uvs[1] == uv(1, 1) && quad.uvs[2] == uv(1, 0), "a flipped winding turns the corners' coordinates");
+    }
+    TriMesh collapsed;
+    CHECK(load("ke_uv_collapsed.obj", (std::string(square) + "f 1/1 2/2 3/3\nf 1/1 1/1 2/2\n").c_str(), collapsed) && collapsed.triangles.size() == 1 &&
+              collapsed.textured() && collapsed.uvs.size() == 3, "a collapsed triangle takes its coordinates with it");
+    TriMesh partial;
+    CHECK(load("ke_uv_partial.obj", (std::string(square) + "f 1/1 2/2 3/3\nf 1 3 4\n").c_str(), partial) && partial.triangles.size() == 2 && !partial.textured(),
+          "a face with a corner of no coordinate leaves the mesh without any");
+    TriMesh plain;
+    CHECK(load("ke_uv_plain.obj", "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", plain) && !plain.textured() && plain.uvs.empty(), "an OBJ with no vt has none");
 }

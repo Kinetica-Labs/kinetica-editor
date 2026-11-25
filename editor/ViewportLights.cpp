@@ -11,6 +11,8 @@ using namespace ke;
 namespace {
 
 QVector3D qv(const Vector3& v) { return QVector3D(v.x, v.y, v.z); }
+// A light's colour is picked as every colour is, in sRGB; the shader adds light in linear amounts (mesh.frag, «Colour»).
+QVector3D linear(const Vector3& c) { return QVector3D(std::pow(c.x, 2.2f), std::pow(c.y, 2.2f), std::pow(c.z, 2.2f)); }
 Vector3 rv(const QVector3D& v) { return Vector3(v.x(), v.y(), v.z()); }
 
 } // namespace
@@ -40,7 +42,7 @@ void Viewport::applySceneLights(const QMatrix4x4& view) {
         const float outer = 0.5f * l.coneDeg * kPi / 180.0f, inner = std::max(0.0f, 0.5f * l.coneDeg - l.softnessDeg) * kPi / 180.0f;
         pos[count] = view.map(qv(l.position));
         dir[count] = view.mapVector(qv(l.direction)).normalized();
-        colour[count] = qv(l.color) * l.intensity;
+        colour[count] = linear(l.color) * l.intensity;
         range[count] = std::max(l.range, 0.01f);
         cosOuter[count] = spot ? std::cos(outer) : -2.0f;
         cosInner[count] = spot ? std::max(std::cos(inner), cosOuter[count] + 1e-3f) : -1.0f;

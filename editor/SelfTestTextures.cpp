@@ -52,6 +52,38 @@ static uint32_t checkerStage(Checker& c, QMainWindow& w, SceneBuilder& b, Viewpo
     b.stop(); b.select(cube); pump(150);
     return cube;
 }
+// A model with materials of its own (an OBJ and its .mtl): three squares in a row, the first wearing a red picture, the
+// second a green one, the third a blue colour and no picture - one mesh, three runs, each in its own surface. A picture
+// put on the object itself then covers the whole model.
+static void testModelMaterials(Checker& c, SceneBuilder& b, Viewport* v, const QString& folder) {
+    const auto write = [&](const QString& name, const QByteArray& text) { QFile f(folder + "/" + name); return f.open(QIODevice::WriteOnly) && f.write(text) == text.size(); };
+    const auto picture = [&](const QString& name, QColor colour) { QImage i(8, 8, QImage::Format_RGB32); i.fill(colour); return i.save(folder + "/" + name); };
+    const bool made = picture("red.png", QColor(240, 20, 10)) && picture("green.png", QColor(20, 200, 40)) && picture("yellow.png", QColor(240, 220, 20)) &&
+                      write("row.mtl", "newmtl red\nmap_Kd red.png\nnewmtl green\nmap_Kd green.png\nnewmtl blue\nKd 0.1 0.2 0.9\n") &&
+                      write("row.obj", "mtllib row.mtl\nv 0 0 0\nv 1 0 0\nv 2 0 0\nv 3 0 0\nv 0 1 0\nv 1 1 0\nv 2 1 0\nv 3 1 0\n"
+                                       "vt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n"
+                                       "usemtl red\nf 1/1 2/2 6/3 5/4\nusemtl green\nf 2/1 3/2 7/3 6/4\nusemtl blue\nf 3/1 4/2 8/3 7/4\n");
+    c.check(made, "a model's fixture: an OBJ, its .mtl and two pictures");
+    b.newScene();
+    const uint32_t row = made ? selftest::made(b, b.createActions()[0]) : 0;
+    b.editEntity(row, [&](Entity& e) { e.shape = ShapeKind::Mesh; e.meshFile = (folder + "/row.obj").toStdString(); e.size = Vector3(1.5f, 0.5f, 0.5f); e.position = {0, 0.3f, 0}; });
+    const uint32_t camera = selftest::made(b, b.cameraAction());
+    b.editCamera(camera, [](Camera& k) { k.position = {0, 0.3f, 2.2f}; k.rotationDeg = Vector3(0); k.fovDeg = 40; });
+    b.lookThrough(camera); b.select(0); pump(250);
+    QImage image = v->grabFramebuffer();
+    const QColor left = pixelAt(v, image, {-0.5f, 0.3f, 0}), middle = pixelAt(v, image, {0, 0.3f, 0}), right = pixelAt(v, image, {0.5f, 0.3f, 0});
+    std::printf("  a model's materials: red picture %d %d %d, green picture %d %d %d, blue colour %d %d %d\n", left.red(), left.green(), left.blue(),
+                middle.red(), middle.green(), middle.blue(), right.red(), right.green(), right.blue());
+    c.check(left.red() > left.green() + 60 && middle.green() > middle.red() + 60 && right.blue() > right.red() + 60 && right.blue() > right.green() + 30,
+            "a model's materials: each square in its own picture or colour, one mesh");
+    b.editEntity(row, [&](Entity& e) { e.texture.kind = TextureKind::Image; e.texture.file = (folder + "/yellow.png").toStdString(); });
+    b.select(0); pump(250);
+    image = v->grabFramebuffer();
+    const QColor covered = pixelAt(v, image, {0.5f, 0.3f, 0});
+    c.check(covered.red() > covered.blue() + 60 && covered.green() > covered.blue() + 60, "a picture put on the object covers the model's own materials");
+    b.lookThrough(0);
+}
+
 int runTextureTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
     Checker c; QTemporaryDir tmp;
     const uint32_t cube = checkerStage(c, w, b, v, shotsDir);
@@ -101,5 +133,6 @@ int runTextureTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString&
     const QColor missing = pixelAt(v, image, light);
     c.check(std::abs(missing.red() - plain.red()) < 5, "missing image safely falls back to object's base color");
     b.lookThrough(0);
+    testModelMaterials(c, b, v, tmp.path());
     return c.failures;
 }

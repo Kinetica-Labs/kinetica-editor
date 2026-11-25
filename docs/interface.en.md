@@ -220,7 +220,9 @@ The mouse layout is chosen in Settings → Controls.
 
 <img src="images/ui/icons/shape.png" height="22" alt=""> Shape adds a cube, a sphere, a cylinder, a cone or a plane - in the air over a free spot. Model takes the shape from
 a file. An OBJ or STL model comes through File → Import… (Ctrl+I) as a shape of its own - named after the file, 1 m at its
-largest side, standing on the floor (an agent or a script: `scene_import {file}`). A whole scene or a robot Import… brings
+largest side, standing on the floor (an agent or a script: `scene_import {file}`). An OBJ comes with its materials - the
+`.mtl` file beside it: each part of the model in its own colour and picture. A picture put on the object itself covers
+the model's materials. A whole scene or a robot Import… brings
 from glTF (`.gltf`, `.glb`) - nodes, meshes, colours and
 animations, URDF - a robot with its joints. Back out - File → Export…: the scene's robot as URDF for ROS and Gazebo
 (links, joints with their limits, masses; meshes beside it in a `<name>-meshes` folder), or the whole scene in one file -

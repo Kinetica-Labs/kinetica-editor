@@ -4,6 +4,8 @@
 in vec3 vN;
 in vec3 vPosV;
 in vec3 vColor;
+in vec2 vUV;
+uniform int uUvMap; // 1: a picture (uTextureKind 2) is laid by the mesh's own UV, not by the world
 in vec3 vMaterialPos, vMaterialNormal;
 uniform int uTextureKind;
 uniform float uTextureRepeats;
@@ -61,6 +63,7 @@ vec3 surfacePattern() {
     vec3 n = pow(abs(vMaterialNormal), vec3(8.0));
     n /= max(n.x + n.y + n.z, 1e-8);
     vec3 p = vMaterialPos * uTextureRepeats;
+    if (uTextureKind == 2 && uUvMap == 1) return texture(uAlbedo, vUV).rgb;
     if (uTextureKind == 2)
         return n.x * texture(uAlbedo, p.zy + vec2(0.5)).rgb + n.y * texture(uAlbedo, p.xz + vec2(0.5)).rgb + n.z * texture(uAlbedo, p.xy + vec2(0.5)).rgb;
     float g = 0.0;
@@ -208,6 +211,23 @@ float shadowOf(int i) {
 // No light casts a shadow this frame: everything is lit, and the shadow code is left out entirely.
 float shadowOf(int i) { return 1.0; }
 #endif
+// Colour. The colours people pick and the pictures they give are sRGB: numbers spaced for the eye, not for light.
+// Light adds up in plain physical amounts, so a colour is made linear before it is lit, and what reaches the eye is
+// put back into sRGB at the very end. On the way a highlight may grow brighter than a screen can show; a tone curve
+// (Khronos PBR Neutral, its highlight part) folds it in softly, and every colour below it stays the colour chosen.
+vec3 linearFromSrgb(vec3 c) { return pow(max(c, vec3(0.0)), vec3(2.2)); }
+vec3 srgbFromLinear(vec3 c) { return pow(max(c, vec3(0.0)), vec3(1.0 / 2.2)); }
+vec3 toneMapped(vec3 c) {
+    const float knee = 0.8;        // below it a colour is kept as it is
+    const float whitening = 0.15;  // how much a folded highlight turns towards white
+    float peak = max(c.r, max(c.g, c.b));
+    if (peak < knee) return c;
+    float room = 1.0 - knee;
+    float folded = 1.0 - room * room / (peak + room - knee);       // the peak, brought under 1 smoothly
+    c *= folded / peak;
+    return mix(c, vec3(folded), 1.0 - 1.0 / (whitening * (peak - folded) + 1.0));
+}
+
 // Lighting: diffuse and specular, then the scene lights or the built-in preview light.
 vec3 oneLight(vec3 base, vec3 n, vec3 v, vec3 l, vec3 radiance) {
     float diff = max(dot(n, l), 0.0);
@@ -215,7 +235,7 @@ vec3 oneLight(vec3 base, vec3 n, vec3 v, vec3 l, vec3 radiance) {
     return (base * diff * 0.8 + vec3(spec)) * radiance;
 }
 vec3 sceneLights(vec3 base, vec3 n, vec3 v) {
-    vec3 c = base * (0.18 + 0.1 * max(dot(n, v), 0.0)); // the ambient stays
+    vec3 c = base * (0.03 + 0.04 * max(dot(n, v), 0.0)); // a faint light from everywhere: no side is black
     for (int i = 0; i < 8; ++i) {
         if (i >= uLightCount) break;
         vec3 l = -uLightDir[i];    // a sun: the same direction everywhere, never fading
@@ -238,15 +258,15 @@ void main() {
     if (dot(n, v) < 0.0) n = -n;
     vec3 pattern = uTextureKind == 0 ? vec3(1.0) : surfacePattern();
     n = bumpedNormal(mappedNormal(n), pattern);
-    vec3 base = surfaceAlbedo(uVertexColor == 1 ? vColor : uColor, pattern);
+    vec3 base = linearFromSrgb(surfaceAlbedo(uVertexColor == 1 ? vColor : uColor, pattern));
     vec3 l = normalize(vec3(0.35, 0.7, 0.6));
     float diff = max(dot(n, l), 0.0);
     float fill = max(dot(n, v), 0.0);
     vec3 h = normalize(l + v);
     float spec = pow(max(dot(n, h), 0.0), 48.0) * 0.3;
-    vec3 c = base * (0.18 + 0.55 * diff + 0.35 * fill) + vec3(spec);
+    vec3 c = base * (0.04 + 0.75 * diff + 0.25 * fill) + vec3(spec); // a key light above, a soft one from the eye
     if (uLightCount > 0) c = sceneLights(base, n, v);
     // Glass: the rim (grazing view) is brighter, the face almost clear (Schlick's Fresnel).
     float alpha = uAlpha < 1.0 ? uAlpha + (1.0 - uAlpha) * pow(1.0 - max(dot(n, v), 0.0), 4.0) : 1.0;
-    o = vec4(c, alpha);
+    o = vec4(srgbFromLinear(toneMapped(c)), alpha);
 }

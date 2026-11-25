@@ -10,6 +10,7 @@
 in vec3 aPos;      // in the body's own frame, metres
 in vec3 aNormal;
 in vec3 aColor;    // a model's own colour a triangle (TriMesh::triangleColors), used where uVertexColor is 1
+in vec2 aUV;       // a model's own texture coordinate a corner (TriMesh::uvs), used where uUvMap is 1
 uniform mat4 uModel, uView, uProj;
 uniform mat3 uTextureFrame;
 uniform vec3 uTextureOffset;
@@ -17,11 +18,13 @@ out vec3 vMaterialPos, vMaterialNormal;
 out vec3 vN;
 out vec3 vPosV;
 out vec3 vColor;
+out vec2 vUV;
 void main() {
     vec4 vp = uView * uModel * vec4(aPos, 1.0);
     vPosV = vp.xyz;
     vN = mat3(uView) * mat3(uModel) * aNormal;
     vColor = aColor;
+    vUV = aUV;
     vMaterialPos = uTextureFrame * aPos + uTextureOffset;
     vMaterialNormal = uTextureFrame * aNormal;
     gl_Position = uProj * vp;

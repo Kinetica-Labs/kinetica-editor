@@ -131,7 +131,7 @@
   `scene-format-4.kscene` — `mass`, `center_of_mass` и `inertia` у роли `rigid`; `scene-format-5.kscene` — `opacity`
   у формы; `scene-format-6.kscene` — `gravity_scale`, `linear_damping` и `angular_damping` у роли `rigid`;
   `scene-format-7.kscene` — `trigger` у роли `collider` и строка `ignores`; `scene-format-8.kscene` — блок `force`;
-  `scene-format-9.kscene` — `duration` у строки `world`; `scene-format-11.kscene` — `record_from` у строки `world`; `scene-format-12.kscene` — датчик `lidar` и его паспорт; `scene-format-13.kscene` — `kind mesh` у коллайдера;
+  `scene-format-9.kscene` — `duration` у строки `world`; `scene-format-11.kscene` — `record_from` у строки `world`; `scene-format-12.kscene` — датчик `lidar` и его паспорт; `scene-format-13.kscene` — `kind mesh` у коллайдера; `scene-format-14.kscene` — `uv` у строки `texture`: картинка кладётся по UV сетки (`vt` в OBJ), а не по миру;
   `scene-format-10.kscene` — `normal_file` у строки `texture`:
   карта нормалей — картинка нормалей поверхности, зелёный канал вверх (как в OpenGL); пишется, только когда задана,
   и меняет одно освещение, как `bump`.

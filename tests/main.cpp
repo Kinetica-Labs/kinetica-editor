@@ -7,6 +7,8 @@
 int main() {
     run("math: vectors, matrices, quaternions, N x N solvers", testMath);
     run("math: mesh primitives are closed and have their volumes", testPrimitives);
+    run("math: a model's own texture coordinates come with its faces", testMeshUv);
+    run("math: a model's materials - its library's colours and pictures, a material a face", testMeshMaterials);
     run("math: BVH queries against brute force", testBVH);
     run("json: numbers - the shortest text, the borders where the text turns to an exponent, locale-proof", testJsonNumbers);
     run("json: text - escapes, UTF-8 repair as QString::fromUtf8 does it, surrogate pairs", testJsonText);
