@@ -5,6 +5,7 @@
 #include "UiLanguage.h"
 #include "InspectorWidgets.h"
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -27,7 +28,7 @@ WorldPanel::WorldPanel(QWidget* parent) : QWidget(parent) {
     connect(search, &QLineEdit::textChanged, this, &WorldPanel::filter);
     status_ = new QLabel; status_->setWordWrap(true); status_->setObjectName("physicsEditStatus"); layout->addWidget(status_);
     controls_ = new QWidget; body_ = new QVBoxLayout(controls_); body_->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(controls_); buildGravity(); buildContacts(); buildJoints(); buildAdvanced(); buildEnvironment();
+    layout->addWidget(controls_); buildEngine(); buildGravity(); buildContacts(); buildJoints(); buildAdvanced(); buildEnvironment();
     auto* reset = new QPushButton(uiText("Kinetica", "Сбросить физику")); reset->setObjectName("resetWorldPhysics");
     reset->setToolTip(uiText("Kinetica", "Вернуть земную гравитацию и стандартные настройки контактов и суставов. Ctrl+Z отменит сброс."));
     body_->addWidget(reset);
@@ -77,6 +78,22 @@ void WorldPanel::flag(CollapsibleSection* s, const QString& label, const QString
     readers_.push_back([input, member](const WorldSettings& w) { input->setChecked(w.physics.*member); });
     writers_.push_back({input, [input, member](WorldSettings& w) { w.physics.*member = input->isChecked(); }});
     connect(input, &QCheckBox::toggled, this, &WorldPanel::changed);
+}
+
+// Which engine counts the scene: the engines built in (plugins/physics/Engines.cpp), the first the default. The first
+// is written as no word at all - a scene that names no engine runs on it, as the scene file has it.
+void WorldPanel::buildEngine() {
+    auto* s = section(uiText("Kinetica", "Движок"), true);
+    auto* engine = new QComboBox; engine->setObjectName("physicsEngine");
+    for (const std::string& word : physicsEngines()) engine->addItem(QString::fromStdString(word));
+    row(s, uiText("Kinetica", "Считает физику"), engine,
+        uiText("Kinetica", "Движок твёрдых тел, на котором играет сцена. У каждого свои сильные стороны: сравните на своей сцене."),
+        uiText("Kinetica", "engine движок box3d"));
+    readers_.push_back([engine](const WorldSettings& w) {
+        engine->setCurrentIndex(std::max(0, engine->findText(QString::fromStdString(w.physics.engine))));
+    });
+    writers_.push_back({engine, [engine](WorldSettings& w) { w.physics.engine = engine->currentIndex() > 0 ? engine->currentText().toStdString() : ""; }});
+    connect(engine, &QComboBox::currentIndexChanged, this, &WorldPanel::changed);
 }
 
 void WorldPanel::buildGravity() {

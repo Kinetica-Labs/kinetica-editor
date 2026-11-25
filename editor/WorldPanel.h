@@ -33,6 +33,7 @@ private:
                const QString& tip, int ke::PhysicsSettings::* member);
     void flag(CollapsibleSection* section, const QString& label, const QString& name, const QString& tip,
               bool ke::PhysicsSettings::* member);
+    void buildEngine();
     void buildGravity();
     void buildContacts();
     void buildJoints();

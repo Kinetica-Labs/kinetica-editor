@@ -122,6 +122,7 @@
         <translation>Energy</translation>
     </message>
     <message>
+        <location filename="../editor/WorldPanel.cpp" line="86"/>
         <location filename="../editor/ChannelList.cpp" line="79"/>
         <source>Движок</source>
         <translation>Engine</translation>
@@ -326,6 +327,7 @@ The picture is being prepared…</translation>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="102"/>
         <location filename="../editor/ExamplesGallery.cpp" line="42"/>
+        <location filename="../editor/SelfTestLayout.cpp" line="151"/>
         <source>Примеры</source>
         <translation>Examples</translation>
     </message>
@@ -533,7 +535,7 @@ The picture is being prepared…</translation>
         <translation>Sleeping bodies (the engine does not count them until they are pushed): a gray frame, the body itself is darker.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="124"/>
+        <location filename="../editor/WorldPanel.cpp" line="141"/>
         <location filename="../editor/LabLayers.cpp" line="47"/>
         <source>Суставы</source>
         <translation>Joints</translation>
@@ -888,13 +890,13 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="251"/>
-        <location filename="../editor/MainWindow.cpp" line="838"/>
+        <location filename="../editor/MainWindow.cpp" line="841"/>
         <source>Управление и методы</source>
         <translation>Controls and Methods</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="252"/>
-        <location filename="../editor/MainWindow.cpp" line="867"/>
+        <location filename="../editor/MainWindow.cpp" line="870"/>
         <source>О программе</source>
         <translation>About Kinetica</translation>
     </message>
@@ -1189,8 +1191,8 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="652"/>
-        <location filename="../editor/MainWindow.cpp" line="826"/>
-        <location filename="../editor/MainWindow.cpp" line="833"/>
+        <location filename="../editor/MainWindow.cpp" line="829"/>
+        <location filename="../editor/MainWindow.cpp" line="836"/>
         <location filename="../editor/MainWindowPlots.cpp" line="203"/>
         <source>Сохранено: </source>
         <translation>Saved: </translation>
@@ -1277,15 +1279,15 @@ The picture is being prepared…</translation>
         <translation>Script “%1” finished</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="815"/>
+        <location filename="../editor/MainWindow.cpp" line="816"/>
         <location filename="../editor/MainWindowToolbar.cpp" line="61"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="275"/>
-        <location filename="../src/scene/SceneActions.cpp" line="62"/>
+        <location filename="../src/scene/SceneActions.cpp" line="63"/>
         <source>Модель</source>
         <translation>Model</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="815"/>
+        <location filename="../editor/MainWindow.cpp" line="816"/>
         <source>Не удалось загрузить модель:
 </source>
         <translation>It was not possible to load the model:
@@ -1293,39 +1295,39 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindow.cpp" line="806"/>
-        <location filename="../editor/MainWindow.cpp" line="820"/>
-        <location filename="../editor/MainWindow.cpp" line="825"/>
+        <location filename="../editor/MainWindow.cpp" line="823"/>
+        <location filename="../editor/MainWindow.cpp" line="828"/>
         <source>Экспорт</source>
         <translation>Export</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="820"/>
+        <location filename="../editor/MainWindow.cpp" line="823"/>
         <source>Нет данных: запустите расчёт.</source>
         <translation>No data. Run the simulation first.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="823"/>
+        <location filename="../editor/MainWindow.cpp" line="826"/>
         <source>Экспорт графиков</source>
         <translation>Export Plots</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="825"/>
+        <location filename="../editor/MainWindow.cpp" line="828"/>
         <location filename="../editor/MainWindowPlots.cpp" line="202"/>
         <source>Не удалось записать файл.</source>
         <translation>Could not write the file.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="832"/>
+        <location filename="../editor/MainWindow.cpp" line="835"/>
         <source>Сохранить скриншот</source>
         <translation>Save Screenshot</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="841"/>
+        <location filename="../editor/MainWindow.cpp" line="844"/>
         <source>&lt;h3&gt;Управление&lt;/h3&gt;&lt;b&gt;Пробел&lt;/b&gt; — пуск/пауза (над секвенсором — проиграть и остановить секвенцию, как в видеоредакторе), &lt;b&gt;Shift+пробел&lt;/b&gt; — стоп, &lt;b&gt;.&lt;/b&gt; — шаг, &lt;b&gt;F&lt;/b&gt; — показать выбранное, &lt;b&gt;Ctrl+K&lt;/b&gt; — найти команду.&lt;br&gt;Камера: &lt;b&gt;зажатое колесо&lt;/b&gt; — вращение, &lt;b&gt;Shift+колесо&lt;/b&gt; или ПКМ — сдвиг, прокрутка — масштаб (схема — в «Вид → Управление»).&lt;br&gt;В правке: &lt;b&gt;щелчок&lt;/b&gt; — выбрать (ещё щелчок там же — то, что глубже: датчик, деталь внутри), &lt;b&gt;тяните тело&lt;/b&gt; при инструменте «Перемещение» — едет по полу, стрелки гизмо — по оси.&lt;br&gt;Добавить в сцену — меню «Сцена»: фигура, свет, камера, датчик, сочленение между двумя выбранными (движется выбранное последним).&lt;br&gt;&lt;b&gt;ЛКМ&lt;/b&gt; во время игры — рука мыши: тело тянется к курсору пружиной.&lt;br&gt;Рука UR5e: &lt;b&gt;W S A D&lt;/b&gt; — по полу, &lt;b&gt;R F&lt;/b&gt; — вверх-вниз, &lt;b&gt;Z X&lt;/b&gt; — поворот, &lt;b&gt;пробел&lt;/b&gt; — схват; или щёлкните предмет и нажмите «Рука — к этому предмету» справа.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Мир робота&lt;/h3&gt;Твёрдые тела и суставы считает движок Box3D. Серво и мотор постоянного тока — код робота: момент на звенья на каждом подшаге. Обратная связь по суставам — через модели энкодеров; истинные позы и углы движка видят только графики и Лаборатория.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Свои команды — плагины&lt;/h3&gt;«Плагины → Новый плагин…» создаёт файл plugin.py с готовой командой: она сразу становится кнопкой в «Плагины», строкой в Ctrl+K, вызовом в консоли и инструментом для ИИ-агента. Сохраните файл — плагин перезапустится. Каждое действие окна видно строкой Python в «Консоли API» — с неё и начинают свою команду. Подробно — docs/plugins.md.</source>
         <translation>&lt;h3&gt;Controls&lt;/h3&gt;&lt;b&gt;Space&lt;/b&gt; — play or pause (over the Sequencer, toggle sequence preview), &lt;b&gt;Shift+Space&lt;/b&gt; — stop, &lt;b&gt;.&lt;/b&gt; — step one frame, &lt;b&gt;F&lt;/b&gt; — frame the selection, &lt;b&gt;Ctrl+K&lt;/b&gt; — find a command.&lt;br&gt;Camera: &lt;b&gt;middle-drag&lt;/b&gt; to orbit, &lt;b&gt;Shift+middle-drag&lt;/b&gt; or right-drag to pan, and scroll to zoom. See View → Controls for other control schemes.&lt;br&gt;In Edit mode, &lt;b&gt;click&lt;/b&gt; to select. Click again in the same spot to pick an item farther back, such as a sensor or an enclosed part. With Move active, &lt;b&gt;drag a body&lt;/b&gt; along the floor or drag a gizmo arrow to constrain movement to its axis.&lt;br&gt;Add shapes, lights, cameras, and sensors from the Scene menu. Creating a joint between two selected objects moves the one selected last.&lt;br&gt;While playing, hold the &lt;b&gt;left mouse button&lt;/b&gt; to pull a body toward the cursor with a spring.&lt;br&gt;UR5e arm: &lt;b&gt;W S A D&lt;/b&gt; move along the floor, &lt;b&gt;R F&lt;/b&gt; move up and down, &lt;b&gt;Z X&lt;/b&gt; rotate, and &lt;b&gt;Space&lt;/b&gt; operates the gripper. You can also select an object and use “Move Arm to This Object” in the inspector.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Robot World&lt;/h3&gt;Box3D simulates rigid bodies and joints. The robot code applies torque from servos and DC motors at each substep. Joint feedback comes from encoder models. Ground-truth poses and angles are visible in Plots and the Laboratory.&lt;br&gt;&lt;br&gt;&lt;h3&gt;Custom Commands and Plugins&lt;/h3&gt;Plugins → New Plugin… creates a plugin.py file with a command that appears in the Plugins menu, Ctrl+K, the API Console, and the agent&apos;s tools. Save the file to reload the plugin. The API Console shows editor actions as Python calls you can reuse in your own commands. See docs/plugins.md for details.</translation>
     </message>
     <message>
-        <location filename="../editor/MainWindow.cpp" line="868"/>
+        <location filename="../editor/MainWindow.cpp" line="871"/>
         <source>&lt;b&gt;Kinetica Editor 0.1&lt;/b&gt;&lt;br&gt;Редактор робототехники: звенья, суставы, приводы, датчики.&lt;br&gt;Физика твёрдых тел — Box3D. C++17 · Qt 6 · OpenGL 3.0</source>
         <translation>&lt;b&gt;Kinetica Editor 0.1&lt;/b&gt;&lt;br&gt;Robotics editor: links, joints, actuators, sensors.&lt;br&gt;Solid body physics - Box3D. C++17 · Qt 6 · OpenGL 3.0</translation>
     </message>
@@ -2441,25 +2443,25 @@ The picture is being prepared…</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="317"/>
-        <location filename="../src/scene/SceneActions.cpp" line="67"/>
+        <location filename="../src/scene/SceneActions.cpp" line="68"/>
         <source>Толчок</source>
         <translation>Push</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="320"/>
-        <location filename="../src/scene/SceneActions.cpp" line="67"/>
+        <location filename="../src/scene/SceneActions.cpp" line="68"/>
         <source>Взрыв</source>
         <translation>Blast</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="318"/>
-        <location filename="../src/scene/SceneActions.cpp" line="67"/>
+        <location filename="../src/scene/SceneActions.cpp" line="68"/>
         <source>Тяга</source>
         <translation>Thrust</translation>
     </message>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="321"/>
-        <location filename="../src/scene/SceneActions.cpp" line="68"/>
+        <location filename="../src/scene/SceneActions.cpp" line="69"/>
         <source>Притяжение</source>
         <translation>Pull</translation>
     </message>
@@ -3131,37 +3133,32 @@ Channel %5 — right-click to plot</translation>
         <translation>▶ Play</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="166"/>
-        <source>в файле нет треугольников</source>
-        <translation>No triangles in the file</translation>
-    </message>
-    <message>
-        <location filename="../editor/SceneBuilder.cpp" line="235"/>
+        <location filename="../editor/SceneBuilder.cpp" line="208"/>
         <source>Сначала выберите объект — или создайте его кнопкой сверху</source>
         <translation>Select the object first, or create it with a button on top</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="363"/>
+        <location filename="../editor/SceneBuilder.cpp" line="336"/>
         <source>Идёт симуляция: свет, камеры и приводы суставов меняются на лету, на паузе работает гизмо; остальное — после ■ Стоп, который вернёт сцену, какой она была до ▶.</source>
         <translation>There is a simulation: the lights, cameras and actuators of the joints change on the fly, the gizmo works on pause; the rest is after ■ Stop, which will return the scene as it was before ←.</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="460"/>
+        <location filename="../editor/SceneBuilder.cpp" line="433"/>
         <source> и ещё %1</source>
         <translation> and %1 more</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="461"/>
+        <location filename="../editor/SceneBuilder.cpp" line="434"/>
         <source>Стоп: сцена вернулась к той, что была до ▶</source>
         <translation>Stop: the scene is back as it was before ▶</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="462"/>
+        <location filename="../editor/SceneBuilder.cpp" line="435"/>
         <source>Стоп: сцена как до ▶ - правки во время игры не сохранились: %1. Положения тел оставляет K до Стопа</source>
         <translation>Stop: the scene as before ▶ - edits made while it ran are not kept: %1. K, before Stop, keeps the bodies&apos; poses</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="475"/>
+        <location filename="../editor/SceneBuilder.cpp" line="448"/>
         <source>Новая сцена</source>
         <translation>New scene</translation>
     </message>
@@ -3945,7 +3942,7 @@ Situation battery: motor without power</translation>
         <translation>Anchor %1</translation>
     </message>
     <message>
-        <location filename="../editor/EditorOpsInput.cpp" line="335"/>
+        <location filename="../editor/EditorOpsInput.cpp" line="336"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="130"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="139"/>
         <location filename="../editor/SceneBuilderJoints.cpp" line="150"/>
@@ -3953,7 +3950,7 @@ Situation battery: motor without power</translation>
         <location filename="../editor/SceneBuilderSensors.cpp" line="92"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="93"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="256"/>
-        <location filename="../editor/Viewport.cpp" line="874"/>
+        <location filename="../editor/Viewport.cpp" line="901"/>
         <location filename="../editor/ViewportTools.cpp" line="603"/>
         <location filename="../editor/ViewportTools.cpp" line="609"/>
         <location filename="../editor/ViewportTools.cpp" line="611"/>
@@ -4366,7 +4363,7 @@ motor strength %1 N</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="89"/>
-        <location filename="../src/scene/SceneActions.cpp" line="62"/>
+        <location filename="../src/scene/SceneActions.cpp" line="63"/>
         <source>Сфера</source>
         <translation>Sphere</translation>
     </message>
@@ -4382,7 +4379,7 @@ motor strength %1 N</translation>
     </message>
     <message>
         <location filename="../editor/SceneBuilderPanels.cpp" line="89"/>
-        <location filename="../src/scene/SceneActions.cpp" line="62"/>
+        <location filename="../src/scene/SceneActions.cpp" line="63"/>
         <source>Цилиндр</source>
         <translation>Cylinder</translation>
     </message>
@@ -5326,7 +5323,7 @@ Sample </translation>
         <translation>Relative to</translation>
     </message>
     <message>
-        <location filename="../editor/SceneBuilder.cpp" line="457"/>
+        <location filename="../editor/SceneBuilder.cpp" line="430"/>
         <location filename="../editor/SceneBuilderSensors.cpp" line="266"/>
         <source>мир</source>
         <translation>world</translation>
@@ -5839,38 +5836,38 @@ Sample </translation>
         <translation>no data</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="375"/>
+        <location filename="../editor/Viewport.cpp" line="376"/>
         <source>%1 %2 м</source>
         <translation>%1%2 m</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="661"/>
+        <location filename="../editor/Viewport.cpp" line="688"/>
         <source>OpenGL 3.0 недоступен (%1).
 Запустите с ключом --software-gl — рендер на процессоре.</source>
         <translation>OpenGL 3.0 is not available (%1). Run with the key -software-gl - render on the processor.</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="794"/>
+        <location filename="../editor/Viewport.cpp" line="821"/>
         <source>t = %1 с</source>
         <translation>t = %1</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="798"/>
+        <location filename="../editor/Viewport.cpp" line="825"/>
         <source>Схват: держит ✓</source>
         <translation>Gripper: Holding ✓</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="798"/>
+        <location filename="../editor/Viewport.cpp" line="825"/>
         <source>Схват: сомкнут — пусто, промах</source>
         <translation>Snatch: Close - empty, miss</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="799"/>
+        <location filename="../editor/Viewport.cpp" line="826"/>
         <source>Схват: смыкается…</source>
         <translation>Gripper: Closing…</translation>
     </message>
     <message>
-        <location filename="../editor/Viewport.cpp" line="799"/>
+        <location filename="../editor/Viewport.cpp" line="826"/>
         <source>Схват: открыт (пробел — сомкнуть)</source>
         <translation>Gripper: Open (Space to Close)</translation>
     </message>
@@ -6166,229 +6163,244 @@ Sample </translation>
         <translation> · Ctrl - grid 5 cm</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="23"/>
+        <location filename="../editor/WorldPanel.cpp" line="24"/>
         <source>Физика мира</source>
         <translation>World Physics</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="25"/>
+        <location filename="../editor/WorldPanel.cpp" line="26"/>
         <source>Найти: гравитация, подшаги, CCD…</source>
         <translation>Find: Gravity, Steps, CCD…</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="26"/>
+        <location filename="../editor/WorldPanel.cpp" line="27"/>
         <source>Поиск настроек физики</source>
         <translation>Search Physics Settings</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="31"/>
+        <location filename="../editor/WorldPanel.cpp" line="32"/>
         <source>Сбросить физику</source>
         <translation>Reset Physics</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="32"/>
+        <location filename="../editor/WorldPanel.cpp" line="33"/>
         <source>Вернуть земную гравитацию и стандартные настройки контактов и суставов. Ctrl+Z отменит сброс.</source>
         <translation>Restore Earth gravity and the default contact and joint settings. Ctrl+Z undoes the reset.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="34"/>
+        <location filename="../editor/WorldPanel.cpp" line="35"/>
         <source>Настройка не найдена. Очистите поиск или попробуйте другое название.</source>
         <translation>No matching settings. Clear the search or try another term.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="83"/>
+        <location filename="../editor/WorldPanel.cpp" line="89"/>
+        <source>Считает физику</source>
+        <translation>Physics engine</translation>
+    </message>
+    <message>
+        <location filename="../editor/WorldPanel.cpp" line="90"/>
+        <source>Движок твёрдых тел, на котором играет сцена. У каждого свои сильные стороны: сравните на своей сцене.</source>
+        <translation>The rigid-body engine the scene plays on. Each has its own strengths: compare them on your scene.</translation>
+    </message>
+    <message>
+        <location filename="../editor/WorldPanel.cpp" line="91"/>
+        <source>engine движок box3d</source>
+        <translation>engine box3d</translation>
+    </message>
+    <message>
+        <location filename="../editor/WorldPanel.cpp" line="100"/>
         <source>Гравитация</source>
         <translation>Gravity</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="85"/>
+        <location filename="../editor/WorldPanel.cpp" line="102"/>
         <source> м/с²</source>
         <translation> m/s2</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="86"/>
+        <location filename="../editor/WorldPanel.cpp" line="103"/>
         <source>Ускорение падения</source>
         <translation>Gravitational Acceleration</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="86"/>
+        <location filename="../editor/WorldPanel.cpp" line="103"/>
         <source>Земля: 9,81 м/с². 0 — невесомость. Направление задаётся ниже.</source>
         <translation>Earth gravity is 9.81 m/s². Set 0 for zero gravity. Choose the direction below.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="86"/>
+        <location filename="../editor/WorldPanel.cpp" line="103"/>
         <source>gravity гравитация</source>
         <translation>gravity</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="93"/>
+        <location filename="../editor/WorldPanel.cpp" line="110"/>
         <source>Земля</source>
         <translation>Earth</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="93"/>
+        <location filename="../editor/WorldPanel.cpp" line="110"/>
         <source>Луна</source>
         <translation>Moon</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="93"/>
+        <location filename="../editor/WorldPanel.cpp" line="110"/>
         <source>Невесомость</source>
         <translation>Zero Gravity</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="102"/>
+        <location filename="../editor/WorldPanel.cpp" line="119"/>
         <source>Вектор X / Y / Z</source>
         <translation>X/Y/Z vector</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="102"/>
+        <location filename="../editor/WorldPanel.cpp" line="119"/>
         <source>Y направлен вверх: отрицательный Y тянет вниз. Одна гравитация для всей сцены.</source>
         <translation>Y points up, so negative Y pulls downward. Gravity applies across the entire scene.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="102"/>
+        <location filename="../editor/WorldPanel.cpp" line="119"/>
         <source>gravity vector направление</source>
         <translation>gravity vector direction</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="110"/>
+        <location filename="../editor/WorldPanel.cpp" line="127"/>
         <source>Контакты твёрдых тел</source>
         <translation>Rigid Body Contacts</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="111"/>
+        <location filename="../editor/WorldPanel.cpp" line="128"/>
         <source>Подшагов на кадр</source>
         <translation>Substeps per Frame</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="112"/>
+        <location filename="../editor/WorldPanel.cpp" line="129"/>
         <source>Кадр 1/60 с разбивается на меньшие шаги; приводы суставов считаются на каждом. Больше подшагов — жёстче контакты и суставы, но медленнее.</source>
         <translation>Each 1/60 s frame is divided into substeps. Joint actuators update at each substep. More substeps make contacts and joints stiffer but increase computation time.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="114"/>
+        <location filename="../editor/WorldPanel.cpp" line="131"/>
         <source>Жёсткость контакта</source>
         <translation>Contact Stiffness</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="114"/>
-        <location filename="../editor/WorldPanel.cpp" line="125"/>
+        <location filename="../editor/WorldPanel.cpp" line="131"/>
+        <location filename="../editor/WorldPanel.cpp" line="142"/>
         <source>Гц</source>
         <translation>Hz</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="115"/>
+        <location filename="../editor/WorldPanel.cpp" line="132"/>
         <source>Частота пружины, которой движок выталкивает тела друг из друга (soft step). Выше — меньше проваливание, но не выше четверти частоты подшагов.</source>
         <translation>Contact spring frequency (Soft Step). Higher values reduce penetration. The solver caps it at one quarter of the substep frequency.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="117"/>
+        <location filename="../editor/WorldPanel.cpp" line="134"/>
         <source>Затухание контакта</source>
         <translation>Contact Damping</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="118"/>
+        <location filename="../editor/WorldPanel.cpp" line="135"/>
         <source>Безразмерное затухание этой пружины: 1 — критическое, больше — вязче.</source>
         <translation>Dimensionless spring damping. 1 is critical damping. Higher values increase damping.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="119"/>
+        <location filename="../editor/WorldPanel.cpp" line="136"/>
         <source>Непрерывные столкновения (CCD)</source>
         <translation>Continuous Collision Detection (CCD)</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="120"/>
+        <location filename="../editor/WorldPanel.cpp" line="137"/>
         <source>Быстрое тело не пролетает сквозь неподвижное между положениями шага.</source>
         <translation>Keep fast-moving bodies from passing through static bodies between steps.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="125"/>
+        <location filename="../editor/WorldPanel.cpp" line="142"/>
         <source>Жёсткость суставов</source>
         <translation>Joint stiffness</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="126"/>
+        <location filename="../editor/WorldPanel.cpp" line="143"/>
         <source>Частота, с которой движок держит звенья вместе: выше — меньше провисание и перебег предела. Движок держит не жёстче четверти частоты подшагов.</source>
         <translation>Joint constraint frequency. Higher values reduce sag and limit overshoot. The solver caps it at one quarter of the substep frequency.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="128"/>
+        <location filename="../editor/WorldPanel.cpp" line="145"/>
         <source>Затухание суставов</source>
         <translation>Joint Damping</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="129"/>
+        <location filename="../editor/WorldPanel.cpp" line="146"/>
         <source>Безразмерное затухание удержания суставов: 1 — критическое.</source>
         <translation>Dimensionless attenuation of joint retention: 1 - critical.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="133"/>
+        <location filename="../editor/WorldPanel.cpp" line="150"/>
         <source>Покой и затухание</source>
         <translation>Sleeping and Damping</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="134"/>
+        <location filename="../editor/WorldPanel.cpp" line="151"/>
         <source>Усыплять покоящиеся тела</source>
         <translation>Allow Resting Bodies to Sleep</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="135"/>
+        <location filename="../editor/WorldPanel.cpp" line="152"/>
         <source>Покоящееся тело перестаёт рассчитываться, пока его не коснутся.</source>
         <translation>Stop simulating a body at rest until something touches it.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="136"/>
+        <location filename="../editor/WorldPanel.cpp" line="153"/>
         <source>Линейное затухание</source>
         <translation>Linear Damping</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="136"/>
-        <location filename="../editor/WorldPanel.cpp" line="138"/>
+        <location filename="../editor/WorldPanel.cpp" line="153"/>
+        <location filename="../editor/WorldPanel.cpp" line="155"/>
         <source>1/с</source>
         <translation>1/s</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="136"/>
+        <location filename="../editor/WorldPanel.cpp" line="153"/>
         <source>Демпфирование движения каждого тела; рассеивает энергию.</source>
         <translation>Damping the movement of each body; dissipates energy.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="138"/>
+        <location filename="../editor/WorldPanel.cpp" line="155"/>
         <source>Угловое затухание</source>
         <translation>Angular Damping</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="138"/>
+        <location filename="../editor/WorldPanel.cpp" line="155"/>
         <source>Демпфирование вращения каждого тела; рассеивает энергию.</source>
         <translation>Damping the rotation of each body; dissipates energy.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="143"/>
+        <location filename="../editor/WorldPanel.cpp" line="160"/>
         <source>Размер мира</source>
         <translation>World Size</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="145"/>
+        <location filename="../editor/WorldPanel.cpp" line="162"/>
         <source>Мир, м</source>
         <translation>World, m</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="145"/>
+        <location filename="../editor/WorldPanel.cpp" line="162"/>
         <source>Коробка, в которой стоит сцена: пол на высоте 0 под её серединой, по ней кадрируется вид.</source>
         <translation>Bounds used to frame the scene. The floor is at height 0 beneath its center.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="146"/>
+        <location filename="../editor/WorldPanel.cpp" line="163"/>
         <source>domain размер коробка пол</source>
         <translation>domain size box</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="168"/>
+        <location filename="../editor/WorldPanel.cpp" line="185"/>
         <source>Для всей сцены. Сохраняется в файл; Ctrl+Z отменяет изменение.</source>
         <translation>Applies to the entire scene and is saved with it. Ctrl+Z undoes changes.</translation>
     </message>
     <message>
-        <location filename="../editor/WorldPanel.cpp" line="169"/>
+        <location filename="../editor/WorldPanel.cpp" line="186"/>
         <source>Настройки сцены. Нажмите Стоп, чтобы изменить их и применить при следующем Пуске.</source>
         <translation>Scene settings. Press Stop to edit them. Changes take effect the next time you press Play.</translation>
     </message>
@@ -6483,37 +6495,37 @@ Sample </translation>
         <translation>Travel</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="62"/>
+        <location filename="../src/scene/SceneActions.cpp" line="63"/>
         <source>Куб</source>
         <translation>Cube</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="62"/>
+        <location filename="../src/scene/SceneActions.cpp" line="63"/>
         <source>Конус</source>
         <translation>Cone</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="62"/>
+        <location filename="../src/scene/SceneActions.cpp" line="63"/>
         <source>Плоскость</source>
         <translation>Plane</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="73"/>
+        <location filename="../src/scene/SceneActions.cpp" line="74"/>
         <source>Солнце</source>
         <translation>Sun</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="73"/>
+        <location filename="../src/scene/SceneActions.cpp" line="74"/>
         <source>Лампа</source>
         <translation>Point Light</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="73"/>
+        <location filename="../src/scene/SceneActions.cpp" line="74"/>
         <source>Прожектор</source>
         <translation>Spotlight</translation>
     </message>
     <message>
-        <location filename="../src/scene/SceneActions.cpp" line="325"/>
+        <location filename="../src/scene/SceneActions.cpp" line="343"/>
         <source>Добавлен коллайдер «Авто»: тело сталкивается своей формой</source>
         <translation>Added collider “Auto”: the body faces its shape</translation>
     </message>
@@ -7373,7 +7385,7 @@ Sample </translation>
     <message>
         <location filename="../editor/MainWindowToolbar.cpp" line="319"/>
         <location filename="../editor/SceneBuilderForces.cpp" line="145"/>
-        <location filename="../src/scene/SceneActions.cpp" line="68"/>
+        <location filename="../src/scene/SceneActions.cpp" line="69"/>
         <source>Момент</source>
         <translation>Torque</translation>
     </message>

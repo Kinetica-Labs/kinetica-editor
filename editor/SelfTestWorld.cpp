@@ -5,6 +5,7 @@
 #include "WorldPanel.h"
 #include "InspectorWidgets.h"
 #include <QCheckBox>
+#include <QComboBox>
 #include <QDoubleSpinBox>
 #include <QLineEdit>
 #include <QLabel>
@@ -36,7 +37,15 @@ int runWorldTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& d
     search->setText("zzzz-no-such-setting"); pump(50);
     c.check(panel->findChild<QLabel*>("physicsNoMatch")->isVisible(), "empty physics search explains how to recover");
     search->clear(); pump(50);
+    auto* engine = panel->findChild<QComboBox*>("physicsEngine");
+    QStringList built;
+    for (const std::string& word : physicsEngines()) built << QString::fromStdString(word);
+    QStringList offered;
+    for (int i = 0; engine && i < engine->count(); ++i) offered << engine->itemText(i);
+    c.check(engine && engine->isVisible() && offered == built && engine->currentIndex() == 0,
+            "«Движок» offers the engines built in, the default first and chosen");
     panel->findChild<QPushButton*>("gravityPreset1")->click(); pump(100);
+    c.check(b.graph().world.physics.engine.empty(), "an edit of the world writes no engine word: the default is named by none");
     c.check(std::fabs(b.graph().world.gravity.y + 1.62f) < 1e-6f, "Moon preset writes actual gravity to the scene graph");
     b.undoAction()->trigger(); pump(100);
     c.check(std::fabs(b.graph().world.gravity.y + 9.81f) < 1e-6f, "Ctrl+Z restores the world's gravity and its widget");
