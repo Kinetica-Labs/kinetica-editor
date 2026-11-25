@@ -1,0 +1,184 @@
+# Kinetica scene: a chain of ten interlinked rings swinging from a bar onto a teapot, rings dropped over a peg, balls into mugs - non-convex bodies (convex parts) for comparing the engines
+world gravity 0 -9.81 0 size 4 3 4 duration 10
+entity "Пол"
+  object id 14 visible 1 locked 1
+  shape plane size 4 0.02 4 position 0 -0.011 0 rotation 0 0 0 color 0.2 0.21 0.25
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Перекладина"
+  object id 18 visible 1 locked 0
+  shape box size 0.8 0.04 0.04 position 0 1.85 0 rotation 0 0 0 color 0.6 0.62 0.68
+  rigid density 500 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Стойка"
+  object id 19 visible 1 locked 0
+  shape box size 0.06 1.88 0.06 position -0.42 0.94 0 rotation 0 0 0 color 0.5 0.52 0.58
+  rigid density 500 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Стойка"
+  object id 20 visible 1 locked 0
+  shape box size 0.06 1.88 0.06 position 0.42 0.94 0 rotation 0 0 0 color 0.5 0.52 0.58
+  rigid density 500 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Звено 1"
+  object id 21 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.8114327 -0.045962665 rotation 50 0 -90 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 2"
+  object id 22 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.7085867 -0.16852978 rotation 140 0 0 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 3"
+  object id 23 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.6057407 -0.2910969 rotation 50 0 -90 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 4"
+  object id 24 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.5028946 -0.413664 rotation 140 0 0 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 5"
+  object id 25 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.4000487 -0.5362311 rotation 50 0 -90 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 6"
+  object id 26 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.2972027 -0.6587982 rotation 140 0 0 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 7"
+  object id 27 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.1943567 -0.78136533 rotation 50 0 -90 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 8"
+  object id 28 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 1.0915107 -0.90393245 rotation 140 0 0 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 9"
+  object id 29 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 0.9886646 -1.0264995 rotation 50 0 -90 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Звено 10"
+  object id 30 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 0 0.8858186 -1.1490667 rotation 140 0 0 color 0.72 0.76 0.84
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Столбик"
+  object id 31 visible 1 locked 0
+  shape box size 0.06 0.6 0.06 position 1.2 0.3 -0.8 rotation 0 0 0 color 0.55 0.4 0.3
+  rigid density 500 friction 0.5 restitution 0.2 fixed 1 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кольцо 1"
+  object id 32 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 1.2 0.9 -0.8 rotation 0 0 0 color 1 0.78 0.25
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Кольцо 2"
+  object id 33 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 1.2 1.15 -0.8 rotation 0 0 0 color 1 0.78 0.25
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Кольцо 3"
+  object id 34 visible 1 locked 0
+  shape mesh file "../models/torus.obj" size 0.3 0.058 0.3 position 1.2 1.4 -0.8 rotation 0 0 0 color 1 0.78 0.25
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 16
+end
+entity "Кружка 1"
+  object id 35 visible 1 locked 0
+  shape mesh file "../models/mug.obj" size 0.3 0.2 0.24 position -0.9 0.1 1 rotation 0 0 0 color 0.85 0.3 0.25
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 24
+end
+entity "Шарик 1"
+  object id 36 visible 1 locked 0
+  shape sphere size 0.08 0.08 0.08 position -0.93 0.6 1 rotation 0 0 0 color 0.92 0.92 0.95
+  rigid density 2500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кружка 2"
+  object id 37 visible 1 locked 0
+  shape mesh file "../models/mug.obj" size 0.3 0.2 0.24 position -0.3 0.1 1 rotation 0 0 0 color 0.3 0.6 0.95
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 24
+end
+entity "Шарик 2"
+  object id 38 visible 1 locked 0
+  shape sphere size 0.08 0.08 0.08 position -0.33 0.75 1 rotation 0 0 0 color 0.92 0.92 0.95
+  rigid density 2500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кружка 3"
+  object id 39 visible 1 locked 0
+  shape mesh file "../models/mug.obj" size 0.3 0.2 0.24 position 0.3 0.1 1 rotation 0 0 0 color 0.35 0.8 0.45
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 24
+end
+entity "Шарик 3"
+  object id 40 visible 1 locked 0
+  shape sphere size 0.08 0.08 0.08 position 0.27 0.9 1 rotation 0 0 0 color 0.92 0.92 0.95
+  rigid density 2500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Кружка 4"
+  object id 41 visible 1 locked 0
+  shape mesh file "../models/mug.obj" size 0.3 0.2 0.24 position 0.9 0.1 1 rotation 0 0 0 color 0.95 0.85 0.3
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0 hulls 24
+end
+entity "Шарик 4"
+  object id 42 visible 1 locked 0
+  shape sphere size 0.08 0.08 0.08 position 0.87 1.05 1 rotation 0 0 0 color 0.92 0.92 0.95
+  rigid density 2500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind auto fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Чайник"
+  object id 43 visible 1 locked 0
+  shape mesh file "../models/teapot.obj" size 0.6 0.331 0.394 position 0 0.166 0.3 rotation 0 15 0 color 0.95 0.95 0.92
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+entity "Чайник 2"
+  object id 44 visible 1 locked 0
+  shape mesh file "../models/teapot.obj" size 0.6 0.331 0.394 position -1.1 0.166 -0.6 rotation 0 40 0 color 0.85 0.25 0.3
+  rigid density 500 friction 0.5 restitution 0.2 fixed 0 velocity 0 0 0 angular_velocity 0 0 0
+  collider kind convex_parts fit 1 size 0.2 0.2 0.2 offset 0 0 0 rotation 0 0 0
+end
+light "Прожектор 1"
+  object id 15 visible 1 locked 0
+  pose position -2.8 3.8 3 rotation 35.204517 13.595903 41.18592 color 1 0.88 0.7
+  kind spot intensity 3.6 range 14 cone 62 softness 30 shadows 1
+end
+light "Прожектор 2"
+  object id 16 visible 1 locked 0
+  pose position 2.6 3.4 -3.2 rotation -39.945442 16.244339 -42.878902 color 0.45 0.65 1
+  kind spot intensity 2.8 range 14 cone 62 softness 30 shadows 1
+end
+light "Солнце 1"
+  object id 17 visible 1 locked 0
+  pose position 1 4 2 rotation 29.437454 -4.3329754 -16.389538 color 0.8 0.86 1
+  kind sun intensity 0.5 range 5 cone 40 softness 10 shadows 1
+end
