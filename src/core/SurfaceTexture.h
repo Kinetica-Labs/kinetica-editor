@@ -18,12 +18,13 @@ struct SurfaceTexture {
     std::string heightFile; // empty: use the colour texture's brightness
     Real bumpHeight = 0; // apparent height range in metres; shading only, never displacement
     std::string normalFile; // a normal map - a picture of the surface's own normals, green up (OpenGL's way); shading only. Empty: none
+    bool uv = false;        // Image: the picture is laid by the mesh's own texture coordinates (an OBJ's vt), not by the world; a mesh with none keeps the world's way
     Matrix3x3 frame;
     Vector3 offset;
 };
 // The same in every word: a run of bodies of one surface is one state of the renderer, set once.
 inline bool operator==(const SurfaceTexture& a, const SurfaceTexture& b) {
-    return a.kind == b.kind && a.repeats == b.repeats && a.bumpHeight == b.bumpHeight && a.file == b.file && a.heightFile == b.heightFile && a.normalFile == b.normalFile &&
+    return a.kind == b.kind && a.repeats == b.repeats && a.bumpHeight == b.bumpHeight && a.file == b.file && a.heightFile == b.heightFile && a.normalFile == b.normalFile && a.uv == b.uv &&
            std::memcmp(&a.frame, &b.frame, sizeof a.frame) == 0 && std::memcmp(&a.offset, &b.offset, sizeof a.offset) == 0;
 }
 } // namespace ke

@@ -19,6 +19,11 @@ struct TriMesh {
     // is one a triangle (an operation that remakes the triangles drops it).
     std::vector<Vector3> triangleColors;
     bool coloured() const { return !triangleColors.empty() && triangleColors.size() == triangles.size(); }
+    // A texture coordinate a triangle corner (three a triangle, in the triangles' order), an OBJ's "vt" - u right, v up, as OBJ and
+    // OpenGL have them: a picture laid by the model's own unwrapping. Empty: none. Kept by weld and removeDegenerate, turned with a
+    // flipped winding; a viewer uses it only when there is one a corner (an operation that remakes the triangles drops it).
+    std::vector<std::array<float, 2>> uvs;
+    bool textured() const { return !uvs.empty() && uvs.size() == 3 * triangles.size(); }
 
     bool empty() const { return triangles.empty(); }
     AABB bounds() const;

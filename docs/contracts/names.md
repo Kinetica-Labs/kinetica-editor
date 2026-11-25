@@ -739,6 +739,7 @@ by Kinetica X, newer than this program (Y)…».
 | `tz` | степень | сдвиг по z | stable |  |
 | `unsprung` | tyre | неподрессоренная масса, кг | stable |  |
 | `upper` | limit | верхний предел, рад или м | stable |  |
+| `uv` | texture | картинка кладётся по UV самой сетки (vt в OBJ), а не по миру | testing |  |
 | `value` | action; часть | ничего не ведёт: значение читает плагин в такте (пульт - среди датчиков); `target` и `speed` - чьё и в каком масштабе; часть секвенции - ключ поля: time, values, interp | stable |  |
 | `values` | value | числа поля в ключе секвенции | stable |  |
 | `vector2` | action | вид действия: два числа x, y | stable |  |

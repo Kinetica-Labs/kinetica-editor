@@ -14,6 +14,7 @@ import struct
 import sys
 import tempfile
 import unittest
+import zlib
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
@@ -71,6 +72,40 @@ def cube_glb(path):
         f.write(struct.pack("<II", len(blob), 0x004E4942) + blob)
 
 
+def quad_glb(path, coordinates=True):
+    """A unit quad (4 corners, 2 triangles) with a 2 x 2 PNG as its material's base colour picture, embedded in the file; its
+    corners' coordinates are the picture's corners as glTF writes them (v runs down from the top). `coordinates` False: none."""
+    corners = [(-0.5, -0.5, 0.0), (0.5, -0.5, 0.0), (0.5, 0.5, 0.0), (-0.5, 0.5, 0.0)]
+    rows = b"".join(b"\x00" + bytes([255, 0, 0, 0, 0, 255] * 1) for _ in range(2))  # 2 x 2, RGB: red, blue
+    chunk = lambda kind, data: struct.pack(">I", len(data)) + kind + data + struct.pack(">I", zlib.crc32(kind + data))
+    png = b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", 2, 2, 8, 2, 0, 0, 0)) + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b"")
+    blob = b"".join(struct.pack("<3f", *c) for c in corners)                       # 0: 48 bytes
+    blob += struct.pack("<6H", 0, 1, 2, 0, 2, 3)                                    # 48: 12 bytes
+    blob += b"".join(struct.pack("<2f", u, v) for u, v in ((0, 1), (1, 1), (1, 0), (0, 0)))  # 60: 32 bytes
+    blob += png                                                                     # 92
+    attributes = {"POSITION": 0, **({"TEXCOORD_0": 2} if coordinates else {})}
+    doc = {
+        "asset": {"version": "2.0"}, "scene": 0, "scenes": [{"nodes": [0]}],
+        "nodes": [{"name": "Quad", "mesh": 0}],
+        "meshes": [{"primitives": [{"attributes": attributes, "indices": 1, "material": 0}]}],
+        "materials": [{"pbrMetallicRoughness": {"baseColorTexture": {"index": 0}}}],
+        "textures": [{"source": 0}], "images": [{"mimeType": "image/png", "bufferView": 3}],
+        "buffers": [{"byteLength": len(blob)}],
+        "bufferViews": [{"buffer": 0, "byteOffset": 0, "byteLength": 48}, {"buffer": 0, "byteOffset": 48, "byteLength": 12},
+                        {"buffer": 0, "byteOffset": 60, "byteLength": 32}, {"buffer": 0, "byteOffset": 92, "byteLength": len(png)}],
+        "accessors": [{"bufferView": 0, "componentType": 5126, "count": 4, "type": "VEC3", "min": [-0.5, -0.5, 0], "max": [0.5, 0.5, 0]},
+                      {"bufferView": 1, "componentType": 5123, "count": 6, "type": "SCALAR"},
+                      {"bufferView": 2, "componentType": 5126, "count": 4, "type": "VEC2"}],
+    }
+    text = json.dumps(doc).encode("utf-8")
+    text += b" " * (-len(text) % 4)
+    blob += b"\0" * (-len(blob) % 4)
+    with open(path, "wb") as f:
+        f.write(struct.pack("<4sII", b"glTF", 2, 12 + 8 + len(text) + 8 + len(blob)))
+        f.write(struct.pack("<II", len(text), 0x4E4F534A) + text)
+        f.write(struct.pack("<II", len(blob), 0x004E4942) + blob)
+
+
 def block(text, kind, name):
     """The lines of one block of the scene's text."""
     found = re.search(rf'^{kind} "{re.escape(name)}"\n(.*?)^end$', text, re.S | re.M)
@@ -113,6 +148,37 @@ class Gltf(unittest.TestCase):
             self.assertIn(f"track object {ids['Root']}", lift)                            # the node that rises, not the cube
             self.assertEqual([numbers(k, "position") for k in keys], [[0, 1, 0], [0, 2, 0]])
             self.assertEqual([numbers(k, "time", 1)[0] for k in keys], [0, 1])
+
+    def test_a_picture_laid_by_the_meshs_own_coordinates(self):
+        """The material's base colour picture comes written beside the meshes, the OBJ gets vt (v turned up, as an OBJ has it), the
+        shape a texture line with uv 1; with no coordinates the picture is not carried and the note says so."""
+        with tempfile.TemporaryDirectory() as folder, ke.Scene() as scene:
+            path = os.path.join(folder, "quad.glb")
+            quad_glb(path)
+            answer = plugin().load(scene, path)
+            text = scene.ed.scene_get()["text"]
+            quad = block(text, "entity", "Quad")
+            texture = next(line for line in quad.splitlines() if line.strip().startswith("texture"))
+            picture = re.search(r'file "([^"]+)"', texture).group(1)
+            shape = next(line for line in quad.splitlines() if line.strip().startswith("shape"))
+            with open(re.search(r'file "([^"]+)"', shape).group(1), encoding="utf-8") as f:
+                mesh = f.read().split("\n")
+            with open(picture, "rb") as f:
+                head = f.read(8)
+            self.assertIn("kind image", texture)
+            self.assertTrue(texture.rstrip().endswith("uv 1"), texture)
+            self.assertEqual(head, b"\x89PNG\r\n\x1a\n")                                      # the picture, as the file held it
+            self.assertEqual(os.path.dirname(picture), os.path.join(folder, "quad-meshes"))
+            self.assertEqual([l for l in mesh if l.startswith("vt ")], ["vt 0 0", "vt 1 0", "vt 1 1", "vt 0 1"])  # glTF's v down, OBJ's up
+            self.assertIn("f 1/1 2/2 3/3", mesh)
+            self.assertNotIn("текстур", answer.get("note", "") + "")
+        with tempfile.TemporaryDirectory() as folder, ke.Scene() as scene:
+            path = os.path.join(folder, "bare.glb")
+            quad_glb(path, coordinates=False)
+            answer = plugin().load(scene, path)
+            quad = block(scene.ed.scene_get()["text"], "entity", "Quad")
+            self.assertNotIn("texture kind", quad)
+            self.assertIn("координат", answer["note"])
 
 
 if __name__ == "__main__":

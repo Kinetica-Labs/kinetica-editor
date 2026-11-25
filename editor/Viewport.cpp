@@ -109,7 +109,7 @@ void Viewport::buildMeshShader(const QString& slotKinds) {
     if (!defines.isEmpty()) defines = "#define KE_SHADOWS\n" + defines;
     meshProg_.removeAllShaders();
     buildProgram(meshProg_, glslHeader_ + shaderSource("mesh.vert"), glslHeader_ + defines + shaderSource("mesh.frag"), "mesh",
-                 {"aPos", "aNormal", "aColor"});
+                 {"aPos", "aNormal", "aColor", "aUV"});
 }
 
 void Viewport::buildShaders() {
@@ -541,8 +541,8 @@ Viewport::GpuMesh& Viewport::gpuMesh(const std::shared_ptr<const ke::TriMesh>& m
     if (g.vao) return g;
     g.mesh = m;
     const std::vector<Vector3> normals = meshNormals(*m, smooth);
-    const bool coloured = m->coloured();
-    const int stride = coloured ? 9 : 6;
+    const bool coloured = m->coloured(), textured = m->textured();
+    const int stride = (coloured ? 9 : 6) + (textured ? 2 : 0);
     std::vector<float> v;
     v.reserve(m->triangles.size() * 3 * size_t(stride));
     for (size_t t = 0; t < m->triangles.size(); ++t)
@@ -551,6 +551,7 @@ Viewport::GpuMesh& Viewport::gpuMesh(const std::shared_ptr<const ke::TriMesh>& m
             const Vector3& n = normals[3 * t + size_t(k)];
             v.insert(v.end(), {p.x, p.y, p.z, n.x, n.y, n.z});
             if (coloured) v.insert(v.end(), {m->triangleColors[t].x, m->triangleColors[t].y, m->triangleColors[t].z});
+            if (textured) v.insert(v.end(), {m->uvs[3 * t + size_t(k)][0], m->uvs[3 * t + size_t(k)][1]});
         }
     g.vao = std::make_unique<QOpenGLVertexArrayObject>();
     g.vao->create();
@@ -566,6 +567,10 @@ Viewport::GpuMesh& Viewport::gpuMesh(const std::shared_ptr<const ke::TriMesh>& m
     if (coloured) {
         glEnableVertexAttribArray(2);
         glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, stride * sizeof(float), reinterpret_cast<void*>(6 * sizeof(float)));
+    }
+    if (textured) {
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride * sizeof(float), reinterpret_cast<void*>((coloured ? 9 : 6) * sizeof(float)));
     }
     g.vao->release();
     g.count = int(v.size() / size_t(stride));
@@ -593,22 +598,25 @@ void Viewport::drawBodies(const QMatrix4x4& view, const QMatrix4x4& proj) {
     meshProg_.setUniformValue("uView", view);
     meshProg_.setUniformValue("uProj", proj);
     meshProg_.setUniformValue("uAlpha", 1.0f);
-    const int uModel = meshProg_.uniformLocation("uModel"), uColor = meshProg_.uniformLocation("uColor"), uVertexColor = meshProg_.uniformLocation("uVertexColor");
+    const int uModel = meshProg_.uniformLocation("uModel"), uColor = meshProg_.uniformLocation("uColor"), uVertexColor = meshProg_.uniformLocation("uVertexColor"),
+              uUvMap = meshProg_.uniformLocation("uUvMap");
     const ke::SurfaceTexture* surface = nullptr;
     const GpuMesh* bound = nullptr;
-    int coloured = -1;
+    int coloured = -1, uvMapped = -1;
     for (const ke::Frame::Body& b : snap_->bodies) {
         if (!b.mesh || b.opacity < 1 || (b.marker && !marksVisible_)) continue; // a mark of the editor - an IK goal, a camera's target - is not filmed
         if (!surface || !(b.texture == *surface)) setSurfaceTexture(b.texture), surface = &b.texture;
         meshProg_.setUniformValue(uModel, modelMatrix(b));
         meshProg_.setUniformValue(uColor, qv(b.color) * sleepDim(b));
         if (const int c = b.mesh->coloured() ? 1 : 0; c != coloured) meshProg_.setUniformValue(uVertexColor, coloured = c);
+        if (const int u = b.texture.uv && b.texture.kind == ke::TextureKind::Image && b.mesh->textured() ? 1 : 0; u != uvMapped) meshProg_.setUniformValue(uUvMap, uvMapped = u);
         const GpuMesh& g = gpuMesh(b.mesh, b.smooth);
         if (&g != bound) g.vao->bind(), bound = &g;
         glDrawArrays(GL_TRIANGLES, 0, g.count);
     }
     if (bound) bound->vao->release();
     meshProg_.setUniformValue("uVertexColor", 0);
+    meshProg_.setUniformValue("uUvMap", 0);
 }
 
 // See-through bodies (an IK goal around the hand it drives): after everything opaque, blended with no

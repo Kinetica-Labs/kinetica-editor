@@ -5,6 +5,8 @@
 #include "core/Mesh.h"
 #include "spatial/BVH.h"
 
+#include <filesystem>
+#include <fstream>
 #include <random>
 
 void testMath() {
@@ -117,4 +119,39 @@ void testBVH() {
     sb.build(sp);
     bool ok = sb.raycast({-5, 0.01_r, 0.02_r}, {1, 0, 0}, 100, hit);
     CHECK(ok && std::fabs(hit.t - 4.0_r) < 0.01_r, "ray t=%f", hit.t);
+}
+
+// A model's own texture coordinates: an OBJ's "vt" come with its faces - a quad split into two triangles gives each corner its own; a
+// triangle that collapses takes its coordinates with it; a flipped winding turns them with the corners; a face with a corner of
+// none leaves the mesh with none (a picture laid on a part of it would be laid wrong).
+void testMeshUv() {
+    const std::string dir = std::filesystem::temp_directory_path().string();
+    const auto load = [&](const char* name, const char* text, TriMesh& mesh) {
+        const std::string path = dir + "/" + name;
+        std::ofstream(path) << text;
+        std::string error;
+        const bool ok = loadMesh(path, mesh, error);
+        std::filesystem::remove(path);
+        return ok;
+    };
+    const auto uv = [](float u, float v) { return std::array<float, 2>{u, v}; }; // a function: a macro argument cannot hold a bare comma
+    const char* square = "v 0 0 0\nv 1 0 0\nv 1 1 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 1 1\nvt 0 1\n";
+    TriMesh quad;
+    CHECK(load("ke_uv_quad.obj", (std::string(square) + "f 1/1 2/2 3/3 4/4\n").c_str(), quad) && quad.textured() && quad.triangles.size() == 2 &&
+              quad.uvs.size() == 6, "a quad with vt loads as two triangles, six corners");
+    if (quad.textured()) {
+        const bool right = quad.uvs[0] == uv(0, 0) && quad.uvs[1] == uv(1, 0) && quad.uvs[2] == uv(1, 1) &&
+                           quad.uvs[3] == uv(0, 0) && quad.uvs[4] == uv(1, 1) && quad.uvs[5] == uv(0, 1);
+        CHECK(right, "each corner of the fan has its own coordinate");
+        quad.flipWinding();
+        CHECK(quad.textured() && quad.uvs[1] == uv(1, 1) && quad.uvs[2] == uv(1, 0), "a flipped winding turns the corners' coordinates");
+    }
+    TriMesh collapsed;
+    CHECK(load("ke_uv_collapsed.obj", (std::string(square) + "f 1/1 2/2 3/3\nf 1/1 1/1 2/2\n").c_str(), collapsed) && collapsed.triangles.size() == 1 &&
+              collapsed.textured() && collapsed.uvs.size() == 3, "a collapsed triangle takes its coordinates with it");
+    TriMesh partial;
+    CHECK(load("ke_uv_partial.obj", (std::string(square) + "f 1/1 2/2 3/3\nf 1 3 4\n").c_str(), partial) && partial.triangles.size() == 2 && !partial.textured(),
+          "a face with a corner of no coordinate leaves the mesh without any");
+    TriMesh plain;
+    CHECK(load("ke_uv_plain.obj", "v 0 0 0\nv 1 0 0\nv 0 1 0\nf 1 2 3\n", plain) && !plain.textured() && plain.uvs.empty(), "an OBJ with no vt has none");
 }

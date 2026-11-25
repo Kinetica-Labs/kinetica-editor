@@ -48,6 +48,8 @@ void TriMesh::translate(const Vector3& t) {
 
 void TriMesh::flipWinding() {
     for (auto& t : triangles) std::swap(t[1], t[2]);
+    if (textured())
+        for (size_t t = 0; t < triangles.size(); ++t) std::swap(uvs[3 * t + 1], uvs[3 * t + 2]);
 }
 
 void TriMesh::weld(Real eps) {
@@ -89,7 +91,8 @@ void TriMesh::weld(Real eps) {
 void TriMesh::removeDegenerate(Real areaEps) {
     std::vector<std::array<uint32_t, 3>> kept;
     std::vector<Vector3> colours;
-    const bool keepColours = coloured();
+    std::vector<std::array<float, 2>> corners;
+    const bool keepColours = coloured(), keepUvs = textured();
     kept.reserve(triangles.size());
     for (size_t i = 0; i < triangles.size(); ++i) {
         const auto& t = triangles[i];
@@ -98,9 +101,12 @@ void TriMesh::removeDegenerate(Real areaEps) {
         if (length2(c) <= areaEps * areaEps) continue;
         kept.push_back(t);
         if (keepColours) colours.push_back(triangleColors[i]);
+        if (keepUvs) corners.insert(corners.end(), uvs.begin() + std::ptrdiff_t(3 * i), uvs.begin() + std::ptrdiff_t(3 * i + 3));
     }
     triangles.swap(kept);
     if (keepColours) triangleColors.swap(colours);
+    if (keepUvs) uvs.swap(corners);
+    else uvs.clear();
 }
 
 void TriMesh::orientOutward() {
@@ -213,7 +219,9 @@ static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
     std::string line;
     std::vector<int> face;
     std::vector<Vector3> vertexColours; // "v x y z r g b": a colour a vertex, a triangle takes its first corner's
-    bool coloured = true;
+    std::vector<std::array<float, 2>> coordinates; // "vt u v"
+    std::vector<int> faceUv;                       // a face's texture-coordinate indices (-1: none), from "v/vt/vn"
+    bool coloured = true, textured = true;
     while (std::getline(f, line)) {
         if (line.size() < 2) continue;
         if (line[0] == 'v' && line[1] == ' ') {
@@ -223,8 +231,14 @@ static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
             coloured = coloured && bool(ss >> c.x >> c.y >> c.z);
             out.positions.push_back(p);
             vertexColours.push_back(c);
+        } else if (line[0] == 'v' && line[1] == 't' && line.size() > 2 && line[2] == ' ') {
+            float u = 0, v = 0;
+            std::istringstream ss(line.substr(3));
+            ss >> u >> v;
+            coordinates.push_back({u, v});
         } else if (line[0] == 'f' && line[1] == ' ') {
             face.clear();
+            faceUv.clear();
             std::istringstream ss(line.substr(2));
             std::string tok;
             while (ss >> tok) {
@@ -233,11 +247,24 @@ static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
                 else idx -= 1;
                 if (idx < 0 || idx >= int(out.positions.size())) { err = "bad face index"; return false; }
                 face.push_back(idx);
+                int t = -1; // the texture coordinate: the number between the slashes
+                if (const size_t slash = tok.find('/'); slash != std::string::npos && slash + 1 < tok.size() && tok[slash + 1] != '/') {
+                    t = std::atoi(tok.c_str() + slash + 1);
+                    t = t < 0 ? int(coordinates.size()) + t : t - 1;
+                    if (t < 0 || t >= int(coordinates.size())) t = -1;
+                }
+                faceUv.push_back(t);
             }
-            for (size_t i = 1; i + 1 < face.size(); ++i)
+            for (size_t i = 1; i + 1 < face.size(); ++i) {
                 out.triangles.push_back({uint32_t(face[0]), uint32_t(face[i]), uint32_t(face[i + 1])});
+                for (size_t corner : {size_t(0), i, i + 1}) {
+                    textured = textured && faceUv[corner] >= 0;
+                    out.uvs.push_back(faceUv[corner] >= 0 ? coordinates[size_t(faceUv[corner])] : std::array<float, 2>{0, 0});
+                }
+            }
         }
     }
+    if (!textured || out.triangles.empty()) out.uvs.clear(); // some corner has none: a picture would be laid wrong, so none is
     if (coloured && !out.positions.empty())
         for (const auto& t : out.triangles) out.triangleColors.push_back(vertexColours[t[0]]);
     return true;

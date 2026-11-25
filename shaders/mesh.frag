@@ -4,6 +4,8 @@
 in vec3 vN;
 in vec3 vPosV;
 in vec3 vColor;
+in vec2 vUV;
+uniform int uUvMap; // 1: a picture (uTextureKind 2) is laid by the mesh's own UV, not by the world
 in vec3 vMaterialPos, vMaterialNormal;
 uniform int uTextureKind;
 uniform float uTextureRepeats;
@@ -61,6 +63,7 @@ vec3 surfacePattern() {
     vec3 n = pow(abs(vMaterialNormal), vec3(8.0));
     n /= max(n.x + n.y + n.z, 1e-8);
     vec3 p = vMaterialPos * uTextureRepeats;
+    if (uTextureKind == 2 && uUvMap == 1) return texture(uAlbedo, vUV).rgb;
     if (uTextureKind == 2)
         return n.x * texture(uAlbedo, p.zy + vec2(0.5)).rgb + n.y * texture(uAlbedo, p.xz + vec2(0.5)).rgb + n.z * texture(uAlbedo, p.xy + vec2(0.5)).rgb;
     float g = 0.0;

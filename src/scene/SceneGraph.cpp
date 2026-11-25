@@ -347,6 +347,7 @@ static void saveTexture(std::ostringstream& o, const SurfaceTexture& t) {
       << " repeats " << num(t.repeats) << " file \"" << t.file << "\"";
     if (t.bumpHeight > 0) o << " bump " << num(t.bumpHeight) << " height_file \"" << t.heightFile << "\"";
     if (!t.normalFile.empty()) o << " normal_file \"" << t.normalFile << "\""; // written when set: a file without it reads everywhere
+    if (t.uv) o << " uv 1"; // written when set, as normal_file is
     o << "\n";
 }
 
@@ -672,7 +673,6 @@ static const Key<WorldSettings> kWorldKeys[] = {
     {"record_from", "number 0..86400; before duration", "s", [](LineReader& r, WorldSettings& w, std::string&) { return within(r, w.recordFrom, 0, 86400); }},
 };
 static const Key<PhysicsSettings> kPhysicsKeys[] = {
-    {"substeps", "count 1..64", "", [](LineReader& r, PhysicsSettings& p, std::string&) { return r.count(p.substeps, 1, 64); }},
     {"engine", "word: one of world_get's engines", "", [](LineReader& r, PhysicsSettings& p, std::string& why) {
         const std::vector<std::string>& built = physicsEngines();
         if (!r.text(p.engine)) return false;
@@ -681,6 +681,7 @@ static const Key<PhysicsSettings> kPhysicsKeys[] = {
         for (const std::string& e : built) list += (list.empty() ? "" : ", ") + e;
         return why = "engine " + p.engine + ": no such physics engine here; the engines: " + list, false;
     }},
+    {"substeps", "count 1..64", "", [](LineReader& r, PhysicsSettings& p, std::string&) { return r.count(p.substeps, 1, 64); }},
     {"contact_hertz", "number above 0, to 10000", "Hz", [](LineReader& r, PhysicsSettings& p, std::string&) { return above(r, p.contactHertz, 0, 10000); }},
     {"contact_damping", "number 0..100", "", [](LineReader& r, PhysicsSettings& p, std::string&) { return within(r, p.contactDamping, 0, 100); }},
     {"joint_hertz", "number above 0, to 10000", "Hz", [](LineReader& r, PhysicsSettings& p, std::string&) { return above(r, p.jointHertz, 0, 10000); }},
@@ -726,6 +727,7 @@ static const Key<SurfaceTexture> kTextureKeys[] = {
     {"file", "text: a picture, from the scene's folder", "", text<SurfaceTexture, &SurfaceTexture::file>},
     {"height_file", "text: a height map", "", text<SurfaceTexture, &SurfaceTexture::heightFile>},
     {"normal_file", "text: a normal map, green up", "", text<SurfaceTexture, &SurfaceTexture::normalFile>},
+    {"uv", "flag: an image laid by the mesh's own UV (an OBJ's vt)", "", flag<SurfaceTexture, &SurfaceTexture::uv>},
     {"bump", "number 0..0.05", "m", [](LineReader& r, SurfaceTexture& t, std::string&) { return within(r, t.bumpHeight, 0, 0.05_r); }},
     {"repeats", "number above 0, to 10000", "1/m", [](LineReader& r, SurfaceTexture& t, std::string&) { return above(r, t.repeats, 0, 10000); }},
 };
