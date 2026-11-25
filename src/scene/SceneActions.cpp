@@ -8,6 +8,7 @@
 #include "math/ElementaryFunctions.h"
 
 #include <algorithm>
+#include <string>
 
 namespace ke {
 
@@ -154,7 +155,7 @@ uint32_t addShape(SceneGraph& g, ShapeKind shape) {
     e.color = kPalette[g.entities.size() % 7];
     if (shape == ShapeKind::Plane) {
         e.size = Vector3(3.0_r, 0.02_r, 3.0_r);
-        e.position = Vector3(0.0_r, 0.03_r, 0.0_r); // just above the floor
+        e.position = Vector3(0.0_r, 0.011_r, 0.0_r); // lying on the floor (its top at y = 0), a millimetre over it
         e.color = Vector3(0.62_r, 0.64_r, 0.68_r);
     } else {
         e.position = freeSpot(g);
@@ -162,6 +163,22 @@ uint32_t addShape(SceneGraph& g, ShapeKind shape) {
     }
     g.entities.push_back(e);
     return e.id;
+}
+
+uint32_t importModel(SceneGraph& g, const std::string& file, std::string& error) {
+    Entity probe;
+    probe.shape = ShapeKind::Mesh, probe.meshFile = file, probe.size = Vector3(1.0_r);
+    const TriMesh m = entityLocalMesh(probe, g.baseDirectory, &error);
+    if (m.triangles.empty()) return error = error.empty() ? "the file " + file + " gives no triangles" : error, 0;
+    const Vector3 extent = m.bounds().extent();
+    const uint32_t id = addShape(g, ShapeKind::Mesh); // a free spot, as any new shape
+    Entity& e = *std::find_if(g.entities.begin(), g.entities.end(), [id](const Entity& o) { return o.id == id; });
+    e.meshFile = file;
+    e.size = extent / std::max(maxComp(extent), Real(1e-6)); // its largest side 1 m, proportions kept
+    const std::string base = file.substr(file.find_last_of("/\\") + 1); // npos + 1: the whole of a bare name
+    e.name = base.substr(0, base.find_last_of('.'));                     // its extension off
+    e.position.y = 0.5_r * e.size.y; // standing on the floor
+    return id;
 }
 
 uint32_t addLight(SceneGraph& g, LightKind kind, const Vector3& at) {

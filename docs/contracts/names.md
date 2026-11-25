@@ -107,7 +107,7 @@
 Второе слово имени новой операции. Стандартные - как в API, которые живут десятилетиями: `get` - одно, `list` -
 много, `add` - создать, `set` - изменить, `remove` и `delete` - убрать. Остальные - действия своих областей.
 
-`add` `aim` `attach` `check` `clear` `configure` `connect` `delete` `describe` `disconnect` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `type` `undo` `ungroup`
+`add` `aim` `attach` `check` `clear` `configure` `connect` `delete` `describe` `disconnect` `draw` `duplicate` `fire` `follow` `frame` `get` `grip` `group` `import` `list` `look` `measure` `move` `new` `note` `open` `pause` `play` `preview` `project` `put` `quit` `reach` `read` `record` `redo` `reload` `remove` `restore` `run` `save` `scale` `scan` `seek` `set` `show` `snap` `step` `stop` `suggest` `tag` `trigger` `turn` `type` `undo` `ungroup`
 
 ## 6. Словарь аргументов
 
@@ -317,7 +317,7 @@
 
 ### testing
 
-`assistant_connect` `assistant_disconnect` `assistant_list`
+`assistant_connect` `assistant_disconnect` `assistant_list` `scene_import`
 
 ### obsolete
 

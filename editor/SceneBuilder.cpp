@@ -155,33 +155,6 @@ void SceneBuilder::addEntity(ShapeKind shape, const std::function<void(Entity&)>
     codeAction("scene_add", QString("scene.add(\"%1\")").arg(shapeWord(shape)), {{"shape", shapeWord(shape)}}, false);
 }
 
-bool SceneBuilder::importModel(const QString& path, QString& error) {
-    Entity probe;
-    probe.shape = ShapeKind::Mesh;
-    probe.meshFile = path.toStdString();
-    probe.size = Vector3(1.0f);
-    std::string err;
-    const TriMesh m = entityLocalMesh(probe, graph_.baseDirectory, &err);
-    if (m.triangles.empty()) {
-        error = err.empty() ? QString(uiText("Kinetica", "в файле нет треугольников")) : QString::fromStdString(err);
-        return false;
-    }
-    const Vector3 extent = m.bounds().extent();
-    remember();
-    const uint32_t id = coreEdit([&](SceneGraph& g) { return ke::addShape(g, ShapeKind::Mesh); }); // a free spot, as any new shape
-    Entity& e = *entityById(id);
-    e.meshFile = probe.meshFile;
-    e.size = extent / std::max(maxComp(extent), 1e-6f); // its largest side 1 m, proportions kept
-    e.name = QFileInfo(path).completeBaseName().toStdString();
-    e.position.y = 0.5f * e.size.y; // standing on the floor
-    setSelected(id);
-    refreshList();
-    applyEdit(id);
-    frameObjects();
-    return true;
-}
-
-
 // The eye and the lock of any object (the list, the context menu).
 void SceneBuilder::toggleVisible(uint32_t id) {
     if (!objectById(id)) return;

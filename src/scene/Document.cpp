@@ -54,7 +54,7 @@ SceneGraph floorScene(uint32_t floorId) {
     floor.name = "Пол";
     floor.shape = ShapeKind::Plane;
     floor.size = Vector3(g.world.size.x, 0.02_r, g.world.size.z);
-    floor.position = Vector3(0.0_r, 0.01_r, 0.0_r);
+    floor.position = Vector3(0.0_r, -0.01_r, 0.0_r); // its top at y = 0: what stands on the floor stands at half its height
     floor.color = Vector3(0.52_r, 0.55_r, 0.60_r);
     floor.collider.enabled = true;
     floor.locked = true;

@@ -482,7 +482,7 @@ void sceneShots(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& dir
     QString error;
     if (!b.openFile(MainWindow::scenesDir() + "/robot-arm.kscene", error)) b.newScene();
     for (int k = 0; k < 2; ++k) b.createActions()[size_t(k)]->trigger();
-    b.importModel(MainWindow::examplesDir() + "/models/house.obj", error);
+    dynamic_cast<MainWindow&>(w).operators()->runNow("scene_import", {{"file", MainWindow::examplesDir() + "/models/house.obj"}});
     pump(500);
     windowShot(w).save(dir + "/edit.png");
     b.play();

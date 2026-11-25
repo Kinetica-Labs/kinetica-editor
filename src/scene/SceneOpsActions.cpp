@@ -82,6 +82,19 @@ bool addShapeOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     return true;
 }
 
+// «Файл → Импорт…» of a model: its file a new shape, standing on the floor, its largest side 1 m; position puts it.
+bool importOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
+    Vector3 position;
+    bool at = false;
+    if (!optionalVector(a, "position", position, at, e)) return false;
+    const uint32_t id = importModel(g, a["file"].text(""), e);
+    if (!id) return false;
+    Entity& x = *std::find_if(g.entities.begin(), g.entities.end(), [id](const Entity& o) { return o.id == id; });
+    if (at) x.position = position;
+    merge(r, answerOf({id}));
+    return r.set("size", vectorValue(x.size)), true;
+}
+
 bool addLightOp(SceneGraph& g, const Value& a, Value& r, std::string& e) {
     const int kind = wordIndex(a["kind"].text("sun"), kLights);
     if (kind < 0) return e = "kind is sun, point or spot", false;
@@ -480,6 +493,12 @@ std::vector<SceneOp> actionSceneOps() {
                       "body's kg/m³ (500 unless given; a light crate 150). A cylinder's axis is its own y",
          "{shape: box|sphere|cylinder|cone|plane, name?: str, position?: [x,y,z], size?: [x,y,z], role?: rigid|collider, fixed?: bool, kinematic?: bool, density?: number}",
          {}, addShapeOp},
+        {"scene_import", "A model's file (OBJ, STL) as a new shape, as «Файл → Импорт…» brings it: named after the file, its largest "
+                         "side 1 m with its proportions kept (scene_set shape size, or scene_scale, to change it), standing on the floor "
+                         "over a free spot; position puts its centre. A geometry only: its role (scene_role) and collider "
+                         "(scene_collider - convex_parts for any shape that moves) come after. A relative path is from where the "
+                         "program started",
+         "{file: str, position?: [x,y,z]}", {}, importOp},
         {"scene_add_light", "A light as the menu adds it: the sun high at a slant, a lamp or a spot over `at` (else the scene's centre); "
                             "with `position` it stands there shining at `target` (else at `at`)",
          "{kind: sun|point|spot, at?: [x,y,z], position?: [x,y,z], target?: [x,y,z]}", {}, addLightOp},

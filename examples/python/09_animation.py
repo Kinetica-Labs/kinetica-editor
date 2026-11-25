@@ -16,8 +16,8 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import kinetica as ke  # noqa: E402
 
 with ke.Scene() as scene:
-    crate = scene.add("box", name="Crate", position=(0.5, 0.12, 0), role="rigid")
-    pusher = scene.add("box", name="Pusher", position=(0, 0.12, 0), size=(0.2, 0.2, 0.4), role="rigid")
+    crate = scene.add("box", name="Crate", position=(0.5, 0.1, 0), role="rigid")
+    pusher = scene.add("box", name="Pusher", position=(0, 0.1, 0), size=(0.2, 0.2, 0.4), role="rigid")
     camera = scene.add_camera(eye=(3, 1.5, 3), target=(0.8, 0.2, 0))
     lamp = scene.add_light("point", position=(-1.5, 1.0, 0.6))
     lamp.intensity, lamp.shadows = 3, True

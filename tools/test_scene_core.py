@@ -41,7 +41,7 @@ def falling(scene):
 class SceneCore(unittest.TestCase):
     def test_hello(self):
         with ke.Scene() as scene:
-            self.assertAlmostEqual(height(scene, falling(scene)), 0.12, delta=0.02)
+            self.assertAlmostEqual(height(scene, falling(scene)), 0.10, delta=0.02)  # a 0.2 m cube on the floor, whose top is y = 0
 
     def test_the_agent_guides_batches_run_as_written(self):
         """The scene_batch examples a model is given (docs/agent-guide.md, docs/agent/arm.md) build what they say, verbatim;

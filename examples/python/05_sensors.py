@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."
 import kinetica as ke  # noqa: E402
 
 with ke.Scene() as scene:
-    box = scene.add("box", position=(0, 0.12, 0), role="rigid")  # a cube of 0.2 m standing on the floor
+    box = scene.add("box", position=(0, 0.1, 0), role="rigid")  # a cube of 0.2 m standing on the floor (its top at y = 0)
     scene.add("box", position=(1.6, 0.5, 0), size=(0.1, 1, 1), role="collider")  # a wall: its near face at x = 1.55
     imu = box.add_imu(face="+y")  # flat on the top: its z points up
     sonar = box.add_sonar(face="+x")  # on the front face, at x = 0.1, looking at the wall

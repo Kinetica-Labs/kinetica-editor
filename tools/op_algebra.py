@@ -42,6 +42,7 @@ RECIPES = {
     "scene_set": lambda p: {"id": E(p), "line": "shape", "key": "color", "values": [0.9, 0.2, 0.2]},
     "world_set": lambda p: {"line": "world", "key": "gravity", "values": [0, -5, 0]},
     "scene_put": lambda p: {"block": 'entity "Вставка"\n  object id 0\n  shape box size 0.1 0.1 0.1 position 0 2 0 rotation 0 0 0 color 0.5 0.5 0.5\nend\n'},
+    "scene_import": lambda p: {"file": os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "examples", "models", "house.obj")},
     "component_set": lambda p: {"id": E(p, 1), "type": "probe.mark", "values": {}},
     "component_remove": lambda p: {"id": E(p), "type": "probe.mark"},
     "assembly_add": lambda p: {"name": "Рука UR5e", "position": [-2, 0, 0]},

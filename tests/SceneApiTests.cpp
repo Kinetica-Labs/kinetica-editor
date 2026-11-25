@@ -378,6 +378,16 @@ void testSceneApiHyperOperations() {
     bool found = false;
     for (const Value& a : listed["assemblies"].items()) found = found || a["name"].text() == "Спорткар";
     CHECK(found, "assembly_list names the built-in sports car");
+    // «Файл → Импорт…» as an operation: the model a new shape named after its file, its largest side 1 m, standing on the
+    // floor (whose top is y = 0); a file that is not there refused, nothing put in.
+    const size_t entitiesBefore = scene.graph().entities.size();
+    const Value imported = scene.call("scene_import", parseJson(std::string("{\"file\": \"") + KE_EXAMPLES + "/models/house.obj\"}"));
+    const Entity* house = imported["ok"].truth() ? findEntity(scene.graph(), uint32_t(imported["id"].integer())) : nullptr;
+    CHECK(house && house->name == "house" && std::fabs(maxComp(house->size) - 1) < 1e-5_r && std::fabs(house->position.y - 0.5_r * house->size.y) < 1e-5_r &&
+              house->shape == ShapeKind::Mesh,
+          "scene_import: a model a shape named after its file, 1 m at its largest, standing on the floor: %s", imported["error"].text("").c_str());
+    const Value missing = call(scene, "scene_import", R"({"file": "no-such-model.obj"})");
+    CHECK(!missing["ok"].truth() && scene.graph().entities.size() == entitiesBefore + 1, "a model's file that is not there is refused, nothing put in");
     // An example studied before one's own is built: the ready car in words, its shock absorbers and its motors' drivers,
     // and the scene as it was; an assembly that is not there is refused, naming those there are.
     const size_t objects = scene.graph().entities.size();

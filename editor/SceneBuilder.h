@@ -129,7 +129,6 @@ public:
     void assignImage(uint32_t id, const QString& file);
     bool openFile(const QString& path, QString& error);
     bool saveFile(const QString& path, QString& error) const;
-    bool importModel(const QString& path, QString& error); // an OBJ / STL model as geometry
     // The scene as a snapshot of the journal (EditorJournal.cpp): the scene file, its folder, the next id the builder gives out - all a replay needs to give the same ids; and back, as one
     // undo step (a restore can be undone).
     QString snapshotText() const;

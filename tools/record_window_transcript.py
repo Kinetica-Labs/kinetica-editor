@@ -411,6 +411,8 @@ TRANSCRIPT = [
     R("the AI assistants of this machine (the list masked: it is the machine's)", "assistant_list", mask=["assistants"], window_only=True),
     R("an assistant not in the table: refused, the table's apps named (masked: the machine's table)", "assistant_connect", {"app": "nobody"},
       mask=["error"], window_only=True),
+    R("a model's file that is not there: refused, nothing put in (the error masked: it names the process's folder)", "scene_import",
+      {"file": "no-such-model.obj"}, mask=["error"]),
     R("the gizmo: the window's own", "gizmo_get", window_only=True),
     R("a point of the world on the window's picture (its pixel masked: the hidden window's size is the machine's)", "view_project",
       {"point": [0, 0, 0]}, mask=["x", "y"], window_only=True),

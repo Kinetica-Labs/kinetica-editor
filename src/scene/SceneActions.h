@@ -48,6 +48,10 @@ AABB sceneBounds(const SceneGraph& g); // the visible shapes one can edit (not a
 
 // New objects: their id.
 uint32_t addShape(SceneGraph& g, ShapeKind shape);  // "Куб 2": 0.8 m over a free spot of the floor
+// A model's file (OBJ, STL) as a new shape - «Файл → Импорт…» and scene_import: named after the file, its largest side
+// 1 m with its proportions kept, standing on the floor over a free spot. 0 and `error`, the scene untouched, when the
+// file gives no triangles.
+uint32_t importModel(SceneGraph& g, const std::string& file, std::string& error);
 uint32_t addLight(SceneGraph& g, LightKind kind, const Vector3& at); // the sun high at a slant over `at`
 uint32_t placeLight(SceneGraph& g, LightKind kind, const Vector3& position, const Vector3& target); // at `position`, shining at `target`
 uint32_t addForce(SceneGraph& g, ForceShape shape, ForceMode mode, const Vector3& at); // the kind's defaults, standing at `at`

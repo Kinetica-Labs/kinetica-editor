@@ -22,10 +22,10 @@ with ke.Scene() as scene:
 
 with ke.Scene() as scene:
     scene.world.gravity = (0, 0, 0)
-    near = scene.add("box", position=(0.5, 0.12, 0), role="rigid")
-    far = scene.add("box", position=(2.0, 0.12, 0), role="rigid")
-    outside = scene.add("box", position=(4.0, 0.12, 0), role="rigid")
-    blast = scene.add_force("radial", "impulse", at=(0, 0.12, 0))  # 6 m/s at its centre, nothing beyond its 3 m
+    near = scene.add("box", position=(0.5, 0.1, 0), role="rigid")
+    far = scene.add("box", position=(2.0, 0.1, 0), role="rigid")
+    outside = scene.add("box", position=(4.0, 0.1, 0), role="rigid")
+    blast = scene.add_force("radial", "impulse", at=(0, 0.1, 0))  # 6 m/s at its centre, nothing beyond its 3 m
     scene.step(1)
     speeds = scene.measure(objects=[near, far, outside])
     print(f"a blast of {blast.strength:.0f} m/s, radius {blast.radius:.0f} m: " +

@@ -36,7 +36,7 @@ class Examples(unittest.TestCase):
     def test_01_hello(self):
         lines, numbers = said("01_hello.py")
         self.assertIn("m high", lines[0])
-        self.assertAlmostEqual(numbers[0][-1], 0.12, delta=0.005)  # a 0.2 m box resting on the floor
+        self.assertAlmostEqual(numbers[0][-1], 0.10, delta=0.005)  # a 0.2 m box resting on the floor, whose top is y = 0
 
     @unittest.skipUnless(shutil.which("node"), "node is not installed: examples/js/hello.mjs is not run")
     def test_01_hello_in_javascript(self):

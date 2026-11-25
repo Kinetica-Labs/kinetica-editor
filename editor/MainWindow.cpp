@@ -811,8 +811,11 @@ void MainWindow::exportScene() {
 
 void MainWindow::importFile(const QString& path) {
     if (const QString op = plugins_->openerFor(path); !op.isEmpty()) return plugins_->openFile(op, path);
-    QString error;
-    if (!builder_->importModel(path, error)) QMessageBox::warning(this, uiText("Kinetica", "Модель"), uiText("Kinetica", "Не удалось загрузить модель:\n") + error);
+    ops_->run("scene_import", {{"file", path}}, [this](const QJsonObject& r) { // the operation the button is (API = UI): one undo step, a line of the journal
+        if (!r.value("ok").toBool())
+            return void(QMessageBox::warning(this, uiText("Kinetica", "Модель"), uiText("Kinetica", "Не удалось загрузить модель:\n") + r.value("error").toString()));
+        ops_->run("selection_set", {{"ids", QJsonArray{r.value("id")}}}, [this](const QJsonObject&) { builder_->frameSelected(); }, "ui");
+    }, "ui");
 }
 
 void MainWindow::exportCsv() {
