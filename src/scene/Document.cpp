@@ -54,7 +54,10 @@ SceneGraph floorScene(uint32_t floorId) {
     floor.name = "Пол";
     floor.shape = ShapeKind::Plane;
     floor.size = Vector3(g.world.size.x, 0.02_r, g.world.size.z);
-    floor.position = Vector3(0.0_r, -0.01_r, 0.0_r); // its top at y = 0: what stands on the floor stands at half its height
+    // Its top a millimetre under y = 0, where the running world's own ground is (RobotWorld::build, body 0): what stands
+    // on the floor stands at half its height on that ground alone - on two level supports at once, how the load parts
+    // between them is not physics' to say, and each machine would say it otherwise.
+    floor.position = Vector3(0.0_r, -0.011_r, 0.0_r);
     floor.color = Vector3(0.52_r, 0.55_r, 0.60_r);
     floor.collider.enabled = true;
     floor.locked = true;
