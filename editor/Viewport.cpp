@@ -27,6 +27,7 @@
 #include <QtMath>
 
 #include <algorithm>
+#include <numeric>
 #include <set>
 #include <array>
 #include <cmath>
@@ -535,17 +536,35 @@ void Viewport::pruneMeshCache() {
 }
 
 // A body's mesh on the GPU, made once per mesh and shading (MeshNormals.h): expanded triangles -
-// position, normal, and a model's own colour a corner when it has one.
+// position, normal, and a model's own colour a corner when it has one. A model whose materials have pictures has its
+// triangles put in order of material, a run each, so a run is drawn with its own picture (drawBodies).
 Viewport::GpuMesh& Viewport::gpuMesh(const std::shared_ptr<const ke::TriMesh>& m, bool smooth) {
     GpuMesh& g = meshCache_[{m.get(), smooth}];
     if (g.vao) return g;
     g.mesh = m;
     const std::vector<Vector3> normals = meshNormals(*m, smooth);
     const bool coloured = m->coloured(), textured = m->textured();
+    const bool pictured = textured && m->hasMaterials() &&
+                          std::any_of(m->materials.begin(), m->materials.end(), [](const ke::MeshMaterial& mat) { return !mat.picture.empty(); });
+    std::vector<size_t> order(m->triangles.size());
+    std::iota(order.begin(), order.end(), size_t(0));
+    if (pictured) {
+        std::stable_sort(order.begin(), order.end(), [&](size_t a, size_t b) { return m->triangleMaterials[a] < m->triangleMaterials[b]; });
+        for (size_t i = 0; i < order.size(); ++i) {
+            const ke::MeshMaterial& mat = m->materials[m->triangleMaterials[order[i]]];
+            if (i == 0 || m->triangleMaterials[order[i]] != m->triangleMaterials[order[i - 1]]) {
+                GpuMesh::Part part;
+                part.first = int(3 * i);
+                if (!mat.picture.empty()) part.surface.kind = ke::TextureKind::Image, part.surface.file = mat.picture, part.surface.uv = true;
+                g.parts.push_back(part);
+            }
+            g.parts.back().count += 3;
+        }
+    }
     const int stride = (coloured ? 9 : 6) + (textured ? 2 : 0);
     std::vector<float> v;
     v.reserve(m->triangles.size() * 3 * size_t(stride));
-    for (size_t t = 0; t < m->triangles.size(); ++t)
+    for (const size_t t : order)
         for (int k = 0; k < 3; ++k) {
             const Vector3& p = m->positions[m->triangles[t][k]];
             const Vector3& n = normals[3 * t + size_t(k)];
@@ -603,16 +622,24 @@ void Viewport::drawBodies(const QMatrix4x4& view, const QMatrix4x4& proj) {
     const ke::SurfaceTexture* surface = nullptr;
     const GpuMesh* bound = nullptr;
     int coloured = -1, uvMapped = -1;
+    // Triangles of a mesh in one surface: set only what differs from the run drawn before.
+    const auto draw = [&](const ke::TriMesh& mesh, const ke::SurfaceTexture& texture, int first, int count) {
+        if (!surface || !(texture == *surface)) setSurfaceTexture(texture), surface = &texture;
+        if (const int u = texture.uv && texture.kind == ke::TextureKind::Image && mesh.textured() ? 1 : 0; u != uvMapped) meshProg_.setUniformValue(uUvMap, uvMapped = u);
+        glDrawArrays(GL_TRIANGLES, first, count);
+    };
     for (const ke::Frame::Body& b : snap_->bodies) {
         if (!b.mesh || b.opacity < 1 || (b.marker && !marksVisible_)) continue; // a mark of the editor - an IK goal, a camera's target - is not filmed
-        if (!surface || !(b.texture == *surface)) setSurfaceTexture(b.texture), surface = &b.texture;
         meshProg_.setUniformValue(uModel, modelMatrix(b));
         meshProg_.setUniformValue(uColor, qv(b.color) * sleepDim(b));
         if (const int c = b.mesh->coloured() ? 1 : 0; c != coloured) meshProg_.setUniformValue(uVertexColor, coloured = c);
-        if (const int u = b.texture.uv && b.texture.kind == ke::TextureKind::Image && b.mesh->textured() ? 1 : 0; u != uvMapped) meshProg_.setUniformValue(uUvMap, uvMapped = u);
         const GpuMesh& g = gpuMesh(b.mesh, b.smooth);
         if (&g != bound) g.vao->bind(), bound = &g;
-        glDrawArrays(GL_TRIANGLES, 0, g.count);
+        if (g.parts.empty() || b.texture.kind != ke::TextureKind::None) { // the object's own surface - a picture put on it wins over the model's
+            draw(*b.mesh, b.texture, 0, g.count);
+            continue;
+        }
+        for (const GpuMesh::Part& part : g.parts) draw(*b.mesh, part.surface, part.first, part.count); // the model's materials, a run each
     }
     if (bound) bound->vao->release();
     meshProg_.setUniformValue("uVertexColor", 0);

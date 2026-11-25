@@ -60,6 +60,27 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(ed.opened, os.path.join(self.dir.name, "out", "scene-files", "scene.kscene"))
         self.assertTrue(os.path.isfile(os.path.join(got["folder"], "files", "arm.obj")))
 
+    def test_model_with_materials(self):
+        """An OBJ with a material library and a picture goes in a folder of its own with them, under the names it calls
+        them by; a picture it names and lacks is said missing."""
+        home = os.path.join(self.dir.name, "crate")
+        os.makedirs(os.path.join(home, "pictures"))
+        with open(os.path.join(home, "crate.obj"), "w") as f:
+            f.write("mtllib crate.mtl\nv 0 0 0\nv 1 0 0\nv 0 1 0\nvt 0 0\nvt 1 0\nvt 0 1\nusemtl wood\nf 1/1 2/2 3/3\n")
+        with open(os.path.join(home, "crate.mtl"), "w") as f:
+            f.write("newmtl wood\nKd 0.6 0.4 0.2\nmap_Kd -s 1 1 1 pictures\\wood.png\nnewmtl lid\nmap_Kd lid.png\n")
+        with open(os.path.join(home, "pictures", "wood.png"), "wb") as f:
+            f.write(b"\x89PNG")
+        text = 'entity "Crate"\n  shape mesh file "crate/crate.obj"\nend\n'
+        package = os.path.join(self.dir.name, "crate.kpkg")
+        said = self.kpkg.save(Scene(Ed(text, self.dir.name)), package)
+        with zipfile.ZipFile(package) as z:
+            names = set(z.namelist())
+            inside = z.read("scene.kscene").decode()
+        self.assertTrue({"files/crate/crate.obj", "files/crate/crate.mtl", "files/crate/pictures/wood.png"} <= names, names)
+        self.assertIn('file "files/crate/crate.obj"', inside)
+        self.assertEqual((said["files"], said["missing"]), (3, ["lid.png"]))
+
     def test_member_outside_is_refused(self):
         package = os.path.join(self.dir.name, "evil.kpkg")
         with zipfile.ZipFile(package, "w") as z:

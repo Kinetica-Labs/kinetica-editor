@@ -387,6 +387,10 @@ private:
         std::unique_ptr<QOpenGLVertexArrayObject> vao;
         std::unique_ptr<QOpenGLBuffer> vbo;
         int count = 0;
+        // A model with pictures of its own: its triangles in runs, one a material, each with its picture laid by UV
+        // (a submesh). Empty: the mesh is drawn whole.
+        struct Part { int first = 0, count = 0; ke::SurfaceTexture surface; };
+        std::vector<Part> parts;
         // The mesh is held here too, so its address (the cache key) cannot be taken by a new mesh
         // while the entry exists; the entry is dropped once only the cache holds the mesh.
         std::shared_ptr<const ke::TriMesh> mesh;

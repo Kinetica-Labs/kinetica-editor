@@ -92,7 +92,8 @@ void TriMesh::removeDegenerate(Real areaEps) {
     std::vector<std::array<uint32_t, 3>> kept;
     std::vector<Vector3> colours;
     std::vector<std::array<float, 2>> corners;
-    const bool keepColours = coloured(), keepUvs = textured();
+    std::vector<uint32_t> worn;
+    const bool keepColours = coloured(), keepUvs = textured(), keepMaterials = hasMaterials();
     kept.reserve(triangles.size());
     for (size_t i = 0; i < triangles.size(); ++i) {
         const auto& t = triangles[i];
@@ -102,11 +103,13 @@ void TriMesh::removeDegenerate(Real areaEps) {
         kept.push_back(t);
         if (keepColours) colours.push_back(triangleColors[i]);
         if (keepUvs) corners.insert(corners.end(), uvs.begin() + std::ptrdiff_t(3 * i), uvs.begin() + std::ptrdiff_t(3 * i + 3));
+        if (keepMaterials) worn.push_back(triangleMaterials[i]);
     }
     triangles.swap(kept);
     if (keepColours) triangleColors.swap(colours);
     if (keepUvs) uvs.swap(corners);
     else uvs.clear();
+    triangleMaterials.swap(worn);
 }
 
 void TriMesh::orientOutward() {
@@ -213,6 +216,38 @@ static std::string lowerExt(const std::string& path) {
     return e;
 }
 
+// The rest of an OBJ or MTL line after its keyword: a name or a file, which may hold spaces; a Windows line end dropped.
+static std::string restOf(const std::string& line, size_t keyword) {
+    const size_t from = line.find_first_not_of(" \t", keyword), to = line.find_last_not_of(" \t\r");
+    return from == std::string::npos || to < from ? std::string() : line.substr(from, to - from + 1);
+}
+
+// An OBJ's material library (the .mtl it names): each material's colour (Kd) and picture (map_Kd). A picture is named
+// relative to the library, and a map's options (-s 1 1 1, -bm 0.5...) come before its file, so the file is the last word.
+static std::vector<MeshMaterial> readMaterials(const std::filesystem::path& library) {
+    std::vector<MeshMaterial> out;
+    std::ifstream f(library);
+    std::string line;
+    while (std::getline(f, line)) {
+        std::istringstream ss(line);
+        std::string key;
+        ss >> key;
+        if (key == "newmtl") {
+            out.push_back({restOf(line, 6), Vector3(0.8_r), ""});
+        } else if (out.empty()) {
+            continue;
+        } else if (key == "Kd") {
+            ss >> out.back().color.x >> out.back().color.y >> out.back().color.z;
+        } else if (key == "map_Kd") {
+            std::string word, file;
+            while (ss >> word) file = word;
+            std::replace(file.begin(), file.end(), '\\', '/'); // a Windows exporter's separators
+            if (!file.empty()) out.back().picture = (library.parent_path() / std::filesystem::u8path(file)).lexically_normal().u8string();
+        }
+    }
+    return out;
+}
+
 static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
     std::ifstream f(std::filesystem::u8path(path));
     if (!f) { err = "cannot open file"; return false; }
@@ -222,8 +257,27 @@ static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
     std::vector<std::array<float, 2>> coordinates; // "vt u v"
     std::vector<int> faceUv;                       // a face's texture-coordinate indices (-1: none), from "v/vt/vn"
     bool coloured = true, textured = true;
+    std::vector<MeshMaterial> library; // "mtllib file.mtl"
+    uint32_t wearing = 0;              // "usemtl name": the material the faces below wear
+    bool dressed = false;              // some face wore a material of the library
+    const auto material = [&](const std::string& name) { // its place in out.materials, added the first time it is worn
+        for (uint32_t i = 0; i < out.materials.size(); ++i)
+            if (out.materials[i].name == name) return i;
+        const auto known = std::find_if(library.begin(), library.end(), [&](const MeshMaterial& m) { return m.name == name; });
+        out.materials.push_back(known != library.end() ? *known : MeshMaterial{name, Vector3(0.8_r), ""});
+        return uint32_t(out.materials.size() - 1);
+    };
     while (std::getline(f, line)) {
         if (line.size() < 2) continue;
+        if (line.rfind("mtllib ", 0) == 0) {
+            library = readMaterials(std::filesystem::u8path(path).parent_path() / std::filesystem::u8path(restOf(line, 6)));
+            continue;
+        }
+        if (line.rfind("usemtl ", 0) == 0) {
+            wearing = material(restOf(line, 6));
+            dressed = dressed || !library.empty();
+            continue;
+        }
         if (line[0] == 'v' && line[1] == ' ') {
             Vector3 p, c;
             std::istringstream ss(line.substr(2));
@@ -255,8 +309,10 @@ static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
                 }
                 faceUv.push_back(t);
             }
+            if (out.materials.empty()) material(""); // faces before any usemtl wear a plain one
             for (size_t i = 1; i + 1 < face.size(); ++i) {
                 out.triangles.push_back({uint32_t(face[0]), uint32_t(face[i]), uint32_t(face[i + 1])});
+                out.triangleMaterials.push_back(wearing);
                 for (size_t corner : {size_t(0), i, i + 1}) {
                     textured = textured && faceUv[corner] >= 0;
                     out.uvs.push_back(faceUv[corner] >= 0 ? coordinates[size_t(faceUv[corner])] : std::array<float, 2>{0, 0});
@@ -265,8 +321,11 @@ static bool loadOBJ(const std::string& path, TriMesh& out, std::string& err) {
         }
     }
     if (!textured || out.triangles.empty()) out.uvs.clear(); // some corner has none: a picture would be laid wrong, so none is
+    if (!dressed) out.materials.clear(), out.triangleMaterials.clear(); // no library read, or none of it worn: the object's own surface
     if (coloured && !out.positions.empty())
         for (const auto& t : out.triangles) out.triangleColors.push_back(vertexColours[t[0]]);
+    else if (out.hasMaterials())
+        for (const uint32_t m : out.triangleMaterials) out.triangleColors.push_back(out.materials[m].color);
     return true;
 }
 
