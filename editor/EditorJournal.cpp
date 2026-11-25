@@ -141,18 +141,41 @@ void EditorOps::endSession() {
 }
 
 void EditorOps::addJournalOps() {
-    addSync("journal_lines", "The journal's last lines: every change made from the window or the API (where the file is)", "{last?: int}",
-            [this](const QJsonObject& a) {
-        const int last = std::clamp(a.value("last").toInt(20), 1, int(kRecent));
+    // file: another journal to read - a film's (examples/films/<name>.jsonl when the path is relative), not the window's.
+    const auto journal = [this](const QJsonObject& a, QString& path) { return !(path = journalAt(a.value("file").toString())).isEmpty(); };
+    const auto noJournal = [](const QJsonObject& a) { return error("no journal " + a.value("file").toString() + " (a film's: examples/films/)"); };
+    addSync("journal_lines", "The journal's last lines: every change made from the window or the API (where the file is). With session: "
+                             "all of that session's lines, numbered as journal_restore counts them (a snapshot's scene left out); file: "
+                             "another journal - a film's, examples/films/<name>.jsonl", "{last?: int, session?: str, file?: str}",
+            [this, journal, noJournal](const QJsonObject& a) {
+        QString path;
+        if (!journal(a, path)) return noJournal(a);
         QJsonArray lines;
+        if (a.contains("session")) {
+            for (QJsonObject l : sessionLines(a.value("session").toString(), path)) {
+                if (l.value("op").toString() == "journal_snapshot") l["args"] = QJsonObject{{"why", l.value("args").toObject().value("why")}};
+                lines.append(l);
+            }
+            if (lines.isEmpty()) return error("no session '" + a.value("session").toString() + "' in " + path + " (journal_sessions lists them)");
+            return ok({{"lines", lines}, {"file", path}, {"session", a.value("session")}});
+        }
+        if (a.contains("file")) return error("file: give the session to read (journal_sessions with the same file lists them)");
+        const int last = std::clamp(a.value("last").toInt(20), 1, int(kRecent));
         for (size_t k = recent_.size() > size_t(last) ? recent_.size() - size_t(last) : 0; k < recent_.size(); ++k) lines.append(recent_[k]);
         return ok({{"lines", lines}, {"file", journalFile()}, {"session", session_}});
     });
-    addSync("journal_sessions", "Every session of the journal: id, start, end, lines, edits, crashed (it did not end and no window holds it)", "{}",
-            [this](const QJsonObject&) { return ok({{"sessions", sessions()}, {"current", session_}}); });
+    addSync("journal_sessions", "Every session of the journal: id, start, end, lines, edits, crashed (it did not end and no window holds it); "
+                                "file: another journal - a film's", "{file?: str}", [this, journal, noJournal](const QJsonObject& a) {
+        QString path;
+        if (!journal(a, path)) return noJournal(a);
+        return ok({{"sessions", sessions(a.contains("file") ? path : QString())}, {"current", session_}});
+    });
     addSync("journal_restore", "The scene of a session after one of its lines (none: its last) - its last snapshot before, the core edits "
-                               "after it replayed; one undo step", "{session: str, line?: int}", [this](const QJsonObject& a) {
-        const QString why = restore(a.value("session").toString(), a.value("line").toInt(-1));
+                               "after it replayed; one undo step. file: the session of another journal - a film's",
+            "{session: str, line?: int, file?: str}", [this, journal, noJournal](const QJsonObject& a) {
+        QString path;
+        if (!journal(a, path)) return noJournal(a);
+        const QString why = restore(a.value("session").toString(), a.value("line").toInt(-1), a.contains("file") ? path : QString());
         return why.isEmpty() ? ok() : error(why);
     });
 }

@@ -84,6 +84,18 @@ void testJournalRestore(Checker& c, QMainWindow& w, SceneBuilder& b) {
         if (s.value("session").toString() == session) alive = !s.value("crashed").toBool();
     }
     c.check(dead && alive, "a session with no end and a free lock is crashed; the living one is not");
+    // A film's journal (examples/films/): its sessions, one session's lines numbered as the restore counts them, its scene
+    // at any line - read from that file, the window's own journal untouched; a film that is not there is refused by name.
+    const QJsonArray films = ops.runNow("journal_sessions", {{"file", "pendulum-tower.jsonl"}}).value("sessions").toArray();
+    const QString film = films.isEmpty() ? QString() : films.first().toObject().value("session").toString();
+    const QJsonArray filmLines = ops.runNow("journal_lines", {{"file", "pendulum-tower.jsonl"}, {"session", film}}).value("lines").toArray();
+    const QJsonObject filmed = ops.runNow("journal_restore", {{"file", "pendulum-tower.jsonl"}, {"session", film}});
+    const QString built = QString::fromStdString(b.graph().save());
+    const QJsonObject missing = ops.runNow("journal_sessions", {{"file", "no-such-film.jsonl"}});
+    c.check(films.size() == 1 && filmLines.size() > 10 && filmed.value("ok").toBool() && built.contains("Брусок 5") && built.contains("Шарнир") &&
+                !missing.value("ok").toBool() && missing.value("error").toString().contains("no-such-film"),
+            ("a film's journal: its session, its lines and its scene at the end (" + std::to_string(filmLines.size()) + " lines): " +
+             filmed.value("error").toString().toStdString()).c_str());
     ops.endSession();
     ops.setSnapshotEvery(100);
     ops.setJournalFile(qEnvironmentVariable("KE_JOURNAL"));

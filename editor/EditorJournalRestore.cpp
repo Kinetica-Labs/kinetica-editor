@@ -6,6 +6,7 @@
 // the window that held it is gone.
 #include "EditorOps.h"
 
+#include "Resources.h"
 #include "SceneBuilder.h"
 #include "scene/SceneOps.h"
 
@@ -16,9 +17,15 @@
 
 #include <map>
 
-std::vector<QJsonObject> EditorOps::sessionLines(const QString& session) {
+QString EditorOps::journalAt(const QString& file) {
+    if (file.isEmpty()) return journalFile();
+    const QString path = QFileInfo(file).isAbsolute() ? file : resourceDir("examples") + "/films/" + file;
+    return QFileInfo(path).isFile() ? path : QString();
+}
+
+std::vector<QJsonObject> EditorOps::sessionLines(const QString& session, const QString& journal) {
     std::vector<QJsonObject> out;
-    QFile f(journalFile());
+    QFile f(journal.isEmpty() ? journalFile() : journal);
     if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return out;
     const QByteArray key = "\"s\":\"" + session.toUtf8() + "\"";
     while (!f.atEnd()) {
@@ -28,11 +35,11 @@ std::vector<QJsonObject> EditorOps::sessionLines(const QString& session) {
     return out;
 }
 
-QJsonArray EditorOps::sessions() {
+QJsonArray EditorOps::sessions(const QString& journal) {
     struct Seen { QString start, end; int lines = 0, edits = 0; };
     std::map<QString, Seen> by;
     std::vector<QString> order;
-    QFile f(journalFile());
+    QFile f(journal.isEmpty() ? journalFile() : journal);
     if (f.open(QIODevice::ReadOnly | QIODevice::Text))
         while (!f.atEnd()) {
             const QByteArray raw = f.readLine();
@@ -51,7 +58,7 @@ QJsonArray EditorOps::sessions() {
     for (const QString& s : order) {
         const Seen& seen = by[s];
         bool crashed = false;
-        if (seen.end.isEmpty() && s != session_) {
+        if (seen.end.isEmpty() && s != session_ && journal.isEmpty()) { // a film's sessions are closed books
             QLockFile probe(dir + s + ".lock");
             probe.setStaleLockTime(0);
             crashed = probe.tryLock(0); // free: no living window holds the session
@@ -63,8 +70,8 @@ QJsonArray EditorOps::sessions() {
     return out;
 }
 
-QString EditorOps::restore(const QString& session, int line) {
-    const std::vector<QJsonObject> lines = sessionLines(session);
+QString EditorOps::restore(const QString& session, int line, const QString& journal) {
+    const std::vector<QJsonObject> lines = sessionLines(session, journal);
     if (lines.empty()) return "no session '" + session + "' in the journal (journal_sessions lists them)";
     int cut = line < 0 || line >= int(lines.size()) ? int(lines.size()) - 1 : line;
     if (cut + 1 < int(lines.size()) && lines[size_t(cut) + 1].value("op").toString() == "journal_snapshot") ++cut; // the change and its snapshot

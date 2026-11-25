@@ -62,6 +62,8 @@ venv/
 *.jsonl
 # the window's recorded answers are a test fixture, not a log
 !tests/data/*.jsonl
+# a film: a session of the journal kept to be played back (Kinetica Replay)
+!examples/films/*.jsonl
 kinetica-journal-*
 shots/
 *.perf

@@ -103,9 +103,12 @@ public:
     void setJournalFile(const QString& file) { journalFile_ = file; }
     const QString& session() const { return session_; }
     QString journalFile();     // KE_JOURNAL, else <app data>/ops-journal.jsonl
-    QJsonArray sessions();     // every session: id, start, end, lines, edits, crashed
-    // The scene of `session` after its line `line` (-1: its last), as one undo step: "" or why it failed.
-    QString restore(const QString& session, int line);
+    // A journal to read (file: a film's, examples/films/ when relative; empty: the window's own), else "".
+    QString journalAt(const QString& file);
+    QJsonArray sessions(const QString& journal = {}); // every session: id, start, end, lines, edits, crashed
+    // The scene of `session` (of `journal`, else the window's) after its line `line` (-1: its last), as one undo step:
+    // "" or why it failed.
+    QString restore(const QString& session, int line, const QString& journal = {});
 
     static QJsonObject ok(QJsonObject fields = {});
     static QJsonObject error(const QString& why);
@@ -151,7 +154,7 @@ private:
     void journal(const QString& source, const QString& name, const QJsonObject& args, const QJsonObject& answer);
     void writeLine(QJsonObject line, bool keep = true);
     void snapshot(const QString& why);
-    std::vector<QJsonObject> sessionLines(const QString& session);
+    std::vector<QJsonObject> sessionLines(const QString& session, const QString& journal = {});
 
     SceneBuilder* builder_;
     Viewport* view_;
