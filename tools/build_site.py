@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """The guide as a site of plain files, ready for any static hosting (GitHub Pages): docs/site/guide.html made a whole
-page, the guide's Markdown it reads, the pictures beside it and the film at its head::
+page, the guide's Markdown it reads, the pictures and the window's films beside it and the film at its head::
 
     python3 tools/build_site.py [folder]     # build/site by default
 
@@ -28,12 +28,14 @@ def build(out):
     head, mark = page.split("<header", 1)[0], "<header"
     body = mark + page.split(mark, 1)[1]
     os.makedirs(out, exist_ok=True)  # the folder may be a repository of its own: only what is written here is replaced
-    shutil.rmtree(os.path.join(out, "images", "ui"), ignore_errors=True)
+    for pictures in ("ui", "gif"):
+        shutil.rmtree(os.path.join(out, "images", pictures), ignore_errors=True)
     with open(os.path.join(out, "index.html"), "w", encoding="utf-8") as f:
         f.write(HEAD + head + "</head>\n<body>\n" + body + "</body>\n</html>\n")
     for name in ("interface.md", "interface.en.md"):
         shutil.copy(os.path.join(DOCS, name), out)
     shutil.copytree(os.path.join(DOCS, "images", "ui"), os.path.join(out, "images", "ui"))
+    shutil.copytree(os.path.join(DOCS, "images", "gif"), os.path.join(out, "images", "gif"))  # the window's films (tools/ui_guide_gifs.py)
     for name in ("showcase.mp4", "showcase.gif"):  # the film at the guide's head (tools/showcase_film.py) and its picture where no video plays
         shutil.copy(os.path.join(DOCS, "images", name), os.path.join(out, "images"))
     open(os.path.join(out, ".nojekyll"), "w").close()

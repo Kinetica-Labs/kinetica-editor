@@ -37,7 +37,7 @@ An editor of robots: you assemble a mechanism from bodies, joints, motors and se
 </tr>
 <tr>
 <td width="33%" valign="top"><a href="#world"><img src="images/ui/en/map-world.png" width="260"><br><b>7. The world</b></a><br>gravity and physics</td>
-<td width="33%" valign="top"><a href="#more"><img src="images/ui/en/search.png" width="260"><br><b>8. Faster and deeper</b></a><br>command search, scripts, plugins</td>
+<td width="33%" valign="top"><a href="#more"><img src="images/ui/en/search.png" width="260"><br><b>8. Faster and deeper</b></a><br>AI assistants, command search, scripts, plugins</td>
 <td width="33%" valign="top"><a href="#keys"><img src="images/ui/en/map-toolbar.png" width="260"><br><b>Cheat sheet and help</b></a><br>keys; when something goes wrong</td>
 </tr>
 </table>
@@ -209,7 +209,9 @@ The mouse layout is chosen in Settings → Controls.
 ### Shapes
 
 <img src="images/ui/icons/shape.png" height="22" alt=""> Shape adds a cube, a sphere, a cylinder, a cone or a plane - in the air over a free spot. Model takes the shape from
-a file. A whole scene or a robot comes through File → Import… (Ctrl+I): glTF (`.gltf`, `.glb`) - nodes, meshes, colours and
+a file. An OBJ or STL model comes through File → Import… (Ctrl+I) as a shape of its own - named after the file, 1 m at its
+largest side, standing on the floor (an agent or a script: `scene_import {file}`). A whole scene or a robot Import… brings
+from glTF (`.gltf`, `.glb`) - nodes, meshes, colours and
 animations, URDF - a robot with its joints. Back out - File → Export…: the scene's robot as URDF for ROS and Gazebo
 (links, joints with their limits, masses; meshes beside it in a `<name>-meshes` folder), or the whole scene in one file -
 «Kinetica Package» (`.kpkg`: the scene, its models, its textures) that Import… opens on any machine.
@@ -229,6 +231,10 @@ arrows - across a plane.
   shows the line and its length in metres. The line stays until the next one; Esc or another tool takes it off. As
   code - `view_measure {point, to}`.
 - A turn released near a quarter of a revolution completes itself to it.
+- The three eyes at the foot of the tools show and hide what stands over the scene: <b>cards</b> plugins and agents put in
+  the frame (a building step, a title, a part's glow), <b>labels</b> in the scene itself (formulas, leaders, words over the
+  parts) and the editor's <b>marks</b> (joints, sensors, lights, cameras, the gizmo, colliders' frames). All three off - a
+  clean frame, as a viewer sees it; an agent: `view_show {cards, labels, marks}`.
 
 ### Roles: what physics knows
 
@@ -237,8 +243,17 @@ The two large buttons of the card are the shape's roles.
 | Role | What it means |
 |---|---|
 | **<img src="images/ui/icons/rigid.png" height="22" alt=""> Rigid Body** | a body: density or a mass of its own, friction, restitution. The Body field chooses how it moves - see below |
-| **<img src="images/ui/icons/collider.png" height="22" alt=""> Collider** | what the body collides with; drawn as a green frame. Auto takes the shape's own form; Mesh - the model's own triangles with all their hollows (a track, a terrain, a room), on a body that stands only |
+| **<img src="images/ui/icons/collider.png" height="22" alt=""> Collider** | what the body collides with; drawn as a green frame. Auto takes the shape's own form; Convex parts - a model of any shape cut into convex pieces (below); Mesh - the model's own triangles with all their hollows (a track, a terrain, a room) |
 | neither | geometry only: it is seen, but physics does not know it |
+
+### Convex parts: a body of any shape
+
+Physics collides fast only what is convex - what a film could be stretched over with no dents. A mug, a ring, a steering
+wheel, a bucket are not: Convex Hull would close the mug with a lid, and a ball would lie on top. The tile <b>Convex
+parts</b> of the Collider card cuts the model into convex pieces that together keep its form: the mug's hollow stays a
+hollow, the ring's hole a hole. Under the tile, two fields: <b>Parts at most</b> (1-64; 32 by default) and
+<b>Concavity</b> - how far a piece may stand off the model, in per cent of its size (5 % by default); the card says how
+many parts came out. The body may move or stand. An agent: `scene_collider {id, kind: "convex_parts", hulls, concavity}`.
 
 ### Three kinds of body
 
@@ -517,6 +532,14 @@ Reset Physics brings the defaults back. The picture of the tab is [in the chapte
 
 ## 8. Faster and deeper
 
+### AI assistants: Claude, ChatGPT and Codex
+
+Kinetica is a tool for AI. <b>File → Connect AI assistants…</b> finds the Claude app, Claude Code, ChatGPT and Codex on
+this computer and connects Kinetica to each with one button. Restart the assistant and ask in its chat: "build a car with
+a lidar and check that it drives around a wall", "explain this pendulum with formulas". The assistant builds, runs and
+measures the robot in your window: you see each of its steps, and each step is one undo and a line of the journal, so
+any of its edits can be taken back. Disconnect takes Kinetica out of the assistant; the rest of its settings stay.
+
 ### Find Command
 
 `Ctrl+K` searches all the commands of the window. Type a part of a name - "group", "collider", "save" - and press
@@ -543,6 +566,11 @@ Russian).
 
 A plugin gives the editor a new skill. The Plugins menu makes a plugin from a template, adds a folder of plugins and
 restarts them; the plugins' commands stand here too. In detail - [plugins.md](plugins.md) (in Russian).
+
+<b>Kinetica Replay</b> (the plugin `replay`) plays a session of work back - yours, a script's or an AI agent's - as a film
+of its building: the first scene, then every step in turn with a card, the part lit and the camera flying to it, and
+where the session pressed Play the scene plays. The sessions come from the window's journal, the example films from
+`examples/films`.
 
 ![The Plugins menu](images/ui/en/plugins-menu.png)
 

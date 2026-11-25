@@ -31,13 +31,35 @@ def film(function):
     return function
 
 
+def assistants_table():
+    """The assistants the films' editor sees: the three of data/assistants.json by name, each a config file of a
+    throwaway folder - Claude Code's already holding Kinetica -, so «Подключить» writes there, never a person's own."""
+    import json
+    folder = tempfile.mkdtemp(prefix="kinetica-assistants-")
+    rows = []
+    for app, name, about, on in (("claude", "Claude", "приложение Claude: обычный чат", False),
+                                 ("claude_code", "Claude Code", "Claude Code: терминал и вкладка Code приложения Claude", True),
+                                 ("codex", "ChatGPT и Codex", "приложение ChatGPT (Codex) и Codex в терминале", False)):
+        os.makedirs(os.path.join(folder, app))
+        config = os.path.join(folder, app, "config.json")
+        with open(config, "w", encoding="utf-8") as f:
+            json.dump({"mcpServers": {"ke-editor": {"command": "python3"}} if on else {}}, f)
+        rows.append({"app": app, "name": name, "about": about, "how": "json", "file": config, "restart": "перезапустите " + name})
+    table = os.path.join(folder, "assistants.json")
+    with open(table, "w", encoding="utf-8") as f:
+        json.dump({"assistants": rows}, f, ensure_ascii=False)
+    return table
+
+
 class Camera:
     """The hidden editor (Russian, 1600 x 950, the person's settings untouched), a hand on it, and the frames."""
 
     def __init__(self):
         self.journal = tempfile.NamedTemporaryFile(suffix=".jsonl", delete=False).name
+        self.assistants = assistants_table()
         self.process = subprocess.Popen([BINARY, "--agent-eval", "--api", str(PORT), "--language", "ru"], cwd=EDITOR_DIR,
-                                        env=dict(os.environ, KE_JOURNAL=self.journal), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                                        env=dict(os.environ, KE_JOURNAL=self.journal, KE_ASSISTANTS=self.assistants),
+                                        stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         for _ in range(150):
             if reachable(PORT):
                 break
@@ -60,6 +82,7 @@ class Camera:
         except Exception:
             self.process.kill()
         os.remove(self.journal)
+        shutil.rmtree(os.path.dirname(self.assistants), ignore_errors=True)
 
     # --- the film ----------------------------------------------------------------------------------------------------
     def begin(self, box):
@@ -469,6 +492,61 @@ def console(c):
     c.click(c.button(name="actionStop"))
     c.hold(0.4)
     c.end("console", 760)
+
+
+@film
+def convex(c):
+    """«Выпуклые части»: a mug becomes «Твёрдое», its collider's tile «Выпуклые части» cuts it into convex pieces (their
+    wireframe in the view), a ball over it - ▶: the ball falls in and lies on the bottom, not on a lid."""
+    c.ed.scene_new()
+    mug = c.ed.scene_import(file=os.path.join(EDITOR_DIR, "examples", "models", "mug.obj"))["id"]
+    c.ed.scene_set(id=mug, line="shape", key="size", values=[0.376, 0.25, 0.3])
+    c.ed.scene_set(id=mug, line="shape", key="position", values=[0.038, 0.125, 0])
+    c.ed.scene_set(id=mug, line="shape", key="color", values=[0.85, 0.35, 0.25])
+    c.ed.view_look(eye=[0.75, 0.95, 1.15], target=[0.03, 0.16, 0])
+    c.ed.selection_set(ids=[])
+    c.begin((0, 0, 1600, 950))
+    c.hold(0.5)
+    c.click(c.view_point([0.03, 0.2, 0.14]), 0.7)  # the mug's front: selected, its card in the inspector
+    c.hold(0.5)
+    c.click(c.button(text="Твёрдое"), 0.7)
+    c.hold(0.6)
+    tiles = c.button(name="roleButton")
+    c.wheel((tiles[0], tiles[1] + 200), -6)  # the inspector down to the collider's tiles
+    c.hold(0.4)
+    tile = c.button(text="Выпуклые части")
+    c.move(tile, 0.7)
+    c.hold(1.6)  # its tooltip says what it is
+    c.ed.ui_pointer(action="click", x=tile[0], y=tile[1], space="window")
+    c.hold(1.8)  # the pieces' wireframe
+    ball = c.ed.scene_add(shape="sphere", name="Шар", position=[0.0, 0.55, 0.0], size=[0.09, 0.09, 0.09], role="rigid", density=600)["id"]
+    c.ed.scene_set(id=ball, line="shape", key="color", values=[1.0, 0.82, 0.15])
+    c.ed.selection_set(ids=[mug])
+    c.hold(0.8)
+    c.click(c.button(name="actionPlay"), 0.8)
+    c.hold(3.2)
+    c.click(c.button(name="actionStop"), 0.6)
+    c.hold(0.8)
+    c.end("convex", 800)
+
+
+@film
+def assistants(c):
+    """«Файл → Подключить ИИ-ассистентов…»: the assistants of this computer, which has Kinetica; «Подключить» - Claude has it.
+    The film is the window's corner where the menu and the dialog stand, at its own size: the dialog's words read."""
+    c.ed.scene_new()
+    c.begin((0, 0, 760, 330))
+    c.hold(0.4)
+    c.click((24, 10), 0.7)  # the menu bar's «Файл»: the hand's list has the menu's items, not where its title stands
+    c.hold(0.6)
+    c.click(c.button(name="fileAssistants"), 0.7)  # a click, not ui_trigger: the window is a dialog
+    c.hold(1.6)
+    # The dialog's buttons are not in the hand's list (it lists the main window): where the window draws them, row by row.
+    c.click((550, 122), 0.9)  # Claude's «Подключить»
+    c.hold(2.4)
+    c.click((550, 240), 0.8)  # «Закрыть»
+    c.hold(0.6)
+    c.end("assistants", 760)
 
 
 @film
