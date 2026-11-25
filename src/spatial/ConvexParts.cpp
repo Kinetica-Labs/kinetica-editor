@@ -375,7 +375,10 @@ std::vector<std::vector<Vector3>> decompose(const TriMesh& mesh, const ConvexPar
         std::vector<int> below, above;
         for (int v : parts[worst].voxels) (g.centre(v)[axis] < at ? below : above).push_back(v);
         std::vector<std::pair<int, Vector3>> under, over;
-        for (const Vector3& p : parts[worst].points) (p[axis] < at ? under : over).push_back({g.of(p), p});
+        for (const Vector3& p : parts[worst].points) { // a point on the plane bounds both sides: its voxel's side takes it
+            if (p[axis] <= at) under.push_back({g.of(p), p});
+            if (p[axis] >= at) over.push_back({g.of(p), p});
+        }
         std::vector<Part> cut = split(below, under), upper = split(above, over);
         for (Part& p : upper) cut.push_back(std::move(p));
         if (cut.size() < 2 || parts.size() - 1 + cut.size() > size_t(o.hulls)) {
