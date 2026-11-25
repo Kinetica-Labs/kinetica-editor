@@ -78,16 +78,38 @@ else
 fi
 say "Редактор: $program"
 
-# 3. Claude: the plugin from this repository's marketplace - the editor's MCP server, its skills.
+# 3. The editor's plugins beside it - formulas, a step's card and the camera, chess, terrain, motors, the depz sensors:
+# a clone with its submodules (the formulas' typesetter), pulled again on the next run; a working copy of one's own is
+# left alone. No git: the archive, without the formulas' typesetter.
+PLUGINS="$(dirname "$DIR")/plugins"
+PLUGINS_REPO="https://github.com/Kinetica-Labs/kinetica-plugins"
+if [ -d "$PLUGINS/.git" ]; then
+    if [ "$(git -C "$PLUGINS" rev-parse --abbrev-ref HEAD 2>/dev/null)" = main ]; then
+        say "Обновляю плагины редактора: $PLUGINS"
+        git -C "$PLUGINS" pull -q --ff-only --recurse-submodules || say "Плагины не обновились - посмотрите git status в $PLUGINS"
+    else
+        say "Плагины редактора - ваша рабочая копия, не трогаю: $PLUGINS"
+    fi
+elif [ -e "$PLUGINS" ]; then
+    say "Папка $PLUGINS уже есть и это не копия kinetica-plugins: не трогаю"
+elif command -v git >/dev/null; then
+    say "Скачиваю плагины редактора в $PLUGINS"
+    git clone -q --depth 1 --recurse-submodules --shallow-submodules "$PLUGINS_REPO" "$PLUGINS" || say "Плагины не скачались: $PLUGINS_REPO"
+else
+    say "git нет: плагины архивом, формулы без своего набора (поставьте git и запустите скрипт снова)"
+    curl -fsSL "$PLUGINS_REPO/archive/refs/heads/main.tar.gz" | tar -xz -C "$tmp" && mv "$tmp/kinetica-plugins-main" "$PLUGINS"
+fi
+
+# 4. Claude: the plugin from this repository's marketplace - the editor's MCP server, its skills.
 if [ "$CLAUDE" = 1 ] && command -v claude >/dev/null; then
     say "Подключаю плагин Kinetica к Claude"
     claude plugin marketplace add "$REPO" || true
-    claude plugin install kinetica@kinetica --config "python=python3" --config "editor=$DIR" || true
+    claude plugin install kinetica@kinetica --config "python=python3" --config "editor=$DIR" --config "plugins=$PLUGINS" || true
 elif [ "$CLAUDE" = 1 ]; then
     say "Команды claude нет: плагин поставьте в Claude сами - /plugin marketplace add $REPO, затем /plugin install kinetica@kinetica"
 fi
 
-# 4. Codex and ChatGPT: the same plugin from the same marketplace (plugin.json, the Agent Plugins schema).
+# 5. Codex and ChatGPT: the same plugin from the same marketplace (plugin.json, the Agent Plugins schema).
 if [ "$CLAUDE" = 1 ] && command -v codex >/dev/null; then
     say "Подключаю плагин Kinetica к Codex и ChatGPT"
     codex plugin marketplace add "$REPO" || true

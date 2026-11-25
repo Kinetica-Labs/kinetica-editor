@@ -50,16 +50,41 @@ try {
 $program = "$Dir\kinetica-windows\kinetica.exe"
 Say "Редактор: $program"
 
-# 3. Claude: the plugin from this repository's marketplace - the editor's MCP server (on this Python), its skills.
+# 3. The editor's plugins beside it - formulas, a step's card and the camera, chess, terrain, motors, the depz sensors:
+# a clone with its submodules (the formulas' typesetter), pulled again on the next run; a working copy of one's own is
+# left alone. No git: the archive, without the formulas' typesetter.
+$Plugins = Join-Path (Split-Path $Dir) "plugins"
+$PluginsRepo = "https://github.com/Kinetica-Labs/kinetica-plugins"
+$git = Get-Command git -ErrorAction SilentlyContinue
+if (Test-Path "$Plugins\.git") {
+    if ((git -C $Plugins rev-parse --abbrev-ref HEAD 2>$null) -eq "main") {
+        Say "Обновляю плагины редактора: $Plugins"
+        git -C $Plugins pull -q --ff-only --recurse-submodules
+    } else { Say "Плагины редактора - ваша рабочая копия, не трогаю: $Plugins" }
+} elseif (Test-Path $Plugins) {
+    Say "Папка $Plugins уже есть и это не копия kinetica-plugins: не трогаю"
+} elseif ($git) {
+    Say "Скачиваю плагины редактора в $Plugins"
+    git clone -q --depth 1 --recurse-submodules --shallow-submodules $PluginsRepo $Plugins
+} else {
+    Say "git нет: плагины архивом, формулы без своего набора (поставьте git и запустите скрипт снова)"
+    $zip = Join-Path ([IO.Path]::GetTempPath()) ("kinetica-plugins-" + [Guid]::NewGuid() + ".zip")
+    Invoke-WebRequest -Uri "$PluginsRepo/archive/refs/heads/main.zip" -OutFile $zip -UseBasicParsing
+    Expand-Archive $zip -DestinationPath (Split-Path $Dir)
+    Move-Item (Join-Path (Split-Path $Dir) "kinetica-plugins-main") $Plugins
+    Remove-Item $zip -Force
+}
+
+# 4. Claude: the plugin from this repository's marketplace - the editor's MCP server (on this Python), its skills.
 if (-not $NoClaude -and (Get-Command claude -ErrorAction SilentlyContinue)) {
     Say "Подключаю плагин Kinetica к Claude"
     claude plugin marketplace add $Repo
-    claude plugin install kinetica@kinetica --config "python=$python" --config "editor=$Dir"
+    claude plugin install kinetica@kinetica --config "python=$python" --config "editor=$Dir" --config "plugins=$Plugins"
 } elseif (-not $NoClaude) {
     Say "Команды claude нет: плагин поставьте в Claude сами - /plugin marketplace add $Repo, затем /plugin install kinetica@kinetica"
 }
 
-# 4. Codex and ChatGPT: the same plugin (plugin.json, the Agent Plugins schema); its server runs as python3.
+# 5. Codex and ChatGPT: the same plugin (plugin.json, the Agent Plugins schema); its server runs as python3.
 if (-not $NoClaude -and (Get-Command codex -ErrorAction SilentlyContinue)) {
     Say "Подключаю плагин Kinetica к Codex и ChatGPT"
     codex plugin marketplace add $Repo

@@ -4,7 +4,7 @@ the operations, the agent's guide) on this process's stdin and stdout. The plugi
 cache and may hold nothing of the editor's: the editor is found in KINETICA_HOME (Claude's «Kinetica folder»), else
 where install.sh / install.ps1 put it - ~/Kinetica/editor, on Windows %LOCALAPPDATA%\\Kinetica\\editor (a source
 checkout linked there serves too). The editor's plugins: KE_PLUGINS (Claude's «Kinetica plugins folder»), else the
-folder `plugins` beside the editor's, if there is one. Not found: a small server of its own says how to install it,
+folder `plugins` beside the editor's folder, where the installers put kinetica-plugins. Not found: a small server of its own says how to install it,
 so the model can tell the person. Only the standard library."""
 import json
 import os
@@ -20,26 +20,21 @@ INSTALL = ("Kinetica is not installed here. Linux, macOS: curl -fsSL "
            "«Kinetica folder» to where it is. Then restart Claude.")
 
 
-def kinetica():
-    """Where install.sh / install.ps1 keep Kinetica: ~/Kinetica, on Windows %LOCALAPPDATA%\\Kinetica."""
-    local = os.environ.get("LOCALAPPDATA")
-    return os.path.join(local, "Kinetica") if local else os.path.join(os.path.expanduser("~"), "Kinetica")
-
-
 def homes():
     if os.environ.get("KINETICA_HOME"):
         yield os.environ["KINETICA_HOME"]
-    yield os.path.join(kinetica(), "editor")
+    local = os.environ.get("LOCALAPPDATA")  # where install.sh / install.ps1 put it
+    yield os.path.join(local, "Kinetica", "editor") if local else os.path.join(os.path.expanduser("~"), "Kinetica", "editor")
 
 
 def server():
-    """The editor's tools/ke_editor_mcp.py, or None."""
+    """The editor's folder and its tools/ke_editor_mcp.py, or (None, None)."""
     for home in homes():
         for layout in LAYOUTS:
             path = os.path.join(home, *layout, "ke_editor_mcp.py")
             if os.path.isfile(path):
-                return path
-    return None
+                return home, path
+    return None, None
 
 
 def explain():
@@ -59,13 +54,14 @@ def explain():
 
 
 def main():
-    path = server()
+    home, path = server()
     if not path:
         print(f"kinetica plugin: {INSTALL}", file=sys.stderr)
         return explain()
     env = dict(os.environ)
-    if not env.get("KE_PLUGINS") and os.path.isdir(os.path.join(kinetica(), "plugins")):
-        env["KE_PLUGINS"] = os.path.join(kinetica(), "plugins")
+    beside = os.path.join(os.path.dirname(os.path.abspath(home)), "plugins")
+    if not env.get("KE_PLUGINS") and os.path.isdir(beside):
+        env["KE_PLUGINS"] = beside
     sys.exit(subprocess.call([sys.executable, path], env=env))  # the same stdin and stdout: the editor's server speaks to the client
 
 
