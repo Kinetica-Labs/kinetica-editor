@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(KineticaEditor VERSION 0.2.0 LANGUAGES C CXX)
+project(KineticaEditor VERSION 0.3.1 LANGUAGES C CXX)
 
 # Kinetica Editor: a robotics editor - a robot arm, a drone, a wheeled robot, their joints, motors and
 # imperfect sensors - on top of a world-class rigid-body engine (Box3D). The parts:

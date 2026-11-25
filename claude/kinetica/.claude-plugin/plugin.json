@@ -1,6 +1,6 @@
 {
   "name": "kinetica",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Kinetica Editor in Claude: a robotics editor on rigid-body physics (Box3D) - the model builds, drives and tests robots in it, explains them with formulas and films it. The editor's MCP server and skills.",
   "author": {
     "name": "Kinetica Labs"

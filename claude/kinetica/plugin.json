@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "kinetica",
-  "version": "0.2.0",
+  "version": "0.3.1",
   "description": "Kinetica Editor in Codex and ChatGPT: a robotics editor on rigid-body physics (Box3D) - the model builds, drives and tests robots in it, explains them with formulas and films it. The editor's MCP server and skills.",
   "author": {
     "name": "Kinetica Labs"

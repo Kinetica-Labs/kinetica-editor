@@ -166,6 +166,7 @@ uint32_t addShape(SceneGraph& g, ShapeKind shape) {
 }
 
 uint32_t importModel(SceneGraph& g, const std::string& file, std::string& error) {
+    if (file.empty()) return error = "file is empty: give the path of a model (.obj, .stl)", 0;
     Entity probe;
     probe.shape = ShapeKind::Mesh, probe.meshFile = file, probe.size = Vector3(1.0_r);
     const TriMesh m = entityLocalMesh(probe, g.baseDirectory, &error);
