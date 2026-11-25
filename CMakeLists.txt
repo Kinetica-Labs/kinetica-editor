@@ -29,6 +29,16 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/box3d/CMakeLists.txt")
 endif()
 add_subdirectory(extern/box3d)
 
+# kinetica-physics builds only its library, and only its facade sees the engine's headers: they are named as ours
+# (<math/Quaternion.h>), so the facade is a library of its own between the two (plugins/physics/kinetica/KpFacade.h).
+find_package(Threads REQUIRED)
+if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/kinetica-physics/src/CMakeLists.txt")
+  message(FATAL_ERROR "extern/kinetica-physics is empty: git submodule update --init")
+endif()
+add_subdirectory(extern/kinetica-physics/src ${CMAKE_CURRENT_BINARY_DIR}/kinetica-physics)
+add_library(ke_kp_facade STATIC plugins/physics/kinetica/KpFacade.h plugins/physics/kinetica/KpFacade.cpp)
+target_link_libraries(ke_kp_facade PRIVATE kinetica-physics)
+
 # ---------------------------------------------------------------------------
 # kecore: standard C++17 and the physics engine only - never Qt (it must build and run headless).
 # ---------------------------------------------------------------------------
@@ -76,6 +86,7 @@ add_library(kecore STATIC
   src/scene/PhysicsSettings.h src/physics/PhysicsWorld.h
   plugins/physics/Engines.cpp
   plugins/physics/box3d/Box3dWorld.cpp
+  plugins/physics/kinetica/KineticaWorld.cpp
   src/sim/Frame.h          src/sim/RobotWorld.h src/sim/RobotWorld.cpp src/sim/RobotControllers.cpp src/sim/RobotPower.cpp
   src/sim/LiveSensors.h    src/sim/LiveSensors.cpp
   src/sim/Channels.h       src/sim/Channels.cpp
@@ -87,12 +98,11 @@ add_library(kecore STATIC
 # ke/Config.h: the options that change the core's types, one header for the library and its programs.
 configure_file(src/Config.h.in ${CMAKE_CURRENT_BINARY_DIR}/generated/ke/Config.h)
 target_include_directories(kecore PUBLIC src ${CMAKE_CURRENT_BINARY_DIR}/generated)
-find_package(Threads REQUIRED)
-target_link_libraries(kecore PUBLIC Threads::Threads PRIVATE box3d::box3d)
+target_link_libraries(kecore PUBLIC Threads::Threads PRIVATE box3d::box3d ke_kp_facade)
 get_target_property(KE_CORE_LIBS kecore LINK_LIBRARIES)
 string(REGEX REPLACE "\\$<LINK_ONLY:([^>]*)>" "\\1" KE_CORE_LIBS "${KE_CORE_LIBS}")
-if(NOT KE_CORE_LIBS STREQUAL "Threads::Threads;box3d::box3d")
-  message(FATAL_ERROR "kecore must depend on the C++ standard library and the physics engine only, got: ${KE_CORE_LIBS}")
+if(NOT KE_CORE_LIBS STREQUAL "Threads::Threads;box3d::box3d;ke_kp_facade")
+  message(FATAL_ERROR "kecore must depend on the C++ standard library and the physics engines only, got: ${KE_CORE_LIBS}")
 endif()
 if(MSVC)
   target_compile_options(kecore PRIVATE /W4 /wd4100 /utf-8)

@@ -27,9 +27,10 @@ python3 tools/op_algebra.py                                            # зак�
 
 Код выхода тестов = число ошибок. Тест ядра: функция в `tests/*Tests.cpp`, строка в `tests/Tests.h`,
 `run(...)` в `tests/main.cpp`. Группы самотеста — `runBuilderSelfTest()` в `editor/SelfTest.cpp`.
-CI проверяет абляцию тремя `git grep` (задача `ablation` в `.github/workflows/ci.yml`; локально те же, пустой
+CI проверяет абляцию четырьмя `git grep` (задача `ablation` в `.github/workflows/ci.yml`; локально те же, пустой
 вывод = чисто): словарь нежёсткой физики только в `tests/AblationTests.cpp`, Box3D только в
-`plugins/physics/box3d/`, в `src/` нет Qt. Словарь ищется подстрокой без учёта регистра - и в комментариях,
+`plugins/physics/box3d/`, заголовки kinetica-physics только в его фасаде `KpFacade.cpp`, в `src/` нет Qt. Закон,
+которого движок ещё не держит, - строка списка `gaps` в `tests/main.cpp`: идёт, не считается; выполнился - падает. Словарь ищется подстрокой без учёта регистра - и в комментариях,
 справке операций, докстрингах: «smoke test», «cloth» роняют CI.
 
 Файлы в `CMakeLists.txt` перечислены поимённо, без glob: новый файл — в список `kecore`, `kinetica` или `ke_tests`,

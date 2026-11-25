@@ -11,6 +11,7 @@
 namespace ke {
 
 std::unique_ptr<PhysicsWorld> makeBox3dWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads);
+std::unique_ptr<PhysicsWorld> makeKineticaWorld(const PhysicsSettings& settings, const Vector3& gravity, int threads);
 
 namespace {
 
@@ -21,6 +22,7 @@ struct Engine {
 
 const Engine kEngines[] = {
     {"box3d", makeBox3dWorld},
+    {"kinetica-physics", makeKineticaWorld},
 };
 
 } // namespace

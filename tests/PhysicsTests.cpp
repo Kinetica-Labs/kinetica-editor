@@ -290,16 +290,18 @@ void testPhysicsHingeCoasts() {
     j.type = JointType::Hinge, j.a = plate, j.b = -1;
     j.anchorA = {-0.2_r, 0, 0}, j.anchorB = {0, 1, 0};
     j.frameA = j.frameB = kXonZ;
-    w->addJoint(j, error);
+    const bool hinged = w->addJoint(j, error) >= 0; // without it the plate coasts free and keeps its spin as well
     for (int k = 0; k < 300; ++k) w->step(kDt);
     const Real spin = w->state(plate).angularVelocity.z;
     std::printf("  a plate spun at 7 rad/s on a free hinge: %.4f rad/s after 5 s (%.2f %% of its energy lost)\n", double(spin),
                 double(100 * (1 - spin * spin / 49)));
+    CHECK(hinged, "the hinge could not be made: %s", error.c_str());
     CHECK(std::fabs(spin / 7 - 1) < 0.01_r, "the hinge took %.1f %% of the spin in 5 s", double(100 * (1 - spin / 7)));
 }
 
-// The tip of a cantilever of six welded 10 cm boxes of 1 kg, held by the world at its root, after 2 s.
-Real cantileverSag(int substeps, Real hertz) {
+// The tip of a cantilever of six welded 10 cm boxes of 1 kg, held by the world at its root, after 2 s; `welded` falls
+// when a weld cannot be made (the boxes would only fall, and their order of sags would mean nothing).
+Real cantileverSag(int substeps, Real hertz, bool& welded) {
     auto w = world(kGravity, substeps, hertz);
     int last = -1;
     for (int k = 0; k < 6; ++k) {
@@ -309,7 +311,7 @@ Real cantileverSag(int substeps, Real hertz) {
         j.anchorA = Vector3(-0.05_r, 0, 0);
         j.anchorB = last >= 0 ? Vector3(0.05_r, 0, 0) : Vector3(0, 1, 0);
         std::string error;
-        w->addJoint(j, error);
+        welded = w->addJoint(j, error) >= 0 && welded;
         last = b;
     }
     for (int k = 0; k < 120; ++k) w->step(kDt);
@@ -317,7 +319,9 @@ Real cantileverSag(int substeps, Real hertz) {
 }
 
 void testPhysicsCantileverSag() {
-    const Real soft = cantileverSag(4, 60), firm = cantileverSag(8, 120), stiff = cantileverSag(16, 240);
+    bool welded = true;
+    const Real soft = cantileverSag(4, 60, welded), firm = cantileverSag(8, 120, welded), stiff = cantileverSag(16, 240, welded);
+    CHECK(welded, "the welds could not be made");
     std::printf("  six welded 10 cm boxes of 1 kg: the tip sags %.2f mm (4 substeps, joints at 60 Hz), %.2f mm (8, 120 Hz), %.2f mm (16, 240 Hz)\n",
                 double(soft * 1000), double(firm * 1000), double(stiff * 1000));
     CHECK(stiff < firm && firm < soft && soft > 0, "the sag does not fall with stiffer joints: %f %f %f", double(soft), double(firm), double(stiff));

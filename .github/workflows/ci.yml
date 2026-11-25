@@ -271,4 +271,5 @@ jobs:
           # each line exits by itself: bash -e passes over a failed command under '!'
           ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools clients examples CMakeLists.txt ':!tests/AblationTests.cpp' || exit 1
           ! git grep -lI 'box3d/' -- src editor tests || exit 1
+          ! git grep -lE '#include <(physics\.h|world/|body/|joints/|collision/|dynamics/|math/)' -- src editor tests plugins ':!plugins/physics/kinetica/KpFacade.cpp' || exit 1
           ! git grep -nIE '#include <Q' -- src || exit 1

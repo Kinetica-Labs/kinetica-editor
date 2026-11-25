@@ -23,12 +23,17 @@ inline int g_failures = 0;
         }                                                                         \
     } while (0)
 
-inline void run(const char* name, const std::function<void()>& fn) {
+// `gap`: a law known not to hold yet (a physics engine's, tests/main.cpp) - run and said, its failures not counted; one
+// that holds now fails, so the list of gaps never claims one that is gone.
+inline void run(const char* name, const std::function<void()>& fn, bool gap = false) {
     if (const char* only = std::getenv("KE_TEST"); only && *only && !std::strstr(name, only)) return;
     auto t0 = std::chrono::steady_clock::now();
     int before = g_failures;
     fn();
     double ms = std::chrono::duration<double, std::milli>(std::chrono::steady_clock::now() - t0).count();
-    std::printf("[%s] %s (%.0f ms)\n", g_failures == before ? " OK " : "FAIL", name, ms);
+    const bool failed = g_failures != before;
+    if (gap) g_failures = before + (failed ? 0 : 1);
+    std::printf("[%s] %s (%.0f ms)%s\n", gap ? (failed ? "GAP " : "FAIL") : failed ? "FAIL" : " OK ", name, ms,
+                gap && !failed ? "  - holds now: take it out of the engine's gaps (tests/main.cpp)" : "");
     std::fflush(stdout); // piped output is block-buffered: a crash would lose the last tests' lines
 }

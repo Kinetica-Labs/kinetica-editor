@@ -461,6 +461,7 @@ Value liveState(const Simulation& s) {
         if (c.name.rfind("physics/", 0) == 0 && c.name.size() > 3 && c.name.compare(c.name.size() - 3, 3, " ms") == 0)
             timers.set(c.name.substr(8, c.name.size() - 11), c.value);
     out.set("step_ms", timers);
+    out.set("engine", physics->engine()); // the engine the world plays on, its name and version
     out.set("contacts", contacts);
     Value triggers = Value::list(); // the zones - the colliders that are triggers - and what stands inside each
     for (const auto& [zone, inside] : robot->zones()) {
