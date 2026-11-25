@@ -237,7 +237,27 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.txt # --notes-from-tag is refused beside --repo
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME" # checkout leaves the tag bare: its words are the commit's
+          echo "![Kinetica Editor](https://raw.githubusercontent.com/$GITHUB_REPOSITORY/$GITHUB_REF_NAME/docs/images/release.gif)" > notes.txt # the release's own film, kept by the tag
+          cat >> notes.txt <<'HOW'
+
+          ## Установить одной командой
+
+          Windows - в PowerShell:
+          ```powershell
+          irm https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.ps1 | iex
+          ```
+          Linux и macOS - в терминале:
+          ```sh
+          curl -fsSL https://raw.githubusercontent.com/Kinetica-Labs/kinetica-editor/main/install.sh | bash
+          ```
+          Скрипт ставит последний выпуск редактора и его плагины (формулы, карточки шагов, шахматы, рельеф, моторы, пульт,
+          «Мозг», датчики depz), проверяет Python 3 (его нет - спросит, поставить ли) и подключает Kinetica к Claude, Claude
+          Code, ChatGPT и Codex, какие есть на компьютере. Запустите снова - обновит всё. Без скрипта: архив своей системы ниже.
+
+          ## Что нового
+          HOW
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" | sed '1{/^Kinetica Editor /d}' >> notes.txt # --notes-from-tag is refused beside --repo
           gh release create "$GITHUB_REF_NAME" kinetica-windows.zip kinetica-linux.tar.gz kinetica-macos.zip \
             --repo "$GITHUB_REPOSITORY" --title "Kinetica Editor ${GITHUB_REF_NAME#v}" --notes-file notes.txt --verify-tag
 
