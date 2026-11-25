@@ -175,10 +175,10 @@ def load(scene, path):
         folder = tempfile.mkdtemp(prefix=f"{stem}-meshes-")
         notes.add(("meshes in the temporary folder " if ENGLISH else "сетки во временной папке ") + folder)
 
-    colours = []
+    colours = []  # glTF gives a material's colour in linear light; a scene keeps colours as people pick them, in sRGB
     for m in doc.get("materials", []):
-        pbr = m.get("pbrMetallicRoughness", {})
-        colours.append(tuple(pbr.get("baseColorFactor", (0.8, 0.8, 0.8, 1.0))[:3]))
+        factor = m.get("pbrMetallicRoughness", {}).get("baseColorFactor")
+        colours.append(tuple(c ** (1 / 2.2) for c in factor[:3]) if factor else (0.8, 0.8, 0.8))
 
     pictures = {}  # material -> the base colour picture written beside the meshes (None: it has none, or it cannot be had)
     def picture(material):

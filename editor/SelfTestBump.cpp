@@ -30,13 +30,17 @@ uint32_t stage(SceneBuilder& b) {
     b.lookThrough(camera); b.select(0); pump(200);
     return cube;
 }
+// The shader's lighting of the 0.5 grey cube under the 0.6 white sun, worked out by hand (mesh.frag): in linear light
+// - sRGB 0.5 is 0.5^2.2 -, then back to sRGB for the screen. It stays under the tone curve's knee, which changes nothing there.
 float expectedPixel(float slope) {
     const Vector3 normal = normalize(Vector3(-slope, 0, 1));
     const Vector3 view = normalize(Vector3(0.0625f, -0.0625f, 1.9f));
     const Vector3 light(0.8f, 0, 0.6f);
     const float diffuse = std::max(0.0f, dot(normal, light));
     const float specular = std::pow(std::max(0.0f, dot(normal, normalize(light + view))), 32) * 0.25f;
-    return 255 * (0.5f * (0.18f + 0.1f * dot(normal, view)) + (0.5f * diffuse * 0.8f + specular) * 0.6f);
+    const float grey = std::pow(0.5f, 2.2f);
+    const float lit = grey * (0.03f + 0.04f * dot(normal, view)) + (grey * diffuse * 0.8f + specular) * 0.6f;
+    return 255 * std::pow(lit, 1 / 2.2f);
 }
 }
 int runBumpTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
@@ -54,7 +58,8 @@ int runBumpTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sh
     b.select(0); pump(200);
     const QImage image = v->grabFramebuffer(); const float bumped = brightnessAt(v, image, point);
     std::printf("  ramp brightness: flat %.1f, bump %.1f, analytical %.1f\n", flat, bumped, expectedPixel(0.16f));
-    c.check(std::abs(bumped - expectedPixel(0.16f)) < 4 && flat > bumped + 8, "height ramp produces analytical surface-gradient normal");
+    // The tilt darkens the face by 8 of 255 on the screen (its sRGB curve squeezes it): more than the tolerance, so it shows.
+    c.check(std::abs(bumped - expectedPixel(0.16f)) < 4 && flat > bumped + 5, "height ramp produces analytical surface-gradient normal");
     if (!shotsDir.isEmpty()) image.save(shotsDir + "/bump-ramp.png");
     b.select(cube); pump(100);
     auto* enabled = w.findChild<QCheckBox*>("textureBump");
@@ -83,7 +88,7 @@ int runBumpTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& sh
     b.select(0); pump(200);
     const float mapped = brightnessAt(v, v->grabFramebuffer(), point);
     std::printf("  a normal map of one tilt: brightness %.1f, analytical %.1f (flat %.1f)\n", mapped, expectedPixel(0.16f), flat);
-    c.check(std::abs(mapped - expectedPixel(0.16f)) < 4 && flat > mapped + 8, "a normal map of one tilt lights the face as that tilt does, with no bump");
+    c.check(std::abs(mapped - expectedPixel(0.16f)) < 4 && flat > mapped + 5, "a normal map of one tilt lights the face as that tilt does, with no bump");
     b.select(cube); pump(100);
     auto* normalField = w.findChild<QLineEdit*>("textureNormalFile");
     c.check(normalField && normalField->text() == normalPath && b.graph().save().find(" normal_file \"") != std::string::npos,
