@@ -36,6 +36,9 @@ if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/kinetica-physics/src/CMakeList
   message(FATAL_ERROR "extern/kinetica-physics is empty: git submodule update --init")
 endif()
 add_subdirectory(extern/kinetica-physics/src ${CMAKE_CURRENT_BINARY_DIR}/kinetica-physics)
+if(MSVC) # its flags are GCC's and Clang's (MSVC stops at -Wextra); its sources and headers are UTF-8
+  set_target_properties(kinetica-physics PROPERTIES COMPILE_OPTIONS "/utf-8" INTERFACE_COMPILE_OPTIONS "/utf-8")
+endif()
 add_library(ke_kp_facade STATIC plugins/physics/kinetica/KpFacade.h plugins/physics/kinetica/KpFacade.cpp)
 target_link_libraries(ke_kp_facade PRIVATE kinetica-physics)
 
