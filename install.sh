@@ -104,7 +104,9 @@ fi
 if [ "$CLAUDE" = 1 ] && command -v claude >/dev/null; then
     say "Подключаю плагин Kinetica к Claude"
     claude plugin marketplace add "$REPO" || true
+    claude plugin marketplace update kinetica || true  # run again: the marketplace's newer version, then the plugin moved to it
     claude plugin install kinetica@kinetica --config "python=python3" --config "editor=$DIR" --config "plugins=$PLUGINS" || true
+    claude plugin update kinetica@kinetica || true
 elif [ "$CLAUDE" = 1 ]; then
     say "Команды claude нет: плагин поставьте в Claude сами - /plugin marketplace add $REPO, затем /plugin install kinetica@kinetica"
 fi
@@ -113,6 +115,7 @@ fi
 if [ "$CLAUDE" = 1 ] && command -v codex >/dev/null; then
     say "Подключаю плагин Kinetica к Codex и ChatGPT"
     codex plugin marketplace add "$REPO" || true
+    codex plugin marketplace upgrade || true  # run again: the marketplace's snapshot refreshed, so add takes its newer version
     codex plugin add kinetica@kinetica || true
 fi
 

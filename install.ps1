@@ -79,7 +79,9 @@ if (Test-Path "$Plugins\.git") {
 if (-not $NoClaude -and (Get-Command claude -ErrorAction SilentlyContinue)) {
     Say "Подключаю плагин Kinetica к Claude"
     claude plugin marketplace add $Repo
+    claude plugin marketplace update kinetica  # run again: the marketplace's newer version, then the plugin moved to it
     claude plugin install kinetica@kinetica --config "python=$python" --config "editor=$Dir" --config "plugins=$Plugins"
+    claude plugin update kinetica@kinetica
 } elseif (-not $NoClaude) {
     Say "Команды claude нет: плагин поставьте в Claude сами - /plugin marketplace add $Repo, затем /plugin install kinetica@kinetica"
 }
@@ -88,6 +90,7 @@ if (-not $NoClaude -and (Get-Command claude -ErrorAction SilentlyContinue)) {
 if (-not $NoClaude -and (Get-Command codex -ErrorAction SilentlyContinue)) {
     Say "Подключаю плагин Kinetica к Codex и ChatGPT"
     codex plugin marketplace add $Repo
+    codex plugin marketplace upgrade  # run again: the marketplace's snapshot refreshed, so add takes its newer version
     codex plugin add kinetica@kinetica
     if (-not (Get-Command python3 -ErrorAction SilentlyContinue)) { Say "Codex запускает сервер Kinetica командой python3: её нет в PATH - поставьте Python с python.org или из winget" }
 }
