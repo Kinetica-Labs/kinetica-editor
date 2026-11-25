@@ -110,7 +110,7 @@ class ClaudePlugin(unittest.TestCase):
     def test_codex_reads_the_same_plugin(self):
         """Codex and ChatGPT read plugin.json and mcp.json (the Agent Plugins schema) before .claude-plugin/plugin.json: the
         same name, version and words as Claude's; one stdio server, a bare command (Codex refuses a path), run in the
-        plugin's folder on the door Claude runs."""
+        plugin's folder on the door Claude runs; the logo and icon its face names are there."""
         root = os.path.dirname(os.path.dirname(self.DOOR))
         read = lambda *path: json.load(open(os.path.join(root, *path), encoding="utf-8"))
         claude, codex, mcp = read(".claude-plugin", "plugin.json"), read("plugin.json"), read("mcp.json")
@@ -119,6 +119,11 @@ class ClaudePlugin(unittest.TestCase):
         server = mcp["mcpServers"]["ke-editor"]
         self.assertEqual((server["type"], server["command"], server["cwd"]), ("stdio", "python3", "${PLUGIN_ROOT}"))
         self.assertEqual(os.path.normpath(os.path.join(root, server["args"][0])), os.path.normpath(self.DOOR))
+        face = codex["extensions"]["com.openai"]["interface"]  # what Codex and ChatGPT show: its logo, not their placeholder
+        for key in ("logo", "composerIcon"):
+            self.assertTrue(face[key].startswith("./"), key)
+            with open(os.path.join(root, face[key]), "rb") as f:
+                self.assertEqual(f.read(8), b"\x89PNG\r\n\x1a\n", key)
 
 
 if __name__ == "__main__":

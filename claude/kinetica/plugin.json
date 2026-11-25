@@ -16,5 +16,28 @@
     "mcp",
     "robot-arm",
     "education"
-  ]
+  ],
+  "extensions": {
+    "com.openai": {
+      "interface": {
+        "displayName": "Kinetica",
+        "shortDescription": "Build, drive and test robots in a physics editor",
+        "longDescription": "Kinetica Editor is a robotics editor on rigid-body physics. Through its MCP server the model builds robot arms, cars and drones in the person's window, runs them, reads their imperfect sensors, measures, explains them with formulas and films it; every step it takes is one undo and a line of the editor's journal.",
+        "developerName": "Kinetica Labs",
+        "capabilities": [
+          "Read",
+          "Write"
+        ],
+        "websiteURL": "https://kinetica-labs.github.io/kinetica-docs",
+        "defaultPrompt": [
+          "Build a car with a lidar in Kinetica and check that it drives around a wall.",
+          "Build a pendulum in Kinetica and compare its period with the formula.",
+          "Drop a ball into a mug in Kinetica and measure where it comes to rest."
+        ],
+        "brandColor": "#E5F931",
+        "composerIcon": "./assets/icon.png",
+        "logo": "./assets/logo.png"
+      }
+    }
+  }
 }
