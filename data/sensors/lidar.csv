@@ -1,0 +1,5 @@
+model,rays_h,fov_h_deg,rays_v,fov_v_deg,min_m,max_m,accuracy_mm,rate_hz,mass_kg,source
+RPLIDAR A1,360,360,1,0,0.15,12,30,5.5,0.17,"Slamtec RPLIDAR A1 http://www.slamtec.com/en/lidar/a1spec (a 2D ring: angular resolution at most 1°, over 8000 samples a second at 5.5 scans a second - 360 rays here; accuracy 1 % of the range up to 3 m, 2 % to 5 m, 2.5 % beyond - 30 mm here)"
+TFmini-S,1,0,1,0,0.1,12,60,100,0.005,"Benewake TFmini-S https://en.benewake.com/TFminiS/index.html (one beam; ±6 cm from 0.1 to 6 m taken as 3 sigma; 100 frames a second by default, 1-1000 settable; its beam's angle not stated on the page)"
+VLP-16,1800,360,16,30,,100,30,10,0.83,"Velodyne VLP-16 Puck https://ouster.com/products/hardware/vlp-16 (16 layers over ±15°, 0.2° across at 10 scans a second - 1800 rays; ±3 cm; low confidence on the layers, range, resolution and mass: the maker's datasheet could not be read, the page now redirects)"
+VL53L5CX,8,45,8,45,0.02,4,,15,,"ST VL53L5CX https://www.st.com/resource/en/datasheet/vl53l5cx.pdf (a flashlight: 8 x 8 zones over a 65° diagonal square field - 45° a side here; 15 frames a second at 8 x 8, 60 at 4 x 4; accuracy and mass not read)"

@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: "Руководство в картинках"
+    url: https://kinetica-labs.github.io/kinetica-docs/
+    about: "Окно шаг за шагом и глава «Если что-то пошло не так»."
+  - name: "Писать для Kinetica"
+    url: https://github.com/Kinetica-Labs/kinetica-editor/blob/HEAD/CONTRIBUTING.md
+    about: "Первые пять минут для скрипта, плагина, агента и правки ядра."

@@ -1,0 +1,37 @@
+name: "Что-то сломалось (bug)"
+description: "Программа сделала не то, что вы ждали. По строке журнала мы повторим каждый ваш шаг."
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: "Спасибо, что пишете: каждый такой рассказ делает Kinetica надёжнее. Хватит нескольких строк."
+  - type: textarea
+    id: did
+    attributes:
+      label: "Что вы делали"
+      placeholder: "Открыл examples/scenes/ur5e.kscene, нажал ▶, потащил цель руки…"
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "Чего ждали и что случилось"
+      placeholder: "Ждал, что рука пойдёт за целью; рука осталась на месте, в строке состояния…"
+    validations:
+      required: true
+  - type: textarea
+    id: journal
+    attributes:
+      label: "Последние строки журнала правок"
+      description: "Linux - ~/.local/share/Kinetica/Kinetica/ops-journal.jsonl, или операция journal_lines {last 20}. По ним видно каждый шаг."
+      render: json
+  - type: input
+    id: version
+    attributes:
+      label: "Версия"
+      description: "kinetica-core --version; собрали сами - git rev-parse --short HEAD"
+  - type: dropdown
+    id: system
+    attributes:
+      label: "Система"
+      options: [Linux, Windows, другая]

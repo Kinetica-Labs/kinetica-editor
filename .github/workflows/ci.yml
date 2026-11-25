@@ -1,0 +1,254 @@
+# Сборка ядра и окна (Qt 6) на Linux (Ubuntu), Windows и macOS, тесты ядра; на Linux - самотест окна под виртуальным
+# экраном и проверка абляции. Готовые программы для скачивания: Windows (kinetica.exe с Qt), Linux - одна папка со всеми
+# библиотеками, собранная на Ubuntu 22.04 и запущенная на чистых 22.04 и 24.04 без Qt (снимок окна и вызов API), и macOS -
+# kinetica.app. Тег v* - выпуск: когда всё зелёное, три архива уходят на страницу выпусков сами.
+name: CI
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ["v*"]
+  pull_request:
+
+jobs:
+  build:
+    name: Linux GCC
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: OpenGL, X11 и виртуальный экран
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1 xvfb
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+      - name: Build
+        run: cmake --build build --parallel 4 # without a number make starts every compile at once and runs out of memory
+      - name: Tests
+        run: ctest --test-dir build --output-on-failure
+      - name: Python - стенд испытателей, SDK плагинов, сервер MCP и ke.Scene()
+        run: cd tools && python3 -m unittest test_plugin_sdk test_editor_mcp test_scene_core test_examples test_names test_gltf test_kpkg test_op_algebra
+      - name: Окно и kinetica-core отвечают одинаково
+        timeout-minutes: 10
+        env:
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" python3 tools/test_hosts_agree.py
+      - name: Самотест окна (программный OpenGL)
+        timeout-minutes: 20
+        env:
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --self-test
+      - name: Английский интерфейс и выбор языка
+        env:
+          KE_EDITOR_TEST: language
+          KE_SOFTWARE_GL: "1"
+          LIBGL_ALWAYS_SOFTWARE: "1"
+        run: xvfb-run -a -s "-screen 0 1600x1000x24" build/kinetica --language en --self-test
+
+  windows:
+    name: Windows MSVC
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+      - name: Build
+        run: cmake --build build --config Release --parallel 4
+      - name: Tests
+        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Python - ke.Scene() и kinetica-core.exe
+        run: cd tools && python -m unittest test_scene_core test_examples test_gltf test_kpkg
+      - name: Готовая программа
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory dist | Out-Null
+          Copy-Item build/Release/kinetica.exe, build/Release/kinetica-core.exe dist/
+          windeployqt --release --no-translations dist/kinetica.exe
+          Copy-Item -Recurse examples, clients, data dist/
+          # The plugins that ship with the editor (plugins/urdf): its host scans the folder next to the program
+          New-Item -ItemType Directory dist/plugins | Out-Null
+          Get-ChildItem plugins -Directory | Where-Object { Test-Path "$($_.FullName)/plugin.py" } | ForEach-Object { Copy-Item -Recurse $_.FullName dist/plugins/ }
+          if (!(Test-Path dist/plugins/urdf/plugin.py)) { throw "the URDF plugin is not in the program" }
+          New-Item -ItemType Directory dist/tools | Out-Null
+          Copy-Item tools/ke_editor.py, tools/ke_editor_mcp.py dist/tools/
+          New-Item -ItemType Directory dist/docs | Out-Null
+          Copy-Item -Recurse docs/agent-guide.md, docs/agent dist/docs/
+          Copy-Item LICENSE, THIRD_PARTY_NOTICES.md, README.md dist/
+          Copy-Item extern/box3d/LICENSE dist/LICENSE-box3d.txt
+          # The C++ runtime next to the program (Microsoft allows it): a clean Windows has no VCRUNTIME140.dll
+          $crt = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -find "VC\Redist\MSVC\*\x64\Microsoft.VC*.CRT" | Select-Object -Last 1
+          Copy-Item "$crt\*.dll" dist/
+          foreach ($dll in "vcruntime140.dll", "msvcp140.dll") { if (!(Test-Path "dist/$dll")) { throw "the C++ runtime is not in the program: $dll" } }
+          Get-ChildItem dist -Filter *.dll | ForEach-Object Name
+      - name: Выложить программу
+        uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-windows
+          path: dist/
+
+  linux-bundle:
+    name: Linux - программа одной папкой
+    runs-on: ubuntu-22.04 # built on the older Ubuntu it runs on the newer ones too (glibc)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: OpenGL и X11
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev libegl1 libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 \
+            libxcb-keysyms1 libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xkb1
+      - name: Build
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=OFF -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}"
+          cmake --build build --parallel 4 --target kinetica kinetica-core
+      - name: Программа, библиотеки Qt, примеры, лицензии - в одну папку
+        run: packaging/bundle-linux.sh build "${{ env.QT_ROOT_DIR }}/bin/qmake"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-linux
+          path: build/kinetica-linux.tar.gz
+
+  linux-clean:
+    name: Linux - запуск на чистой ${{ matrix.os }}
+    needs: linux-bundle
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: kinetica-linux
+      - name: Только то, что есть на рабочем столе Ubuntu, и виртуальный экран (без Qt и без libxcb-cursor0)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb xauth libgl1 libegl1 libfontconfig1 libxkbcommon-x11-0 libdbus-1-3 python3
+      - name: Распаковать и запустить UR5e в игре, снимок окна
+        run: |
+          tar -xzf kinetica-linux.tar.gz
+          xvfb-run -a -s "-screen 0 1600x1000x24" ./kinetica-linux/kinetica --scene kinetica-linux/usr/bin/examples/scenes/ur5e.kscene \
+            --play --frames 120 --window --screenshot ur5e-${{ matrix.os }}.png
+          test -s ur5e-${{ matrix.os }}.png
+      - name: ke.Scene() из самой папки, без окна
+        run: |
+          cd kinetica-linux/usr/bin
+          python3 -c "import sys; sys.path.insert(0, 'clients/python'); import kinetica as ke; s = ke.Scene(); print(s.add('box').id); s.close()"
+          python3 examples/python/01_hello.py
+      - name: API для скриптов и агентов
+        run: |
+          xvfb-run -a ./kinetica-linux/kinetica --agent-eval --api 47801 --scene kinetica-linux/usr/bin/examples/scenes/ur5e.kscene &
+          for i in $(seq 30); do python3 kinetica-linux/usr/bin/tools/ke_editor.py scene_list > list.json 2>/dev/null && break; sleep 1; done
+          grep -q "UR5e" list.json && echo "API: $(grep -o '"name"' list.json | wc -l) objects"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-linux-screenshot-${{ matrix.os }}
+          path: ur5e-${{ matrix.os }}.png
+
+  macos:
+    name: macOS - программа kinetica.app
+    runs-on: macos-latest # Apple Silicon, the image GitHub keeps current (macos-14 was retired)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Qt 6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: "6.7.3"
+          cache: true
+      - name: Build
+        # Qt 6.7's FindWrapOpenGL links the AGL framework on Apple, and the new SDKs have none ("framework 'AGL' not
+        # found"): it is told AGL is OpenGL itself, so it looks for nothing else.
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DKE_TESTS=ON -DCMAKE_PREFIX_PATH="${{ env.QT_ROOT_DIR }}" \
+            -DWrapOpenGL_AGL="-framework OpenGL"
+          cmake --build build --parallel 3 --target kinetica kinetica-core ke_tests
+      - name: Tests
+        run: build/ke_tests
+      - name: Python - ke.Scene() и kinetica-core
+        run: cd tools && python3 -m unittest test_scene_core test_examples test_gltf test_kpkg
+      - name: Программа kinetica.app
+        run: |
+          version=$([[ "$GITHUB_REF" == refs/tags/v* ]] && echo "${GITHUB_REF_NAME#v}" || echo "0.0.0")
+          packaging/bundle-macos.sh build "${{ env.QT_ROOT_DIR }}/bin/macdeployqt" "$version"
+      - name: ke.Scene() из самой программы, без окна
+        run: python3 build/kinetica.app/Contents/Resources/examples/python/01_hello.py
+      - name: Снимок окна UR5e в игре (у машин CI бывает нет видеокарты - тогда шаг жёлтый, не красный)
+        continue-on-error: true
+        run: |
+          build/kinetica.app/Contents/MacOS/kinetica --scene build/kinetica.app/Contents/Resources/examples/scenes/ur5e.kscene \
+            --play --frames 120 --window --screenshot ur5e-macos.png
+          test -s ur5e-macos.png
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kinetica-macos
+          path: build/kinetica-macos.zip
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kinetica-macos-screenshot
+          path: ur5e-macos.png
+          if-no-files-found: ignore
+
+  release:
+    name: Выпуск - архивы трёх систем
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [build, windows, linux-bundle, linux-clean, macos, ablation]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4 # the tag's own words are the release's
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+      - name: Архивы
+        run: |
+          (cd artifacts && zip -qr ../kinetica-windows.zip kinetica-windows)
+          cp artifacts/kinetica-linux/kinetica-linux.tar.gz artifacts/kinetica-macos/kinetica-macos.zip .
+          ls -la kinetica-windows.zip kinetica-linux.tar.gz kinetica-macos.zip
+      - name: Выпуск на GitHub - слова выпуска из тега
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git tag -l --format='%(contents)' "$GITHUB_REF_NAME" > notes.txt # --notes-from-tag is refused beside --repo
+          gh release create "$GITHUB_REF_NAME" kinetica-windows.zip kinetica-linux.tar.gz kinetica-macos.zip \
+            --repo "$GITHUB_REPOSITORY" --title "Kinetica Editor ${GITHUB_REF_NAME#v}" --notes-file notes.txt --verify-tag
+
+  ablation:
+    name: Только робототехника
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Нет нежёсткой физики, Box3D только в плагине, ядро без Qt
+        run: |
+          # each line exits by itself: bash -e passes over a failed command under '!'
+          ! git grep -nIiE 'gas|plasma|fluid|cloth|soft ?bod|particle|fracture|mhd|smoke' -- src plugins tests editor shaders tools clients examples CMakeLists.txt ':!tests/AblationTests.cpp' || exit 1
+          ! git grep -lI 'box3d/' -- src editor tests || exit 1
+          ! git grep -nIE '#include <Q' -- src || exit 1

@@ -1,0 +1,14 @@
+{
+  "$schema": "https://agent-plugins.org/schemas/1.0.0/mcp.schema.json",
+  "mcpServers": {
+    "ke-editor": {
+      "type": "stdio",
+      "command": "python3",
+      "args": ["./server/kinetica_mcp.py"],
+      "cwd": "${PLUGIN_ROOT}",
+      "env": {
+        "KE_EDITOR_PORT": "47801"
+      }
+    }
+  }
+}
