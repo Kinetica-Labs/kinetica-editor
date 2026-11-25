@@ -253,7 +253,7 @@ QString MainWindow::firstMinuteText() const { return hint_ ? hint_->text() : QSt
 // Примеры
 // ---------------------------------------------------------------------------
 void MainWindow::openGallery() {
-    ExamplesGallery gallery(examplesDir(), this);
+    ExamplesGallery gallery(scenesDir(), this); // the scenes' folder: examples/ itself holds none, the gallery stood empty
     if (gallery.exec() != QDialog::Accepted || !gallery.chosen()) return;
     QString error;
     if (!builder_->openFile(gallery.chosen()->sceneFile, error)) QMessageBox::warning(this, uiText("Kinetica", "Открыть сцену"), error);

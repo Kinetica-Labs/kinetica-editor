@@ -19,6 +19,8 @@
 #include <QAction>
 #include <QApplication>
 #include <QCoreApplication>
+#include <QDialog>
+#include <QMenuBar>
 #include <QDir>
 #include <QImage>
 #include <QJsonArray>
@@ -137,10 +139,13 @@ static const std::pair<const char*, const char*> kParts[] = {
     {"view", ""}, {"toolbar", "createBar"}, {"tools", "toolShelf"}, {"inspector", "inspectorDock"}, {"sequencer", "sequencerDock"},
     {"plots", "resultsDock"}, {"console", "consoleDock"}, {"laboratory", "labDock"}};
 
-// Where a widget stands in the window's picture, in its pixels (what ui_pointer space window takes).
+// Where a widget stands in the window's picture, in its pixels (what ui_pointer space window takes) - a dialog's button
+// where the picture draws the dialog over the window (seenWindow).
 static QJsonObject placeIn(QWidget* window, QWidget* w, const QRect& r) {
     const double k = window->devicePixelRatioF();
-    const QPoint at = w->mapTo(window, r.topLeft());
+    QWidget* top = w->window();
+    const QPoint at = top == window ? w->mapTo(window, r.topLeft())
+                                    : uiWindowOrigin(top) - window->mapToGlobal(QPoint()) + w->mapTo(top, r.topLeft());
     return QJsonObject{{"x", at.x() * k}, {"y", at.y() * k}, {"width", r.width() * k}, {"height", r.height() * k}};
 }
 
@@ -341,7 +346,7 @@ void EditorOps::addViewOps() {
         return ok({{"drawings", view_->cardsShown() && view_->labelsShown()}, {"cards", view_->cardsShown()}, {"labels", view_->labelsShown()},
                    {"marks", view_->marksVisible()}});
     });
-    addSync("ui_actions", "Every button and menu item of the window, a panel's own buttons and the visible tabs: text, name, on/off, and "
+    addSync("ui_actions", "Every button and menu item of the window, a panel's own buttons, an open dialog's buttons and the visible tabs: text, name, on/off, and "
             "for what is shown - an open menu's items too - where it stands: x, y, width, height in the window's picture (the pixels view_screenshot window gives "
             "and ui_pointer space window takes): a hand finds it by its name, not by its looks; ui_trigger presses any of them by its text",
             "{}", [this](const QJsonObject&) {
@@ -359,12 +364,16 @@ void EditorOps::addViewOps() {
             QJsonObject e = entry(act->text(), act->objectName(), act->isEnabled(), act->isCheckable() ? QJsonValue(act->isChecked()) : QJsonValue());
             for (QObject* o : act->associatedObjects()) { // its button on a bar, when one shows - the bar's button, not the bar
                 QWidget* w = qobject_cast<QWidget*>(o);
-                if (auto* menu = qobject_cast<QMenu*>(o); menu && menu->isVisible() && !act->menu()) { // an item of an open menu: where it is
+                if (auto* menu = qobject_cast<QMenu*>(o); menu && menu->isVisible() && menu != act->menu()) { // an item of an open menu (a submenu's too): where it is
                     const QPoint at = uiWindowOrigin(menu) - window_->mapToGlobal(QPoint()) + menu->actionGeometry(act).topLeft();
                     const double k = window_->devicePixelRatioF();
                     const QRect r = menu->actionGeometry(act);
                     for (const auto& [key, v] : {std::pair<const char*, double>{"x", at.x() * k}, {"y", at.y() * k}, {"width", r.width() * k}, {"height", r.height() * k}})
                         e.insert(key, v);
+                    break;
+                }
+                if (auto* bar = qobject_cast<QMenuBar*>(o); bar && bar->isVisible() && bar->window() == window_) { // a menu's title: its own place
+                    e = placed(e, bar, bar->actionGeometry(act));
                     break;
                 }
                 if (auto* bar = qobject_cast<QToolBar*>(o)) w = bar->widgetForAction(act);
@@ -375,9 +384,10 @@ void EditorOps::addViewOps() {
             }
             out.append(e);
         }
-        for (QAbstractButton* b : window_->findChildren<QAbstractButton*>()) { // a panel's own: no action behind it
+        for (QAbstractButton* b : window_->findChildren<QAbstractButton*>()) { // a panel's own (no action behind it), an open dialog's
             const auto* tool = qobject_cast<QToolButton*>(b);
-            if ((tool && tool->defaultAction()) || !b->isVisible() || b->window() != window_ || (b->text().isEmpty() && b->toolTip().isEmpty())) continue;
+            const bool mine = b->window() == window_ || qobject_cast<QDialog*>(b->window());
+            if ((tool && tool->defaultAction()) || !b->isVisible() || !mine || (b->text().isEmpty() && b->toolTip().isEmpty())) continue;
             out.append(placed(entry(b->text().isEmpty() ? b->toolTip() : b->text(), b->objectName(), b->isEnabled(),
                                     b->isCheckable() ? QJsonValue(b->isChecked()) : QJsonValue()), b, b->rect()));
         }

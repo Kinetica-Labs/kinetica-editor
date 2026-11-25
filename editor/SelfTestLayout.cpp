@@ -7,8 +7,13 @@
 #include "Viewport.h"
 #include "MainWindow.h"
 #include "EditorOps.h"
+#include "UiLanguage.h"
 
 #include <QAction>
+#include <QApplication>
+#include <QDialog>
+#include <QListWidget>
+#include <QTimer>
 #include <QDockWidget>
 #include <QMenu>
 #include <QStatusBar>
@@ -139,6 +144,22 @@ void testTornOff(Checker& c, QMainWindow& w) {
     c.check(framed && home, "a panel torn off is a framed window with a maximize button; its ✕ puts it back in its place, shown");
 }
 
+// «Примеры», pressed as a person presses it: the gallery shows the example scenes - a tile each -, closed again.
+void testGallery(Checker& c, QMainWindow& w) {
+    QToolButton* button = nullptr;
+    for (QToolButton* b : w.findChildren<QToolButton*>())
+        if (b->text() == uiText("Kinetica", "Примеры")) button = b;
+    if (!button) return c.check(false, "the toolbar has the button «Примеры»");
+    int tiles = -1;
+    QTimer::singleShot(400, &w, [&] { // the gallery runs its own loop: looked at from inside it, then closed
+        if (auto* list = w.findChild<QListWidget*>("galleryList")) tiles = list->count();
+        if (auto* dialog = qobject_cast<QDialog*>(QApplication::activeModalWidget())) dialog->reject();
+    });
+    button->click();
+    std::printf("  «Примеры»: %d scenes in the gallery\n", tiles);
+    c.check(tiles >= 3, "«Примеры» shows the example scenes (examples/scenes), a tile each");
+}
+
 } // namespace
 
 int runLayoutTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& shotsDir) {
@@ -148,5 +169,6 @@ int runLayoutTests(QMainWindow& w, SceneBuilder& b, Viewport* v, const QString& 
     testMenuAndOnlyView(c, w, shotsDir);
     testDrawingsEye(c, w, v);
     testTornOff(c, w);
+    testGallery(c, w);
     return c.failures;
 }

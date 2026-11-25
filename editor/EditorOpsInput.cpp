@@ -55,7 +55,7 @@ QWidget* keyWindow(QWidget* main) {
 // inactive window (the unattended editor's) leaves at whatever had it last: a combo box's list after its popup closed,
 // so the digits typed into a field went into a closed list.
 QWidget* keyFocus(QWidget* main) {
-    if (QWidget* popup = uiPopupWindow(main)) return popup;
+    if (QWidget* popup = uiPopupWindow(main)) return popup->focusWidget() ? popup->focusWidget() : popup; // its field (the command search's), else the menu itself
     return keyWindow(main)->focusWidget();
 }
 
@@ -132,10 +132,11 @@ void windowKey(QWidget* window, QChar latin, int qtKey, Qt::KeyboardModifiers mo
     QWindow* w = window->window()->windowHandle();
     const quint32 sym = text.isEmpty() ? 0 : 0x1000000u + text[0].unicode(), state = ru ? 0x2000u : 0u; // group 1 in bits 13-14
     if (mods & (Qt::ControlModifier | Qt::AltModifier)) text.clear(); // Ctrl+A selects, it does not type an "a"
-    if (popup) { // a visible popup consumes keys before the main window's application shortcuts
+    if (popup) { // a visible popup consumes keys before the main window's application shortcuts - its field when it has one
+        QWidget* to = popup->focusWidget() ? popup->focusWidget() : popup;
         QKeyEvent down(QEvent::KeyPress, key, mods, text), up(QEvent::KeyRelease, key, mods, text);
-        if (press) QCoreApplication::sendEvent(popup, &down);
-        if (release) QCoreApplication::sendEvent(popup, &up);
+        if (press) QCoreApplication::sendEvent(to, &down);
+        if (release) QCoreApplication::sendEvent(to, &up);
         return;
     }
     if (press && !window->isActiveWindow()) { // the focused widget first (a field takes its letters), then the window's shortcut
