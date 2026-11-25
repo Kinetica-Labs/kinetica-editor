@@ -189,6 +189,11 @@ On the left are the tools, at the bottom the Sequencer and the console:
 Under the 3D view stands the mode - Edit, Play or Pause. The lowest line of the window says what the mouse does right
 now. Four buttons in the top right corner hide and show the panels; `F11` leaves the 3D view alone.
 
+
+![The inspector: the scene's list, a cube's card, the collider set to a sphere, the World tab](images/gif/en/inspector.gif)
+
+*The inspector at work: Scene - a row clicked selects the object; Object - roles, place, size, components; the collider Sphere; World - the world's settings.*
+
 ### The mouse in the 3D view
 
 | Action | What it does |
@@ -204,6 +209,11 @@ The mouse layout is chosen in Settings → Controls.
 
 <a id="build"></a>
 
+
+![The view turned by the right button, moved by the middle one, zoomed by the wheel; F frames the cylinder](images/gif/en/camera.gif)
+
+*The right button turns the view, the middle one moves it, the wheel zooms; a click on the cylinder and `F` - the view on it.*
+
 ## 3. Building a scene
 
 ### Shapes
@@ -218,6 +228,10 @@ animations, URDF - a robot with its joints. Back out - File → Export…: the s
 
 ![The five shapes](images/ui/en/shapes.png)
 
+![A cube drawn with the mouse: its footprint on the floor, its height up, a click; the gizmo's arrow carries it along X](images/gif/en/shapes.gif)
+
+*A shape by mouse: Shape ▾ → Cube → drag the footprint on the floor → lift the height, click → Move → drag the X arrow: the label says how far.*
+
 ### Move, rotate, scale
 
 Select an object and a tool on the left. An arrow, an arc or a cube leads along one axis; the small square between the
@@ -231,10 +245,25 @@ arrows - across a plane.
   shows the line and its length in metres. The line stays until the next one; Esc or another tool takes it off. As
   code - `view_measure {point, to}`.
 - A turn released near a quarter of a revolution completes itself to it.
-- The three eyes at the foot of the tools show and hide what stands over the scene: <b>cards</b> plugins and agents put in
-  the frame (a building step, a title, a part's glow), <b>labels</b> in the scene itself (formulas, leaders, words over the
-  parts) and the editor's <b>marks</b> (joints, sensors, lights, cameras, the gizmo, colliders' frames). All three off - a
+- The three eyes at the foot of the tools show and hide what stands over the scene: <b>Cards</b> plugins and agents put in
+  the frame (a building step, a title, a part's glow), <b>Formulas and labels</b> in the scene itself (formulas, leaders,
+  words over the parts) and <b>Editor marks</b> (joints, sensors, lights, cameras, the gizmo, colliders' frames). All three off - a
   clean frame, as a viewer sees it; an agent: `view_show {cards, labels, marks}`.
+
+
+![The ring turns the cube, the handle stretches it, the ruler measures the floor](images/gif/en/tools.gif)
+
+*Rotate - drag the ring; Scale - drag an axis's handle; Ruler - drag along the floor: the length over the line.*
+
+
+![The cube carried by the arrow; Undo brings it back, Redo carries it again](images/gif/en/undo.gif)
+
+*Undo and Redo: the arrow carries the cube → Undo - the cube where it was → Redo - there again. Any edit is one undo: from the window, the console, a script or an AI agent.*
+
+
+![The three eyes of the tools: the card, the label and the editor's marks off one by one, then back](images/gif/en/eyes.gif)
+
+*The three eyes: Cards - the card in the frame goes; Formulas and labels - the label at the joint; Editor marks - the joints and the gizmo; a clean frame - and all back.*
 
 ### Roles: what physics knows
 
@@ -254,6 +283,11 @@ parts</b> of the Collider card cuts the model into convex pieces that together k
 hollow, the ring's hole a hole. Under the tile, two fields: <b>Parts at most</b> (1-64; 32 by default) and
 <b>Concavity</b> - how far a piece may stand off the model, in per cent of its size (5 % by default); the card says how
 many parts came out. The body may move or stand. An agent: `scene_collider {id, kind: "convex_parts", hulls, concavity}`.
+
+
+![The mug made solid, the tile Convex parts cuts it into pieces, a ball falls in and lies on the bottom](images/gif/en/convex.gif)
+
+*The mug → Solid → the tile Convex parts: the green frame of sixteen pieces in the view → a ball over the mug → Play: it falls in and lies on the bottom, not on a lid.*
 
 ### Three kinds of body
 
@@ -276,6 +310,10 @@ The Zone tick of the <img src="images/ui/icons/collider.png" height="22" alt="">
 That is how a bin a part is to reach is made, or an area around a robot that nothing may enter.
 
 ![The part fell into the zone, the ball missed](images/ui/en/zone.png)
+
+![The basket made a zone, the part falls into it, the ball misses](images/gif/en/zone.gif)
+
+*A click on the basket → the tick zone in the Collider card → Play: the part goes into the basket, the ball falls beside it.*
 
 ```python
 bin = scene.objects["Bin"]
@@ -314,6 +352,10 @@ object.
 
 ![A sun, a lamp, a spot and a target camera](images/ui/en/lights.png)
 
+![A spot set in three clicks, a push's arrow on the cube, Play throws the cube up](images/gif/en/light-force.gif)
+
+*Light ▾ → Spot: a click - where it stands, a second - its height, a third - where it shines → select the cube → Force ▾ → Push → Play: the cube is thrown up.*
+
 ### Forces
 
 <img src="images/ui/icons/force.png" height="22" alt=""> Force ▾ puts what pushes bodies, once or all the time, and a torque that turns a body. There are five kinds.
@@ -351,6 +393,10 @@ gives the bodies a velocity (6 m/s, weaker toward the sphere's edge), a pull an 
 ![A blast beside a barrel: the sphere shows what it will reach](images/ui/en/force-blast.png)
 
 ![Half a second after the start: the barrel is thrown](images/ui/en/force-blast-after.png)
+
+![A blast set by a barrel, Play throws it](images/gif/en/blast.gif)
+
+*A click on the barrel → Force ▾ → Blast: it stands at its side, the sphere showing whom it reaches → Play: the barrel is thrown.*
 
 A Push and a Thrust made with no body selected are fields too: they push everything in their radius one way.
 
@@ -402,6 +448,16 @@ A plain click puts the ready link with the star - the one the editor finds fitti
 | `M` | mirror |
 | `Esc` | leave the magnet |
 
+
+![The magnet puts a link on the base's face, then a second; an IMU on the link](images/gif/en/magnet.gif)
+
+*Magnet → over a face: the link's ghost → a click: a link on a hinge → a click on the new link → Esc → Sensor ▾ → IMU on the selected link.*
+
+
+![A joint put by the plank's edge at the post, Play - the plank swings on it](images/gif/en/joint.gif)
+
+*Joint → over the plank's top edge at the post: the hinge's axis and the swinging ghost → a click → a click on the post → Play: the plank falls and swings like a lid.*
+
 ### Joints and actuators
 
 A joint is an object of the scene with a card of its own: the axis and the anchor, the limit, the actuator. A position
@@ -446,6 +502,14 @@ into the scene.
 
 ![The window on pause](images/ui/en/first-6-pause.png)
 
+![The UR5e arm at play: keys lead the target, the arm follows, space closes the gripper](images/gif/en/robot.gif)
+
+*A robot at play: the UR5e example → Play → D, W, F, A lead the gripper's target, the arm follows by inverse kinematics → space closes the gripper.*
+
+![A cube made Solid, Play - it falls, the frame green; Stop - the cube in the air again](images/gif/en/play.gif)
+
+*A cube in the air → the tile Solid → Play: it falls, the view's frame and the toolbar green → Stop: the cube where it stood.*
+
 ### Plots
 
 Plots (`F9`, the «Plots» button at the top right) - all that changes over time: the scene's energy, the selected
@@ -475,12 +539,20 @@ A plugin's plots are always here, not in its panel: the plugin's panel has a «P
 
 ![Plots of the scene's energy and of the ball](images/ui/en/graphs.png)
 
+![Plots: channels picked with a click, the curves grow while it plays](images/gif/en/plots.gif)
+
+*Plots at work: pick the channels → Play - the curves grow with the scene.*
+
 ### The Laboratory
 
 Laboratory (`F8`) shows what the engine computes right in the view: contact points, normals, forces, penetration, the
 colliders of all bodies. A click on a contact point or a body opens a card with its numbers.
 
 ![The Laboratory panel](images/ui/en/laboratory.png)
+
+![The Laboratory: the tick Center of mass marks every body](images/gif/en/laboratory.gif)
+
+*Laboratory → Center of mass: a mark on each of the arm's links → the tick off.*
 
 ### Performance
 
@@ -502,6 +574,14 @@ Three actions:
 Without Auto Key the order is: the playhead first, then the move, then Key - a key holds the pose the object has when it is put, and a seek puts the object back on its track. With ◈ Auto Key the order is shorter: switch it on, set the playhead and just move or turn the object - its key is put by itself (a sequence is made when there is none), and the move and its key are one undo step. The button is off by default.
 
 ![A cube travels between its keys](images/ui/en/sequencer.png)
+
+![The Sequencer: tracks, keys, curves](images/gif/en/sequencer.gif)
+
+*The Sequencer: the objects' tracks, keys on the scale, curves between them.*
+
+![The cube's keys at 0 and 2 s, the playhead dragged back and forth - the cube follows its track; Preview plays it](images/gif/en/keys.gif)
+
+*◆ Key at 0 s → the playhead to 2 s → the arrow carries the cube → ◆ Key → drag the playhead back and forth: the cube follows its track → ▶ Preview.*
 
 The object's track and its keys - the diamonds on the time scale:
 
@@ -528,6 +608,11 @@ The World tab holds the settings of the whole scene.
 
 Reset Physics brings the defaults back. The picture of the tab is [in the chapter about the window](#map).
 
+
+![The World tab: the Moon's gravity - the ball falls slowly](images/gif/en/world.gif)
+
+*The World tab → Moon: gravity six times weaker → Play: the ball falls slowly → Earth.*
+
 <a id="more"></a>
 
 ## 8. Faster and deeper
@@ -540,6 +625,11 @@ a lidar and check that it drives around a wall", "explain this pendulum with for
 measures the robot in your window: you see each of its steps, and each step is one undo and a line of the journal, so
 any of its edits can be taken back. Disconnect takes Kinetica out of the assistant; the rest of its settings stay.
 
+
+![The Connect AI assistants window: Claude not connected, Connect - connected, restart Claude](images/gif/en/assistants.gif)
+
+*File → Connect AI assistants… → Claude not connected → Connect → connected: the window asks to restart Claude.*
+
 ### Find Command
 
 `Ctrl+K` searches all the commands of the window. Type a part of a name - "group", "collider", "save" - and press
@@ -547,12 +637,20 @@ any of its edits can be taken back. Disconnect takes Kinetica out of the assista
 
 ![Command search](images/ui/en/search.png)
 
+![Ctrl+K: a few letters - the command found, Enter runs it](images/gif/en/search.gif)
+
+*`Ctrl+K` → «labora» → Laboratory on the first row → `Enter`: its panel open.*
+
 ### The API console
 
 Every action of the window is an operation, and the console writes it as a line of Python. The line can be copied
 into a script, and your own can be typed into the field below.
 
 ![The API console](images/ui/en/console.png)
+
+![The API console: a line of Python calls an operation, its answer shown at once](images/gif/en/console.gif)
+
+*The console: every action of the window stands as a line of Python; a line of your own below does the same.*
 
 ### Scripts
 
@@ -580,12 +678,20 @@ Examples opens the gallery of scenes: a click on a picture opens the scene, and 
 
 ![The gallery of examples](images/ui/en/gallery.png)
 
+![The gallery of examples: a click on a picture opens the scene](images/gif/en/examples.gif)
+
+*Examples → a click on a picture - the scene open, to change and to save.*
+
 ### Language and settings
 
 Settings → Language switches the window between Russian and English. The mouse scheme and Software Rendering
 (requires a restart) are there too.
 
 ![The window in Russian](images/ui/en/language.png)
+
+![Settings → Language: Русский or English](images/gif/en/language.gif)
+
+*Settings → Language → Русский or English: the window is translated at once, no restart.*
 
 <a id="keys"></a>
 
